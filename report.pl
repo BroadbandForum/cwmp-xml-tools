@@ -3372,7 +3372,6 @@ sub html_post
       </tbody>
     </table>
 END
-        $html_profile_active = 0 if $profile;
         if (!$indent) {
             print <<END;
   </body>
