@@ -732,11 +732,16 @@ sub expand_model_object
 			   $minorVersion, $previous);
 
     # XXX add some other stuff (really should be handled by add_object)
-    $nnode->{minEntries} = $minEntries;
-    $nnode->{maxEntries} = $maxEntries;
-    $nnode->{numEntriesParameter} = $numEntriesParameter;
-    $nnode->{enableParameter} = $enableParameter;
-    $nnode->{uniqueKeys} = [];
+    $nnode->{minEntries} = $minEntries unless
+        defined $nnode->{minEntries};
+    $nnode->{maxEntries} = $maxEntries unless
+        defined $nnode->{maxEntries};
+    $nnode->{numEntriesParameter} = $numEntriesParameter unless
+        defined $nnode->{numEntriesParameter};
+    $nnode->{enableParameter} = $enableParameter unless
+        defined $nnode->{enableParameter};
+    $nnode->{uniqueKeys} = [] unless
+        defined $nnode->{uniqueKeys};
 
     # expand nested components, parameters and objects
     foreach my $item ($object->findnodes('component|uniqueKey|parameter|'.
@@ -858,9 +863,13 @@ sub expand_model_parameter
     #     between nodes being absent and nodes having blank values (see the
     #     descdef handling here)
 
+    # XXX maxLength handling is suspect here; also minLength handling should be
+    #     consistent with maxLength (but minLength isn't really used...)
+
     my $syntax;
     if (defined($type)) {
-        # XXX not handling multiple ranges
+        # XXX not handling multiple ranges or sizes
+        # XXX for a list, minLength and maxLength refer to the item
 	foreach my $attr (('@ref', '@base', '@maxLength',
                            'range/@minInclusive', 'range/@maxInclusive',
                            'size/@minLength', 'size/@maxLength')) {
@@ -872,10 +881,14 @@ sub expand_model_parameter
     }
     $syntax->{hidden} = defined(($parameter->findnodes('syntax/@hidden'))[0]);
     $syntax->{list} = defined(($parameter->findnodes('syntax/list'))[0]);
-    my $maxLength = $parameter->findvalue('syntax/list/@maxLength');
-    $syntax->{maxLength} = $maxLength if $maxLength && !$syntax->{maxLength};
-    $maxLength = $parameter->findvalue('syntax/list/size/@maxLength');
-    $syntax->{maxLength} = $maxLength if $maxLength && !$syntax->{maxLength};
+    if ($syntax->{list}) {
+        my $minItems = $parameter->findvalue('syntax/list/@minItems');
+        $syntax->{minItems} = $minItems if $minItems;
+        my $maxItems = $parameter->findvalue('syntax/list/@maxItems');
+        $syntax->{maxItems} = $maxItems if $maxItems;
+        my $maxLength = $parameter->findvalue('syntax/list/size/@maxLength');
+        $syntax->{maxListLength} = $maxLength if $maxLength;
+    }
 
     $type = defined($type) ? $type->findvalue('local-name()') : '';
 
@@ -1558,8 +1571,9 @@ sub add_object
                   nodes => [], history => undef};
         # XXX ensure minEntries and maxEntries are defined (will be overridden
         #     by the caller if necessary; all this logic should be here)
-        $nnode->{minEntries} = 1;
-        $nnode->{maxEntries} = 1;
+        # XXX no, bad idea! but yes, all this logic should be here
+        #$nnode->{minEntries} = 1;
+        #$nnode->{maxEntries} = 1;
         # if previous is defined, it's a hint to insert this node after the
         # node of this name, if it exists
         my $index = @{$pnode->{nodes}};
@@ -1965,7 +1979,7 @@ sub has_values
 {
     my ($values) = @_;
 
-    return defined $values && %$values;
+    return (defined $values && %$values) ? 1 : 0;
 }
 
 # Determine whether a parameter supports a specific enumerated value
@@ -1973,7 +1987,7 @@ sub has_value
 {
     my ($values, $search) = @_;
 
-    return grep $search, keys %$values;
+    return (grep { $_ eq $search } keys %$values) ? 1 : 0;
 }
 
 # Get formatted enumerated values
@@ -2168,6 +2182,18 @@ sub type_string
 	$value .= ')';
     }
 
+    # old style list
+    if ($syntax->{list} && !$detail) {
+        if ($syntax->{minListLength} || defined $syntax->{maxListLength}) {
+            $value .= '(';
+            $value .= $syntax->{minListLength} if $syntax->{minListLength};
+            $value .= ':' if $syntax->{minListLength};
+            $value .= $syntax->{maxListLength} if
+                defined $syntax->{maxListLength};
+            $value .= ')';
+        }
+    }
+
     if (defined $syntax->{minInclusive} || defined $syntax->{maxInclusive}) {
 	$value .= '[';
 	$value .= $syntax->{minInclusive} if defined $syntax->{minInclusive};
@@ -2176,8 +2202,31 @@ sub type_string
 	$value .= ']';
     }
 
-    if ($syntax->{list}) {
+    # old style list
+    if ($syntax->{list} && !$detail) {
         $value .= '[]';
+    }
+
+    # new style list
+    if ($syntax->{list} && $detail) {
+        my $list = 'list';
+        if ($syntax->{minListLength} || defined $syntax->{maxListLength}) {
+            $list .= '(';
+            $list .= $syntax->{minListLength} if $syntax->{minListLength};
+            $list .= ':' if $syntax->{minListLength};
+            $list .= $syntax->{maxListLength} if
+                defined $syntax->{maxListLength};
+            $list .= ')';
+        }
+        if (defined $syntax->{minItems} || defined $syntax->{maxItems}) {
+            $list .= '[';
+            $list .= $syntax->{minItems} if defined $syntax->{minItems};
+            $list .= ':';
+            $list .= $syntax->{maxItems} if defined $syntax->{maxItems};
+            $list .= ']';
+        }
+        $list .= ' of ';
+        $value = $list . $value;
     }
 
     return $value;
@@ -2937,6 +2986,9 @@ $i  </import>
             my $default = $node->{default};
             my $defstat = $node->{defstat};
 
+            # XXX a bit of a kludge...
+            $type = 'dataType' if $ref;
+
             $base = $base ? qq{ base="$base"} : qq{};
             $ref = $ref ? qq{ ref="$ref"} : qq{};
             $hidden = $hidden ? qq{ hidden="true"} : qq{};
@@ -3066,7 +3118,11 @@ sub clean_description
 }
 
 # HTML report of node.
-# XXX this 
+# XXX using the "here" strings makes this very hard to read, and throws off
+#     emacs indentation; best avoided...
+# XXX need to ensure that targets are unique within the document, so often
+#     need to include the data model name (also need to clean the strings)
+my $html_buffer = '';
 my $html_parameters = [];
 my $html_profile_active = 0;
 
@@ -3108,10 +3164,10 @@ sub html_node
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
     <title>$title</title>
     <style type="text/css">
+      p, li, body { $font }
       h1 { $h1font }
       h2 { $h2font }
       h3 { $h3font }
-      p { $font }
       table { $table }
       th { $row $font }
       th.c { $row $font $center }
@@ -3123,51 +3179,59 @@ sub html_node
   </head>
   <body>
     <h1>Table of Contents</h1>
-    TBD (links to sections and data model objects)
-    <h1>References</h1>
-    <table border="0">
+    <ul> <!-- Table of Contents -->
 END
-    my $bibliography = $node->{bibliography};
-    if ($bibliography) {
-        my $references = $bibliography->{references};
-        foreach my $reference (sort {$a->{id} cmp $b->{id}} @$references) {
-            my $id = $reference->{id};
-            next unless $bibrefs->{$id};
-
-            my $name = xml_escape($reference->{name});
-            my $title = xml_escape($reference->{title});
-            my $organization = xml_escape($reference->{organization});
-            my $category = xml_escape($reference->{category});
-            my $date = xml_escape($reference->{date});
-            my $hyperlink = xml_escape($reference->{hyperlink});
-
-            $id = qq{<a name="$id">[$id]</a>};
-
-            $title = $title ? qq{, <em>$title</em>} : qq{};
-            $organization = $organization ? qq{, $organization} : qq{};
-            $category = $category ? qq{ $category} : qq{};
-            $date = $date ? qq{, $date} : qq{};
-            $hyperlink = $hyperlink ?
-                qq{, <a href="$hyperlink">$hyperlink</a>} : qq{};
-            
+        $html_buffer .= <<END;
+    </ul> <!-- Table of Contents -->
+END
+        my $bibliography = $node->{bibliography};
+        if ($bibliography) {
             print <<END;
+      <li><a href="#References">References</a></li>
+END
+            $html_buffer .= <<END;
+    <h1><a name="References">References</a></h1>
+    <table border="0"> <!-- References -->
+END
+            my $references = $bibliography->{references};
+            foreach my $reference (sort {$a->{id} cmp $b->{id}} @$references) {
+                my $id = $reference->{id};
+                next unless $bibrefs->{$id};
+                
+                my $name = xml_escape($reference->{name});
+                my $title = xml_escape($reference->{title});
+                my $organization = xml_escape($reference->{organization});
+                my $category = xml_escape($reference->{category});
+                my $date = xml_escape($reference->{date});
+                my $hyperlink = xml_escape($reference->{hyperlink});
+                
+                $id = qq{<a name="$id">[$id]</a>};
+                
+                $title = $title ? qq{, <em>$title</em>} : qq{};
+                $organization = $organization ? qq{, $organization} : qq{};
+                $category = $category ? qq{ $category} : qq{};
+                $date = $date ? qq{, $date} : qq{};
+                $hyperlink = $hyperlink ?
+                    qq{, <a href="$hyperlink">$hyperlink</a>} : qq{};
+                
+                $html_buffer .= <<END;
       <tr>
         <td>$id</td>
         <td>$name$title$organization$category$date$hyperlink.</td>
       </tr>
 END
-        }
-    }
-    print <<END;
-    </table>
+            }
+            $html_buffer .= <<END;
+    </table> <!-- References -->
 END
+        }
     }
 
     if ($indent) {
 	my $model = ($node->{type} =~ /model/);
 	my $object = ($node->{type} =~ /object/);
 	my $profile = ($node->{type} =~ /profile/);
-        my $parameter = $node->{syntax}; # pretty safe?
+        my $parameter = $node->{syntax}; # pretty safe? not profile params...
         my $history = $node->{history};
         my $path = $node->{path};
 	my $name = html_escape($object ? $path : $node->{name}, {fudge => 1});
@@ -3185,21 +3249,24 @@ END
         my $descact = $node->{descact};
         ($description, $descact) = get_description($description, $descact,
                                                    $history, 1);
-	$description = html_escape($description,
-                                   {default => '', empty => '',
-                                    object => $parameter ?
-                                        $node->{pnode}->{path} : $object ?
-                                        $path : undef,
-                                    param => $parameter ? $node->{name} : '',
-                                    units => $node->{units},
-                                    list => $node->{syntax}->{list},
-                                    values => $node->{values}});
+	$description =
+            html_escape($description,
+                        {default => '', empty => '',
+                         path => $node->{path},
+                         param => $parameter ? $node->{name} : '',
+                         object => $parameter ? $node->{pnode}->{path} :
+                             $object ? $path : undef,
+                         access => $node->{access},
+                         uniqueKeys => $node->{uniqueKeys},
+                         enableParameter => $node->{enableParameter},
+                         hidden => $node->{syntax}->{hidden},
+                         reference => $node->{reference},
+                         list => $node->{syntax}->{list},
+                         values => $node->{values},
+                         units => $node->{units},
+                         nbsp => $object || $parameter});
         $description = '' if $nodescriptions;
 
-	# XXX experimental; need more of this kind of thing...
-	#$description .= "<p>Note: An active notification request MAY be " .
-	#    "denied for this parameter." if defined $node->{activeNotify} &&
-	#    $node->{activeNotify} eq 'canDeny';
         my $default = (defined $node->{defstat} && $node->{defstat} eq
                        'deleted') ? undef : $node->{default};
 	$default = html_escape($default,
@@ -3212,10 +3279,17 @@ END
 	my $class = ($model | $object | $profile) ? 'o' : 'p';
 
         if ($model) {
+            my $title = qq{$name Data Model};
             print <<END;
-    <h1>$name Data Model</h1>
+      <li><a href="#$title">$title</a></li>
+      <ul> <!-- $title -->
+        <li><a href="#$title">Data Model Definition</a></li>
+        <ul> <!-- Data Model Definition -->
+END
+            $html_buffer .= <<END;
+    <h1><a name="$title">$title</a></h1>
     $description<p>
-    <table width="100%" $options>
+    <table width="100%" $options> <!-- Data Model Definition -->
       <tbody>
         <tr>
           <th width="10%">Name</th>
@@ -3235,13 +3309,22 @@ END
             push @$html_parameters, $node;
         }
 
+        # XXX so only outputting these tables if there are profiles... BAD!
         if ($profile) {
             if (!$html_profile_active) {
+                my $title = qq{Forced Inform Parameters};
                 print <<END;
+        </ul> <!-- Data Model Definition -->
+        <li><a href="#Inform and Notification Requirements">Inform and Notification Requirements</a></li>
+        <ul> <!-- Inform and Notification Requirements -->
+          <li><a href="#$title">$title</a></li>
+END
+                $html_buffer .= <<END;
       </tbody>
-    </table>
-    <h2>Forced Inform Parameters</h2>
-    <table width="60%" $options>
+    </table> <!-- Data Model Definition -->
+    <h2><a name="Inform and Notification Requirements">Inform and Notification Requirements</a></h2>
+    <h3><a name="$title">$title</a></h3>
+    <table width="60%" $options> <!-- $title -->
       <tbody>
         <tr>
           <th style="$theader_bg">Parameter</th>
@@ -3249,17 +3332,22 @@ END
 END
                 foreach my $parameter
                 (grep {$_->{forcedInform}} @$html_parameters) {
-                    print <<END;
+                    $html_buffer .= <<END;
         <tr>
           <td><a href="#$parameter->{path}">$parameter->{path}</a></td>
         </tr>
 END
                 }
+                my $ptitle = $title;
+                $title = qq{Forced Active Notification Parameters};
                 print <<END;
+          <li><a href="#$title">$title</a></li>
+END
+                $html_buffer .= <<END;
       </tbody>
-    </table>
-    <h2>Forced Active Notification Parameters</h2>
-    <table width="60%" $options>
+    </table> <!-- $ptitle -->
+    <h3><a name="$title">$title</a></h3>
+    <table width="60%" $options> <!-- $title -->
       <tbody>
         <tr>
           <th style="$theader_bg">Parameter</th>
@@ -3268,17 +3356,22 @@ END
                 foreach my $parameter
                 (grep {$_->{activeNotify} eq 'forceEnabled'}
                  @$html_parameters) {
-                    print <<END;
+                    $html_buffer .= <<END;
         <tr>
           <td><a href="#$parameter->{path}">$parameter->{path}</a></td>
         </tr>
 END
                 }
+                $ptitle = $title;
+                $title = qq{Default Active Notification Parameters};
                 print <<END;
+          <li><a href="#$title">$title</a></li>
+END
+                $html_buffer .= <<END;
       </tbody>
-    </table>
-    <h2>Default Active Notification Parameters</h2>
-    <table width="60%" $options>
+    </table> <!-- $ptitle -->
+    <h3><a name="$title">$title</a></h3>
+    <table width="60%" $options> <!-- $title -->
       <tbody>
         <tr>
           <th style="$theader_bg">Parameter</th>
@@ -3287,17 +3380,23 @@ END
                 foreach my $parameter
                 (grep {$_->{activeNotify} eq 'forceDefaultEnabled'}
                  @$html_parameters) {
-                    print <<END;
+                    $html_buffer .= <<END;
         <tr>
           <td><a href="#$parameter->{path}">$parameter->{path}</a></td>
         </tr>
 END
                 }
+                $ptitle = $title;
+                $title =
+                    qq{Parameters for which Active Notification MAY be Denied};
                 print <<END;
+          <li><a href="#$title">$title</a></li>
+END
+                $html_buffer .= <<END;
       </tbody>
-    </table>
-    <h2>Parameters for which Active Notification MAY be Denied</h2>
-    <table width="60%" $options>
+    </table> <!-- $ptitle -->
+    <h3><a name="$title">$title</a></h3>
+    <table width="60%" $options> <!-- $title -->
       <tbody>
         <tr>
           <th style="$theader_bg">Parameter</th>
@@ -3305,24 +3404,35 @@ END
 END
                 foreach my $parameter
                 (grep {$_->{activeNotify} eq 'canDeny'} @$html_parameters) {
-                    print <<END;
+                    $html_buffer .= <<END;
         <tr>
           <td><a href="#$parameter->{path}">$parameter->{path}</a></td>
         </tr>
 END
                 }
+                $ptitle = $title;
+                $title = qq{Profile Definitions};
                 print <<END;
+        </ul> <!-- Inform and Notification Requirements -->
+        <li><a href="#$title">$title</a></li>
+        <ul> <!-- $title -->
+END
+                $html_buffer .= <<END;
       </tbody>
-    </table>
-    <h2>Profile Definitions</h2>
+    </table> <!-- $ptitle -->
+    <h2><a name="$title">$title</a></h2>
 END
                 $html_profile_active = 1;
             }
+            my $title = qq{$name Profile};
             $description = qq{This profile extends the requirements of the $base profile as follows:} if !$description && $base;
             print <<END;
-    <h3>$name Profile</h3>
+          <li><a href="#$title">$title</a></li>
+END
+            $html_buffer .= <<END;
+    <h3><a name="$title">$title</a></h3>
     $description<p>
-    <table width="60%" $options>
+    <table width="60%" $options> <!-- $title -->
       <tbody>
         <tr>
           <th width="80%">Name</th>
@@ -3333,12 +3443,21 @@ END
 
         if ($model || $profile) {
         } elsif (!$html_profile_active) {
-            # XXX need to create two anchors for tables, one for the table
-            #     and one for the elements
             # XXX should verify that all links have defined anchors
-            print <<END;
+            # note that the second anchor does NOT have a trailing dot;
+            # this is to allow use of {{object|table}}
+            my $anchor2 = qq{};
+            if ($path =~ /\{i\}\.$/) {
+                my $table = $path;
+                $table =~ s/\.\{i\}\.$//;
+                $anchor2 = qq{<a name="$table"/>};
+            }
+            print <<END if $object;
+          <li><a href="#$path">$path</a></li>
+END
+            $html_buffer .= <<END;
         <tr>
-          <td class="${class}"><a name="$path">$name</a></td>
+          <td class="${class}"><a name="$path">$name</a>$anchor2</td>
           <td class="${class}">$type</td>
           <td class="${class}c">$write</td>
           <td class="${class}">$description</td>
@@ -3350,7 +3469,7 @@ END
         } else {
             my $path = $object ? $node->{name} :
                 ($node->{pnode}->{name} . $node->{name});
-            print <<END;
+            $html_buffer .= <<END;
         <tr>
           <td class="${class}"><a href="#$path">$name</a></td>
           <td class="${class}c">$write</td>
@@ -3364,19 +3483,27 @@ sub html_post
 {
     my ($node, $indent) = @_;
 
+    my $name = $node->{name};
     my $model = ($node->{type} =~ /model/);
     my $profile = ($node->{type} =~ /profile/);
 
     if (($model && !$html_profile_active) || $profile || !$indent) {
-	print <<END;
+        # XXX this can close too many tables (not a bad problem?)
+	$html_buffer .= <<END;
       </tbody>
-    </table>
+    </table> <!-- $name -->
 END
+        # XXX this is heuristic (but usually correct)
         if (!$indent) {
             print <<END;
+        </ul>
+      </ul>
+END
+            $html_buffer .= <<END;
   </body>
 </html>
 END
+            print $html_buffer;
         }
     }
 }
@@ -3430,6 +3557,8 @@ sub html_escape {
     # firefox 3 supports &shy;
     $value =~ s/([a-z_])([A-Z])/$1&shy;$2/g if $opts->{hyphenate} && !$ugly;
 
+    $value = '&nbsp;' if $opts->{nbsp} && $value eq '';
+
     return $value;
 }
 
@@ -3475,38 +3604,68 @@ sub html_template
 {
     my ($inval, $p) = @_;
 
-    # auto-append {{enum}} if there are values and neither it nor {{pattern}}
-    # are there
+    # auto-append {{enum}} or {{pattern}} if there are values and it's not
+    # already there (put it on the same line if the value is empty or ends
+    # with a sentence terminator)
+    # "{{}}" is an empty template reference that will be removed; it prevents
+    # special "after newline" template expansion behavior
     if ($p->{values} && %{$p->{values}}) {
         my ($key) = keys %{$p->{values}};
         my $facet = $p->{values}->{$key}->{facet};
-        $inval .= "  {{enum}}" if
+        my $sep = !$inval ? "" : $inval =~ /[\.\?\!]$/ ? "  " : "\n{{}}";
+        $inval .= $sep . "{{enum}}" if
             $facet eq 'enumeration' && $inval !~ /\{\{enum\}\}/;
-        $inval .= "  {{pattern}}" if
+        $inval .= $sep . "{{pattern}}" if
             $facet eq 'pattern' && $inval !~ /\{\{pattern\}\}/;
+    }
+
+    # similarly auto-append {{hidden}}, {{keys}} and {{reference}} if
+    # appropriate
+    if ($p->{hidden} && $inval !~ /\{\{hidden\}\}/) {
+        my $sep = $inval ? "\n" : "";
+        $inval .= $sep . "{{hidden}}";
+    }
+    if ($p->{uniqueKeys} && @{$p->{uniqueKeys}}&& $inval !~ /\{\{keys\}\}/) {
+        my $sep = $inval ? "\n" : "";
+        $inval .= $sep . "{{keys}}";
+    }
+    if ($p->{reference} && $inval !~ /\{\{reference\}\}/) {
+        my $sep = $inval ? "\n" : "";
+        $inval .= $sep . "{{reference}}";
     }
 
     # in template expansions, the @a array is arguments and the %p hash is
     # parameters (options)
+    # XXX don't handle "{{}}" here because it needs to be done last
     # XXX hyperlink generation needs to be cleverer and to understand the
-    #     rules for relative paths, e.g. if begins "Device." it's absolute
+    #     rules for relative paths, e.g. if begins "Device." it's absolute    
     my $templates =
         [
-         {name => 'bibref', text1 => q{[<a href="#$a[0]">$a[0]</a>]},
+         {name => 'bibref',
+          text1 => q{[<a href="#$a[0]">$a[0]</a>]},
           text2 => q{[<a href="#$a[0]">$a[0]</a>] $a[1]}},
          {name => 'section', text => q{}},
-         {name => 'param', text0 => q{''$p->{param}''},
+         {name => 'param',
+          text0 => q{''$p->{param}''},
           text1 => q{<a href="#$p->{object}$a[0]">''$a[0]''</a>}},
-         {name => 'object', text0 => q{''$p->{object}''},
+         {name => 'object',
+          text0 => q{''$p->{object}''},
           text1 => q{<a href="#$p->{object}$a[0]">''$a[0]''</a>}},
-         {name => 'enum', text0 => \&html_template_enum,
+         {name => 'keys',
+          text0 => \&html_template_keys},
+         {name => 'hidden', text0 => q{When read, this parameter returns {{empty}}, regardless of the actual value.}},
+         {name => 'enum',
+          text0 => \&html_template_enum,
           text1 => q{''$a[0]''},
           text2 => q{<a href="#$p->{object}$a[1].$a[0]">''$a[0]''</a>}},
-         {name => 'pattern', text0 => \&html_template_pattern,
+         {name => 'pattern',
+          text0 => \&html_template_pattern,
           text1 => q{''$a[0]''},
           text2 => q{<a href="#$p->{object}$a[1].$a[0]">''$a[0]''</a>}},
-         {name => 'units', text0 => q{$p->{units}}},
-         {name => 'empty', text => q{an empty string}, ucfirst => 1},
+         {name => 'reference',
+          text0 => \&html_template_reference},
+         {name => 'units', text0 => q{''$p->{units}''}},
+         {name => 'empty', text0 => q{an empty string}, ucfirst => 1},
          {name => 'false', text0 => q{''false''}},
          {name => 'true', text0 => q{''true''}}
          ];
@@ -3519,7 +3678,7 @@ sub html_template
            $inval =~ /(\n?)[ \t]*([\.\?\!]?)[ \t]*\{\{([^\|\}]*)\|?([^\}]*)\}\}/) {
         # XXX atstart is possibly useful for descriptions that consist only of
         #     {{enum}} or {{pattern}}?
-        my $atstart = $inval =~ /^\{\{$name/;
+        my $atstart = $inval =~ /^\{\{$name[\|\}]/;
         $p->{atstart} = $atstart;
         $p->{newline} = $newline;
         $p->{period} = $period;
@@ -3532,9 +3691,7 @@ sub html_template
         my $template = (grep {$_->{name} eq $name} @$templates)[0];
         my $tref = "$name" . (@a ? ("|".join('|', @a)): "");
         my $text = "[[$tref]]";
-        if (!$template) {
-            print STDERR "$name: unrecognized template\n";
-        } else {
+        if ($template) {
             my $cmd = $template->{'text'.$n} ? $template->{'text'.$n} :
                 $template->{text};
             if (ref($cmd)) {
@@ -3551,14 +3708,55 @@ sub html_template
                 }
             }
         }
-        if ($text =~ /^\[\[/) {
-            print STDERR "$name: invalid template reference: {{$tref}}\n";
+        if ($name && $text =~ /^\[\[/) {
+            print STDERR "$p->{path}: invalid template reference: {{$tref}}\n";
         }
         $inval =~ s/\{\{$name[^\}]*\}\}/$text/;
     }
     $inval =~ s/\[\[i\]\]/\{i\}/g;
 
+    # remove null template references (which are used as separators)
+    $inval =~ s/\[\[\]\]//g;
+
+    # restore unexpanded templates
+    $inval =~ s/\[\[([^\]]*)\]\]/\{\{$1\}\}/g;
+
     return $inval;
+}
+
+sub html_template_keys
+{
+    my ($opts) = @_;
+
+    my $access = $opts->{access};
+    my $uniqueKeys = $opts->{uniqueKeys};
+    my $enableParameter = $opts->{enableParameter};
+
+    my $text;
+    $text = qq{The following parameter(s) define this table\'s unique key:\n} if @$uniqueKeys == 1;
+    $text = qq{The following sets of parameter(s) each define one of this table\'s unique keys:\n} if @$uniqueKeys > 1;
+
+    my $i = 1;
+    my $stars = @$uniqueKeys > 1 ? qq{**} : qq{*};
+    foreach my $uniqueKey (@$uniqueKeys) {
+        $text .= qq{* $i:\n} if @$uniqueKeys > 1;
+        foreach my $parameter (@$uniqueKey) {
+            $text .= qq{$stars {{param|$parameter}}\n};
+        }
+        $i++;
+    }
+
+    my $enabled = $enableParameter ? qq{ enabled} : qq{};
+    my $athe = @$uniqueKeys > 1 ? qq{a} : qq{the};
+    $text .= qq{At most one$enabled entry can exist with all the same values for $athe unique key\'s parameter(s).};
+    # XXX the next bit is needed only if one or more of the unique key
+    #     parameters is writable; currently we don't have access to this
+    #     information here
+    #$text .= qq{  If the ACS attempts to set the parameters of an existing entry such that this requirement would be violated, the CPE MUST reject the request. In this case, the SetParameterValues response MUST include a SetParameterValuesFault element for each parameter in the corresponding request whose modification would have resulted in such a violation.\n};
+    $text .= qq{\n};
+    $text .= qq{On creation of a new table entry, the CPE MUST choose initial values for $athe unique key\'s parameter(s) such that the new entry does not conflict with any existing entry.\n} if $access eq 'readWrite' && !$enableParameter;
+
+    return $text;
 }
 
 sub html_template_enum
@@ -3576,6 +3774,13 @@ sub html_template_pattern
         "Each entry in the list matches one of:\n" :
         "Possible patterns:\n";
     return $pref . xml_escape(get_values($opts->{values}, 1));
+}
+
+sub html_template_reference
+{
+    my ($opts) = @_;
+
+    return qq{\'\'\'reference template not yet supported\'\'\'};
 }
 
 # Process verbatim sections
@@ -4613,6 +4818,6 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2008/10/30 $
+$Date: 2008/11/06 $
 
 =cut
