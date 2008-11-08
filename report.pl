@@ -99,7 +99,6 @@ my $lastonly = 0;
 my $modelonly = 0; # XXX deprecated
 my $noautomodel = 0;
 my $nocomments = 0;
-my $nodescriptions = 0;
 my $nomodels = 0;
 my $noprofiles = 0;
 my $objpat = '';
@@ -123,7 +122,6 @@ GetOptions('autobase' => \$autobase,
 	   'modelonly' => \$modelonly,
 	   'noautomodel' => \$noautomodel,
 	   'nocomments' => \$nocomments,
-	   'nodescriptions' => \$nodescriptions,
 	   'nomodels' => \$nomodels,
 	   'noprofiles' => \$noprofiles,
 	   'objpat:s' => \$objpat,
@@ -876,7 +874,20 @@ sub expand_model_parameter
 	    my $val = $type->findvalue($attr);
             my $tattr = $attr;
             $tattr =~ s/.*@//;
-	    $syntax->{$tattr} = $val if $val ne '';
+            # XXX very limited handling for status="deleted"; can tell by
+            #     defined but empty attribute value
+            if ($attr =~ /\//) {
+                my $sattr = $attr;
+                $sattr =~ s/@.*/\@status/;
+                my $vst = $type->findvalue($sattr);
+                if (defined $vst && $vst eq 'deleted') {
+                    $syntax->{$tattr} = '';
+                } else {
+                    $syntax->{$tattr} = $val if $val ne '';
+                }
+            } else {
+                $syntax->{$tattr} = $val if $val ne '';
+            }
 	}
     }
     $syntax->{hidden} = defined(($parameter->findnodes('syntax/@hidden'))[0]);
@@ -1817,14 +1828,23 @@ sub add_parameter
         # XXX this isn't perfect; some things are getting defined as '' when
         #     they should be left undefined? e.g. have seen list = ''
         # XXX for now, don't allow re-definition with empty string...
+        # XXX stop press: empty string means "undefine" for some attributes
+        #     (have to be careful, e.g. not mentioning <list/> doesn't mean
+        #     it isn't a list
 	while (my ($key, $value) = each %$syntax) {
+            my $old = defined $nnode->{syntax}->{$key} ?
+                $nnode->{syntax}->{$key} : '<none>';
             if ($value && (!defined $nnode->{syntax}->{$key} ||
                            $value ne $nnode->{syntax}->{$key})) {
-                my $old = defined $nnode->{syntax}->{$key} ?
-                    $nnode->{syntax}->{$key} : '<none>';
                 print STDERR "$path: $key: $old -> $value\n" if $verbose;
                 $nnode->{syntax}->{$key} = $value;
                 $changed->{syntax}->{$key} = 1;
+            }
+            if ($key =~ /(minLength|maxLength)/ && !$value &&
+                defined $nnode->{syntax}->{$key}) {
+                print STDERR "$path: $key: $old -> <deleted>\n" if $verbose;
+                undef $nnode->{syntax}->{$key};
+                $changed->{syntax}->{$key} = 1;                
             }
 	}
         if (defined $default &&
@@ -2007,6 +2027,9 @@ sub get_values
 	my $optional = boolean($cvalue->{optional});
 	my $deprecated = $cvalue->{status} eq 'deprecated';
 	my $obsoleted = $cvalue->{status} eq 'obsoleted';
+
+        # don't mark optional if deprecated or obsoleted
+        $optional = 0 if $deprecated || $obsoleted;
 
 	my $any = $description || $optional || $deprecated || $obsoleted;
 
@@ -3240,7 +3263,8 @@ END
 			       {fudge => 1});
         # XXX need to handle access / requirement more generally
         my $access = html_escape($node->{access});
-	my $write = $access eq 'readWrite' ? 'W' :
+	my $write =
+            $access eq 'readWrite' ? 'W' :
             $access eq 'present' ? 'P' :
             $access eq 'create' ? 'A' :
             $access eq 'delete' ? 'D' :
@@ -3265,7 +3289,6 @@ END
                          values => $node->{values},
                          units => $node->{units},
                          nbsp => $object || $parameter});
-        $description = '' if $nodescriptions;
 
         my $default = (defined $node->{defstat} && $node->{defstat} eq
                        'deleted') ? undef : $node->{default};
@@ -3469,6 +3492,7 @@ END
         } else {
             my $path = $object ? $node->{name} :
                 ($node->{pnode}->{name} . $node->{name});
+            $write = 'R' if $access eq 'readOnly';
             $html_buffer .= <<END;
         <tr>
           <td class="${class}"><a href="#$path">$name</a></td>
@@ -4652,7 +4676,7 @@ B<report.pl> - generate report on XML TR-069 data model definitions
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--count] [--debugpath=pattern("")] [--detail] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--lastonly] [--modelonly] [--noautomodel] [--nocomments] [--nomodels] [--noprofiles] [--objpat=pattern("")] [--pedantic[=i(1)] [--profileonly] [--quiet] [--report=html|(null)|tab|text|xls|xml|xsd] [--special=deprecated|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--verbose] [--writonly] data-model-definition-xml-file...
+B<report.pl> [--autobase] [--count] [--debugpath=pattern("")] [--detail] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--lastonly] [--modelonly] [--noautomodel] [--nocomments] [--nomodels] [--noprofiles] [--objpat=pattern("")] [--pedantic[=i(1)] [--profileonly] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--special=deprecated|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--verbose] [--writonly] data-model-definition-xml-file...
 
 =over
 
@@ -4684,7 +4708,9 @@ outputs debug information for parameters and objects whose path names match the 
 
 =item B<--detail>
 
-causes more detail in the report, e.g. documentation in the generated B<xsd> file
+causes more detail in the report, e.g. documentation in B<xsd> reports
+
+also causes use of new-style B<Type> information and additional auto-generated descriptions for hidden values, unique keys and references in B<html> reports
 
 =item B<--help>
 
@@ -4732,7 +4758,7 @@ enables output of warnings to I<stderr> when logical inconsistencies in the XML 
 
 suppresses informational messages
 
-=item B<--report=html|(null)|tab|text|xls|xml|xsd>
+=item B<--report=html|(null)|tab|text|xls|xml|xml2|xsd>
 
 specifies the report format; one of the following:
 
@@ -4761,6 +4787,10 @@ Excel XML spreadsheet
 =item B<xml>
 
 DM XML containing only the changes made by the final file on the command line; see also B<--autobase> and B<--lastonly>
+
+=item B<xml2>
+
+DM XML that is similar to the input (although with all imports resolved) and with canonical descriptions; intended to allow XML instances to be compared without getting lots of differences due to minor differences of punctuation etc
 
 =item B<xsd>
 
@@ -4818,6 +4848,6 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2008/11/06 $
+$Date: 2008/11/07 $
 
 =cut
