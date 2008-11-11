@@ -3103,9 +3103,6 @@ sub clean_description
 {
     my ($description, $name) = @_;
 
-    # XXX sometimes convenient just to ignore the description?
-    #return '' unless $detail;
-
     return '' unless $description;
 
     $description =~ s/\{i\}/\[\[i\]\]/g;
@@ -3645,16 +3642,17 @@ sub html_template
 
     # similarly auto-append {{hidden}}, {{keys}} and {{reference}} if
     # appropriate
-    if ($p->{hidden} && $inval !~ /\{\{hidden\}\}/) {
-        my $sep = $inval ? "\n" : "";
+    if ($detail && $p->{hidden} && $inval !~ /\{\{hidden\}\}/) {
+        my $sep = !$inval ? "" : $inval =~ /[\.\?\!]$/ ? "\n" : "";
         $inval .= $sep . "{{hidden}}";
     }
-    if ($p->{uniqueKeys} && @{$p->{uniqueKeys}}&& $inval !~ /\{\{keys\}\}/) {
-        my $sep = $inval ? "\n" : "";
+    if ($detail && $p->{uniqueKeys} &&
+        @{$p->{uniqueKeys}}&& $inval !~ /\{\{keys\}\}/) {
+        my $sep = !$inval ? "" : $inval =~ /[\.\?\!]$/ ? "\n" : "";
         $inval .= $sep . "{{keys}}";
     }
-    if ($p->{reference} && $inval !~ /\{\{reference\}\}/) {
-        my $sep = $inval ? "\n" : "";
+    if ($detail && $p->{reference} && $inval !~ /\{\{reference\}\}/) {
+        my $sep = !$inval ? "" : $inval =~ /[\.\?\!]$/ ? "\n" : "";
         $inval .= $sep . "{{reference}}";
     }
 
@@ -3776,9 +3774,10 @@ sub html_template_keys
     # XXX the next bit is needed only if one or more of the unique key
     #     parameters is writable; currently we don't have access to this
     #     information here
-    #$text .= qq{  If the ACS attempts to set the parameters of an existing entry such that this requirement would be violated, the CPE MUST reject the request. In this case, the SetParameterValues response MUST include a SetParameterValuesFault element for each parameter in the corresponding request whose modification would have resulted in such a violation.\n};
-    $text .= qq{\n};
-    $text .= qq{On creation of a new table entry, the CPE MUST choose initial values for $athe unique key\'s parameter(s) such that the new entry does not conflict with any existing entry.\n} if $access eq 'readWrite' && !$enableParameter;
+    # XXX it's not quite the same but this criterion is almost certainly the
+    #     same as whether the object is writable
+    $text .= qq{\nIf the ACS attempts to set the parameters of an existing entry such that this requirement would be violated, the CPE MUST reject the request. In this case, the SetParameterValues response MUST include a SetParameterValuesFault element for each parameter in the corresponding request whose modification would have resulted in such a violation.} if $access eq 'readWrite';
+    $text .= qq{\nOn creation of a new table entry, the CPE MUST choose initial values for $athe unique key\'s non-defaulted parameter(s) such that the new entry does not conflict with any existing entry.} if $access eq 'readWrite' && !$enableParameter;
 
     return $text;
 }
@@ -3925,6 +3924,7 @@ sub html_font
 
 # Process paragraph breaks
 # XXX this assumes that leading spaces are left on verbatim lines
+# XXX it behaves badly with lines that start with <b> or <i> (fudged)
 sub html_paragraph
 {
     my ($inval) = @_;
@@ -3932,7 +3932,7 @@ sub html_paragraph
     my $outval = '';
     my @lines = split /\n/, $inval;
     foreach my $line (@lines) {
-        $line =~ s/$/<p>/ if $line !~ /^(\s|\s*<)/;
+        $line =~ s/$/<p>/ if $line =~ /^<[b|i]>/ || $line !~ /^(\s|\s*<)/;
 
         $outval .= "$line\n";
     }
@@ -4848,6 +4848,6 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2008/11/07 $
+$Date: 2008/11/10 $
 
 =cut
