@@ -310,7 +310,7 @@ sub expand_import
     # check spec (if supplied)
     $spec = $fspec unless $spec;
     print STDERR "import $file: spec is $fspec (expected $spec)\n"
-        if $fspec ne $spec;
+        unless specs_match($spec, $fspec);
 
     # collect top-level item declarations
     foreach my $item ($toplevel->findnodes('dataType|component|model')) {
@@ -2280,9 +2280,9 @@ sub parse_file
 
     print STDERR "parsing file: $file\n" if $verbose;
 
+    $file = find_file($file);
+
     # parse file
-    # XXX need to search for file (a) search path, and (b) searching for
-    #     highest corrigendum number
     my $parser = XML::LibXML->new();
     my $tree = $parser->parse_file($file);
     my $toplevel = $tree->getDocumentElement;
@@ -2314,6 +2314,66 @@ sub parse_file
     $root->{schemaLocation} =~ s/\s+/ /g;
 
     return $toplevel;
+}
+
+# Find file by searching for the highest corrigendum number (if omitted)
+# XXX should also support search path and shouldn't assume ".xml"
+sub find_file
+{
+    my ($file) = @_;
+
+    my $ffile = $file;
+
+    # support names of form name-i-a[-c][label].xml where name is of the form
+    # "xx-nnn", i, a and c are numeric and label can't begin with a digit
+    my ($name, $i, $a, $c, $label) =
+        $file =~ /^([^-]+-\d+)-(\d+)-(\d+)(?:-(\d+))?(-\D.*)?\.xml$/;
+
+    # if name, issue (i) or amendment (a) are undefined, file name is not
+    # of the expected format so can't search for it
+    if (!defined $name || !defined $i || !defined $a) {
+        print STDERR "find_file: $file is not of expected format; ".
+            "cannot search for it\n";
+    }
+
+    # if corrigendum number (c) is undefined, search for the highest
+    # corrigendum number
+    elsif (!defined $c) {
+        $label = '' unless defined $label;
+        my @files = glob(qq{$name-$i-$a-*$label.xml});
+        foreach my $file (@files) {
+            # XXX assumess no special RE chars anywhere...
+            my ($n) = $file =~ /^$name-$i-$a-(\d+)$label\.xml$/;
+            $c = $n if defined $n && (!defined $c || $n > $c);
+        }
+        $ffile = qq{$name-$i-$a-$c$label.xml};
+    }
+
+    # otherwise no need to search
+
+    return $ffile;
+}
+
+# Check whether specs match
+sub specs_match
+{
+    my ($spec, $fspec) = @_;
+
+    # spec is spec from import and fspec is spec from file; if spec omits the
+    # corrigendum number it matches all corrigendum numbers
+
+    # support specs that end name-i-a[-c] where name is of the form "xx-nnn",
+    # and i, a and c are numeric
+    my ($c) = $spec =~ /[^-]+-\d+-\d+-\d+(?:-(\d+))?$/;
+
+    # if corrigendum number is defined, require exact match
+    return ($fspec eq $spec) if defined $c;
+
+    # if corrigendum number is undefined in spec, remove it from fspec (if
+    # present) before comparing
+    ($c) = $fspec =~ /[^-]+-\d+-\d+-\d+(?:-(\d+))?$/;
+    $fspec =~ s/-\d+$// if defined $c;
+    return ($fspec eq $spec);
 }
 
 # Null report of node.
@@ -4848,6 +4908,6 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2008/11/10 $
+$Date: 2008/11/28 $
 
 =cut
