@@ -80,6 +80,7 @@ use Clone qw{clone};
 use Data::Dumper;
 use Getopt::Long;
 use Pod::Usage;
+use Text::Balanced qw{extract_bracketed};
 use URI::Escape;
 use XML::LibXML;
 
@@ -870,7 +871,14 @@ sub expand_model_parameter
         # XXX for a list, minLength and maxLength refer to the item
 	foreach my $attr (('@ref', '@base', '@maxLength',
                            'range/@minInclusive', 'range/@maxInclusive',
-                           'size/@minLength', 'size/@maxLength')) {
+                           'size/@minLength', 'size/@maxLength',
+                           'instanceRef/@refType', 'instanceRef/@targetParent',
+                           'instanceRef/@targetParentScope',
+                           'pathRef/@refType','pathRef/@targetParent',
+                           'pathRef/@targetParentScope', 'pathRef/@targetType',
+                           'pathRef/@targetDataType',
+                           'enumerationRef/@targetParam',
+                           'enumerationRef/@targetParamScope')) {
 	    my $val = $type->findvalue($attr);
             my $tattr = $attr;
             $tattr =~ s/.*@//;
@@ -889,6 +897,9 @@ sub expand_model_parameter
                 $syntax->{$tattr} = $val if $val ne '';
             }
 	}
+        # XXX special case for nullValue; need to distinguish undef and empty
+        my $nullValue = ($type->findnodes('enumerationRef/@nullValue'))[0];
+        $syntax->{nullValue} = $nullValue->findvalue('.') if $nullValue;
     }
     $syntax->{hidden} = defined(($parameter->findnodes('syntax/@hidden'))[0]);
     $syntax->{list} = defined(($parameter->findnodes('syntax/list'))[0]);
@@ -900,6 +911,14 @@ sub expand_model_parameter
         my $maxLength = $parameter->findvalue('syntax/list/size/@maxLength');
         $syntax->{maxListLength} = $maxLength if $maxLength;
     }
+
+    if (defined($type)) {
+        foreach my $facet (('instanceRef', 'pathRef', 'enumerationRef')) {
+            $syntax->{reference} = $facet if $type->findnodes($facet);
+        }
+    }
+
+    #print STDERR Dumper($syntax) if $syntax->{reference};
 
     $type = defined($type) ? $type->findvalue('local-name()') : '';
 
@@ -1753,8 +1772,9 @@ sub add_parameter
             $nnode->{descact} = $descact;
         }
         if ($type && $type ne $nnode->{type}) {
+            # XXX changed type is usually an error
             print STDERR "$path: type: $nnode->{type} -> $type\n"
-                if $verbose;
+                if $verbose || $pedantic;
             $nnode->{type} = $type;
             $changed->{type} = 1;
         }
@@ -2182,13 +2202,83 @@ sub remove_descact
     return ($description, $descact);
 }
 
-# Form a "type", "string(maxLength)" or "int[minInclusive:maxInclusive]" type
-# string
+# Form a "type" string (as close as possible to the strings in existing "Type"
+# columns)
 sub type_string
 {
     my ($type, $syntax) = @_;
 
+    my $typeinfo = get_typeinfo($type, $syntax);
+    my ($value, $dataType) = ($typeinfo->{value}, $typeinfo->{dataType});
+
+    # XXX if named data type, should traverse data type hierarchy to determine
+    #     base type but at the time of writing, data types are used only for
+    #     IPAddress and MACAddress
+    if (!$dataType) {
+    } elsif ($value =~ /^(IP|MAC)Address$/) {
+        $value = 'string';
+    } else {
+        print STDERR "$value: named data types other than IPAddress and ".
+            "MACAddress not supported\n";
+    }
+
+    # lists are always strings at the CWMP level
+    if ($syntax->{list}) {
+        $value = 'string';
+        $value .= add_size($syntax, {list => 1});
+    } else {
+        $value .= add_size($syntax);
+        $value .= add_range($syntax);
+    }
+
+    return $value;
+}
+
+# Form a "type", "string(maxLength)" or "int[minInclusive:maxInclusive]" syntax
+# string
+sub syntax_string
+{
+    my ($type, $syntax, $human) = @_;
+
+    my $list = $syntax->{list};
+
+    my $typeinfo = get_typeinfo($type, $syntax, {human => $human});
+    my ($value, $unsigned) = ($typeinfo->{value}, $typeinfo->{unsigned});
+
+    $value .= add_size($syntax, {human => $human, item => 1});
+
+    # old style list
+    if ($list && !$detail) {
+        $value .= add_size($syntax, {human => $human, list => 1});
+    }
+
+    $value .= add_range($syntax, {human => $human, unsigned => $unsigned,
+                                  item => 1});
+
+    # old style list
+    if ($list && !$detail) {
+        $value .= '[]';
+    }
+
+    # new style list
+    if ($list && $detail) {
+        $value = 'list' .
+            add_size($syntax, {human => $human, list => 1}) .
+            add_range($syntax, {human => $human, unsigned => $unsigned,
+                                list => 1}) . ' of ' . $value;
+    }
+
+    return $value;
+}
+
+# Get data type and associated information
+sub get_typeinfo
+{
+    my ($type, $syntax, $opts) = @_;
+
     my $value = $type;
+    my $dataType = ($value eq 'dataType');
+    my $unsigned = ($value =~ /^unsigned/);
 
     if ($syntax->{ref}) {
         $value = $syntax->{ref};
@@ -2196,60 +2286,84 @@ sub type_string
         $value = $syntax->{base};
     }
 
-    # note that zero minLength is not displayed
-    if ($syntax->{minLength} || defined $syntax->{maxLength}) {
+    if ($opts->{human}) {
+        $value =~ s/^base64$/BASE64 string/;
+        $value =~ s/^hexBinary$/Hex binary string/;
+        $value =~ s/^int$/integer/;
+        $value =~ s/^unsignedInt$/unsigned integer/;
+        $value =~ s/^unsignedLong$/unsigned long/;
+        # XXX could try to split multi-word type names, e.g. IPAddress?
+        # XXX this is heuristic (it works for IPAddress etc)
+        if ($syntax->{list}) {
+            $value .= 'e' if $value =~ /s$/;
+            $value .= 's';
+        }
+    }
+
+    return {value =>$value, dataType => $dataType, unsigned => $unsigned};
+}
+
+# Add size or list size to type / value string
+sub add_size
+{
+    my ($syntax, $opts) = @_;
+
+    my $minLength = $opts->{list} ? 'minListLength' : 'minLength';
+    my $maxLength = $opts->{list} ? 'maxListLength' : 'maxLength';
+
+    my $value = '';
+
+    if ($syntax->{$minLength} || defined $syntax->{$maxLength}) {
+        $value .= ' ' if $opts->{human};
 	$value .= '(';
-	$value .= $syntax->{minLength} if $syntax->{minLength};
-	$value .= ':' if $syntax->{minLength};
-	$value .= $syntax->{maxLength} if defined $syntax->{maxLength};
+        if (!$opts->{human} && $syntax->{$minLength}) {
+            $value .= $syntax->{$minLength} . ':';
+        } elsif ($opts->{human}) {
+            my $item = $opts->{item} ? ' item' : '';
+            $value .= 'maximum' . $item . ' length ';
+        }
+        $value .= $syntax->{$maxLength} if defined $syntax->{$maxLength};
 	$value .= ')';
     }
 
-    # old style list
-    if ($syntax->{list} && !$detail) {
-        if ($syntax->{minListLength} || defined $syntax->{maxListLength}) {
-            $value .= '(';
-            $value .= $syntax->{minListLength} if $syntax->{minListLength};
-            $value .= ':' if $syntax->{minListLength};
-            $value .= $syntax->{maxListLength} if
-                defined $syntax->{maxListLength};
+    return $value;
+}
+
+# Add range or list range to type / value string
+sub add_range
+{
+    my ($syntax, $opts) = @_;
+
+    my $minInclusive = $opts->{list} ? 'minItems' : 'minInclusive';
+    my $maxInclusive = $opts->{list} ? 'maxItems' : 'maxInclusive';
+
+    my $value = '';
+
+    if (defined $syntax->{$minInclusive} || defined $syntax->{$maxInclusive}) {
+        if (!$opts->{human}) {
+            $value .= '[';
+            $value .= $syntax->{$minInclusive} if
+                defined $syntax->{$minInclusive};
+            $value .= ':';
+            $value .= $syntax->{$maxInclusive} if
+                defined $syntax->{$maxInclusive};
+            $value .= ']';
+        } else {
+            # XXX default minimum to 0 for unsigned types
+            my $minval = defined $syntax->{$minInclusive} ?
+                $syntax->{$minInclusive} : $opts->{unsigned} ? 0 : undef;
+            my $maxval = $syntax->{$maxInclusive};
+            $value .= ' (';
+            if (defined $minval && defined $maxval) {
+                $value .= 'range ' . $minval . ' to ' . $maxval;
+            } elsif (defined $minval) {
+                $value .= 'minimum ' . $minval;
+            } elsif (defined $maxval) {
+                $value .= 'maximum ' . $maxval;
+            }
+            $value .= ' items' if $opts->{list};
             $value .= ')';
         }
-    }
-
-    if (defined $syntax->{minInclusive} || defined $syntax->{maxInclusive}) {
-	$value .= '[';
-	$value .= $syntax->{minInclusive} if defined $syntax->{minInclusive};
-	$value .= ':';
-	$value .= $syntax->{maxInclusive} if defined $syntax->{maxInclusive};
-	$value .= ']';
-    }
-
-    # old style list
-    if ($syntax->{list} && !$detail) {
-        $value .= '[]';
-    }
-
-    # new style list
-    if ($syntax->{list} && $detail) {
-        my $list = 'list';
-        if ($syntax->{minListLength} || defined $syntax->{maxListLength}) {
-            $list .= '(';
-            $list .= $syntax->{minListLength} if $syntax->{minListLength};
-            $list .= ':' if $syntax->{minListLength};
-            $list .= $syntax->{maxListLength} if
-                defined $syntax->{maxListLength};
-            $list .= ')';
-        }
-        if (defined $syntax->{minItems} || defined $syntax->{maxItems}) {
-            $list .= '[';
-            $list .= $syntax->{minItems} if defined $syntax->{minItems};
-            $list .= ':';
-            $list .= $syntax->{maxItems} if defined $syntax->{maxItems};
-            $list .= ']';
-        }
-        $list .= ' of ';
-        $value = $list . $value;
     }
 
     return $value;
@@ -2278,9 +2392,9 @@ sub parse_file
 {
     my ($file)= @_;
 
-    print STDERR "parsing file: $file\n" if $verbose;
-
     $file = find_file($file);
+
+    print STDERR "parsing file: $file\n" if $verbose;
 
     # parse file
     my $parser = XML::LibXML->new();
@@ -2329,27 +2443,22 @@ sub find_file
     my ($name, $i, $a, $c, $label) =
         $file =~ /^([^-]+-\d+)-(\d+)-(\d+)(?:-(\d+))?(-\D.*)?\.xml$/;
 
-    # if name, issue (i) or amendment (a) are undefined, file name is not
-    # of the expected format so can't search for it
-    if (!defined $name || !defined $i || !defined $a) {
-        print STDERR "find_file: $file is not of expected format; ".
-            "cannot search for it\n";
-    }
-
-    # if corrigendum number (c) is undefined, search for the highest
-    # corrigendum number
-    elsif (!defined $c) {
+    # if name, issue (i) and amendment (a) are defined but corrigendum number
+    # (c) is undefined, search for the highest corrigendum number
+    if (defined $name && defined $i && defined $a && !defined $c) {
         $label = '' unless defined $label;
         my @files = glob(qq{$name-$i-$a-*$label.xml});
         foreach my $file (@files) {
-            # XXX assumess no special RE chars anywhere...
+            # XXX assumes no special RE chars anywhere...
             my ($n) = $file =~ /^$name-$i-$a-(\d+)$label\.xml$/;
             $c = $n if defined $n && (!defined $c || $n > $c);
         }
-        $ffile = qq{$name-$i-$a-$c$label.xml};
+        $c = defined($c) ? ('-' . $c) : '';
+        $ffile = qq{$name-$i-$a$c$label.xml};
     }
 
-    # otherwise no need to search
+    # otherwise no need to search, either because file name doesn't match
+    # pattern, e.g. it's unversioned, or because corrigendum number is defined
 
     return $ffile;
 }
@@ -3318,6 +3427,8 @@ END
         my $base = html_escape($node->{base}, {default => '', empty => ''});
 	my $type = html_escape(type_string($node->{type}, $node->{syntax}),
 			       {fudge => 1});
+	my $syntax = html_escape(syntax_string($node->{type}, $node->{syntax}),
+                                 {fudge => 1});
         # XXX need to handle access / requirement more generally
         my $access = html_escape($node->{access});
 	my $write =
@@ -3330,6 +3441,8 @@ END
         my $descact = $node->{descact};
         ($description, $descact) = get_description($description, $descact,
                                                    $history, 1);
+        # XXX don't need to pass hidden, list, reference etc (are in syntax)
+        #     but does no harm
 	$description =
             html_escape($description,
                         {default => '', empty => '',
@@ -3338,11 +3451,13 @@ END
                          object => $parameter ? $node->{pnode}->{path} :
                              $object ? $path : undef,
                          access => $node->{access},
+                         type => $node->{type},
+                         syntax => $node->{syntax},
+                         list => $node->{syntax}->{list},
+                         hidden => $node->{syntax}->{hidden},
+                         reference => $node->{syntax}->{reference},
                          uniqueKeys => $node->{uniqueKeys},
                          enableParameter => $node->{enableParameter},
-                         hidden => $node->{syntax}->{hidden},
-                         reference => $node->{reference},
-                         list => $node->{syntax}->{list},
                          values => $node->{values},
                          units => $node->{units},
                          nbsp => $object || $parameter});
@@ -3374,6 +3489,7 @@ END
         <tr>
           <th width="10%">Name</th>
           <th width="10%">Type</th>
+          $oc<th>Syntax</th>$cc
           <th width="10%" class="c">Write</th>
           <th width="50%">Description</th>
           <th width="10%" class="c">Object Default</th>
@@ -3537,8 +3653,9 @@ END
 END
             $html_buffer .= <<END;
         <tr>
-          <td class="${class}"><a name="$path">$name</a>$anchor2</td>
+          <td class="${class}">$anchor2<a name="$path">$name</a></td>
           <td class="${class}">$type</td>
+          $oc<td class="${class}">$syntax</td>$cc
           <td class="${class}c">$write</td>
           <td class="${class}">$description</td>
           <td class="${class}c">$default</td>
@@ -3656,17 +3773,18 @@ sub html_whitespace
     $inval =~ s/\s*$//;
 
     # determine longest common whitespace prefix
-    my $len = 0;
+    my $len = undef;
     my @lines = split /\n/, $inval;
     foreach my $line (@lines) {
         my ($pre) = $line =~ /^(\s*)/;
-        $len = length($pre) if !$len || length($pre) < $len;
+        $len = length($pre) if !defined($len) || length($pre) < $len;
         if ($line =~ /\t/) {
             my $tline = $line;
             $tline =~ s/\t/\\t/g;
             print STDERR "replace tab(s) in \"$tline\" with spaces!\n";
         }
     }
+    $len = 0 unless defined $len;
 
     # remove it
     my $outval = '';
@@ -3685,42 +3803,54 @@ sub html_template
 {
     my ($inval, $p) = @_;
 
+    # auto-prefix {{reference}} if the parameter is a reference (put after
+    # {{list}} if already there)
+    if ($detail && $p->{reference} && $inval !~ /\{\{reference/ &&
+        $inval !~ /\{\{noreference\}\}/) {
+        my $sep = !$inval ? "" : "  ";
+        if ($inval =~ /\{\{list\}\}/) {
+            $inval = ($inval =~ s/\{\{list\}\}/&$sep\{\{reference\}\}/);
+        } else {
+            $inval = "{{reference}}" . $sep . $inval;
+        }
+    }
+
+    # auto-prefix {{list}} if the parameter is list-valued
+    if ($detail && $p->{list} && $inval !~ /\{\{list/ &&
+        $inval !~ /\{\{nolist\}\}/) {
+        my $sep = !$inval ? "" : "  ";
+        $inval = "{{list}}" . $sep . $inval;
+    }
+
     # auto-append {{enum}} or {{pattern}} if there are values and it's not
     # already there (put it on the same line if the value is empty or ends
-    # with a sentence terminator)
+    # with a sentence terminator, allowing single quote formatting chars)
     # "{{}}" is an empty template reference that will be removed; it prevents
     # special "after newline" template expansion behavior
     if ($p->{values} && %{$p->{values}}) {
         my ($key) = keys %{$p->{values}};
         my $facet = $p->{values}->{$key}->{facet};
-        my $sep = !$inval ? "" : $inval =~ /[\.\?\!]$/ ? "  " : "\n{{}}";
-        $inval .= $sep . "{{enum}}" if
-            $facet eq 'enumeration' && $inval !~ /\{\{enum\}\}/;
-        $inval .= $sep . "{{pattern}}" if
-            $facet eq 'pattern' && $inval !~ /\{\{pattern\}\}/;
+        my $sep = !$inval ? "" : $inval =~ /[\.\?\!]\'*$/ ? "  " : "\n{{}}";
+        $inval .= $sep . "{{enum}}" if $facet eq 'enumeration' &&
+            $inval !~ /\{\{enum\}\}/ && $inval !~ /\{\{noenum\}\}/;
+        $inval .= $sep . "{{pattern}}" if $facet eq 'pattern' &&
+            $inval !~ /\{\{pattern\}\}/ && $inval !~ /\{\{nopattern\}\}/;
     }
 
-    # similarly auto-append {{hidden}}, {{keys}} and {{reference}} if
-    # appropriate
-    if ($detail && $p->{hidden} && $inval !~ /\{\{hidden\}\}/) {
-        my $sep = !$inval ? "" : $inval =~ /[\.\?\!]$/ ? "\n" : "";
+    # similarly auto-append {{hidden}} and {{keys}} if appropriate
+    if ($detail && $p->{hidden} && $inval !~ /\{\{hidden/ &&
+        $inval !~ /\{\{nohidden\}\}/) {
+        my $sep = !$inval ? "" : "\n";
         $inval .= $sep . "{{hidden}}";
     }
-    if ($detail && $p->{uniqueKeys} &&
-        @{$p->{uniqueKeys}}&& $inval !~ /\{\{keys\}\}/) {
-        my $sep = !$inval ? "" : $inval =~ /[\.\?\!]$/ ? "\n" : "";
+    if ($detail && $p->{uniqueKeys} && @{$p->{uniqueKeys}}&&
+        $inval !~ /\{\{keys/ && $inval !~ /\{\{nokeys\}\}/) {
+        my $sep = !$inval ? "" : "\n";
         $inval .= $sep . "{{keys}}";
-    }
-    if ($detail && $p->{reference} && $inval !~ /\{\{reference\}\}/) {
-        my $sep = !$inval ? "" : $inval =~ /[\.\?\!]$/ ? "\n" : "";
-        $inval .= $sep . "{{reference}}";
     }
 
     # in template expansions, the @a array is arguments and the %p hash is
     # parameters (options)
-    # XXX don't handle "{{}}" here because it needs to be done last
-    # XXX hyperlink generation needs to be cleverer and to understand the
-    #     rules for relative paths, e.g. if begins "Device." it's absolute    
     my $templates =
         [
          {name => 'bibref',
@@ -3729,55 +3859,98 @@ sub html_template
          {name => 'section', text => q{}},
          {name => 'param',
           text0 => q{''$p->{param}''},
-          text1 => q{<a href="#$p->{object}$a[0]">''$a[0]''</a>}},
+          text1 => \&html_template_paramref,
+          text2 => \&html_template_paramref},
          {name => 'object',
           text0 => q{''$p->{object}''},
-          text1 => q{<a href="#$p->{object}$a[0]">''$a[0]''</a>}},
+          text1 => \&html_template_objectref,
+          text2 => \&html_template_objectref},
          {name => 'keys',
           text0 => \&html_template_keys},
-         {name => 'hidden', text0 => q{When read, this parameter returns {{empty}}, regardless of the actual value.}},
+         {name => 'nokeys',
+          text0 => q{}},
+         {name => 'list',
+          text0 => \&html_template_list,
+          text1 => \&html_template_list},
+         {name => 'nolist',
+          text0 => q{}},
+         {name => 'hidden',
+          text0 => q{&&&&hidden:When read, this parameter returns {{empty}}, regardless of the actual value.},
+          text1 => q{&&&&hidden:When read, this parameter returns ''$a[0]'', regardless of the actual value.}},
+         {name => 'nohidden',
+          text0 => q{}},
          {name => 'enum',
           text0 => \&html_template_enum,
-          text1 => q{''$a[0]''},
-          text2 => q{<a href="#$p->{object}$a[1].$a[0]">''$a[0]''</a>}},
+          text1 => \&html_template_valueref,
+          text2 => \&html_template_valueref,
+          text3 => \&html_template_valueref},
+         {name => 'noenum',
+          text0 => q{}},
          {name => 'pattern',
           text0 => \&html_template_pattern,
-          text1 => q{''$a[0]''},
-          text2 => q{<a href="#$p->{object}$a[1].$a[0]">''$a[0]''</a>}},
+          text1 => \&html_template_valueref,
+          text2 => \&html_template_valueref,
+          text3 => \&html_template_valueref},
+         {name => 'nopattern',
+          text0 => q{}},
          {name => 'reference',
-          text0 => \&html_template_reference},
+          text0 => \&html_template_reference,
+          text1 => \&html_template_reference},
+         {name => 'noreference',
+          text0 => q{}},
          {name => 'units', text0 => q{''$p->{units}''}},
          {name => 'empty', text0 => q{an empty string}, ucfirst => 1},
          {name => 'false', text0 => q{''false''}},
          {name => 'true', text0 => q{''true''}}
          ];
 
-    # XXX need to allow args to contain matched braces, e.g. "{i}" in a path
-    #     name
-    # XXX to allow "{i}" in macro arguments, fudge it
-    $inval =~ s/\{i\}/\[\[i\]\]/g;
-    while (my ($newline, $period, $name, $args) =
-           $inval =~ /(\n?)[ \t]*([\.\?\!]?)[ \t]*\{\{([^\|\}]*)\|?([^\}]*)\}\}/) {
+    # XXX need some protection against infinite loops here...
+    # XXX do we want to allow template references to span newlines?
+    while (my ($newline, $period, $temp) =
+           $inval =~ /(\n?)[ \t]*([\.\?\!]?)[ \t]*(\{\{.*)/) {
+        # pattern returns rest of string in temp (owing to difficulty of
+        # handling nested braces), so match braces to find end
+        my $tref = extract_bracketed($temp, '{}');
+        if (!defined($tref)) {
+            print STDERR "$p->{path}: invalid template reference: $temp\n";
+            $inval =~ s/^../\[\[/;
+            next;
+        }
+        my ($name, $args) = $tref =~ /^\{\{([^\|\}]*)(?:\|(.*))?\}\}$/;
         # XXX atstart is possibly useful for descriptions that consist only of
         #     {{enum}} or {{pattern}}?
         my $atstart = $inval =~ /^\{\{$name[\|\}]/;
         $p->{atstart} = $atstart;
         $p->{newline} = $newline;
         $p->{period} = $period;
-        my @a = split /\|/, $args;
+        #my @a = split /\|/, $args;
+        my @a = ();
+        if (defined $args) {
+            my $a = '';
+            my $i = 0;
+            foreach my $c (split //, $args) {
+                $i++ if $c eq '{';
+                $i-- if $c eq '}';
+                if (!$i && $c eq '|') {
+                    push @a, $a;
+                    $a = '';
+                } else {
+                    $a .= $c;
+                }
+            }
+            push @a, $a;
+        }
         my $n = @a;
-        #print STDERR "$name: $n\n";
-        #foreach my $a (@a) {
-        #    print STDERR "  $a\n";
-        #}
         my $template = (grep {$_->{name} eq $name} @$templates)[0];
-        my $tref = "$name" . (@a ? ("|".join('|', @a)): "");
-        my $text = "[[$tref]]";
+        my $text = $tref;
+        $text =~ s/^../\[\[/;
+        $text =~ s/..$/\]\]/;
+        my $cmd;
         if ($template) {
-            my $cmd = $template->{'text'.$n} ? $template->{'text'.$n} :
+            $cmd = defined $template->{'text'.$n} ? $template->{'text'.$n} :
                 $template->{text};
             if (ref($cmd)) {
-                $text = &$cmd($p);
+                $text = &$cmd($p, @a);
             } elsif (defined $cmd) {
                 print STDERR "$text: $cmd\n" if $verbose > 2;
                 my $ttext = eval "qq{$cmd}";
@@ -3791,53 +3964,121 @@ sub html_template
             }
         }
         if ($name && $text =~ /^\[\[/) {
-            print STDERR "$p->{path}: invalid template reference: {{$tref}}\n";
+            print STDERR "$p->{path}: invalid template reference: $tref\n";
+            #print STDERR "$name: n=$n cmd=<$cmd> text=<$text>\n";
+            #foreach my $a (@a) {
+            #    print STDERR "  $a\n";
+            #}
         }
-        $inval =~ s/\{\{$name[^\}]*\}\}/$text/;
+        # process tref to avoid problems with RE special characters
+        $tref =~ s/[^\{\}]/\./g;
+        $inval =~ s/$tref/$text/;
     }
-    $inval =~ s/\[\[i\]\]/\{i\}/g;
 
     # remove null template references (which are used as separators)
     $inval =~ s/\[\[\]\]//g;
 
     # restore unexpanded templates
-    $inval =~ s/\[\[([^\]]*)\]\]/\{\{$1\}\}/g;
+    $inval =~ s/\[\[([^\]]*)/\{\{$1/g;
+    $inval =~ s/\]\]/\}\}/g;
 
     return $inval;
+}
+
+# XXX want to be able to control level of generated info?
+sub html_template_list
+{
+    my ($opts, $arg) = @_;
+
+    my $type = $opts->{type};
+    my $syntax = $opts->{syntax};
+
+    my $text = '&&&&list:Comma-separated ' . syntax_string($type, $syntax, 1);
+    if ($arg) {
+        $text .= ', ' . $arg;
+    }
+    $text .= '.';
+
+    return $text;
 }
 
 sub html_template_keys
 {
     my ($opts) = @_;
 
+    my $object = $opts->{object};
     my $access = $opts->{access};
     my $uniqueKeys = $opts->{uniqueKeys};
     my $enableParameter = $opts->{enableParameter};
 
-    my $text;
-    $text = qq{The following parameter(s) define this table\'s unique key:\n} if @$uniqueKeys == 1;
-    $text = qq{The following sets of parameter(s) each define one of this table\'s unique keys:\n} if @$uniqueKeys > 1;
+    my $text = qq{&&&&keys:};
 
-    my $i = 1;
-    my $stars = @$uniqueKeys > 1 ? qq{**} : qq{*};
+    my $enabled = $enableParameter ? qq{ enabled} : qq{};
+    $text .= qq{At most one$enabled entry in this table } .
+        qq{can exist with };
+    my $i = 0;
     foreach my $uniqueKey (@$uniqueKeys) {
-        $text .= qq{* $i:\n} if @$uniqueKeys > 1;
+        $text .= qq{, or with } if $i > 0;
+        $text .= qq{all } if @$uniqueKey > 2;
+        $text .= @$uniqueKey > 1 ? qq{the same values } : qq{a given value };
+        $text .= qq{for };
+        my $j = 0;
         foreach my $parameter (@$uniqueKey) {
-            $text .= qq{$stars {{param|$parameter}}\n};
+            $text .= (($j < @$uniqueKey - 1) ? ', ' : ' and ') if $j > 0;
+            $text .= qq{{{param|$parameter}}};
+            $j++;
         }
         $i++;
     }
+    $text .= qq{.};
 
-    my $enabled = $enableParameter ? qq{ enabled} : qq{};
-    my $athe = @$uniqueKeys > 1 ? qq{a} : qq{the};
-    $text .= qq{At most one$enabled entry can exist with all the same values for $athe unique key\'s parameter(s).};
     # XXX the next bit is needed only if one or more of the unique key
     #     parameters is writable; currently we don't have access to this
     #     information here
     # XXX it's not quite the same but this criterion is almost certainly the
     #     same as whether the object is writable
-    $text .= qq{\nIf the ACS attempts to set the parameters of an existing entry such that this requirement would be violated, the CPE MUST reject the request. In this case, the SetParameterValues response MUST include a SetParameterValuesFault element for each parameter in the corresponding request whose modification would have resulted in such a violation.} if $access eq 'readWrite';
-    $text .= qq{\nOn creation of a new table entry, the CPE MUST choose initial values for $athe unique key\'s non-defaulted parameter(s) such that the new entry does not conflict with any existing entry.} if $access eq 'readWrite' && !$enableParameter;
+    if ($access eq 'readWrite') {
+        # XXX have suppressed this boiler plate (it should be stated once)
+        $text .= qq{  If the ACS attempts to set the parameters of an } .
+            qq{existing entry such that this requirement would be violated, } .
+            qq{the CPE MUST reject the request. In this case, the } .
+            qq{SetParameterValues response MUST include a } .
+            qq{SetParameterValuesFault element for each parameter in the } .
+            qq{corresponding request whose modification would have resulted } .
+            qq{in such a violation.} if 0;
+        if (!$enableParameter) {
+            my $i;
+            my @params = ();
+            foreach my $uniqueKey (@$uniqueKeys) {
+                foreach my $parameter (@$uniqueKey) {
+                    my $path = $object . $parameter;
+                    my $defaulted = defined $parameters->{$path}->{default};
+                    push @params, $parameter unless $defaulted;
+                    $i++;
+                }
+            }
+            if ($i && !@params) {
+                print STDERR "$object: all unique key parameters are " .
+                    "defaulted; need enableParameter\n";
+            }
+            if (@params) {
+                $text .= qq{  On creation of a new table entry, the CPE } .
+                    qq{MUST choose };
+                $text .= qq{an } if @params == 1;
+                $text .= qq{initial value};
+                $text .= qq{s} if @params > 1;
+                $text .= qq{ for };
+                my $i = 0;
+                foreach my $param (@params) {
+                    $text .= (($i < @params - 1) ? ', ' : ' and ') if $i > 0;
+                    $text .= qq{{{param|$param}}};
+                    $i++;
+                }
+                $text .= qq{ such that the new entry does not conflict with } .
+                    qq{any existing entries.};
+            }
+        }
+    }
 
     return $text;
 }
@@ -3859,11 +4100,234 @@ sub html_template_pattern
     return $pref . xml_escape(get_values($opts->{values}, 1));
 }
 
+# generates reference to parameter: arguments are parameter name and optional
+# scope
+sub html_template_paramref
+{
+    my ($opts, $name, $scope) = @_;
+
+    my $object = $opts->{object};
+    my $param = $opts->{param};
+
+    my $path = relative_path($object, $name, $scope);
+
+    my $invalid = $parameters->{$path} ? '' : '?';
+    print STDERR "$object$param: reference to invalid parameter $path\n"
+        if $invalid;
+   
+    return qq{<a href="#$path">''$name$invalid''</a>};
+}
+
+# generates reference to object: arguments are object name and optional
+# scope
+sub html_template_objectref
+{
+    my ($opts, $name, $scope) = @_;
+
+    my $object = $opts->{object};
+    my $param = $opts->{param};
+
+    my $path = relative_path($object, $name, $scope);
+    my $path1 = $path;
+    $path1 .= '.' if $path1 !~ /\.$/;
+
+    # we allow reference to table X via "X" or "X.{i}"...
+    my $path2 = $path1;
+    $path2 .= '{i}.' if $path2 !~ /\{i\}\.$/;
+
+    my $invalid = ($objects->{$path1} || $objects->{$path2}) ? '' : '?';
+    print STDERR "$object$param: reference to invalid object $path\n"
+        if $invalid;
+   
+    return qq{<a href="#$path">''$name$invalid''</a>};
+}
+
+# generates reference to enumeration or pattern: arguments are value, optional
+# parameter name (if omitted, is this parameter), and optional scope
+sub html_template_valueref
+{
+    my ($opts, $value, $name, $scope) = @_;
+
+    my $object = $opts->{object};
+    my $param = $opts->{param};
+
+    my $this = $name ? 1 : 0;
+    $name = $param unless $name;
+
+    my $path = relative_path($object, $name, $scope);
+
+    my $invalid = '';
+    if (!$parameters->{$path}) {
+        $invalid = '?';
+        print STDERR "$object$param: reference to invalid parameter $path\n";
+    } else {
+        my $node = $parameters->{$path};
+        my $values = $node->{values};
+        $invalid = (has_values($values) && has_value($values, $value)) ?
+            '' : '?';
+        print STDERR "$object$param: reference to invalid value $value\n"
+            if $invalid;
+    }
+   
+    return $this ?
+        qq{''$value''} :
+        qq{<a href="#$path.$value">''$value$invalid''</a>};
+}
+
 sub html_template_reference
 {
-    my ($opts) = @_;
+    my ($opts, $arg) = @_;
 
-    return qq{\'\'\'reference template not yet supported\'\'\'};
+    my $type = $opts->{type};
+    my $list = $opts->{list};
+    my $reference = $opts->{reference};
+    my $syntax = $opts->{syntax};
+
+    my $text = qq{&&&&reference:};
+
+    # XXX it is assumed that this text will be generated after the {{list}}
+    #     expansion (if a list)
+    $text .= $list ?
+        qq{Each entry in the list } :
+        qq{The value };
+
+    if ($reference eq 'pathRef') {
+        my $refType = $syntax->{refType};
+        my $targetParent = $syntax->{targetParent};
+        my $targetParentScope = $syntax->{targetParentScope};
+        my $targetType = $syntax->{targetType};
+        my $targetDataType = $syntax->{targetDataType};
+
+        $targetParent = object_references($targetParent,
+                                          $targetParentScope);
+
+        $text .= qq{MUST be the full path name of };
+
+        if ($targetType eq 'row') {
+            if ($arg) {
+                $text .= $arg;
+            } else {
+                my $s = $targetParent =~ / / ? 's' : '';
+                $text .= $targetParent ?
+                    qq{a row in the $targetParent table$s} :
+                    qq{a table row};
+            }
+        } else {
+            $targetType =~ s/single/single-instance object/;
+            if ($arg) {
+                $text .= $arg;
+            } else {
+                if ($targetDataType && $targetDataType ne 'any') {
+                    $text .= ($targetDataType =~ /^[aeiou]/ ? qq{an} : qq{a});
+                    $text .= qq{ $targetDataType};
+                } else {
+                    $text .= ($targetType =~ /^[aeiou]/ ? qq{an} : qq{a});
+                }
+                $text .= qq{ $targetType};
+            }
+            $text .= $targetParent ?
+                qq{, which MUST be a child of $targetParent} :
+                qq{};
+        }
+        $text .= qq{.};
+        if ($refType eq 'strong') {
+            $targetType =~ s/single.*/object/;
+            $text .= qq{  If the referenced $targetType is deleted, the };
+            $text .= $list ?
+                qq{corresponding entry MUST be removed from the list.} :
+                qq{parameter value MUST be set to {{empty}}.};
+        }
+
+    } elsif ($reference eq 'instanceRef') {
+        my $refType = $syntax->{refType};
+        my $targetParent = $syntax->{targetParent};
+        my $targetParentScope = $syntax->{targetParentScope};
+
+        $targetParent = object_references($targetParent,
+                                          $targetParentScope);
+
+        my $nullValue =
+            (get_typeinfo($type, $syntax)->{value} =~ /^unsigned/) ? 0 : -1;
+
+        my $s = $targetParent =~ / / ? 's' : '';
+        $text .= qq{MUST be the instance number of a row in the }.
+            qq{$targetParent table$s};
+        $text .= qq{, or else be $nullValue if no row is currently } .
+            qq{referenced} unless $list;
+        $text .= qq{.};
+        if ($refType eq 'strong') {
+            $text .= qq{  If the referenced row is deleted, the };
+            $text .= $list ?
+                qq{corresponding entry MUST be removed from the list.} :
+                qq{parameter value MUST be set to $nullValue.};
+        }
+
+    } elsif ($reference eq 'enumerationRef') {
+        my $targetParam = $syntax->{targetParam};
+        my $targetParamScope = $syntax->{targetParamScope};
+        my $nullValue = $syntax->{nullValue};
+
+        $nullValue = ($nullValue ne '' ? qq{''$nullValue''} : qq{{{empty}}}) if
+            defined $nullValue;
+
+        # XXX need to use targetParamScope here
+        $text .= qq{MUST be a member of the list reported by the } .
+            qq{{{param|$targetParam}} parameter};
+        $text .= qq{, or else be $nullValue} if defined $nullValue;
+        $text .= qq{.};
+
+    } else {
+        # XXX should warn about this (can't happen)
+        $text = '';
+    }
+
+    return $text;
+}
+
+# Generate relative path given 
+sub relative_path
+{
+    my ($parent, $name, $scope) = @_;
+
+    $scope = 'normal' unless $scope;
+
+    my $path;
+
+    if ($scope eq 'normal' && $name =~ /^(Device|InternetGatewayDevice)\./) {
+        $path = $name;
+    } elsif (($scope eq 'normal' && $name =~ /^\./) || $scope eq 'model') {
+        my ($root, $next) = split /\./, $parent;
+        $next = ($next =~ /^\{/) ? ('.' . $next) : '';
+        my $sep = ($name =~ /^\./) ? '' : '.';
+        $path = $root . $next . $sep . $name;
+    } else {
+        $path = $parent . $name;
+    }
+
+    return $path;
+}
+
+# Generate appropriate {{object}} references from an XML list
+sub object_references
+{
+    my ($list, $scope) = @_;
+
+    $scope = $scope ? ('|' . $scope) : '';
+
+    my $value = '';
+
+    if ($list) {
+        my $i = 0;
+        my @refs = split /\s+/, $list;
+        foreach my $ref (@refs) {
+            $ref =~ s/\.$//;
+            $value .= (($i < @refs - 1) ? ', ' : ' or ') if $i > 0;
+            $value .= qq{{{object|$ref$scope}}};
+            $i++;
+        }
+    }
+
+    return $value;
 }
 
 # Process verbatim sections
@@ -3974,8 +4438,9 @@ sub html_font
 
     # XXX "%%" anchor expansion should be elsewhere (hyperlink?)
     # XXX need to escape special characters out of anchors and references
-    if ($opts->{object} && $opts->{param}) {
-        my $path = $opts->{object} . $opts->{param};
+    if ($opts->{param}) {
+        my $object = $opts->{object} ? $opts->{object} : '';
+        my $path = $object . $opts->{param};
         $inval =~ s|%%([^%]*)%%|<a name="$path.$1">$1</a>|g;
     }
 
@@ -4908,6 +5373,6 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2008/11/28 $
+$Date: 2008/12/09 $
 
 =cut
