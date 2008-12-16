@@ -5039,6 +5039,7 @@ sub sanity_node
     my $dynamic = $node->{dynamic};
     my $minEntries = $node->{minEntries};
     my $maxEntries = $node->{maxEntries};
+    my $enableParameter = $node->{enableParameter};
     my $description = $node->{description};
 
     my $object = ($type && $type eq 'object');
@@ -5071,6 +5072,12 @@ sub sanity_node
     if ($object) {
         print STDERR "$path: object is writable but not a table\n" if
             $access eq 'readWrite' && $maxEntries eq '1';
+
+        print STDERR "$path: object is not writable and multi-instance but " .
+            "has enableParameter\n" if $enableParameter &&
+            !($access eq 'readWrite' && 
+              defined $node->{maxEntries} &&
+              $node->{maxEntries} eq 'unbounded');
     }
 
     # parameter sanity checks
@@ -5079,6 +5086,15 @@ sub sanity_node
 	#print STDERR "$path: parameter is an enumeration but has " .
 	#    "no values\n" if $pedantic && values_appropriate($name, $type) &&
 	#    !has_values($values);
+
+        # XXX this isn't always an error; depends on whether table entries
+        #     correspond to device configuration
+        print STDERR "$path: writable parameter in read-only table\n" if
+            $pedantic > 1 && $access eq 'readWrite' &&
+            defined $node->{pnode}->{access} &&
+            $node->{pnode}->{access} eq 'readOnly' &&
+            defined $node->{pnode}->{maxEntries} &&
+            $node->{pnode}->{maxEntries} eq 'unbounded';
 
 	print STDERR "$path: default $udefault is not one of the enumerated " .
 	    "values\n" if $pedantic && defined $default &&
@@ -5373,6 +5389,6 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2008/12/09 $
+$Date: 2008/12/16 $
 
 =cut
