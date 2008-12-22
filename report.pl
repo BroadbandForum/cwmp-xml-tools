@@ -3319,9 +3319,9 @@ sub html_node
 {
     my ($node, $indent) = @_;
 
-    # options
-    #my $options = qq{border="1" cellpadding="2" cellspacing="2"};
-    my $options = qq{border="1" cellpadding="2" cellspacing="0"};
+    # table options
+    #my $tabopts = qq{border="1" cellpadding="2" cellspacing="2"};
+    my $tabopts = qq{border="1" cellpadding="2" cellspacing="0"};
 
     # styles
     my $table = qq{text-align: left;};
@@ -3360,6 +3360,8 @@ sub html_node
       table { $table }
       th { $row $font }
       th.c { $row $font $center }
+      th.g { $row $font $theader_bg }
+      th.gc { $row $font $theader_bg $center }
       td.o { $row $font $object_bg }
       td, td.p { $row $font }
       td.oc { $row $font $object_bg $center }
@@ -3484,7 +3486,7 @@ END
             $html_buffer .= <<END;
     <h1><a name="$title">$title</a></h1>
     $description<p>
-    <table width="100%" $options> <!-- Data Model Definition -->
+    <table width="100%" $tabopts> <!-- Data Model Definition -->
       <tbody>
         <tr>
           <th width="10%">Name</th>
@@ -3508,114 +3510,41 @@ END
         # XXX so only outputting these tables if there are profiles... BAD!
         if ($profile) {
             if (!$html_profile_active) {
-                my $title = qq{Forced Inform Parameters};
                 print <<END;
         </ul> <!-- Data Model Definition -->
         <li><a href="#Inform and Notification Requirements">Inform and Notification Requirements</a></li>
         <ul> <!-- Inform and Notification Requirements -->
-          <li><a href="#$title">$title</a></li>
 END
                 $html_buffer .= <<END;
       </tbody>
     </table> <!-- Data Model Definition -->
     <h2><a name="Inform and Notification Requirements">Inform and Notification Requirements</a></h2>
-    <h3><a name="$title">$title</a></h3>
-    <table width="60%" $options> <!-- $title -->
-      <tbody>
-        <tr>
-          <th style="$theader_bg">Parameter</th>
-        </tr>
 END
-                foreach my $parameter
-                (grep {$_->{forcedInform}} @$html_parameters) {
-                    $html_buffer .= <<END;
-        <tr>
-          <td><a href="#$parameter->{path}">$parameter->{path}</a></td>
-        </tr>
-END
-                }
-                my $ptitle = $title;
-                $title = qq{Forced Active Notification Parameters};
-                print <<END;
-          <li><a href="#$title">$title</a></li>
-END
-                $html_buffer .= <<END;
-      </tbody>
-    </table> <!-- $ptitle -->
-    <h3><a name="$title">$title</a></h3>
-    <table width="60%" $options> <!-- $title -->
-      <tbody>
-        <tr>
-          <th style="$theader_bg">Parameter</th>
-        </tr>
-END
-                foreach my $parameter
-                (grep {$_->{activeNotify} eq 'forceEnabled'}
-                 @$html_parameters) {
-                    $html_buffer .= <<END;
-        <tr>
-          <td><a href="#$parameter->{path}">$parameter->{path}</a></td>
-        </tr>
-END
-                }
-                $ptitle = $title;
-                $title = qq{Default Active Notification Parameters};
-                print <<END;
-          <li><a href="#$title">$title</a></li>
-END
-                $html_buffer .= <<END;
-      </tbody>
-    </table> <!-- $ptitle -->
-    <h3><a name="$title">$title</a></h3>
-    <table width="60%" $options> <!-- $title -->
-      <tbody>
-        <tr>
-          <th style="$theader_bg">Parameter</th>
-        </tr>
-END
-                foreach my $parameter
-                (grep {$_->{activeNotify} eq 'forceDefaultEnabled'}
-                 @$html_parameters) {
-                    $html_buffer .= <<END;
-        <tr>
-          <td><a href="#$parameter->{path}">$parameter->{path}</a></td>
-        </tr>
-END
-                }
-                $ptitle = $title;
-                $title =
-                    qq{Parameters for which Active Notification MAY be Denied};
-                print <<END;
-          <li><a href="#$title">$title</a></li>
-END
-                $html_buffer .= <<END;
-      </tbody>
-    </table> <!-- $ptitle -->
-    <h3><a name="$title">$title</a></h3>
-    <table width="60%" $options> <!-- $title -->
-      <tbody>
-        <tr>
-          <th style="$theader_bg">Parameter</th>
-        </tr>
-END
-                foreach my $parameter
-                (grep {$_->{activeNotify} eq 'canDeny'} @$html_parameters) {
-                    $html_buffer .= <<END;
-        <tr>
-          <td><a href="#$parameter->{path}">$parameter->{path}</a></td>
-        </tr>
-END
-                }
-                $ptitle = $title;
-                $title = qq{Profile Definitions};
+                $html_buffer .=
+                html_param_table(qq{Forced Inform Parameters},
+                                 {tabopts => $tabopts},
+                                 grep {$_->{forcedInform}} @$html_parameters) .
+                html_param_table(qq{Forced Active Notification Parameters},
+                                 {tabopts => $tabopts},
+                                 grep {$_->{activeNotify} eq 'forceEnabled'}
+                                 @$html_parameters) .
+                html_param_table(qq{Default Active Notification Parameters},
+                                 {tabopts => $tabopts},
+                                 grep {$_->{activeNotify} eq
+                                           'forceDefaultEnabled'}
+                                 @$html_parameters) .
+                html_param_table(qq{Parameters for which Active Notification }.
+                                 qq{MAY be Denied},
+                                 {tabopts => $tabopts, sepobj => 1},
+                                 grep {$_->{activeNotify} eq 'canDeny'}
+                                 @$html_parameters);
+                my $title = qq{Profile Definitions};
                 print <<END;
         </ul> <!-- Inform and Notification Requirements -->
         <li><a href="#$title">$title</a></li>
         <ul> <!-- $title -->
 END
                 $html_buffer .= <<END;
-      </tbody>
-    </table> <!-- $ptitle -->
     <h2><a name="$title">$title</a></h2>
 END
                 $html_profile_active = 1;
@@ -3628,11 +3557,11 @@ END
             $html_buffer .= <<END;
     <h3><a name="$title">$title</a></h3>
     $description<p>
-    <table width="60%" $options> <!-- $title -->
+    <table width="60%" $tabopts> <!-- $title -->
       <tbody>
         <tr>
-          <th width="80%">Name</th>
-          <th width="20%" class="c">Requirement</th>
+          <th width="80%" class="g">Name</th>
+          <th width="20%" class="gc">Requirement</th>
         </tr>
 END
         }
@@ -3704,6 +3633,61 @@ END
             print $html_buffer;
         }
     }
+}
+
+# Output an HTML parameter table, optionally with separate object rows
+sub html_param_table
+{
+    my ($title, $hash, @parameters) = @_;
+
+    my $tabopts = $hash->{tabopts};
+    my $sepobj = $hash->{sepobj};
+
+    my $html_buffer = qq{};
+
+    print <<END;
+    <li><a href="#$title">$title</a></li>
+END
+
+    $html_buffer .= <<END;
+    <h3><a name="$title">$title</a></h3>
+END
+
+    $html_buffer .= <<END;
+    <table width="60%" $tabopts> <!-- $title -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+END
+
+    my $curobj = '';
+    foreach my $parameter (@parameters) {
+        my $path = $parameter->{path};
+        my $param = $path;
+        if ($sepobj) {
+            (my $object, $param) = $path =~ /^(.*\.)([^\.]*)$/;
+            if ($object && $object ne $curobj) {
+                $html_buffer .= <<END;
+        <tr>
+          <td class="o"><a href="#$object">$object</a></td>
+        </tr>
+END
+                $curobj = $object;
+            }
+        }
+        $html_buffer .= <<END;
+        <tr>
+          <td><a href="#$path">$param</a></td>
+        </tr>
+END
+    }
+
+    $html_buffer .= <<END;
+      </tbody>
+    </table> <!-- $title -->
+END
+    return $html_buffer;
 }
 
 # Escape a value suitably for exporting as HTML.
@@ -5389,6 +5373,6 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2008/12/16 $
+$Date: 2008/12/22 $
 
 =cut
