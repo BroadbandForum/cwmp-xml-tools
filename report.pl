@@ -97,6 +97,7 @@ my $help = 0;
 my $ignore = '';
 my $importsuffix = '';
 my $lastonly = 0;
+my $marktemplates = '';
 my $modelonly = 0; # XXX deprecated
 my $noautomodel = 0;
 my $nocomments = 0;
@@ -120,6 +121,7 @@ GetOptions('autobase' => \$autobase,
            'ignore:s' => \$ignore,
            'importsuffix:s' => \$importsuffix,
            'lastonly' => \$lastonly,
+	   'marktemplates' => \$marktemplates,
 	   'modelonly' => \$modelonly,
 	   'noautomodel' => \$noautomodel,
 	   'nocomments' => \$nocomments,
@@ -147,6 +149,8 @@ unless (defined &{"${report}_node"}) {
 }
 
 *STDERR = *STDOUT if $report eq 'null';
+
+$marktemplates = '&&&&' if defined($marktemplates);
 
 $nomodels = 1 if $profileonly;
 $noprofiles = 1 if $modelonly;
@@ -390,7 +394,7 @@ sub expand_dataType
     my $maxLength = $dataType->findvalue('string/size/@maxLength');
     my $patterns = $dataType->findnodes('string/pattern');
 
-    update_bibrefs($description);
+    update_bibrefs($description, $spec);
 
     print STDERR "expand_dataType name=$name base=$base\n" if $verbose > 1;
 
@@ -404,7 +408,7 @@ sub expand_dataType
         my $description = $pattern->findvalue('description');
         my $descact = $pattern->findvalue('description/@action');
 
-        update_bibrefs($description);
+        update_bibrefs($description, $spec);
 
         push @{$node->{patterns}}, {value => $value, description =>
                                         $description, descact => $descact};
@@ -427,7 +431,7 @@ sub expand_bibliography
     my $description = $bibliography->findvalue('description');
     my $descact = $bibliography->findvalue('description/@action');
 
-    update_bibrefs($description);
+    update_bibrefs($description, $spec);
 
     print STDERR "expand_bibliography\n" if $verbose > $vlevel;
 
@@ -492,6 +496,8 @@ sub expand_model
 {
     my ($context, $pnode, $model) = @_;
 
+    my $spec = $context->[0]->{spec};
+
     my $name = $model->findvalue('@name');
     my $ref = $model->findvalue('@ref');
     $ref = $model->findvalue('@base') unless $ref;
@@ -503,7 +509,7 @@ sub expand_model
     # XXX fudge it if in a DT instance (ref but no name or base)
     $name = $ref if $ref && !$name;
 
-    update_bibrefs($description);
+    update_bibrefs($description, $spec);
 
     print STDERR "expand_model name=$name ref=$ref\n" if $verbose > 1;
 
@@ -641,6 +647,8 @@ sub expand_model_object
 {
     my ($context, $mnode, $pnode, $object) = @_;
 
+    my $spec = $context->[0]->{spec};
+
     my $name = $object->findvalue('@name');
     my $ref = $object->findvalue('@ref');
     $ref = $object->findvalue('@base') unless $ref;
@@ -653,7 +661,7 @@ sub expand_model_object
     my $description = $object->findvalue('description');
     my $descact = $object->findvalue('description/@action');
 
-    update_bibrefs($description);
+    update_bibrefs($description, $spec);
 
     $minEntries = 1 unless defined $minEntries && $minEntries ne '';
     $maxEntries = 1 unless defined $maxEntries && $maxEntries ne '';
@@ -828,6 +836,8 @@ sub expand_model_parameter
 {
     my ($context, $mnode, $pnode, $parameter) = @_;
 
+    my $spec = $context->[0]->{spec};
+
     my $name = $parameter->findvalue('@name');
     my $ref = $parameter->findvalue('@ref');
     $ref = $parameter->findvalue('@base') unless $ref;
@@ -856,7 +866,7 @@ sub expand_model_parameter
     #my $minorVersion = $parameter->findvalue('@minorVersion');
     my ($majorVersion, $minorVersion) = dmr_version($parameter);
 
-    update_bibrefs($description);
+    update_bibrefs($description, $spec);
 
     # XXX I have a feeling that I need to be more rigorous re the distinction
     #     between nodes being absent and nodes having blank values (see the
@@ -934,7 +944,7 @@ sub expand_model_parameter
         my $descdef = $value->findnodes('description')->size();
         $value = $value->findvalue('@value');
         
-        update_bibrefs($description);
+        update_bibrefs($description, $spec);
 
         # XXX where should such defaults be applied? here is better
         $access = 'readOnly' unless $access;
@@ -1008,7 +1018,7 @@ sub expand_model_profile
     my $description = $profile->findvalue('description');
     # XXX descact too
 
-    update_bibrefs($description);
+    update_bibrefs($description, $spec);
 
     # XXX want to do this consistently; really want to get defaults from
     #     somewhere (not hard-coded)
@@ -1956,15 +1966,17 @@ sub add_parameter
         $debugpath && $path =~ /$debugpath/;
 }
 
-# Update list of bibrefs that are actually used
-# XXX not as intelligent as it might be
+# Update list of bibrefs that are actually used (each entry is an array of the
+# specs that use the bibref)
 sub update_bibrefs
 {
-    my ($value) = @_;
+    my ($value, $spec) = @_;
 
     my @ids = ($value =~ /\{\{bibref\|([^\|\}]+)/g);
     foreach my $id (@ids) {
-        $bibrefs->{$id} = 1;
+        print STDERR "marking bibref $id used (spec=$spec)\n" if $verbose > 1;
+        push @{$bibrefs->{$id}}, $spec unless
+            grep {$_ eq $spec} @{$bibrefs->{$id}};
     }
 }
 
@@ -3388,6 +3400,7 @@ END
             foreach my $reference (sort {$a->{id} cmp $b->{id}} @$references) {
                 my $id = $reference->{id};
                 next unless $bibrefs->{$id};
+                next if $lastonly && !grep {$_ eq $lspec} @{$bibrefs->{$id}};
                 
                 my $name = xml_escape($reference->{name});
                 my $title = xml_escape($reference->{title});
@@ -3859,10 +3872,12 @@ sub html_template
          {name => 'nolist',
           text0 => q{}},
          {name => 'hidden',
-          text0 => q{&&&&hidden:When read, this parameter returns {{empty}}, regardless of the actual value.},
-          text1 => q{&&&&hidden:When read, this parameter returns ''$a[0]'', regardless of the actual value.}},
+          text0 => q{{{mark|hidden}}When read, this parameter returns {{null}}, regardless of the actual value.},
+          text1 => q{{{mark|hidden}}When read, this parameter returns ''$a[0]'', regardless of the actual value.}},
          {name => 'nohidden',
           text0 => q{}},
+         {name => 'null',
+          text0 => \&html_template_null},
          {name => 'enum',
           text0 => \&html_template_enum,
           text1 => \&html_template_valueref,
@@ -3885,7 +3900,9 @@ sub html_template
          {name => 'units', text0 => q{''$p->{units}''}},
          {name => 'empty', text0 => q{an empty string}, ucfirst => 1},
          {name => 'false', text0 => q{''false''}},
-         {name => 'true', text0 => q{''true''}}
+         {name => 'true', text0 => q{''true''}},
+         {name => 'mark',
+          text1 => \&html_template_mark}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -3902,7 +3919,7 @@ sub html_template
         }
         my ($name, $args) = $tref =~ /^\{\{([^\|\}]*)(?:\|(.*))?\}\}$/;
         # XXX atstart is possibly useful for descriptions that consist only of
-        #     {{enum}} or {{pattern}}?
+        #     {{enum}} or {{pattern}}?  I think not...
         my $atstart = $inval =~ /^\{\{$name[\|\}]/;
         $p->{atstart} = $atstart;
         $p->{newline} = $newline;
@@ -3969,6 +3986,27 @@ sub html_template
     return $inval;
 }
 
+# insert a mark, e.g. for a template expansion
+sub html_template_mark
+{
+    my ($opts, $arg) = @_;
+
+    return $marktemplates ? qq{$marktemplates$arg:} : qq{};
+}
+
+# insert appropriate null value
+# XXX currently rather simple-minded and no support for named data types
+sub html_template_null
+{
+    my ($opts) = @_;
+
+    my $type= $opts->{type};
+
+    return '{{empty}}' if $type =~ /^(string|base64|hexBinary)/;
+    return '{{false}}' if $type eq 'boolean';
+    return '0';
+}
+
 # XXX want to be able to control level of generated info?
 sub html_template_list
 {
@@ -3977,7 +4015,7 @@ sub html_template_list
     my $type = $opts->{type};
     my $syntax = $opts->{syntax};
 
-    my $text = '&&&&list:Comma-separated ' . syntax_string($type, $syntax, 1);
+    my $text = '{{mark|list}}Comma-separated ' . syntax_string($type, $syntax, 1);
     if ($arg) {
         $text .= ', ' . $arg;
     }
@@ -3995,7 +4033,7 @@ sub html_template_keys
     my $uniqueKeys = $opts->{uniqueKeys};
     my $enableParameter = $opts->{enableParameter};
 
-    my $text = qq{&&&&keys:};
+    my $text = qq{{{mark|keys}}};
 
     my $enabled = $enableParameter ? qq{ enabled} : qq{};
     $text .= qq{At most one$enabled entry in this table } .
@@ -4070,16 +4108,18 @@ sub html_template_keys
 sub html_template_enum
 {
     my ($opts) = @_;
-    my $pref = ($opts->{atstart} || $opts->{newline}) ? "" : $opts->{list} ?
-        "Each entry in the list is an enumeration of:\n" : "Enumeration of:\n";
+    # XXX not using atstart (was "atstart or newline")
+    my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
+        "Each list item is an enumeration of:\n" : "Enumeration of:\n";
     return $pref . xml_escape(get_values($opts->{values}, 1));
 }
 
 sub html_template_pattern
 {
     my ($opts) = @_;
-    my $pref = ($opts->{atstart} || $opts->{newline}) ? "" : $opts->{list} ?
-        "Each entry in the list matches one of:\n" :
+    # XXX not using atstart (was "atstart or newline")
+    my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
+        "Each list item matches one of:\n" :
         "Possible patterns:\n";
     return $pref . xml_escape(get_values($opts->{values}, 1));
 }
@@ -4167,12 +4207,12 @@ sub html_template_reference
     my $reference = $opts->{reference};
     my $syntax = $opts->{syntax};
 
-    my $text = qq{&&&&reference:};
+    my $text = qq{{{mark|reference}}};
 
     # XXX it is assumed that this text will be generated after the {{list}}
     #     expansion (if a list)
     $text .= $list ?
-        qq{Each entry in the list } :
+        qq{Each list item } :
         qq{The value };
 
     if ($reference eq 'pathRef') {
@@ -4181,6 +4221,8 @@ sub html_template_reference
         my $targetParentScope = $syntax->{targetParentScope};
         my $targetType = $syntax->{targetType};
         my $targetDataType = $syntax->{targetDataType};
+
+        $targetType = 'any' unless $targetType;
 
         $targetParent = object_references($targetParent,
                                           $targetParentScope);
@@ -4198,6 +4240,7 @@ sub html_template_reference
             }
         } else {
             $targetType =~ s/single/single-instance object/;
+            $targetType =~ s/any/parameter or object/;
             if ($arg) {
                 $text .= $arg;
             } else {
@@ -4215,10 +4258,12 @@ sub html_template_reference
         }
         $text .= qq{.};
         if ($refType eq 'strong') {
+            $targetType =~ s/row/object/;
             $targetType =~ s/single.*/object/;
+            $targetType =~ s/parameter or object/item/;
             $text .= qq{  If the referenced $targetType is deleted, the };
             $text .= $list ?
-                qq{corresponding entry MUST be removed from the list.} :
+                qq{corresponding item MUST be removed from the list.} :
                 qq{parameter value MUST be set to {{empty}}.};
         }
 
@@ -4242,7 +4287,7 @@ sub html_template_reference
         if ($refType eq 'strong') {
             $text .= qq{  If the referenced row is deleted, the };
             $text .= $list ?
-                qq{corresponding entry MUST be removed from the list.} :
+                qq{corresponding item MUST be removed from the list.} :
                 qq{parameter value MUST be set to $nullValue.};
         }
 
@@ -5201,7 +5246,7 @@ B<report.pl> - generate report on XML TR-069 data model definitions
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--count] [--debugpath=pattern("")] [--detail] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--lastonly] [--modelonly] [--noautomodel] [--nocomments] [--nomodels] [--noprofiles] [--objpat=pattern("")] [--pedantic[=i(1)] [--profileonly] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--special=deprecated|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--verbose] [--writonly] data-model-definition-xml-file...
+B<report.pl> [--autobase] [--count] [--debugpath=pattern("")] [--detail] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--lastonly] [--marktemplates] [--modelonly] [--noautomodel] [--nocomments] [--nomodels] [--noprofiles] [--objpat=pattern("")] [--pedantic[=i(1)] [--profileonly] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--special=deprecated|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--verbose] [--writonly] data-model-definition-xml-file...
 
 =over
 
@@ -5254,6 +5299,10 @@ specifies a suffix which, if specified, will be appended (preceded by a hyphen) 
 reports only on items that were defined or modified in the last file that was specified on the command line
 
 note that the B<xml> report always does something similar but might not work properly if this option is specified
+
+=item B<--marktemplates>
+
+mark selected template expansions with B<&&&&> followed by the template name and a colon
 
 =item B<--noautomodel>
 
@@ -5373,6 +5422,6 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2008/12/22 $
+$Date: 2009/01/06 $
 
 =cut
