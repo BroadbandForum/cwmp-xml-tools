@@ -97,7 +97,7 @@ my $help = 0;
 my $ignore = '';
 my $importsuffix = '';
 my $lastonly = 0;
-my $marktemplates = '';
+my $marktemplates;
 my $modelonly = 0; # XXX deprecated
 my $noautomodel = 0;
 my $nocomments = 0;
