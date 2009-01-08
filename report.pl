@@ -4133,6 +4133,9 @@ sub html_template_paramref
     my $object = $opts->{object};
     my $param = $opts->{param};
 
+    print STDERR "$object$param: {{param}} argument unnecessary when ".
+        "referring to current parameter\n" if $pedantic && $name eq $param;
+
     my $path = relative_path($object, $name, $scope);
 
     my $invalid = $parameters->{$path} ? '' : '?';
@@ -4150,6 +4153,10 @@ sub html_template_objectref
 
     my $object = $opts->{object};
     my $param = $opts->{param};
+
+    # XXX this probably needs to be cleverer
+    print STDERR "$object$param: {{object}} argument unnecessary when ".
+        "referring to current object\n" if $pedantic && $name eq $object;
 
     my $path = relative_path($object, $name, $scope);
     my $path1 = $path;
@@ -5422,6 +5429,6 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/01/06 $
+$Date: 2009/01/08 $
 
 =cut
