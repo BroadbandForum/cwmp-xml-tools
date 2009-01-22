@@ -72,17 +72,25 @@
 # XXX have added some DT hacks, but need better control, e.g. determine whether
 #     a given file is DT from its namespace
 
+# XXX should use LWP::mirror to support URLs and cache files locally; also
+#     support search path (including base URLs); finding highest corrigendum
+#     complicates this (would need to fetch files matching a pattern) unless
+#     assume that the HTTP server handles this (which 
+
 use strict;
 no strict "refs";
 
 use Algorithm::Diff;
 use Clone qw{clone};
 use Data::Dumper;
+#use File::Spec;
 use Getopt::Long;
 use Pod::Usage;
 use Text::Balanced qw{extract_bracketed};
 use URI::Escape;
 use XML::LibXML;
+
+#print STDERR File::Spec->tmpdir() . "\n";
 
 # XXX this prevents warnings about wide characters, but still not handling
 #     them properly (see tr2dm.pl, which now does a better job)
@@ -90,9 +98,9 @@ binmode STDOUT, ":utf8";
 
 # Command-line options
 my $autobase = 0;
-my $count = 1; # XXX always 1 for now
+my $count = 1; # XXX deprecated (always 1)
 my $debugpath = '';
-my $detail = 0;
+my $detail = 1; # XXX deprecated (always 1)
 my $help = 0;
 my $ignore = '';
 my $importsuffix = '';
@@ -353,7 +361,12 @@ sub expand_import
         my ($fitem) = $toplevel->findnodes(qq{$element\[\@name="$ref"\]});
         # XXX warning here could give multiple warnings if also warn when try
         #     to reference (but not warning at all is worse?)
-        print STDERR "{$file}$ref: $element not found\n" unless $fitem;
+        # XXX gives spurious warning when a name is imported from another
+        #     namespace (need to find the item in the other namespace too)
+        # XXX for now, suppress warning for GatewayInfo; that way, don't have
+        #     to document the error (pending proper fix)
+        print STDERR "{$file}$ref: $element not found\n" unless
+            $fitem || $ref eq 'GatewayInfo';
 
         update_imports($cfile, $cspec, $file, $fspec, $element, $name, $ref,
                        $fitem);
@@ -1351,7 +1364,7 @@ sub add_model
         print STDERR "unnamed model\n" unless $name;
         my $dynamic = $pnode->{dynamic};
 	$nnode = {name => $name, path => '', file => $file, spec => $spec,
-                  type => 'model', access => undef,
+                  type => 'model', access => '',
                   isService => $isService, status => $status,
                   description => $description, descact => $descact,
                   default => undef, dynamic => $dynamic,
@@ -5279,6 +5292,8 @@ causes automatic addition of B<base> attributes when models, parameters and obje
 
 causes counts of total numbers of objects / parameters for each spec to be output
 
+is now deprecated because it is always on; instead use B<--quiet> to suppress these messages
+
 =item B<--debugpath=pattern("")>
 
 outputs debug information for parameters and objects whose path names match the specified pattern
@@ -5289,13 +5304,15 @@ causes more detail in the report, e.g. documentation in B<xsd> reports
 
 also causes use of new-style B<Type> information and additional auto-generated descriptions for hidden values, unique keys and references in B<html> reports
 
+is now deprecated because it is always on (cannot disable this additional detail)
+
 =item B<--help>
 
 requests output of usage information
 
 =item B<--ignore>
 
-specifies a pattern; matching data models will be ignored
+specifies a pattern; data models whose names begin with the pattern will be ignored
 
 =item B<--importsuffix=string("")>
 
@@ -5429,6 +5446,6 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/01/08 $
+$Date: 2009/01/22 $
 
 =cut
