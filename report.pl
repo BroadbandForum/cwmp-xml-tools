@@ -80,6 +80,9 @@
 # XXX $upnpdm is a hack; need a more clear distinction between path syntax
 #     used internally and path syntax used for presentation
 
+# XXX $components is a hack (need full xml2 report support in order to carry
+#     over unique keys, references etc)
+
 use strict;
 no strict "refs";
 
@@ -106,18 +109,21 @@ binmode STDOUT, ":utf8";
 # Command-line options
 my $autobase = 0;
 my $canonical = 0;
+my $components = 0;
 my $debugpath = '';
 my $dtprofiles = [];
 my $dtspec = 'urn:example-com:device-1-0-0';
 my $help = 0;
 my $ignore = '';
 my $importsuffix = '';
+my $info;
 my $lastonly = 0;
 my $marktemplates;
 my $noautomodel = 0;
 my $nocomments = 0;
 my $nolinks = 0;
 my $nomodels = 0;
+my $noobjects = 0;
 my $noprofiles = 0;
 my $objpat = '';
 my $pedantic;
@@ -131,18 +137,21 @@ my $verbose;
 my $writonly = 0;
 GetOptions('autobase' => \$autobase,
            'canonical' => \$canonical,
+           'components' => \$components,
            'debugpath:s' => \$debugpath,
            'dtprofile:s@' => \$dtprofiles,
            'dtspec:s' => \$dtspec,
 	   'help' => \$help,
            'ignore:s' => \$ignore,
            'importsuffix:s' => \$importsuffix,
+	   'info' => \$info,
            'lastonly' => \$lastonly,
 	   'marktemplates' => \$marktemplates,
 	   'noautomodel' => \$noautomodel,
 	   'nocomments' => \$nocomments,
 	   'nolinks' => \$nolinks,
 	   'nomodels' => \$nomodels,
+	   'noobjects' => \$noobjects,
 	   'noprofiles' => \$noprofiles,
 	   'objpat:s' => \$objpat,
 	   'pedantic:i' => \$pedantic,
@@ -165,6 +174,14 @@ unless (defined &{"${report}_node"}) {
     pod2usage(2);
 }
 
+if ($info) {
+    print STDERR q{$Author: wlupton $
+$Date: 2009/02/23 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#104 $
+};
+    exit(1);
+}
+
 *STDERR = *STDOUT if $report eq 'null';
 
 $marktemplates = '&&&&' if defined($marktemplates);
@@ -177,7 +194,7 @@ $verbose = 0 unless defined($verbose);
 
 $nocomments = 0 if $verbose;
 
-$noprofiles = 1 if @$dtprofiles;
+$noprofiles = 1 if $components || @$dtprofiles;
 
 # Globals.
 my $specs = [];
@@ -593,9 +610,13 @@ sub expand_model_component
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
+    my $Path = $context->[0]->{path};
 
     my $path = $component->findvalue('@path');
-    $path = '' unless defined $path;
+    # XXX this isn't doing anything, because $path is always defined; but
+    #     fixing this breaks other things; the problem that we are trying
+    #     to solve here is to propagate path to nested component references
+    $path = $Path unless defined $path;
     my $name = $component->findvalue('@ref');
 
     # XXX a kludge... will apply to the first items only (really want a way
@@ -651,7 +672,6 @@ sub expand_model_component
     ($pnode, $path) = add_path($context, $mnode, $pnode, $path, 0);
 
     # pass information from caller to the new component context
-    # XXX path is used only by profile components, which is a bit of a hack
     unshift @$context, {file => $file, spec => $spec, path => $spath,
                         name => $name,
                         previousParameter => $hash->{previousParameter},
@@ -940,10 +960,9 @@ sub expand_model_parameter
 
     my $syntax;
     if (defined($type)) {
-        # XXX not handling multiple ranges or sizes
+        # XXX not handling multiple sizes
         # XXX for a list, minLength and maxLength refer to the item
 	foreach my $attr (('@ref', '@base', '@maxLength',
-                           'range/@minInclusive', 'range/@maxInclusive',
                            'size/@minLength', 'size/@maxLength',
                            'instanceRef/@refType', 'instanceRef/@targetParent',
                            'instanceRef/@targetParentScope',
@@ -973,14 +992,31 @@ sub expand_model_parameter
         # XXX special case for nullValue; need to distinguish undef and empty
         my $nullValue = ($type->findnodes('enumerationRef/@nullValue'))[0];
         $syntax->{nullValue} = $nullValue->findvalue('.') if $nullValue;
+
+        # handle multiple ranges 
+        # XXX no support for status="deleted"
+        foreach my $range ($type->findnodes('range')) {
+            my $minInclusive = $range->findvalue('@minInclusive');
+            my $maxInclusive = $range->findvalue('@maxInclusive');
+            $minInclusive = undef if $minInclusive eq '';
+            $maxInclusive = undef if $maxInclusive eq '';
+            if (defined $minInclusive || defined $maxInclusive) {
+                push @{$syntax->{ranges}}, {minInclusive => $minInclusive,
+                                            maxInclusive => $maxInclusive};
+            }
+        }
     }
     $syntax->{hidden} = defined(($parameter->findnodes('syntax/@hidden'))[0]);
     $syntax->{list} = defined(($parameter->findnodes('syntax/list'))[0]);
     if ($syntax->{list}) {
         my $minItems = $parameter->findvalue('syntax/list/@minItems');
-        $syntax->{minItems} = $minItems if $minItems;
         my $maxItems = $parameter->findvalue('syntax/list/@maxItems');
-        $syntax->{maxItems} = $maxItems if $maxItems;
+        $minItems = undef if $minItems eq '';
+        $maxItems = undef if $maxItems eq '';
+        if (defined $minItems || defined $maxItems) {
+            push @{$syntax->{listRanges}}, {minInclusive => $minItems,
+                                            maxInclusive => $maxItems};
+        }
         my $maxLength = $parameter->findvalue('syntax/list/size/@maxLength');
         $syntax->{maxListLength} = $maxLength if $maxLength;
     }
@@ -1238,7 +1274,8 @@ sub expand_model_profile_object
 
     # XXX need bad hyperlink to be visually apparent
     unless ($objects->{$name}) {
-	print STDERR "profile $Pnode->{name} references invalid $name\n";
+	print STDERR "profile $Pnode->{name} references invalid $name\n"
+            unless $noprofiles;
     }
 
     # XXX should check that access matches the referenced object's access
@@ -1319,7 +1356,8 @@ sub expand_model_profile_parameter
 
     # XXX need bad hyperlink to be visually apparent
     unless ($parameters->{$path}) {
-	print STDERR "profile $Pnode->{name} references invalid $path\n";
+	print STDERR "profile $Pnode->{name} references invalid $path\n"
+            unless $noprofiles;
     } elsif ($access ne 'readOnly' &&
              $parameters->{$path}->{access} eq 'readOnly') {
 	print STDERR "profile $Pnode->{name} has invalid requirement ".
@@ -2369,7 +2407,7 @@ sub type_string
 }
 
 # Form a "type", "string(maxLength)" or "int[minInclusive:maxInclusive]" syntax
-# string
+# string (multiple ranges are supported)
 sub syntax_string
 {
     my ($type, $syntax, $human) = @_;
@@ -2380,8 +2418,7 @@ sub syntax_string
     my ($value, $unsigned) = ($typeinfo->{value}, $typeinfo->{unsigned});
 
     $value .= add_size($syntax, {human => $human, item => 1});
-    $value .= add_range($syntax, {human => $human, unsigned => $unsigned,
-                                  item => 1});
+    $value .= add_range($syntax, {human => $human, unsigned => $unsigned});
 
     if ($list) {
         $value = 'list' .
@@ -2451,31 +2488,44 @@ sub add_size
     return $value;
 }
 
-# Add range or list range to type / value string
+# Add ranges or list ranges to type / value string
 sub add_range
 {
     my ($syntax, $opts) = @_;
 
-    my $minInclusive = $opts->{list} ? 'minItems' : 'minInclusive';
-    my $maxInclusive = $opts->{list} ? 'maxItems' : 'maxInclusive';
+    my $ranges = $opts->{list} ? 'listRanges' : 'ranges';
+    return '' unless defined $syntax->{$ranges} && @{$syntax->{$ranges}};
 
     my $value = '';
 
-    if (defined $syntax->{$minInclusive} || defined $syntax->{$maxInclusive}) {
+    # all ranges guarantee to have a defined minval or maxval (or both)
+
+    $value .= !$opts->{human} ? '[' : ' (';
+
+    my $first = 1;
+    foreach my $range (@{$syntax->{$ranges}}) {
+        my $minval = $range->{minInclusive};
+        my $maxval = $range->{maxInclusive};
+
         if (!$opts->{human}) {
-            $value .= '[';
-            $value .= $syntax->{$minInclusive} if
-                defined $syntax->{$minInclusive};
-            $value .= ':';
-            $value .= $syntax->{$maxInclusive} if
-                defined $syntax->{$maxInclusive};
-            $value .= ']';
+#JAB - NEW CODE, Added a space after ',', if min=max, then only put one of them
+            $value .= ', ' unless $first;
+            if (defined $minval && defined $maxval && $minval == $maxval) {
+                $value .= $minval if defined $minval;
+            } else {
+                $value .= $minval if defined $minval;
+                $value .= ':';
+                $value .= $maxval if defined $maxval;
+            }
+#JAB - OLD CODE
+#            $value .= ',' unless $first;
+#            $value .= $minval if defined $minval;
+#            $value .= ':';
+#            $value .= $maxval if defined $maxval;
         } else {
+            $value .= ', ' unless $first;
             # XXX default minimum to 0 for unsigned types
-            my $minval = defined $syntax->{$minInclusive} ?
-                $syntax->{$minInclusive} : $opts->{unsigned} ? 0 : undef;
-            my $maxval = $syntax->{$maxInclusive};
-            $value .= ' (';
+            $minval = 0 if $opts->{unsigned} && !defined $minval;
             if (defined $minval && defined $maxval) {
                 $value .= 'range ' . $minval . ' to ' . $maxval;
             } elsif (defined $minval) {
@@ -2484,9 +2534,11 @@ sub add_range
                 $value .= 'maximum ' . $maxval;
             }
             $value .= ' items' if $opts->{list};
-            $value .= ')';
         }
+        $first = 0;
     }
+
+    $value .= !$opts->{human} ? ']' : ')';
 
     return $value;
 }
@@ -3046,8 +3098,9 @@ $i             spec="$lspec">
             my $list = $syntax->{list};
             my $minLength = $syntax->{minLength};
             my $maxLength = $syntax->{maxLength};
-            my $minInclusive = $syntax->{minInclusive};
-            my $maxInclusive = $syntax->{maxInclusive};
+            # XXX not supporting multiple ranges
+            my $minInclusive = $syntax->{ranges}->[0]->{minInclusive};
+            my $maxInclusive = $syntax->{ranges}->[0]->{maxInclusive};
             my $values = $node->{values};
             my $default = $node->{default};
             my $defstat = $node->{defstat};
@@ -3226,7 +3279,7 @@ $i  </import>
 };
         } else {
             my $temp = util_list($dtprofiles);
-            print qq{$i  <description>Auto-generated from $temp profiles.</description>\n};
+            print qq{$i  <annotation>Auto-generated from $temp profiles.</annotation>\n};
             # XXX special case code from xml_node (could generalize)
             my $limports = $imports->{$lfile};
             print qq{$i  <import file="$lfile.xml" spec="$lspec">\n};        
@@ -3273,14 +3326,29 @@ $i  </import>
             }
             # XXX why oh why?
             $xml2_objact = undef;
+            return if $components;
         } elsif ($element eq 'object') {
             $i = '    ';
             if ($xml2_objact) {
+                print qq{$i<!--\n} if $noobjects;
                 print qq{$i</object>\n};
+                print qq{$i-->\n} if $noobjects;
+                print qq{  </component>\n} if $components;
                 $xml2_objact = undef;
             }
             $node->{xml2}->{action} = 'object' unless $indent == 2;
             $xml2_objact = $node;
+            if ($components) {
+                my $cname = $name;
+                $cname =~ s/\{i\}/i/g;
+                $cname =~ s/\./_/g;
+                $cname =~ s/_$//;
+                $cname =~ s/$/_params/ if $noobjects;
+                $name =~ s/\.\{i\}/\{i\}/g;
+                $name =~ s/.*\.([^\.]+\.)$/$1/;
+                $name =~ s/\{i\}/\.\{i\}/g;
+                print qq{  <component name="$cname">\n};
+            }
             if (@$dtprofiles) {
                 $access = object_requirement($dtprofiles, $path);
                 if (!$access) {
@@ -3347,10 +3415,11 @@ $i  </import>
         $description = xml_escape($description);
 
         my $end_element = (@{$node->{nodes}} || $description || $syntax) ? '' : '/';
-
+        print qq{$i<!--\n} if $element eq 'object' && $noobjects;
         print qq{$i<$element$name$base$ref$access$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$end_element>\n};
         print qq{$i  <description>$description</description>\n} if
             $description;
+        print qq{$i-->\n} if $element eq 'object' && $noobjects;
 
         # XXX this is almost verbatim from xml_node
         if ($syntax) {
@@ -3360,8 +3429,9 @@ $i  </import>
             my $list = $syntax->{list};
             my $minLength = $syntax->{minLength};
             my $maxLength = $syntax->{maxLength};
-            my $minInclusive = $syntax->{minInclusive};
-            my $maxInclusive = $syntax->{maxInclusive};
+            # XXX not supporting multiple ranges
+            my $minInclusive = $syntax->{ranges}->[0]->{minInclusive};
+            my $maxInclusive = $syntax->{ranges}->[0]->{maxInclusive};
             my $values = $node->{values};
             my $default = $node->{default};
             my $defstat = $node->{defstat};
@@ -3449,10 +3519,19 @@ sub xml2_post
     my $element = $xml2->{element};
     my $i = $xml2->{indent};
 
+    my $object = $element eq 'object';
     if ($action eq 'close' && defined $i) {
-        print qq{$i</$element>\n} if
-            $element ne 'object' || $xml2_objact;
-        $xml2_objact = {} if $element eq 'object';
+        if (!$object || $xml2_objact) {
+            print qq{$i<!--\n} if $object && $noobjects;
+            print qq{$i</$element>\n};
+            print qq{$i-->\n} if $object && $noobjects;
+            if ($components && $object) {
+                print qq{  </component>\n};
+            }
+            if ($xml2_objact && $object) {
+                $xml2_objact = {};
+            }
+        }
     }
 }
 
@@ -4560,12 +4639,20 @@ sub html_template_reference
 {
     my ($opts, $arg) = @_;
 
+    my $path = $opts->{path};
     my $type = $opts->{type};
     my $list = $opts->{list};
     my $reference = $opts->{reference};
     my $syntax = $opts->{syntax};
 
-    my $text = qq{{{mark|reference}}};
+    my $text = qq{};
+
+    if (!defined $reference) {
+        print STDERR "$path: {{reference}} used on non-reference parameter\n";
+        return qq{[[reference]]};
+    }
+
+    $text .= qq{{{mark|reference}}};
 
     # XXX it is assumed that this text will be generated after the {{list}}
     #     expansion (if a list)
@@ -4811,8 +4898,11 @@ sub html_hyperlink
 {
     my ($inval) = @_;
 
-    # XXX need better set of URL characters
-    $inval =~ s|([a-z]+://[\w\d\.\:\/\?\&\=]+)|<a href="$1">$1</a>|g;
+    # XXX need a better set of URL characters
+    my $last = q{\w\d\:\/\?\&\=\-};
+    my $notlast = $last . q{\.};
+#   $inval =~ s|([a-z]+://[\w\d\.\:\/\?\&\=-]+)|<a href="$1">$1</a>|g;
+    $inval =~ s|([a-z]+://[$notlast]*[$last])|<a href="$1">$1</a>|g;
 
     return $inval;
 }
@@ -5461,6 +5551,11 @@ sub sanity_node
     my $enableParameter = $node->{enableParameter};
     my $description = $node->{description};
 
+    # XXX not sure that I should have to do this (is needed for auto-created
+    #     objects, for which minEntries and maxEntries are undefined)
+    $minEntries = '1' unless defined $minEntries;
+    $maxEntries = '1' unless defined $maxEntries;
+
     my $object = ($type && $type eq 'object');
     my $parameter = ($type &&
                      $type !~ /model|object|profile|parameterRef|objectRef/);
@@ -5660,7 +5755,7 @@ B<report.pl> - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--canonical] [--debugpath=pattern("")] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noprofiles] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--special=deprecated|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--writonly] DM-instance...
+B<report.pl> [--autobase] [--canonical] [--components] [--debugpath=pattern("")] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noprofiles] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--special=deprecated|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--writonly] DM-instance...
 
 =over
 
@@ -5676,6 +5771,8 @@ The script parses, validates (ahem) and reports on these files, generating outpu
 
 =head1 OPTIONS
 
+=over
+
 =item B<--autobase>
 
 causes automatic addition of B<base> attributes when models, parameters and objects are re-defined, and suppression of redefinition warnings (useful when processing auto-generated data model definitions)
@@ -5683,6 +5780,10 @@ causes automatic addition of B<base> attributes when models, parameters and obje
 =item B<--canonical>
 
 affects only the B<xml2> report; causes descriptions to be processed into a canonical form that eases comparison with the original Microsoft Word descriptions
+
+=item B<--components>
+
+affects only the B<xml2> report; generates a component for each object; if B<--noobjects> is also specified, the component omits the object definition and consists only of parameter definitions
 
 =item B<--debugpath=pattern("")>
 
@@ -5707,6 +5808,10 @@ specifies a pattern; data models whose names begin with the pattern will be igno
 =item B<--importsuffix=string("")>
 
 specifies a suffix which, if specified, will be appended (preceded by a hyphen) to the name part of any imported files in b<xml> reports
+
+=item B<--info>
+
+output details of author, date, version etc
 
 =item B<--lastonly>
 
@@ -5733,6 +5838,10 @@ affects only the B<html> report; disables generation of hyperlinks (which makes 
 =item B<--nomodels>
 
 specifies that model definitions should not be reported
+
+=item B<--noobjects>
+
+affects only the B<xml2> report when B<--components> is specified; omits objects from component definitions
 
 =item B<--noprofiles>
 
@@ -5782,7 +5891,7 @@ DM XML containing only the changes made by the final file on the command line; s
 
 =item B<xml2>
 
-XML that is similar to the input but with all imports resolved; by default is DM XML; use B<--dtprofile>, optionally with B<--dtspec>, to generate DT XML for the specified profiles; use B<--canonical> to generate canonical and more easily compared descriptions
+XML that is similar to the input but with all imports resolved; by default is DM XML; use B<--dtprofile>, optionally with B<--dtspec>, to generate DT XML for the specified profiles; use B<--canonical> to generate canonical and more easily compared descriptions; use B<--components> (perhaps with B<--noobjects>) to generate component definitions
 
 =item B<xsd>
 
@@ -5844,6 +5953,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/02/06 $
+$Date: 2009/02/23 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#104 $
 
 =cut
