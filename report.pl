@@ -97,7 +97,7 @@ use URI::Escape;
 use XML::LibXML;
 
 # XXX these have to match the current version of the DT schema
-my $dturn = qq{urn:broadband-forum-org:cwmp:devicetype-0-2};
+my $dturn = qq{urn:broadband-forum-org:cwmp:devicetype-0-8};
 my $dtloc = qq{cwmp-devicetype.xsd};
 
 #print STDERR File::Spec->tmpdir() . "\n";
@@ -125,6 +125,7 @@ my $nolinks = 0;
 my $nomodels = 0;
 my $noobjects = 0;
 my $noprofiles = 0;
+my $notemplates = 0;
 my $objpat = '';
 my $pedantic;
 my $quiet = 0;
@@ -153,6 +154,7 @@ GetOptions('autobase' => \$autobase,
 	   'nomodels' => \$nomodels,
 	   'noobjects' => \$noobjects,
 	   'noprofiles' => \$noprofiles,
+	   'notemplates' => \$notemplates,
 	   'objpat:s' => \$objpat,
 	   'pedantic:i' => \$pedantic,
 	   'quiet' => \$quiet,
@@ -176,8 +178,8 @@ unless (defined &{"${report}_node"}) {
 
 if ($info) {
     print STDERR q{$Author: wlupton $
-$Date: 2009/02/23 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#104 $
+$Date: 2009/04/29 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#111 $
 };
     exit(1);
 }
@@ -500,16 +502,22 @@ sub expand_bibliography
             if ($dupref->{spec} eq $spec) {
                 # this isn't necessarily a problem; it can happen if two files
                 # with the same spec are processed
-                print STDERR "$id: duplicate bibref {$file}$name\n";
+                print STDERR "$id: duplicate bibref: {$file}$name\n"
+                    if $verbose;
             } elsif ($dupref->{name} ne $name) {
-                print STDERR "$id: ambiguous bibref: $dupref->{name}, $name\n";
+                print STDERR "$id: ambiguous bibref: ".
+                    "{$dupref->{file}}$dupref->{name}, {$file}$name\n";
+            } else {
+                print STDERR "$id: duplicate bibref: ".
+                    "{$dupref->{file}}$dupref->{name}, {$file}$name\n"
+                    if $verbose;
             }
         }
 
         print STDERR "expand_bibliography_reference id=$id name=$name\n" if
             $verbose > $vlevel;
 
-        my $hash = {id => $id, name => $name};
+        my $hash = {id => $id, name => $name, file => $file};
         foreach my $element (qw{title organization category date hyperlink}) {
             my $value = $reference->findvalue($element);
             $hash->{$element} = $value ? $value : '';
@@ -998,11 +1006,15 @@ sub expand_model_parameter
         foreach my $range ($type->findnodes('range')) {
             my $minInclusive = $range->findvalue('@minInclusive');
             my $maxInclusive = $range->findvalue('@maxInclusive');
+            my $step = $range->findvalue('@step');
             $minInclusive = undef if $minInclusive eq '';
             $maxInclusive = undef if $maxInclusive eq '';
-            if (defined $minInclusive || defined $maxInclusive) {
+            $step = undef if $step eq '';
+            if (defined $minInclusive || defined $maxInclusive ||
+                defined $step) {
                 push @{$syntax->{ranges}}, {minInclusive => $minInclusive,
-                                            maxInclusive => $maxInclusive};
+                                            maxInclusive => $maxInclusive,
+                                            step => $step};
             }
         }
     }
@@ -2506,9 +2518,11 @@ sub add_range
     foreach my $range (@{$syntax->{$ranges}}) {
         my $minval = $range->{minInclusive};
         my $maxval = $range->{maxInclusive};
+        my $step = $range->{step};
+
+        $step = 1 unless defined $step;
 
         if (!$opts->{human}) {
-#JAB - NEW CODE, Added a space after ',', if min=max, then only put one of them
             $value .= ', ' unless $first;
             if (defined $minval && defined $maxval && $minval == $maxval) {
                 $value .= $minval if defined $minval;
@@ -2516,12 +2530,9 @@ sub add_range
                 $value .= $minval if defined $minval;
                 $value .= ':';
                 $value .= $maxval if defined $maxval;
+                $value .= ':' if $step != 1;
+                $value .= $step if $step != 1;
             }
-#JAB - OLD CODE
-#            $value .= ',' unless $first;
-#            $value .= $minval if defined $minval;
-#            $value .= ':';
-#            $value .= $maxval if defined $maxval;
         } else {
             $value .= ', ' unless $first;
             # XXX default minimum to 0 for unsigned types
@@ -2600,6 +2611,10 @@ sub parse_file
         unless $root->{schemaLocation} &&
         $root->{schemaLocation} =~ /cwmp:datamodel-report-/;
     $root->{schemaLocation} =~ s/\s+/ /g;
+
+    # XXX if no dmr, use default
+    $root->{dmr} = "urn:broadband-forum-org:cwmp:datamodel-report-0-1"
+        unless $root->{dmr};
 
     return $toplevel;
 }
@@ -3101,6 +3116,7 @@ $i             spec="$lspec">
             # XXX not supporting multiple ranges
             my $minInclusive = $syntax->{ranges}->[0]->{minInclusive};
             my $maxInclusive = $syntax->{ranges}->[0]->{maxInclusive};
+            my $step = $syntax->{ranges}->[0]->{step};
             my $values = $node->{values};
             my $default = $node->{default};
             my $defstat = $node->{defstat};
@@ -3116,6 +3132,7 @@ $i             spec="$lspec">
                 qq{ minInclusive="$minInclusive"} : qq{};
             $maxInclusive = defined $maxInclusive && $maxInclusive ne '' ?
                 qq{ maxInclusive="$maxInclusive"} : qq{};
+            $step = defined $step && $step ne '' ? qq{ step="$step"} : qq{};
             $defstat = $defstat ne 'current' ? qq{ status="$defstat"} : qq{};
 
             print qq{$i  <syntax$hidden>\n};
@@ -3127,12 +3144,12 @@ $i             spec="$lspec">
                 $minLength = $maxLength = undef;
             }
             my $ended = ($minLength || $maxLength || $minInclusive ||
-                         $maxInclusive || %$values) ? '' : '/';
+                         $maxInclusive || $step || %$values) ? '' : '/';
             print qq{$i    <$type$ref$base$ended>\n};
             print qq{$i      <size$minLength$maxLength/>\n} if
                 $minLength || $maxLength;
-            print qq{$i      <range$minInclusive$maxInclusive/>\n} if
-                $minInclusive || $maxInclusive;
+            print qq{$i      <range$minInclusive$maxInclusive$step/>\n} if
+                $minInclusive || $maxInclusive || $step;
             foreach my $value (sort {$values->{$a}->{i} <=>
                                      $values->{$b}->{i}} keys %$values) {
                 my $evalue = xml_escape($value);
@@ -3171,6 +3188,7 @@ $i             spec="$lspec">
     }
 }
 
+# XXX could use postpar as is done for the xml2 report
 sub xml_post
 {
     my ($node, $indent) = @_;
@@ -3225,9 +3243,6 @@ sub xml_changed
 #
 # XXX doesn't do a complete job
 # XXX this COULD be merged with the other XML report... I suppose...
-# XXX objact (etc) is horrible but is necessary to force all objects to be
-#     defined at the top level (should handle above this level)
-my $xml2_objact = undef;
 
 sub xml2_node
 {
@@ -3237,10 +3252,9 @@ sub xml2_node
 
     my $type = $node->{type};
     my $element = $type;
+    $node->{xml2}->{element} = $element;
 
     my $i = "  " x $indent;
-
-    $node->{xml2} = {action => 'close', element => $type};
 
     # use indent as a first-time flag
     if (!$indent) {
@@ -3260,6 +3274,7 @@ sub xml2_node
         }
 
         $element = qq{$d:document};
+        $node->{xml2}->{element} = $element;
         print qq{$i<?xml version="1.0" encoding="UTF-8"?>
 $i<!-- \$Id\$ -->
 $i<!-- note: this is an automatically generated XML report -->
@@ -3324,20 +3339,9 @@ $i  </import>
                 $ref = $name;
                 $name = '';
             }
-            # XXX why oh why?
-            $xml2_objact = undef;
             return if $components;
         } elsif ($element eq 'object') {
             $i = '    ';
-            if ($xml2_objact) {
-                print qq{$i<!--\n} if $noobjects;
-                print qq{$i</object>\n};
-                print qq{$i-->\n} if $noobjects;
-                print qq{  </component>\n} if $components;
-                $xml2_objact = undef;
-            }
-            $node->{xml2}->{action} = 'object' unless $indent == 2;
-            $xml2_objact = $node;
             if ($components) {
                 my $cname = $name;
                 $cname =~ s/\{i\}/i/g;
@@ -3351,8 +3355,11 @@ $i  </import>
             }
             if (@$dtprofiles) {
                 $access = object_requirement($dtprofiles, $path);
+                # XXX this is risky because it assumes that there will be
+                #     no parameters; mark the element empty so it won't be
+                #     closed (also see below for parameter check)
                 if (!$access) {
-                    $xml2_objact = undef;
+                    $node->{xml2}->{element} = '';
                     return;
                 }
                 $ref = $name;
@@ -3363,11 +3370,17 @@ $i  </import>
                 $descact = 'replace';
             }
         } elsif ($syntax) {
-            $i = $xml2_objact ? '      ' : '    ';
+            $i = $node->{pnode}->{type} eq 'object' ? '      ' : '    ';
             $element = 'parameter';
-            $node->{xml2}->{action} = 'none';
+            $node->{xml2}->{element} = $element;
             if (@$dtprofiles) {
                 $access = parameter_requirement($dtprofiles, $path);
+                # XXX see above for how element can be empty
+                if ($node->{pnode}->{xml2}->{element} eq '') {
+                    print STDERR "$path: ignoring because parent not in ".
+                        "profile\n" if $verbose > 1;
+                    return;
+                }
                 if (!$access) {
                     return;
                 }
@@ -3388,7 +3401,7 @@ $i  </import>
             $requirement = $access;
             $access = '';
             $element = $1; # parameter or object
-            $node->{xml2}->{action} = 'none' if $element eq 'parameter';
+            $node->{xml2}->{element} = $element;
         }
 
         $name = $name ? qq{ name="$name"} : qq{};
@@ -3432,6 +3445,7 @@ $i  </import>
             # XXX not supporting multiple ranges
             my $minInclusive = $syntax->{ranges}->[0]->{minInclusive};
             my $maxInclusive = $syntax->{ranges}->[0]->{maxInclusive};
+            my $step = $syntax->{ranges}->[0]->{step};
             my $values = $node->{values};
             my $default = $node->{default};
             my $defstat = $node->{defstat};
@@ -3450,6 +3464,7 @@ $i  </import>
                 qq{ minInclusive="$minInclusive"} : qq{};
             $maxInclusive = defined $maxInclusive && $maxInclusive ne '' ?
                 qq{ maxInclusive="$maxInclusive"} : qq{};
+            $step = defined $step && $step ne '' ? qq{ step="$step"} : qq{};
             $defstat = $defstat ne 'current' ? qq{ status="$defstat"} : qq{};
 
             print qq{$i  <syntax$hidden>\n};
@@ -3461,12 +3476,12 @@ $i  </import>
                 $minLength = $maxLength = undef;
             }
             my $ended = ($minLength || $maxLength || $minInclusive ||
-                         $maxInclusive || %$values) ? '' : '/';
+                         $maxInclusive || $step || %$values) ? '' : '/';
             print qq{$i    <$type$ref$base$ended>\n};
             print qq{$i      <size$minLength$maxLength/>\n} if
                 $minLength || $maxLength;
-            print qq{$i      <range$minInclusive$maxInclusive/>\n} if
-                $minInclusive || $maxInclusive;
+            print qq{$i      <range$minInclusive$maxInclusive$step/>\n} if
+                $minInclusive || $maxInclusive || $step;
             foreach my $value (sort {$values->{$a}->{i} <=>
                                      $values->{$b}->{i}} keys %$values) {
                 my $evalue = xml_escape($value);
@@ -3500,39 +3515,46 @@ $i  </import>
             print qq{$i    <default type="object" value="$default"$defstat/>\n}
             if defined $default;
             print qq{$i  </syntax>\n};
+            # XXX hack
+            print qq{$i</parameter>\n};
         }
-
-        $node->{xml2}->{action} = ($node->{xml2}->{action} eq 'object' ||
-                                   $end_element) ? 'none' : 'close';
     }
-    $node->{xml2}->{indent} = $i;
-    $node->{xml2}->{element} = $element;
 }
 
-# XXX this is sooo... horrible...
-sub xml2_post
+# this is called (for objects only) after all parameters
+sub xml2_postpar
 {
     my ($node) = @_;
 
-    my $xml2 = $node->{xml2};
-    my $action = $xml2->{action};
-    my $element = $xml2->{element};
-    my $i = $xml2->{indent};
+    # XXX this catches the case where an object wasn't mentioned in any
+    #     profiles and so no <object> element was output
+    my $element = $node->{xml2}->{element};
+    return unless $element;
 
-    my $object = $element eq 'object';
-    if ($action eq 'close' && defined $i) {
-        if (!$object || $xml2_objact) {
-            print qq{$i<!--\n} if $object && $noobjects;
-            print qq{$i</$element>\n};
-            print qq{$i-->\n} if $object && $noobjects;
-            if ($components && $object) {
-                print qq{  </component>\n};
-            }
-            if ($xml2_objact && $object) {
-                $xml2_objact = {};
-            }
-        }
+    my $i = '    ';
+
+    print qq{$i<!--\n} if $noobjects;
+    print qq{$i</object>\n};
+    print qq{$i-->\n} if $noobjects;
+    if ($components) {
+        print qq{  </component>\n};
     }
+}
+
+# this is used only to close model (if not generating components) and top-level
+# elements
+sub xml2_post
+{
+    my ($node, $indent) = @_;
+
+    $indent = 0 unless $indent;
+    return if $indent > 1;
+    return if $components && $indent > 0;
+
+    my $element = $node->{xml2}->{element};
+
+    my $i = "  " x $indent;
+    print qq{$i</$element>\n};
 }
 
 # Determine maximum requirement for a given object across a set of profiles
@@ -3550,8 +3572,13 @@ sub object_requirement
         $maxreq = $req if $req > $maxreq;
     }
 
-    # XXX proposal (especially present => readOnly):
-    $maxreq = {0 => '', 1 => '', 2 => 'readOnly', 3 => 'create',
+    # XXX special case, force "present" for "Device." and
+    #     "InternetGatewayDevice."
+    $maxreq = 2 if !$maxreq && $path =~ /^(InternetGateway)?Device\.$/;
+
+    # XXX treat "notSpecified" as readOnly, since a profile definition can
+    #     say "notSpecified" for an object and then reference its parameters
+    $maxreq = {0 => '', 1 => 'readOnly', 2 => 'readOnly', 3 => 'create',
                4 => 'delete', 5 => 'createDelete'}->{$maxreq};
 
     return $maxreq;
@@ -4110,7 +4137,7 @@ sub html_escape {
     #     here
     unless ($opts->{nomarkup}) {
         $value = html_whitespace($value);
-        $value = html_template($value, $opts);
+        $value = html_template($value, $opts) unless $notemplates;
         # XXX here is the place to escape HTML-special characters
         $value = html_verbatim($value);
         $value = html_list($value);
@@ -5253,15 +5280,15 @@ sub xsd_escape {
 }
 
 # special report of node.
+my $special_object = '';
+my $special_profile = '';
 my $special_profiles = {};
 my $special_newitems = [];
 my $special_items = [];
 
-sub special_begin {}
-
 sub special_node
 {
-    my ($node, $pnode, $profile, $object) = @_;
+    my ($node, $pnode) = @_;
 
     my $type = $node->{type};
     my $path = $node->{path};
@@ -5271,16 +5298,16 @@ sub special_node
 
     # check for new profile
     if ($type eq 'profile') {
-        $profile = $name;
+        $special_profile = $name;
     }
 
     # collect current profile definition
-    elsif ($profile) {
-        if ($type eq 'object') {
-            $object = $name;
-            $special_profiles->{$profile}->{$object} = 1;
+    elsif ($special_profile) {
+        if ($type eq 'objectRef') {
+            $special_object = $name;
+            $special_profiles->{$special_profile}->{$special_object} = 1;
         } else {
-            $special_profiles->{$profile}->{$object.$name} = 1;
+            $special_profiles->{$special_profile}->{$special_object.$name} = 1;
         }
     }
 
@@ -5293,10 +5320,6 @@ sub special_node
     # XXX should include values too but these don't currently support the
     #     same interface
     push @$special_items, $node;
-
-    foreach my $child (@{$node->{nodes}}) {
-        special_node($child, $node, $profile, $object);
-    }
 }
 
 sub special_end
@@ -5322,6 +5345,26 @@ sub special_end
                 if (@$found) {
                     print "$path\t" . join(",", @$found) . "\n";
                 }            
+            }
+        }
+    }
+
+    # nonascii: for each item (model, object, parameter, value or profile),
+    # report use of non-ASCII characters
+    # XXX really should simply check all instances of the "description"
+    #     element
+    elsif ($special eq 'nonascii') {
+        # ref. TR-106a2 A.2.2.1: ASCII range 9-10 and 32-126
+        my $patt = q{[^\x09-\x0a\x20-\x7e]};
+        foreach my $item (@$special_items) {
+            my $path = $item->{path};
+            #next unless $path; # profile items have no path
+            my $description = $item->{description};
+            next unless $description; # some parameters and objects omit it
+            $description =~ s/\s+/ /g;
+            if ($description =~ /$patt/) {
+                $description =~ s/($patt)/**$1**/g;
+                print "$path\t$description\n";
             }
         }
     }
@@ -5577,10 +5620,19 @@ sub sanity_node
         print STDERR "$path: $objpar has empty description\n"
             if $pedantic > 1 && defined($description) && $description eq '' &&
             $status ne 'deleted';
-        # XXX should check all descriptions, not just obj / par ones
+        # XXX should check all descriptions, not just obj / par ones (now
+        #     better: checking enumeration descriptions)
         my $ibr = invalid_bibrefs($description);
         print STDERR "$path: invalid bibrefs: " . join(', ', @$ibr) . "\n" if
             @$ibr;
+        foreach my $value (keys %$values) {
+            my $cvalue = $values->{$value};
+
+            my $description = $cvalue->{description};
+            my $ibr = invalid_bibrefs($description);
+            print STDERR "$path: invalid bibrefs: " . join(', ', @$ibr) .
+                "\n" if @$ibr;
+        }
     }
 
     # object sanity checks
@@ -5667,6 +5719,15 @@ sub sanity_node
     }    
 }
 
+foreach my $reference (sort {$a->{id} cmp $b->{id}}
+                       @{$root->{bibliography}->{references}}) {
+    my $id = $reference->{id};
+    my $spec = $reference->{spec};
+    
+    next if ($spec ne $lspec);    
+    print STDERR "reference $id not used\n" unless $bibrefs->{$id};
+}
+            
 sanity_node($root);
 
 # Report top-level nodes.
@@ -5712,6 +5773,14 @@ sub report_node
         shift; shift;
     }
 
+    # XXX it's convenient to have a hook that is called after the parameter
+    #     children and before the object children, e.g. where the report does
+    #     not nest objects (need to integrate this properly)
+    unshift @_, $node, $indent;
+    "${report}_postpar"->(@_) if
+        $node->{type} eq 'object' && defined &{"${report}_postpar"};
+    shift; shift;
+
     foreach my $child (@{$node->{nodes}}) {
         unshift @_, ($child, $indent);
 	report_node(@_) if
@@ -5755,7 +5824,7 @@ B<report.pl> - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--canonical] [--components] [--debugpath=pattern("")] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noprofiles] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--special=deprecated|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--writonly] DM-instance...
+B<report.pl> [--autobase] [--canonical] [--components] [--debugpath=pattern("")] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noprofiles] [--notemplates] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--writonly] DM-instance...
 
 =over
 
@@ -5847,6 +5916,10 @@ affects only the B<xml2> report when B<--components> is specified; omits objects
 
 specifies that profile definitions should not be reported
 
+=item B<--notemplates>
+
+suppresses template expansion (currently affects only B<html> reports
+
 =item B<--objpat=pattern>
 
 specifies an object name pattern (a regular expression); objects that do not match this pattern will be ignored (the default of "" matches all objects)
@@ -5867,7 +5940,7 @@ specifies the report format; one of the following:
 
 =item B<html>
 
-HTML document; see also B<--nolinks>
+HTML document; see also B<--nolinks> and B<--notemplates>
 
 =item B<null>
 
@@ -5899,11 +5972,19 @@ W3C schema
 
 =back
 
-=item B<--special=normative|notify|profile|rfc>
+=item B<--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc>
 
 performs special checks, most of which assume that several versions of the same data model have been supplied on the command line, and many of which operate only on the highest version of the data model
 
 =over
+
+=item B<deprecated>, B<obsoleted>
+
+for each profile item (object or parameter) report if it is deprecated or obsoleted
+
+=item B<nonascii>
+
+check which model, object, parameter or profile descriptions contain characters other than ASCII 9-10 or 32-126; the output is the full path names of all such items, together with the offending descriptions with the invalid characters surrounded by pairs of asterisks
 
 =item B<normative>
 
@@ -5953,7 +6034,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/02/23 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#104 $
+$Date: 2009/04/29 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#111 $
 
 =cut
