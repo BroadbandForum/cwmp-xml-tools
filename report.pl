@@ -135,6 +135,7 @@ my $thisonly = 0;
 my $ugly = 0;
 my $upnpdm = 0;
 my $verbose;
+my $warndupbibref = 0;
 my $writonly = 0;
 GetOptions('autobase' => \$autobase,
            'canonical' => \$canonical,
@@ -164,6 +165,7 @@ GetOptions('autobase' => \$autobase,
            'upnpdm' => \$upnpdm,
            'ugly' => \$ugly,
 	   'verbose:i' => \$verbose,
+           'warndupbibref' => \$warndupbibref,
 	   'writonly' => \$writonly) or pod2usage(2);
 pod2usage(2) if $report && $special;
 pod2usage(1) if $help;
@@ -178,8 +180,8 @@ unless (defined &{"${report}_node"}) {
 
 if ($info) {
     print STDERR q{$Author: wlupton $
-$Date: 2009/04/29 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#111 $
+$Date: 2009/05/11 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#114 $
 };
     exit(1);
 }
@@ -503,14 +505,14 @@ sub expand_bibliography
                 # this isn't necessarily a problem; it can happen if two files
                 # with the same spec are processed
                 print STDERR "$id: duplicate bibref: {$file}$name\n"
-                    if $verbose;
+                    if $verbose || $warndupbibref;
             } elsif ($dupref->{name} ne $name) {
                 print STDERR "$id: ambiguous bibref: ".
                     "{$dupref->{file}}$dupref->{name}, {$file}$name\n";
             } else {
                 print STDERR "$id: duplicate bibref: ".
                     "{$dupref->{file}}$dupref->{name}, {$file}$name\n"
-                    if $verbose;
+                    if $verbose || $warndupbibref;
             }
         }
 
@@ -1513,7 +1515,10 @@ sub add_model
     } else {
         print STDERR "unnamed model\n" unless $name;
         my $dynamic = $pnode->{dynamic};
-	$nnode = {name => $name, path => '', file => $file, spec => $spec,
+        # XXX experimental; may break stuff? YEP!
+        #my $path = $isService ? '.' : '';
+        my $path = '';
+	$nnode = {name => $name, path => $path, file => $file, spec => $spec,
                   type => 'model', access => '',
                   isService => $isService, status => $status,
                   description => $description, descact => $descact,
@@ -3951,16 +3956,14 @@ END
         if ($model || $profile) {
         } elsif (!$html_profile_active) {
             # note that the second anchor does NOT have a trailing dot;
-            # this is to allow use of {{object|table}}
+            # this is to allow use of (for example) {{object|table}}
             # XXX should verify that all links have defined anchors
-            # XXX need also an anchor without trailing dot for all objects,
-            #     not just for tables (just to be kind)?
             $name = qq{<a name="$path">$name</a>} unless $nolinks;
             my $anchor2 = qq{};
-            if (!$nolinks && $path =~ /\{i\}\.$/) {
-                my $table = $path;
-                $table =~ s/\.\{i\}\.$//;
-                $anchor2 = qq{<a name="$table"/>};
+            if (!$nolinks) {
+                my $tpath = $path;
+                $tpath =~ s/(\.\{i\})?\.$//;
+                $anchor2 = qq{<a name="$tpath"/>} if $tpath ne $path;
             }
             print <<END if $object && !$nolinks;
           <li><a href="#$path">$path</a></li>
@@ -4666,6 +4669,7 @@ sub html_template_reference
 {
     my ($opts, $arg) = @_;
 
+    my $object = $opts->{object};
     my $path = $opts->{path};
     my $type = $opts->{type};
     my $list = $opts->{list};
@@ -4696,10 +4700,26 @@ sub html_template_reference
 
         $targetType = 'any' unless $targetType;
 
+        # XXX this logic currently for pathRef only, but also applies
+        #     to instanceRef (for which targetParent cannot be a list, and
+        #     targetType is always "row")
+        my $targetParentReadOnly = 1;
+        if ($targetParent) {
+            foreach my $tp (split ' ', $targetParent) {
+                my $tpp = relative_path($object, $tp, $targetParentScope);
+                $tpp .= '{i}.' if $targetType eq 'row';
+                my $tpn = $objects->{$tpp};
+                $targetParentReadOnly = 0
+                    if $tpn && $tpn->{access} eq 'readWrite';
+            }
+        }
+
         $targetParent = object_references($targetParent,
                                           $targetParentScope);
 
-        $text .= qq{MUST be the full path name of };
+        # XXX was "full path name"; removed "full" to allow support of TR-106
+        #     relative path name syntax
+        $text .= qq{MUST be the path name of };
 
         if ($targetType eq 'row') {
             if ($arg) {
@@ -4728,15 +4748,23 @@ sub html_template_reference
                 qq{, which MUST be a child of $targetParent} :
                 qq{};
         }
-        $text .= qq{.};
-        if ($refType eq 'strong') {
+        if ($refType ne 'strong') {
+            $text .= qq{.};
+        } else {
             $targetType =~ s/row/object/;
             $targetType =~ s/single.*/object/;
             $targetType =~ s/parameter or object/item/;
-            $text .= qq{  If the referenced $targetType is deleted, the };
-            $text .= $list ?
-                qq{corresponding item MUST be removed from the list.} :
-                qq{parameter value MUST be set to {{empty}}.};
+            if ($targetParentReadOnly) {
+                $text .= $list ?
+                    qq{.} :
+                    qq{, or {{empty}}.};
+            } else {
+                $text .= qq{.};
+                $text .= qq{  If the referenced $targetType is deleted, the };
+                $text .= $list ?
+                    qq{corresponding item MUST be removed from the list.} :
+                    qq{parameter value MUST be set to {{empty}}.};
+            }
         }
 
     } elsif ($reference eq 'instanceRef') {
@@ -5719,13 +5747,15 @@ sub sanity_node
     }    
 }
 
-foreach my $reference (sort {$a->{id} cmp $b->{id}}
-                       @{$root->{bibliography}->{references}}) {
-    my $id = $reference->{id};
-    my $spec = $reference->{spec};
-    
-    next if ($spec ne $lspec);    
-    print STDERR "reference $id not used\n" unless $bibrefs->{$id};
+if ($root->{bibliography}) {
+    foreach my $reference (sort {$a->{id} cmp $b->{id}}
+                           @{$root->{bibliography}->{references}}) {
+        my $id = $reference->{id};
+        my $spec = $reference->{spec};
+        
+        next if ($spec ne $lspec);    
+        print STDERR "reference $id not used\n" unless $bibrefs->{$id};
+    }
 }
             
 sanity_node($root);
@@ -5824,7 +5854,7 @@ B<report.pl> - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--canonical] [--components] [--debugpath=pattern("")] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noprofiles] [--notemplates] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--writonly] DM-instance...
+B<report.pl> [--autobase] [--canonical] [--components] [--debugpath=pattern("")] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noprofiles] [--notemplates] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref] [--writonly] DM-instance...
 
 =over
 
@@ -6020,6 +6050,10 @@ disables some prettifications, e.g. inserting spaces to encourage line breaks, a
 
 enables verbose output
 
+=item B<--warndupbibref>
+
+enables duplicate bibref warnings (these warnings are also output if B<--verbose> is specified)
+
 =item B<--writonly>
 
 reports only on writable parameters (should, but does not, suppress reports of read-only objects that contain no writable parameters)
@@ -6034,7 +6068,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/04/29 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#111 $
+$Date: 2009/05/11 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#114 $
 
 =cut
