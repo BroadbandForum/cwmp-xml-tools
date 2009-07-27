@@ -83,13 +83,37 @@
 # XXX $components is a hack (need full xml2 report support in order to carry
 #     over unique keys, references etc)
 
+# XXX why does this happen?
+# % report.pl tr-098-1-1-0.xml tr-098-1-2-0.xml
+#InternetGatewayDevice.DownloadDiagnostics.: object not found (auto-creating)
+#InternetGatewayDevice.DownloadDiagnostics.DownloadURL: parameter not found
+#    (auto-creating)
+#InternetGatewayDevice.DownloadDiagnostics.DownloadURL: untyped parameter
+#InternetGatewayDevice.UploadDiagnostics.: object not found (auto-creating)
+#InternetGatewayDevice.UploadDiagnostics.UploadURL: parameter not found
+#    (auto-creating)
+#InternetGatewayDevice.UploadDiagnostics.UploadURL: untyped parameter
+#urn:broadband-forum-org:tr-069-1-0-0: 522
+#urn:broadband-forum-org:tr-098-1-0-0: 215
+#urn:broadband-forum-org:tr-098-1-1-0: 18
+#urn:broadband-forum-org:tr-098-1-2-0: 421
+#
+# but
+#
+# % report.pl tr-098-1-2-0.xml 
+# urn:broadband-forum-org:tr-069-1-0-0: 522
+# urn:broadband-forum-org:tr-098-1-0-0: 215
+# urn:broadband-forum-org:tr-098-1-1-0: 18
+# urn:broadband-forum-org:tr-098-1-2-0: 417
+# urn:broadband-forum-org:tr-143-1-0-1: 49
+
 use strict;
 no strict "refs";
 
 use Algorithm::Diff;
 use Clone qw{clone};
 use Data::Dumper;
-#use File::Spec;
+use File::Spec;
 use Getopt::Long;
 use Pod::Usage;
 use Text::Balanced qw{extract_bracketed};
@@ -97,8 +121,9 @@ use URI::Escape;
 use XML::LibXML;
 
 # XXX these have to match the current version of the DT schema
-my $dturn = qq{urn:broadband-forum-org:cwmp:devicetype-0-8};
-my $dtloc = qq{cwmp-devicetype.xsd};
+my $dtver = qq{1-0};
+my $dturn = qq{urn:broadband-forum-org:cwmp:devicetype-${dtver}};
+my $dtloc = qq{cwmp-devicetype-${dtver}.xsd};
 
 #print STDERR File::Spec->tmpdir() . "\n";
 
@@ -111,11 +136,13 @@ my $autobase = 0;
 my $canonical = 0;
 my $components = 0;
 my $debugpath = '';
+my $deletedeprecated = 0;
 my $dtprofiles = [];
 my $dtspec = 'urn:example-com:device-1-0-0';
 my $help = 0;
 my $ignore = '';
 my $importsuffix = '';
+my $includes = [];
 my $info;
 my $lastonly = 0;
 my $marktemplates;
@@ -124,12 +151,15 @@ my $nocomments = 0;
 my $nolinks = 0;
 my $nomodels = 0;
 my $noobjects = 0;
+my $noparameters = 0;
 my $noprofiles = 0;
 my $notemplates = 0;
+my $nowarnredef = 0;
 my $objpat = '';
 my $pedantic;
 my $quiet = 0;
 my $report = '';
+my $showspec = 0;
 my $special = '';
 my $thisonly = 0;
 my $ugly = 0;
@@ -141,11 +171,13 @@ GetOptions('autobase' => \$autobase,
            'canonical' => \$canonical,
            'components' => \$components,
            'debugpath:s' => \$debugpath,
+           'deletedeprecated' => \$deletedeprecated,
            'dtprofile:s@' => \$dtprofiles,
            'dtspec:s' => \$dtspec,
 	   'help' => \$help,
            'ignore:s' => \$ignore,
            'importsuffix:s' => \$importsuffix,
+           'include:s@' => \$includes,
 	   'info' => \$info,
            'lastonly' => \$lastonly,
 	   'marktemplates' => \$marktemplates,
@@ -154,12 +186,15 @@ GetOptions('autobase' => \$autobase,
 	   'nolinks' => \$nolinks,
 	   'nomodels' => \$nomodels,
 	   'noobjects' => \$noobjects,
+	   'noparameters' => \$noparameters,
 	   'noprofiles' => \$noprofiles,
 	   'notemplates' => \$notemplates,
+           'nowarnredef' => \$nowarnredef,
 	   'objpat:s' => \$objpat,
 	   'pedantic:i' => \$pedantic,
 	   'quiet' => \$quiet,
 	   'report:s' => \$report,
+           'showspec' => \$showspec,
            'special:s' => \$special,
 	   'thisonly' => \$thisonly,
            'upnpdm' => \$upnpdm,
@@ -178,10 +213,15 @@ unless (defined &{"${report}_node"}) {
     pod2usage(2);
 }
 
+if ($noparameters) {
+    print STDERR "--noparameters not yet implemented\n";
+    pod2usage(2);
+}
+
 if ($info) {
     print STDERR q{$Author: wlupton $
-$Date: 2009/05/11 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#114 $
+$Date: 2009/07/27 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#126 $
 };
     exit(1);
 }
@@ -201,6 +241,7 @@ $nocomments = 0 if $verbose;
 $noprofiles = 1 if $components || @$dtprofiles;
 
 # Globals.
+my $allfiles = [];
 my $specs = [];
 # XXX for DT, lfile and lspec should be last processed DM file
 #     (current workaround is to use same spec for DT and this DM)
@@ -219,14 +260,29 @@ my $highestMajor = 0;
 my $highestMinor = 0;
 
 # Parse and expand a data model definition file.
+# XXX also does minimal expansion of schema files
 sub expand_toplevel
 {
     my ($file)= @_;
 
-    # parse file (update lspec even if have already parsed it; needed so
-    # generated XML will have the correct spec)
-    my $toplevel = parse_file($file);
-    my $spec = $toplevel->findvalue('@spec');
+    (my $dir, $file) = find_file($file);
+
+    # parse file
+    my $toplevel = parse_file($dir, $file);
+
+    # for XSD files, just track the target namespace then return
+    my $spec;
+    if ($file =~ /\.xsd$/) {
+        my $targetNamespace = $toplevel->findvalue('@targetNamespace');
+        push @$allfiles, {name => $file, spec => $targetNamespace,
+                          schema => 1};
+        return;
+    }
+    else {
+        $spec = $toplevel->findvalue('@spec');
+        my @models = $toplevel->findnodes('model');
+        push @$allfiles, {name => $file, spec => $spec, models => \@models};
+    }
 
     # XXX this is using file name to check against multiple inclusion, but
     #     would spec be better? maybe, but would require 1-1 correspondence
@@ -245,6 +301,7 @@ sub expand_toplevel
     push @$specs, $spec unless grep {$_ eq $spec} @$specs;
 
     # pick up description
+    # XXX hmm... putting this stuff on root isn't right is it?
     $root->{description} = $toplevel->findvalue('description');
     $root->{descact} = $toplevel->findvalue('description/@action');
 
@@ -326,6 +383,8 @@ sub expand_import
     my $file = $import->findvalue('@file');
     my $spec = $import->findvalue('@spec');
 
+    (my $dir, $file) = find_file($file);
+
     print STDERR "expand_import file=$file spec=$spec\n" if $verbose > 1;
 
     my $tfile = $file;
@@ -351,7 +410,7 @@ sub expand_import
     return if $thisonly;
 
     # parse imported file
-    my $toplevel = parse_file($tfile);
+    my $toplevel = parse_file($dir, $tfile);
     my $fspec = $toplevel->findvalue('@spec');
     push @$specs, $fspec unless grep {$_ eq $fspec} @$specs;
 
@@ -442,6 +501,7 @@ sub expand_dataType
     my $maxLength = $dataType->findvalue('string/size/@maxLength');
     my $patterns = $dataType->findnodes('string/pattern');
 
+    $status = util_maybe_deleted($status);
     update_bibrefs($description, $spec);
 
     print STDERR "expand_dataType name=$name base=$base\n" if $verbose > 1;
@@ -563,6 +623,7 @@ sub expand_model
     # XXX fudge it if in a DT instance (ref but no name or base)
     $name = $ref if $ref && !$name;
 
+    $status = util_maybe_deleted($status);
     update_bibrefs($description, $spec);
 
     print STDERR "expand_model name=$name ref=$ref\n" if $verbose > 1;
@@ -718,6 +779,7 @@ sub expand_model_object
     my $description = $object->findvalue('description');
     my $descact = $object->findvalue('description/@action');
 
+    $status = util_maybe_deleted($status);
     update_bibrefs($description, $spec);
 
     $minEntries = 1 unless defined $minEntries && $minEntries ne '';
@@ -729,9 +791,13 @@ sub expand_model_object
     my ($majorVersion, $minorVersion) = dmr_version($object);
 
     my $fixedObject = dmr_fixedObject($object);
+    my $noUniqueKeys = dmr_noUniqueKeys($object);
 
     # XXX this is incomplete name / ref handling
-    my $tname = $name ? $name : $ref;
+    # XXX WFL2 my $tname = $name ? $name : $ref;
+    my $oname = $name;
+    my $oref = $ref;
+    my $tname = $ref ? $ref : $name;
     my $path = $pnode->{path}.$tname;
 
     print STDERR "expand_model_object name=$name ref=$ref\n" if $verbose > 1;
@@ -748,7 +814,10 @@ sub expand_model_object
     # XXX this is more of the incomplete name / ref handling
     if ($ref) {
         $ref = $name;
-        $name = '';
+        # XXX WFL2 $name = '';
+        # XXX this will fail if $oname has multiple components (which it
+        #     shouldn't have)
+        $name = ($oname && $oref) ? $oname : '';
     }
 
     # if this is a variable-size table, check that there is a
@@ -756,23 +825,23 @@ sub expand_model_object
     # XXX numEntriesParameter is checked only when object is defined; this
     #     means that no check is made when processing DT instances
     # XXX no longer the case... can we get rid of the check here?
-    if ($name && ($maxEntries eq 'unbounded' || 
-                  ($maxEntries > 1 && $maxEntries > $minEntries))) {
-	if (!$numEntriesParameter) {
-            print STDERR "$path: missing numEntriesParameter\n" if $pedantic;
-        } else {
-	    unless (grep {$_->{name} =~ /$numEntriesParameter/}
-		    @{$pnode->{nodes}}) {
-                # XXX can this diagnostic be deferred until the "sanity" pass?
-		print STDERR "$path: missing NumberOfEntries parameter " .
-		    "($numEntriesParameter)\n" if $pedantic;
-		print STDERR "\t" .
-		    join(", ",
-			 map {$_->{name}} @{$pnode->{nodes}}) .
-			 "\n" if $pedantic > 2;
-	    }
-	}
-    }
+    # XXX I think so
+    #if ($name && ($maxEntries eq 'unbounded' || 
+    #              ($maxEntries > 1 && $maxEntries > $minEntries))) {
+    #	if (!$numEntriesParameter) {
+    #         print STDERR "$path: missing numEntriesParameter\n" if $pedantic;
+    #   } else {
+    #	    unless (grep {$_->{name} =~ /$numEntriesParameter/}
+    #		    @{$pnode->{nodes}}) {
+    #           if ($pedantic > 2) {
+    #               print STDERR "$path: missing NumberOfEntries parameter " .
+    #                   "($numEntriesParameter)\n";
+    #               print STDERR "\t" .
+    #                   join(", ", map {$_->{name}} @{$pnode->{nodes}}) . "\n";
+    #           }
+    #       }
+    #	}
+    #}
 
     # determine name of previous sibling (if any) as a hint for where to
     # create the new node
@@ -809,16 +878,30 @@ sub expand_model_object
     check_and_update($path, $nnode, 'enableParameter', $enableParameter);
 
     # XXX these are slightly different (just take first definition seen)
-    $nnode->{uniqueKeys} = [] unless
-        defined $nnode->{uniqueKeys};
+    $nnode->{noUniqueKeys} = $noUniqueKeys unless
+        $nnode->{noUniqueKeys};
     $nnode->{fixedObject} = $fixedObject unless
-        defined $nnode->{fixedObject};
+        $nnode->{fixedObject};
+
+    # note previous uniqueKeys
+    my $uniqueKeys = $nnode->{uniqueKeys};
+    $nnode->{uniqueKeys} = [];
 
     # expand nested components, parameters and objects
     foreach my $item ($object->findnodes('component|uniqueKey|parameter|'.
                                          'object')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_$element"->($context, $mnode, $nnode, $item);
+    }
+
+    # XXX for unique keys take the latest
+    if ($uniqueKeys && @$uniqueKeys) {
+        if (!@{$nnode->{uniqueKeys}}) {
+            $nnode->{uniqueKeys} = $uniqueKeys;
+        } else {
+            printf STDERR "$path: uniqueKeys changed (new ones used)\n"
+                if $verbose;
+        }
     }
 }
 
@@ -828,17 +911,17 @@ sub check_and_update
     my ($path, $node, $item, $value) = @_;
 
     if (defined $node->{$item}) {
-        # XXX error message is only if new value is non-empty (not the
-        #     best; should warn if pedantic>1 because this means that
-        #     something has been specified and then is changed later
-        print STDERR "$path: can't change $item from $node->{$item} to ".
-            "$value\n" if $value ne '' && $value ne $node->{$item};
-    } else {
-        $node->{$item} = $value;
+        # XXX message is only if new value is non-empty (not the best; should
+        #     warn if pedantic > 1 because this means that something has been
+        #     specified and then is changed later)
+        print STDERR "$path: $item: $node->{$item} -> $value\n"
+            if $value ne '' && $value ne $node->{$item} && $verbose;
     }
+    $node->{$item} = $value if $value ne '';
 }
 
-# Get fixed object from @dmr:fixedObject, if present
+# Get "fixed object" from @dmr:fixedObject, if present
+# XXX there's scope for a more general utility here!
 sub dmr_fixedObject
 {
     my ($element) = @_;
@@ -849,6 +932,19 @@ sub dmr_fixedObject
     $fixedObject = $element->findvalue('@dmr:fixedObject') if $dmr;
 
     return $fixedObject;
+}
+
+# Get "no unique keys" from @dmr:noUniqueKeys, if present
+sub dmr_noUniqueKeys
+{
+    my ($element) = @_;
+
+    my $noUniqueKeys = '';
+
+    my $dmr = $element->lookupNamespaceURI('dmr');
+    $noUniqueKeys = $element->findvalue('@dmr:noUniqueKeys') if $dmr;
+
+    return $noUniqueKeys;
 }
 
 # Get major and minor version from @dmr:version, if present
@@ -959,6 +1055,7 @@ sub expand_model_parameter
     #my $minorVersion = $parameter->findvalue('@minorVersion');
     my ($majorVersion, $minorVersion) = dmr_version($parameter);
 
+    $status = util_maybe_deleted($status);
     update_bibrefs($description, $spec);
 
     # XXX I have a feeling that I need to be more rigorous re the distinction
@@ -1057,6 +1154,7 @@ sub expand_model_parameter
         my $descdef = $value->findnodes('description')->size();
         $value = $value->findvalue('@value');
         
+        $status = util_maybe_deleted($status);
         update_bibrefs($description, $spec);
 
         # XXX where should such defaults be applied? here is better
@@ -1084,7 +1182,10 @@ sub expand_model_parameter
     }
 
     # XXX this is incomplete name / ref handling
-    my $tname = $name ? $name : $ref;
+    # XXX WFL2 my $tname = $name ? $name : $ref;
+    my $oname = $name;
+    my $oref = $ref;
+    my $tname = $ref ? $ref : $name;
     my $path = $pnode->{path}.$tname;
 
     # the name may consist of multiple components; create any intervening
@@ -1093,7 +1194,10 @@ sub expand_model_parameter
     # XXX this is more of the incomplete name / ref handling
     if ($ref) {
         $ref = $name;
-        $name = '';
+        # XXX WFL2 $name = '';
+        # XXX this will fail if $oname has multiple components (which it
+        #     shouldn't have)
+        $name = ($oname && $oref) ? $oname : '';
     }
 
     # determine name of previous sibling (if any) as a hint for where to
@@ -1132,6 +1236,7 @@ sub expand_model_profile
     my $description = $profile->findvalue('description');
     # XXX descact too
 
+    $status = util_maybe_deleted($status);
     update_bibrefs($description, $spec);
 
     # XXX want to do this consistently; really want to get defaults from
@@ -1161,7 +1266,7 @@ sub expand_model_profile
     # if the context contains "previousProfile", it's from a component
     # reference, and applies only to the first profile
     if ($context->[0]->{previousProfile}) {
-        $previous = $context->[0]->{previousProfile} unless defined $previous;
+        $previous = $context->[0]->{previousProfile};
         undef $context->[0]->{previousProfile};
     }
 
@@ -1280,6 +1385,7 @@ sub expand_model_profile_object
     # XXX description and descact too
 
     $status = 'current' unless $status;
+    $status = util_maybe_deleted($status);
 
     print STDERR "expand_model_profile_object path=$Path ref=$name\n" if
         $verbose > 1;
@@ -1287,7 +1393,7 @@ sub expand_model_profile_object
     $name = $Path . $name if $Path;
 
     # XXX need bad hyperlink to be visually apparent
-    unless ($objects->{$name}) {
+    unless ($objects->{$name} && %{$objects->{$name}}) {
 	print STDERR "profile $Pnode->{name} references invalid $name\n"
             unless $noprofiles;
     }
@@ -1360,6 +1466,7 @@ sub expand_model_profile_parameter
     # XXX description and descact too
 
     $status = 'current' unless $status;
+    $status = util_maybe_deleted($status);
 
     print STDERR "expand_model_profile_parameter path=$Path ref=$name\n" if
         $verbose > 1;
@@ -1369,7 +1476,7 @@ sub expand_model_profile_parameter
     $path = $Path . $path if $Path && $Pnode == $pnode;
 
     # XXX need bad hyperlink to be visually apparent
-    unless ($parameters->{$path}) {
+    unless ($parameters->{$path} && %{$parameters->{$path}}) {
 	print STDERR "profile $Pnode->{name} references invalid $path\n"
             unless $noprofiles;
     } elsif ($access ne 'readOnly' &&
@@ -1641,7 +1748,7 @@ sub add_object
     # if the context contains "previousObject", it's from a component
     # reference, and applies only to the first object
     if ($context->[0]->{previousObject}) {
-        $previous = $context->[0]->{previousObject} unless defined $previous;
+        $previous = $context->[0]->{previousObject};
         undef $context->[0]->{previousObject};
     }
 
@@ -1673,8 +1780,13 @@ sub add_object
         }
     } elsif ($name) {
         my @match = grep {$_->{name} eq $name} @{$pnode->{nodes}};
-        print STDERR "$path: object already defined\n"
-            if @match && !$autobase;
+        # XXX should this be unconditional?
+        # XXX sometimes don't want report (need finer reporting control)
+        if (@match && !$autobase) {
+            print STDERR "$path: object already defined (new one ignored)\n"
+                if $verbose || !$nowarnredef;
+            return $match[0];
+        }
 	$nnode = $match[0];
     }
 
@@ -1695,6 +1807,30 @@ sub add_object
         # indicate that object was previously known (report might need to
         # use this info)
         $nnode->{history} = [] unless defined $nnode->{history};
+
+        # XXX if both name and ref are defined, this is a rename operation
+        # XXX what if the new-named object already exists?
+        # XXX what are the implications for history?
+        # XXX should this be marked as a change?
+        if ($name && $ref) {
+            $objects->{$path} = undef;
+            $path = $pnode->{path} . $name;
+            $nnode->{path} = $path;
+            $nnode->{name} = $name;
+            $objects->{$path} = $nnode;
+            # XXX this does only half the job; should build the objects and
+            #     parameters hashes after the tree has been built
+            # XXX should also avoid nodes knowing their path names
+            foreach my $tnode (@{$nnode->{nodes}}) {
+                if ($tnode->{type} ne 'object') {
+                    my $opath = $tnode->{path};
+                    my $tpath = $path . $tnode->{name};
+                    $parameters->{$opath} = undef;
+                    $parameters->{$tpath} = $tnode;
+                }
+            }
+            print STDERR "$path: renamed from $ref\n" if $verbose;
+        }
 
         # when an object is modified, its last spec (lspec) is updated
         my $changed = {};
@@ -1838,8 +1974,7 @@ sub add_parameter
     # if the context contains "previousParameter", it's from a component
     # reference, and applies only to the first parameter
     if ($context->[0]->{previousParameter}) {
-        $previous = $context->[0]->{previousParameter} unless
-            defined $previous;
+        $previous = $context->[0]->{previousParameter};
         undef $context->[0]->{previousParameter};
     }
 
@@ -1878,8 +2013,13 @@ sub add_parameter
         }
     } elsif ($name) {
         my @match = grep {$_->{name} eq $name} @{$pnode->{nodes}};
-        print STDERR "$path: parameter already defined\n"
-            if @match && !$autobase;
+        # XXX should this be unconditional?
+        # XXX sometimes don't want report (need finer reporting control)
+        if (@match && !$autobase) {
+            print STDERR "$path: parameter already defined (new one ignored)\n"
+                if $verbose || !$nowarnredef;
+            return;
+        }
 	$nnode = $match[0];
     }
 
@@ -1898,6 +2038,19 @@ sub add_parameter
         # indicate that parameter was previously known (report might need to
         # use this info)
         $nnode->{history} = [] unless defined $nnode->{history};
+
+        # XXX if both name and ref are defined, this is a rename operation
+        # XXX what if the new-named parameter already exists?
+        # XXX what are the implications for history?
+        # XXX should this be marked as a change?
+        if ($name && $ref) {
+            $parameters->{$path} = undef;
+            $path = $pnode->{path} . $name;
+            $nnode->{path} = $path;
+            $nnode->{name} = $name;
+            $parameters->{$path} = $nnode;
+            print STDERR "$path: renamed from $ref\n" if $verbose;
+        }
 
         # XXX this isn't quite right... there is no inheritance except for
         #     the description (also, it's incomplete)
@@ -1956,7 +2109,25 @@ sub add_parameter
             # XXX changed type is usually an error, but not necessarily if the
             #     new type is 'dataType' (need to check hierarchy)
             print STDERR "$path: type: $nnode->{type} -> $type\n"
-                if ($verbose || $pedantic) && $type ne 'dataType';
+                if $verbose && $type ne 'dataType';
+            # XXX special case: if type changed to string, discard ranges
+            #     (could take this further... but this case arose!)
+            if ($type eq 'string' && $nnode->{syntax}->{ranges}) {
+                print STDERR "$path: discarding existing ranges\n" if $verbose;
+                $nnode->{syntax}->{ranges} = undef;
+            }
+            # XXX special case: if type changed to dataType, discard sizes and
+            #     ranges
+            if ($type eq 'dataType' && ($nnode->{syntax}->{minLength} ||
+                                        $nnode->{syntax}->{maxLength})) {
+                print STDERR "$path: discarding existing sizes\n" if $verbose;
+                $nnode->{syntax}->{minLength} = undef;
+                $nnode->{syntax}->{maxLength} = undef;
+            }
+            if ($type eq 'dataType' && $nnode->{syntax}->{ranges}) {
+                print STDERR "$path: discarding existing ranges\n" if $verbose;
+                $nnode->{syntax}->{ranges} = undef;
+            }
             $nnode->{type} = $type;
             $changed->{type} = 1;
         }
@@ -2236,22 +2407,41 @@ sub get_values
 	my $optional = boolean($cvalue->{optional});
 	my $deprecated = $cvalue->{status} eq 'deprecated';
 	my $obsoleted = $cvalue->{status} eq 'obsoleted';
+	my $deleted = $cvalue->{status} eq 'deleted';
+
+        next if $deleted;
 
         # don't mark optional if deprecated or obsoleted
         $optional = 0 if $deprecated || $obsoleted;
 
-	my $any = $description || $optional || $deprecated || $obsoleted;
-
 	#my $quote = $report ne 'xls' && $value !~ /^</;
 	my $quote = $cvalue !~ /^</;
+
+        # XXX this assumes HTML really
+        if ($value eq '') {
+            $value = '<Empty>';
+            $description = '{{empty}}' unless $description;
+        }
+
+        # XXX not sure if we should to this
+        $description = lcfirst $description;
+        $description =~ s/\.$//;
+
+	my $any = $description || $optional || $deprecated || $obsoleted;
 
 	#$list .= '* ' unless $report eq 'xls';
 	$list .= '* ';
 	#$list .= '"' if $quote;
 	$list .= "''";
-        $list .= '%%' if $anchor;
-	$list .= $value;
-        $list .= '%%' if $anchor;
+        if (!$anchor) {
+            $list .= $value;
+        } else {
+            # XXX remove backslashes (needs done properly)
+            my $tvalue = $value;
+            $tvalue =~ s/\\//g;
+
+            $list .= qq{%%$value%%$tvalue%%};
+        }
 	#$list .= '"' if $quote;
 	$list .= "''";
 	$list .= ' (' if $any;
@@ -2289,6 +2479,11 @@ sub get_description
     #     in successive versions is not a change
     my $old = get_old_description($history);
 
+    # XXX do this here because the two pieces of description may have different
+    #     whitespace conventions (need to rename routine)
+    $old = html_whitespace($old);
+    $new = html_whitespace($new);
+
     # if no descact it defaults to replace / create
     $descact = defined $old ? 'replace' : 'create' unless $descact;
     $old = '' unless defined $old;
@@ -2308,6 +2503,7 @@ sub get_description
     } elsif ($descact eq 'append') {
         # XXX fudge: if new begins with template, no newline (allows templates
         #     such as {{enum}} where preceding newline is significant to work
+        # XXX the above fails for (e.g.) {{param}}!
         my $sep = $new =~ /^[ \t]*\{\{/ ? "  " : "\n";
         # XXX I don't trust this logic; need to make more transparently correct
         # XXX need to check whether has changed in latest version; if not, can
@@ -2580,19 +2776,24 @@ sub version
 # Parse a data model definition file.
 sub parse_file
 {
-    my ($file)= @_;
+    my ($dir, $file)= @_;
 
-    $file = find_file($file);
+    # XXX only use dir of non-blank ('' can be interpreted as '/')
+    my $tfile = $dir ? File::Spec->catfile($dir, $file) : $file;
 
-    print STDERR "parsing file: $file\n" if $verbose;
+    print STDERR "parsing file: $tfile\n" if $verbose;
 
     # parse file
     my $parser = XML::LibXML->new();
-    my $tree = $parser->parse_file($file);
+    my $tree = $parser->parse_file($tfile);
     my $toplevel = $tree->getDocumentElement;
+
+    # for XSD files, pick up target namespace and return
+    return $toplevel if $tfile =~ /\.xsd$/;
 
     # XXX expect these all to be the same if processing multiple documents,
     #     but should check; really should keep separate for each document
+    my $tns = 
     my $xsi = 'xsi';
     my @nslist = $toplevel->getNamespaces();
     for my $ns (@nslist) {
@@ -2625,12 +2826,32 @@ sub parse_file
 }
 
 # Find file by searching for the highest corrigendum number (if omitted)
-# XXX should also support search path and shouldn't assume ".xml"
+# XXX should also support proper search path and shouldn't assume ".xml"
+# XXX note that it works if supplied file includes directory, but only by
+#     chance and not by design
 sub find_file
 {
     my ($file) = @_;
+    
+    # search path
+    my $dirs = [];
+
+    # if file includes directory, it overrides the search path for this call
+    # XXX is it safe to ignore the volume?
+    (my $vol, my $dir, $file) = File::Spec->splitpath($file);
+    if ($dir) {
+        push @$dirs, $dir;
+    } else
+
+    # XXX for now, always prepend "." and append "../cwmp-bbf"
+    {
+        push @$dirs, File::Spec->curdir();
+        push @$dirs, @$includes;
+        push @$dirs, File::Spec->catdir(File::Spec->updir(), 'cwmp-bbf');
+    }
 
     my $ffile = $file;
+    my $fdir = '';
 
     # support names of form name-i-a[-c][label].xml where name is of the form
     # "xx-nnn", i, a and c are numeric and label can't begin with a digit
@@ -2641,20 +2862,38 @@ sub find_file
     # (c) is undefined, search for the highest corrigendum number
     if (defined $name && defined $i && defined $a && !defined $c) {
         $label = '' unless defined $label;
-        my @files = glob(qq{$name-$i-$a-*$label.xml});
-        foreach my $file (@files) {
-            # XXX assumes no special RE chars anywhere...
-            my ($n) = $file =~ /^$name-$i-$a-(\d+)$label\.xml$/;
-            $c = $n if defined $n && (!defined $c || $n > $c);
+        foreach my $dir (@$dirs) {
+            my @files = glob(File::Spec->catfile($dir,
+                                                 qq{$name-$i-$a-*$label.xml}));
+            foreach my $file (@files) {
+                # remove directory part
+                (my $tvol, my $tdir, $file) = File::Spec->splitpath($file);
+                # XXX assumes no special RE chars anywhere...
+                my ($n) = $file =~ /^$name-$i-$a-(\d+)$label\.xml$/;
+                if (defined $n && (!defined $c || $n > $c)) {
+                    $c = $n;
+                    $fdir = $dir;
+                }
+            }
         }
         $c = defined($c) ? ('-' . $c) : '';
         $ffile = qq{$name-$i-$a$c$label.xml};
     }
 
-    # otherwise no need to search, either because file name doesn't match
-    # pattern, e.g. it's unversioned, or because corrigendum number is defined
+    # otherwise no need to look for highest corrigendum number, either because
+    # file name doesn't match pattern, e.g. it's unversioned, or because
+    # corrigendum number is defined; still need to search directories though
+    else {
+        foreach my $dir (@$dirs) {
+            if (-r File::Spec->catfile($dir, $ffile)) {
+                $fdir = $dir;
+                last;
+            }
+        }
+    }
 
-    return $ffile;
+    print STDERR "fdir $fdir ffile $ffile\n" if $verbose;
+    return ($fdir, $ffile);
 }
 
 # Check whether specs match
@@ -3268,14 +3507,17 @@ sub xml2_node
         my $dmspec = $lspec;
         my $xsi = $node->{xsi};
         my $schemaLocation = $node->{schemaLocation};
+        my $specattr = 'spec';
 
         # XXX have to hard-code DT stuff (can't get this from input files)
-        # XXX this will include a DM schemaLocation (which isn't needed)
         my $d = @$dtprofiles ? qq{dt} : qq{dm};
         if ($d eq 'dt') {
             $dm = $dturn;
             $dmspec = $dtspec;
-            $schemaLocation .= qq{ $dturn $dtloc};
+            $schemaLocation =~
+                s/urn:broadband-forum-org:cwmp:datamodel.*?\.xsd ?//;
+            $schemaLocation = qq{$dturn $dtloc $schemaLocation};
+            $specattr = 'deviceType';
         }
 
         $element = qq{$d:document};
@@ -3287,7 +3529,7 @@ $i<$d:document xmlns:$d="$dm"
 $i             xmlns:dmr="$dmr"
 $i             xmlns:xsi="$xsi"
 $i             xsi:schemaLocation="$schemaLocation"
-$i             spec="$dmspec">
+$i             $specattr="$dmspec">
 };
         # XXX for now hard-code bibliography and data type imports for DM
         if (!@$dtprofiles) {
@@ -3331,6 +3573,7 @@ $i  </import>
         my $maxEntries = $node->{maxEntries};
         my $description = $node->{description};
         my $descact = $node->{descact};
+        my $uniqueKeys = $node->{uniqueKeys};
         my $syntax = $node->{syntax};
         my $majorVersion = $node->{majorVersion};
         my $minorVersion = $node->{minorVersion};
@@ -3437,6 +3680,15 @@ $i  </import>
         print qq{$i<$element$name$base$ref$access$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$end_element>\n};
         print qq{$i  <description>$description</description>\n} if
             $description;
+        if ($uniqueKeys) {
+            foreach my $uniqueKey (@$uniqueKeys) {
+                print qq{$i  <uniqueKey>\n};
+                foreach my $parameter (@$uniqueKey) {
+                    print qq{$i    <parameter ref="$parameter"/>\n};
+                }
+                print qq{$i  </uniqueKey>\n};
+            }
+        }
         print qq{$i-->\n} if $element eq 'object' && $noobjects;
 
         # XXX this is almost verbatim from xml_node
@@ -3452,6 +3704,7 @@ $i  </import>
             my $maxInclusive = $syntax->{ranges}->[0]->{maxInclusive};
             my $step = $syntax->{ranges}->[0]->{step};
             my $values = $node->{values};
+            my $units = $node->{units};
             my $default = $node->{default};
             my $defstat = $node->{defstat};
 
@@ -3472,6 +3725,36 @@ $i  </import>
             $step = defined $step && $step ne '' ? qq{ step="$step"} : qq{};
             $defstat = $defstat ne 'current' ? qq{ status="$defstat"} : qq{};
 
+            my $reference = $syntax->{reference};
+
+            # pathRef and instanceRef
+            my $refType = $syntax->{refType};
+            my $targetParent = $syntax->{targetParent};
+            my $targetParentScope = $syntax->{targetParentScope};
+
+            # instanceRef
+            my $targetType = $syntax->{targetType};
+            my $targetDataType = $syntax->{targetDataType};
+
+            # enumerationRef
+            my $targetParam = $syntax->{targetParam};
+            my $targetParamScope = $syntax->{targetParamScope};
+            my $nullValue = $syntax->{nullValue};
+
+            $refType = $refType ? qq{ refType="$refType"} : qq{};
+            $targetParent = $targetParent ?
+                qq{ targetParent="$targetParent"} : qq{};
+            $targetParentScope = $targetParentScope ?
+                qq{ targetParentScope="$targetParentScope"} : qq{};
+            $targetType = $targetType ? qq{ targetType="$targetType"} : qq{};
+            $targetDataType = $targetDataType ?
+                qq{ targetDataType="$targetDataType"} : qq{};
+            $targetParam = $targetParam ?
+                qq{ targetParam="$targetParam"} : qq{};
+            $targetParamScope = $targetParamScope ?
+                qq{ targetParamScope="$targetParamScope"} : qq{};            
+            $nullValue = $nullValue ? qq{ nullValue="$nullValue"} : qq{};
+
             print qq{$i  <syntax$hidden>\n};
             if ($list) {
                 my $ended = ($minLength || $maxLength) ? '' : '/';
@@ -3481,12 +3764,14 @@ $i  </import>
                 $minLength = $maxLength = undef;
             }
             my $ended = ($minLength || $maxLength || $minInclusive ||
-                         $maxInclusive || $step || %$values) ? '' : '/';
+                         $maxInclusive || $step || $reference || %$values ||
+                         $units) ? '' : '/';
             print qq{$i    <$type$ref$base$ended>\n};
             print qq{$i      <size$minLength$maxLength/>\n} if
                 $minLength || $maxLength;
             print qq{$i      <range$minInclusive$maxInclusive$step/>\n} if
                 $minInclusive || $maxInclusive || $step;
+            print qq{$i      <$reference$refType$targetParam$targetParent$targetParamScope$targetParentScope$targetType$targetDataType$nullValue/>\n} if $reference;
             foreach my $value (sort {$values->{$a}->{i} <=>
                                      $values->{$b}->{i}} keys %$values) {
                 my $evalue = xml_escape($value);
@@ -3516,6 +3801,7 @@ $i  </import>
                 print qq{$i        <description>$description</description>\n} if $description;
                 print qq{$i      </$facet>\n} unless $ended;
             }
+            print qq{$i      <units value="$units"/>\n} if $units;
             print qq{$i    </$type>\n} unless $ended;
             print qq{$i    <default type="object" value="$default"$defstat/>\n}
             if defined $default;
@@ -3681,10 +3967,14 @@ sub html_node
     my $object_bg = qq{background-color: rgb(255, 255, 153);};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
-    # oc (open comment) and cc (close comment) are used for suppressing things
-    # (e.g. the spec column) when not generating ugly output
-    my $oc = $ugly ? '' : '<!-- ';
-    my $cc = $ugly ? '' : ' -->';
+    # foo_oc (open comment) and foo_cc (close comment) control generation of
+    # optional columns, e.g. the syntax column when generating ugly output
+    my $synt_oc =  $ugly     ? '' : '<!-- ';
+    my $synt_cc =  $ugly     ? '' : ' -->';
+    my $vers_oc = !$showspec ? '' : '<!-- ';
+    my $vers_cc = !$showspec ? '' : ' -->';
+    my $spec_oc =  $showspec ? '' : '<!-- ';
+    my $spec_cc =  $showspec ? '' : ' -->';
 
     # common processing for all nodes
     my $model = ($node->{type} =~ /model/);
@@ -3703,10 +3993,11 @@ sub html_node
     my $ppath = html_escape($node->{pnode}->{path}, {empty => ''});
     my $pname = html_escape($node->{pnode}->{name}, {empty => ''});
     # XXX don't need to pass hidden, list, reference etc (are in syntax)
-    #     but does no harm
+    #     but does no harm (now passing node too!) :(
     $description =
         html_escape($description,
                     {default => '', empty => '',
+                     node => $node,
                      path => $path,
                      param => $parameter ? $name : '',
                      object => $parameter ? $ppath : $object ? $path : undef,
@@ -3815,8 +4106,10 @@ END
             return;
         }
 
-        my $status = $node->{status};
-        if ($status eq 'deleted') {
+        # XXX want an option to show them in strikeout
+        # XXX this is inefficient; should do to the tree after parsing all
+        #     files and before generating the report (c.f. hide_subtree)
+        if (util_is_deleted($node)) {
             print STDERR "$path: ignoring because deleted\n" if $verbose;
             return;
         }
@@ -3847,7 +4140,16 @@ END
         #     name, since "1.0" could be "Device:1.0" or "X_EXAMPLE_Device:1.0"
 	my $version =
 	    html_escape(version($node->{majorVersion}, $node->{minorVersion}));
-	my $spec = html_escape($node->{spec});
+
+        # XXX the above is addressed by $showspec and the use of a cleaned-up
+        #     version of the spec
+        # XXX doing this for every item is inefficient...
+        my $lspecs = util_history_values($node, 'lspec');
+        my $specs = '';
+        foreach my $lspec (@$lspecs) {
+            $specs .= ' ' if $specs;
+            $specs .= util_doc_name($lspec) if defined $lspec;
+        }
 
 	my $class = ($model | $object | $profile) ? 'o' : 'p';
 
@@ -3867,12 +4169,12 @@ END
         <tr>
           <th width="10%">Name</th>
           <th width="10%">Type</th>
-          $oc<th>Syntax</th>$cc
+          $synt_oc<th>Syntax</th>$synt_cc
           <th width="10%" class="c">Write</th>
           <th width="50%">Description</th>
           <th width="10%" class="c">Object Default</th>
-          <th width="10%" class="c">Version</th>
-          $oc<th class="c">Spec</th>$cc
+          $vers_oc<th width="10%" class="c">Version</th>$vers_cc
+          $spec_oc<th class="c">Spec</th>$spec_cc
 	</tr>
 END
             $html_parameters = [];
@@ -3972,16 +4274,16 @@ END
         <tr>
           <td class="${class}">$anchor2$name</td>
           <td class="${class}">$type</td>
-          $oc<td class="${class}">$syntax</td>$cc
+          $synt_oc<td class="${class}">$syntax</td>$synt_cc
           <td class="${class}c">$write</td>
           <td class="${class}">$description</td>
           <td class="${class}c">$default</td>
-          <td class="${class}c">$version</td>
-          $oc<td class="${class}c">$spec</td>$cc
+          $vers_oc<td class="${class}c">$version</td>$vers_cc
+          $spec_oc<td class="${class}c">$specs</td>$spec_cc
 	</tr>
 END
         } else {
-            my $path = $object ? $name : ($pname . $name);
+            $path = $pname . $name unless $object;
             $name = qq{<a href="#$path">$name</a>} unless $nolinks;
             $write = 'R' if $access eq 'readOnly';
             $html_buffer .= <<END;
@@ -4177,6 +4479,8 @@ sub html_whitespace
 {
     my ($inval) = @_;
 
+    return $inval unless $inval;
+
     # remove any leading whitespace up to and including the first line break
     $inval =~ s/^[ \t]*\n//;
 
@@ -4312,13 +4616,18 @@ sub html_template
           text1 => \&html_template_reference},
          {name => 'noreference',
           text0 => q{}},
-         {name => 'units', text0 => q{''$p->{units}''}},
+         {name => 'units',
+          text0 => \&html_template_units},
          {name => 'empty', text0 => q{an empty string}, ucfirst => 1},
          {name => 'false', text0 => q{''false''}},
          {name => 'true', text0 => q{''true''}},
          {name => 'mark',
-          text1 => \&html_template_mark}
+          text1 => \&html_template_mark},
+         {name => 'issue',
+          text1 => \&html_template_issue}
          ];
+
+    # XXX expand {{XXX}} expansion to track open issues
 
     # XXX need some protection against infinite loops here...
     # XXX do we want to allow template references to span newlines?
@@ -4329,12 +4638,17 @@ sub html_template
         my $tref = extract_bracketed($temp, '{}');
         if (!defined($tref)) {
             print STDERR "$p->{path}: invalid template reference: $temp\n";
-            $inval =~ s/^../\[\[/;
+            $inval =~ s/\{\{/\[\[/;
             next;
         }
         my ($name, $args) = $tref =~ /^\{\{([^\|\}]*)(?:\|(.*))?\}\}$/;
         # XXX atstart is possibly useful for descriptions that consist only of
         #     {{enum}} or {{pattern}}?  I think not...
+        if (!defined($name)) {
+            print STDERR "$p->{path}: invalid template reference: $tref\n";
+            $inval =~ s/\{\{/\[\[/;
+            next;
+        }
         my $atstart = $inval =~ /^\{\{$name[\|\}]/;
         $p->{atstart} = $atstart;
         $p->{newline} = $newline;
@@ -4409,6 +4723,18 @@ sub html_template_mark
     return $marktemplates ? qq{$marktemplates$arg:} : qq{};
 }
 
+# used by the {{issue}} template
+my $issue_counter = 0;
+
+# report and track an issue
+sub html_template_issue
+{
+    my ($opts, $arg) = @_;
+
+    $issue_counter++;
+    return qq{\n'''XXX $issue_counter: $arg'''};
+}
+
 # insert appropriate null value
 # XXX currently rather simple-minded and no support for named data types
 sub html_template_null
@@ -4420,6 +4746,22 @@ sub html_template_null
     return '{{empty}}' if $type =~ /^(string|base64|hexBinary)/;
     return '{{false}}' if $type eq 'boolean';
     return '0';
+}
+
+# insert units string
+sub html_template_units
+{
+    my ($opts) = @_;
+
+    my $path = $opts->{path};
+    my $units = $opts->{units};
+
+    if (!$units) {
+        print STDERR "$path: empty units string\n";
+        return qq{[[units]]};
+    } else {
+        return qq{''$units''};
+    }
 }
 
 # XXX want to be able to control level of generated info?
@@ -4490,7 +4832,8 @@ sub html_template_keys
             foreach my $uniqueKey (@$uniqueKeys) {
                 foreach my $parameter (@$uniqueKey) {
                     my $path = $object . $parameter;
-                    my $defaulted = defined $parameters->{$path}->{default};
+                    my $defaulted = defined $parameters->{$path}->{default} &&
+                        $parameters->{$path}->{defstat} ne 'deleted';
                     push @params, $parameter unless $defaulted;
                     $i++;
                 }
@@ -4572,11 +4915,20 @@ sub html_template_paramref
 
     my $path = relative_path($object, $name, $scope);
 
-    my $invalid = $parameters->{$path} ? '' : '?';
+    my $invalid = ($parameters->{$path} && %{$parameters->{$path}}) ? '' : '?';
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
-    print STDERR "$object$param: reference to invalid parameter $path\n"
-        if $invalid;
+    # XXX don't warn further if this item has been deleted
+    if (!util_is_deleted($opts->{node})) {
+        print STDERR "$object$param: reference to invalid parameter $path\n"
+            if $invalid;
+        # XXX make this nicer
+        if (!$invalid && $parameters->{$path}->{status} eq 'deleted') {
+            print STDERR "$object$param: reference to deleted parameter ".
+                "$path\n";
+            $invalid = '!';
+        }
+    }
 
     my $text = qq{};
     $text .= qq{<a href="#$path">} unless $nolinks;
@@ -4607,11 +4959,23 @@ sub html_template_objectref
     my $path2 = $path1;
     $path2 .= '{i}.' if $path2 !~ /\{i\}\.$/;
 
-    my $invalid = ($objects->{$path1} || $objects->{$path2}) ? '' : '?';
+    # XXX horrible
+    $path = $path1 if $objects->{$path1} && %{$objects->{$path1}};
+    $path = $path2 if $objects->{$path2} && %{$objects->{$path2}};
+
+    my $invalid = ($objects->{$path} && %{$objects->{$path}}) ? '' : '?';
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
-    print STDERR "$object$param: reference to invalid object $path\n"
-        if $invalid;
+    # XXX don't warn further if this item has been deleted
+    if (!util_is_deleted($opts->{node})) {
+        print STDERR "$object$param: reference to invalid object $path\n"
+            if $invalid;
+        # XXX make this nicer
+        if (!$invalid && $objects->{$path}->{status} eq 'deleted') {
+            print STDERR "$object$param: reference to deleted object $path\n";
+            $invalid = '!';
+        }
+    }
    
     my $text = qq{};
     $text .= qq{<a href="#$path">} unless $nolinks;
@@ -4637,27 +5001,63 @@ sub html_template_valueref
 
     my $invalid = '';
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
-    if (!$parameters->{$path}) {
+    if (!$parameters->{$path} || !%{$parameters->{$path}}) {
         $invalid = '?';
         $invalid = '' if $upnpdm;
-        print STDERR "$object$param: reference to invalid parameter $path\n"
-            if $invalid;
+        # XXX don't warn further if this item has been deleted
+        if (!util_is_deleted($opts->{node})) {
+            print STDERR "$object$param: reference to invalid parameter ".
+                "$path\n" if $invalid;
+            # XXX make this nicer
+            if (!$invalid && $parameters->{$path}->{status} eq 'deleted') {
+                print STDERR "$object$param: reference to deleted parameter ".
+                    "$path\n";
+                $invalid = '!';
+            }
+        }
     } else {
         my $node = $parameters->{$path};
+        # XXX experimental: try to follow enumerationRefs
+        my $syntax = $node->{syntax};
+        if ($syntax->{reference} && $syntax->{reference} eq 'enumerationRef') {
+            my $targetParam = $syntax->{targetParam};
+            my $targetParamScope = $syntax->{targetParamScope};
+            my $targetPath = relative_path($node->{pnode}->{path},
+                                           $targetParam, $targetParamScope);
+            if ($parameters->{$targetPath} &&
+                !%{$parameters->{$targetPath}}) {
+                print STDERR "$path: enumerationRef references non-existent ".
+                    "parameter $targetPath: ignored\n";
+            } else {
+                $path = $targetPath;
+                $node = $parameters->{$path};
+            }
+        }
         my $values = $node->{values};
         $invalid = (has_values($values) && has_value($values, $value)) ?
             '' : '?';
         $invalid = '' if $upnpdm;
-        print STDERR "$object$param: reference to invalid value $value\n"
-            if $invalid;
+        # XXX don't warn further if this item has been deleted
+        if (!util_is_deleted($opts->{node})) {
+            print STDERR "$object$param: reference to invalid value $value\n"
+                if $invalid;
+            if (!$invalid && $values->{$value}->{status} eq 'deleted') {
+                print STDERR "$object$param: reference to deleted value $value\n";
+                $invalid = '!';
+            }
+        }
     }
 
     my $text = qq{};
     if ($this) {
-        $text .= qq{''$value''};
+        $text .= qq{''$value$invalid''};
     } else {
+        # XXX remove backslashes (needs done properly)
+        my $tvalue = $value;
+        $tvalue =~ s/\\//g;
+
         my $sep = $upnpdm ? '/' : '.';
-        $text .= qq{<a href="#$path$sep$value">} unless $nolinks;
+        $text .= qq{<a href="#$path$sep$tvalue">} unless $nolinks;
         $text .= qq{''$value$invalid''};
         $text .= qq{</a>} unless $nolinks;
     }
@@ -4754,7 +5154,10 @@ sub html_template_reference
             $targetType =~ s/row/object/;
             $targetType =~ s/single.*/object/;
             $targetType =~ s/parameter or object/item/;
-            if ($targetParentReadOnly) {
+            # XXX disabling this text may have been correct in some cases, but
+            #     not always, e.g. not for interface stack LowerLayer and
+            #     HigherLayer
+            if (0 && $targetParentReadOnly) {
                 $text .= $list ?
                     qq{.} :
                     qq{, or {{empty}}.};
@@ -4820,6 +5223,7 @@ sub relative_path
 {
     my ($parent, $name, $scope) = @_;
 
+    $parent = '' unless $parent;
     $scope = 'normal' unless $scope;
 
     my $path;
@@ -4924,7 +5328,7 @@ sub html_list
                                       ne substr($prev, $depth-1, 1))) {
             $depth--;
             my $type = $typemap->{substr($prev, $depth, 1)};
-            $outval .= '  ' x $depth . "</$type>\n";
+            $outval .= '  ' x $depth . "</$type><p>\n";
         }
 	while ($newdepth > $depth) {
             my $type = $typemap->{substr($curr, $depth, 1)};
@@ -4942,7 +5346,7 @@ sub html_list
     while ($depth > 0) {
         $depth--;
         my $type = $typemap->{substr($prev, $depth, 1)};
-	$outval .= '  ' x $depth . "</$type>\n";
+	$outval .= '  ' x $depth . "</$type><p>\n";
     }
     chomp $outval;
     return $outval;
@@ -4985,7 +5389,7 @@ sub html_font
     if ($opts->{param}) {
         my $object = $opts->{object} ? $opts->{object} : '';
         my $path = $object . $opts->{param};
-        $inval =~ s|%%([^%]*)%%|<a name="$path.$1">$1</a>|g;
+        $inval =~ s|%%([^%]*)%%([^%]*)%%|<a name="$path.$2">$1</a>|g;
     }
 
     return $inval;
@@ -5085,6 +5489,609 @@ sub xls_begin
 END
 }
 
+# HTML "BBF" report of node.
+#
+# Similar output to that on CWMP web page at http://www.broadband-forum.org/
+# cwmp.php.  Used to pass requirements to AMS.  Will hopefull evolve to be
+# more like the "PD-148" report.
+
+# implementation concepts are similar to those for the "PD-148" report.
+
+# Comments with informal template expansion:
+# - {{name}} => model name: name:m.n or "and"-separated list
+# - {{type}} => model type: "Root Object" or "Service Object"
+# - {{def}} => "definition" or "definitions" (depends on number of models)
+# - {{err}} => "errata and clarifications"
+my $htmlbbf_comments = {
+    rpcs => 'TR-069 RPCs',
+    dm => 'TR-069 Data Model Definition Schema',
+    dt => 'TR-069 Device Type Schema',
+    dtf => 'TR-069 Device Type Schema feature definitions',
+    bibref => 'TR-069 data model bibliographic references',
+    types => 'TR-069 Data Model Data Types',
+    objdef => 'TR-069 {{name}} {{type}} {{def}}',
+    objerr => 'TR-069 {{name}} {{type}} {{err}}',
+    compdef => 'Component objects for CWMP: TR-069 {{name}} {{type}} {{def}}',
+    comperr => 'Component objects for CWMP: TR-069 {{name}} {{type}} {{err}}'
+};
+
+# File info (could read this from a config file) that overrides information
+# inferred from the files themselves (shouldn't be needed for DM Instances).
+my $htmlbbf_info = {
+    'cwmp-1-0.xsd' => {
+        comment => 'rpcs', trname => 'tr-069-1-1', date => '2006-12'},
+    'cwmp-1-1.xsd' => {
+        comment => 'rpcs', trname => 'tr-069-1-2', date => '2007-12'},
+    'cwmp-datamodel-1-0.xsd' => {
+        comment => 'dm', trname => 'tr-106-1-2', date => '2008-11'},
+    'cwmp-datamodel-1-1.xsd' => {
+        comment => 'dm', trname => 'tr-106-1-3', date => '2009-09'},
+    'cwmp-devicetype-1-0.xsd' => {
+        comment => 'dt', trname => 'tr-106-1-3', date => '2009-09'},
+    'cwmp-devicetype-features.xsd' => {
+        comment => 'dtf', trname => 'tr-106-1-3', date => '2009-09'},
+    'tr-069-biblio.xml' => {
+        comment => 'bibref', support => 1},
+    'tr-106-1-0-0-types.xml' => {
+        comment => 'types', support => 1, trname => 'tr-106-1-0'}
+};
+
+my $htmlbbf = [];
+
+# XXX this is effectively copied from html_node; not all styles are used
+sub htmlbbf_begin
+{
+    # styles
+    my $table = qq{text-align: left;};
+    my $row = qq{vertical-align: top;};
+    my $center = qq{text-align: center;};
+
+    # font
+    my $h1font = qq{font-family: helvetica,arial,sans-serif; font-size: 14pt;};
+    my $h2font = qq{font-family: helvetica,arial,sans-serif; font-size: 12pt;};
+    my $h3font = qq{font-family: helvetica,arial,sans-serif; font-size: 10pt;};
+    my $font = qq{font-family: helvetica,arial,sans-serif; font-size: 8pt;};
+
+    # others
+    my $theader_bg = qq{background-color: rgb(153, 153, 153);};
+
+    print <<END;
+<html>
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="content-type">
+    <title>Broadband Forum - CWMP</title>
+    <style type="text/css">
+      p, li, body { $font }
+      h1 { $h1font }
+      h2 { $h2font }
+      h3 { $h3font }
+      table { $table }
+      th { $row $font }
+      th.g { $row $font $theader_bg }
+      td, td.p { $row $font }
+      td.pc { $row $font $center }
+    </style>
+  </head>
+  <body>
+    <h1>CPE WAN Management Protocol (CWMP)</h1>
+
+    <h1>XML Schemas and Data Model Definitions</h1>
+
+    <div align="center">
+      [<a href="#Schema">Schema Files</a>]
+      [<a href="#DMS">DM Support</a>]
+      [<a href="#DMD">DM Definitions</a>]
+      [<a href="cwmp.zip">Directory Contents</a>]
+    </div>
+
+    <p/>
+    <p>The available XML Schemas and data model definitions for the TR-069
+       suite of documents are listed below.</p>
+    <p/>
+    <p>Note: all the files below are directly reachable via:
+       http://www.broadband-forum.org/cwmp/&lt;filename&gt;</p>
+
+    <a name="Schema"/>
+    <h1>Schema Files</h1>
+END
+    htmlbbf_file('', {header => 1});
+    foreach my $file (@$allfiles) {
+        htmlbbf_file($file, {schema => 1});
+    }
+    htmlbbf_file('', {footer => 1});
+
+    print <<END;
+    <a name="DMS"/>
+    <h1>Data Model Support Files</h1>
+END
+    htmlbbf_file('', {header => 1});
+    foreach my $file (@$allfiles) {
+        htmlbbf_file($file, {support => 1});
+    }
+    htmlbbf_file('', {footer => 1});
+
+    print <<END;
+    <a name="DMD"/>
+    <h1>Data Model Definitions</h1>
+END
+    htmlbbf_file('', {header => 1});
+    foreach my $file (@$allfiles) {
+        htmlbbf_file($file);
+    }
+    htmlbbf_file('', {footer => 1});
+
+    print <<END;
+    </table>
+    <p><sup>1</sup>TBD (note re cwmp-datamodel-report.xsd)</p>
+    <p><sup>2</sup>TBD (note re omitted corrigendum numbers etc)</p>
+  </body>
+</html>
+END
+}
+
+# dummy (needed in order to indicate that report type is valid)
+sub htmlbbf_node
+{
+}
+
+my $htmlbbf_mnames = {};
+
+sub htmlbbf_file
+{
+    my ($file, $opts) = @_;
+
+    # table options
+    my $tabopts = qq{border="1" cellpadding="2" cellspacing="0"};
+
+    if ($opts->{header}) {
+        print <<END;
+    <table width="100%" $tabopts>
+      <tr>
+        <th width="15%">Filename</th>
+        <th width="60%">Comment</th>
+        <th width="12%">Publication Date</th>
+        <th width="13%">Technical Report</th>
+      </tr>
+END
+        return;
+
+    } elsif ($opts->{footer}) {
+        print <<END;
+    </table>
+END
+        return;
+    }
+
+    my $name = $file->{name};
+    my $spec = $file->{spec};
+    my $schema = $file->{schema};
+    my $models = $file->{models};
+
+    return if  $opts->{schema} && !$schema;
+    return if !$opts->{schema} &&  $schema;
+
+    my $info = $htmlbbf_info->{$name};
+    my $comment = $info->{comment};
+    my $support = $info->{support};
+    my $trname = $info->{trname};
+    my $date = $info->{date};
+
+    return if  $opts->{support} && !$support;
+    return if !$opts->{support} &&  $support;
+
+    my $seen = 0;
+    my $mult = 0;
+    my $type = 'Root Object';
+    my $mnames = '';
+    if ($models) {
+        foreach my $model (@$models) {
+            my $mname = $model->findvalue('@name');
+            my $isService = $model->findvalue('@isService');
+
+            $seen = 1 if $htmlbbf_mnames->{$mname};
+            $htmlbbf_mnames->{$mname} = 1;
+
+            $mult = 1 if $mnames;
+
+            # XXX assumes that all models in file are Root or Service
+            $type = 'Service Object' if $isService;
+
+            $mnames .= ' and ' if $mult;
+            $mnames .= $mname;
+        }   
+    }
+
+    my $def = 'definition' . ($mult ? 's' : '');
+    my $err = 'errata and clarifications';
+
+    if (!$comment && !$opts->{schema} && !$opts->{support}) {
+        $comment .= $mult ? 'comp' : 'obj';
+        $comment .= $seen ? 'err'  : 'def';
+    }
+
+    $comment = $comment ? $htmlbbf_comments->{$comment} : 'TBD';
+    $comment =~ s/{{name}}/$mnames/;
+    $comment =~ s/{{type}}/$type/;
+    $comment =~ s/{{def}}/$def/;
+    $comment =~ s/{{err}}/$err/;
+
+    $trname = $spec unless $trname;
+    $trname = util_doc_name($trname, {verbose => 1});
+    $trname = '&nbsp;' unless $trname;
+    
+    # XXX not clear where to get the date info from
+    if (!$date) {
+        $date = 'TBD';
+    } else {
+        my $months = ['NotAMonth', 'January', 'February', 'March', 'April',
+                      'May', 'June', 'July', 'August', 'September', 'October',
+                      'November', 'December'];
+        my ($year, $month) = $date =~ /(\d+)-(\d+)/;
+        $date = qq{$months->[$month] $year};
+    }
+    
+    my $xmllink = qq{cwmp/$name};
+
+    # XXX there are no standards for TR URLS; this is a BBF problem and they
+    #     should fix it!
+    my $trlink = qq{technical/download/${trname}.pdf};
+    $trlink =~ s/ //g;
+
+    print <<END;
+      <tr>
+        <td><a href="$xmllink">$name</a></td>
+        <td>$comment</td>
+        <td>$date</td>
+        <td><a href="$trlink">$trname</a></td>
+      </tr>
+END
+}
+
+# HTML "PD-148" report of node.
+#
+# Similar output to that of PD-148 sections 2 and 3; pass each data model
+# on the command line (duplication doesn't matter because no file is ever
+# read more than once).
+
+# array containing all info to be reported, in the form:
+#
+# [{name => model_name,
+#   spec => model_spec,
+#   profiles => [{name => profile_name,
+#                 spec => profile_spec}, ...], ...]
+my $html148 = [];
+
+# XXX this is effectively copied from html_node; not all styles are used
+sub html148_begin
+{
+    # styles
+    my $table = qq{text-align: left;};
+    my $row = qq{vertical-align: top;};
+    my $center = qq{text-align: center;};
+
+    # font
+    my $h1font = qq{font-family: helvetica,arial,sans-serif; font-size: 14pt;};
+    my $h2font = qq{font-family: helvetica,arial,sans-serif; font-size: 12pt;};
+    my $h3font = qq{font-family: helvetica,arial,sans-serif; font-size: 10pt;};
+    my $font = qq{font-family: helvetica,arial,sans-serif; font-size: 8pt;};
+
+    # others
+    my $theader_bg = qq{background-color: rgb(153, 153, 153);};
+
+    # file header and beginning of TOC
+    print <<END;
+<html>
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="content-type">
+    <title>TR-069 Data Model and Profile Registry</title>
+    <style type="text/css">
+      p, li, body { $font }
+      h1 { $h1font }
+      h2 { $h2font }
+      h3 { $h3font }
+      table { $table }
+      th { $row $font }
+      th.g { $row $font $theader_bg }
+      td, td.p { $row $font }
+      td.pc { $row $font $center }
+    </style>
+  </head>
+  <body>
+    <h1>Table of Contents</h1>
+    <ul>
+END
+}
+
+sub html148_node
+{
+    my ($node) = @_;
+
+    my $model = $node->{type} eq 'model';
+    return unless $model;
+
+    my $history = $node->{history};
+    if ($history && @$history) {
+        foreach my $past (reverse @$history) {
+            html148_model($node, $past);
+        }
+    }
+    html148_model($node);
+}
+
+sub html148_model
+{
+    my ($node, $past) = @_;
+
+    # node to use for name and spec is $past if defined, else $node
+    my $anode = $past ? $past : $node;
+    my $name = $anode->{name};
+    my $file = $anode->{file};
+    my $spec = $anode->{spec};
+
+    # node to use for other attributes is always $node
+    my $isService = $node->{isService};
+    my $profs = [];
+    foreach my $prof (grep {$_->{type} eq 'profile' && 
+                      $_->{spec} eq $spec} @{$node->{nodes}}) {
+        my $name = $prof->{name};
+        my $spec = $prof->{spec};
+
+        push @$profs, {name => $name, spec => $spec};
+    }
+
+    push @$html148, {name => $name, file => $file, spec => $spec,
+                     isService => $isService, profs => $profs};    
+}
+
+sub html148_end
+{
+    # table options
+    my $tabopts = qq{border="1" cellpadding="2" cellspacing="0"};
+
+    # TOC is generated directly; all other output is buffered and output
+    # at the bottom
+    my $text = '';
+
+    # introductory sections and summary table header
+    # XXX can you just put the class on <tr>?
+    # XXX not filling in dependencies yet; are they useful?
+    print <<END;
+      <li><a href="#Overview">Overview</a></li>
+      <li><a href="#Data Models">Data Models</a></li>
+END
+    $text .= <<END;
+    <h1><a name="Overview">Overview</a></h1>
+    <p>This document is a registry of Broadband Forum standardized TR-069 data models and profiles.  This document is intended to catalog all versions of data models and profiles defined in Broadband Forum Technical Reports.</p>
+    <h1><a name="Data Models">Data Models</a></h1>
+    <p>The following table lists all data model versions defined in Broadband Forum Technical Reports.</p>
+    <table width="100%" $tabopts>
+      <tbody>
+        <tr>
+          <th class="g">Object Name</th>
+          <th class="g">Object Type</th>
+          <th class="g">Version</th>
+          <th class="g">Version Update</th>
+          <th class="g">Update Type</th>
+          <th class="g">Technical Report</th>
+          <!-- <th class="g">Dependencies</th> -->
+        </tr>
+END
+
+    # summary table rows
+    my $rows = [];
+    my $mrows = {};
+    foreach my $model (@$html148) {
+        my $name = $model->{name};
+        my $file = $model->{file};
+        my $spec = $model->{spec};
+        my $rootserv = $model->{isService} ? 'Service' : 'Root'; 
+
+        my ($name_only, $version) = ($name =~ /([^:]*):(.*)/);
+        my $tr_name = util_doc_name($spec, {verbose => 1});
+        my $dependencies = 'dependencies';
+
+        my $nrow = {name => $name_only,
+                    file => $file,
+                    type => $rootserv,
+                    version => $version,
+                    tr_name => $tr_name,
+                    dependencies => $dependencies,
+                    mrowspan => 0};
+
+        # mrow is the first row for this data model
+        my $mrow = $mrows->{$nrow->{name}};
+        $mrow = $nrow if !$mrow || $nrow->{name} ne $mrow->{name};
+        $nrow->{mrow} = $mrow;
+        $mrow->{mrowspan}++;
+        $mrows->{$nrow->{name}} = $mrow;
+
+        push @$rows, $nrow;
+    }
+
+    print <<END;
+      <ul>
+END
+    my $first = 1;
+    foreach my $row (@$rows) {
+        my $mrowspan = $row->{mrowspan};
+        my $moc = $mrowspan ? '' : '<!-- ';
+        my $mcc = $mrowspan ? '' : ' -->';
+
+        if ($row == $row->{mrow}) {
+            print <<END;
+        <li><a href="#D:$row->{name}">$row->{name}</a></li>
+END
+
+            # XXX hacked separator row
+            if (!$first) {
+                $text .= <<END;
+        <tr>
+          <td colspan="6"></td>
+        </tr>
+END
+            }
+            $first = 0;
+        }
+
+        my $version = $row->{version};
+        my $version_update = $version eq '1.0' ? 'Initial' :
+            $version =~ /^\d+\.0$/ ? 'Major' : 'Minor';
+        # XXX not quite the same as in PD-148 because ALL XML minor versions
+        #     are incremental (not worth keeping this column?)
+        my $update_type = $version_update eq 'Initial' ? '-' :
+            $version_update eq 'Major' ? 'Replacement' : 'Incremental';
+
+        $text .= <<END;
+        <tr>
+          $moc<td rowspan="$mrowspan"><a name="D:$row->{name}">$row->{name}</a></td>$mcc
+          $moc<td rowspan="$mrowspan">$row->{type}</td>$mcc
+          <td><a href="cwmp/$row->{file}.html">$version</a> <a href="cwmp/$row->{file}.xml">(XML)</a></td>
+          <td>$version_update</td>
+          <td>$update_type</td>
+          <td>$row->{tr_name}</td>
+          <!-- <td>$row->{dependencies}</td> -->
+        </tr>
+END
+    }
+    print <<END;
+      </ul>
+END
+
+    # end of summary table and profile table header
+    print <<END;
+      <li><a href="#Profiles">Profiles</a></li>
+      <ul>
+END
+    $text .= <<END;
+      </tbody>
+    </table>
+    <h1><a name="Profiles">Profiles</a></h1>
+    <p>The following table lists all data model profiles defined in Broadband Forum Technical Reports.</p>
+    <table width="100%" $tabopts>
+      <tbody>
+        <tr>
+          <th class="g">Data Model</th>
+          <th class="g">Profile Name</th>
+          <th class="g">Profile Version</th>
+          <th class="g">Min Data Model Version</th>
+          <th class="g">Technical Report(s)</th>
+        </tr>
+END
+
+    # profile table rows
+    $rows = [];
+    $mrows = {};
+    my $prows = {};
+    foreach my $model (@$html148) {
+        my $mname = $model->{name};
+        my $spec = $model->{spec};
+        my $profs = $model->{profs};
+
+        my ($mname_only, $mversion_major, $mversion_minor) =
+            ($mname =~ /([^:]*):(\d+)\.(\d+)/);
+
+        foreach my $prof (@$profs) {
+            my $name = $prof->{name};
+            my $spec = $prof->{spec};
+
+            my ($name_only, $version) = ($name =~ /([^:]*):(.*)/);
+            my $tr_name = util_doc_name($spec, {verbose => 1});
+
+            my $nrow = {model => qq{$mname_only:$mversion_major},
+                        prof => $name_only,
+                        prof_version => $version,
+                        model_version => qq{$mversion_major.$mversion_minor},
+                        tr_name => $tr_name,
+                        mrowspan => 0,
+                        prow => undef, prowspan => 0};
+
+            # mrow is the first row for this data model
+            my $mrow = $mrows->{$nrow->{model}};
+            $mrow = $nrow if !$mrow || $nrow->{model} ne $mrow->{model};
+            $nrow->{mrow} = $mrow;
+            $mrow->{mrowspan}++;
+            $mrows->{$nrow->{model}} = $mrow;
+
+            # prow is the first row for this data model and profile
+            my $prow = $prows->{$nrow->{model}}->{$nrow->{prof}};
+            $prow = $nrow if !$prow || $nrow->{prof} ne $prow->{prof};
+            $nrow->{prow} = $prow;
+            $prow->{prowspan}++;
+            $prows->{$nrow->{model}}->{$nrow->{prof}} = $prow;
+
+            # insert after previous profile for this model, if any, else
+            # at the end
+            my $index;
+            for (0 .. @$rows-1) {
+                my $row = @$rows[$_];
+                $index = $_ + 1 if $row->{model} eq $nrow->{model} &&
+                    $row->{prof} eq $nrow->{prof};
+            }
+            $index = @$rows unless defined $index;
+            splice @$rows, $index, 0, $nrow;
+        }
+    }
+
+    $first = 1;
+    foreach my $row (@$rows) {
+        my $mrowspan = $row->{mrowspan};
+        my $moc = $mrowspan ? '' : '<!-- ';
+        my $mcc = $mrowspan ? '' : ' -->';
+        my $prowspan = $row->{prowspan};
+        my $poc = $prowspan ? '' : '<!-- ';
+        my $pcc = $prowspan ? '' : ' -->';
+
+        if ($row == $row->{mrow}) {
+            print <<END;
+        <li><a href="#P:$row->{model}">$row->{model}</a></li>
+END
+            # XXX hacked separator row
+            if (!$first) {
+                $text .= <<END;
+        <tr>
+          <td colspan="5"></td>
+        </tr>
+END
+            }
+            $first = 0;
+        }
+
+# XXX suppress the individual profile entries in the TOC (there are too many
+#     of them
+#        if ($row == $row->{prow}) {
+#            print <<END;
+#        <ul><li><a href="#P:$row->{model}.$row->{prof}">$row->{prof}</a></li></ul>
+#END
+#        }
+
+        $text .= <<END;
+        <tr>
+          $moc<td rowspan="$mrowspan"><a name="P:$row->{model}">$row->{model}</a></td>$mcc
+          $poc<td rowspan="$prowspan"><a name="P:$row->{model}.$row->{prof}">$row->{prof}</a></td>$pcc
+          <td>$row->{prof_version}</td>
+          <td>$row->{model_version}</td>
+          <td>$row->{tr_name}</td>
+        </tr>
+END
+    }
+    print <<END;
+      </ul>
+    </ul>
+END
+
+    # end of profile table and document
+    $text .= <<END;
+      </tbody>
+    </table>
+  </body>
+</html>
+END
+
+    # output document body
+    print $text;
+}
+
+# Excel report of node.
 sub xls_node
 {
     my ($node, $indent) = @_;
@@ -5550,6 +6557,26 @@ sub util_list
     return $text;
 }
 
+# Return all the historical values of a node's specified attribute
+sub util_history_values
+{
+    my ($node, $attr) = @_;
+
+    my $history = $node->{history};
+
+    my $list = [];
+
+    if ($history) {
+        foreach my $item (reverse @$history) {
+            push @$list, $item->{$attr};
+        }
+    }
+
+    push @$list, $node->{$attr};
+
+    return $list;
+}
+
 # Copy of all elements of a hash except for those explicitly excluded
 sub util_copy
 {
@@ -5595,6 +6622,78 @@ sub util_diffs
     return $diffs;
 }
 
+# Convert spec to document name
+sub util_doc_name
+{
+    my ($spec, $opts) = @_;
+
+    my $verbose = $opts->{verbose};
+
+    # XXX not sure quite why it's ever blank; something to do with profiles?
+    return $spec unless $spec;
+
+    # urn:broadband-forum-org:rest -> rest
+    my $text = $spec;
+    $text =~ s/.*://;
+
+    # support names of form name-i-a[-c][label] where name is of the form
+    # "cat-n", i, a and c are numeric and label can't begin with a digit
+    my ($cat, $n, $i, $a, $c, $label) =
+        $text =~ /^([^-]+)-(\d+)-(\d+)?-(\d+)(?:-(\d+))?(-\D.*)?$/;
+    
+    $text = '';
+    if ($cat =~ /^(dsl|bbf)$/) {
+        $text .= qq{$cat};
+        $text .= qq{$n}; # year
+        $i = 0 unless defined $i;
+        $text .= sprintf(".%.3d", $i); # number
+        $a = 0 unless defined $a;
+        $text .= sprintf(".%.2d", $a); # version
+        # $c and $label are ignored
+    } elsif ($cat =~ /tr/i) {
+        $cat = uc $cat;
+        $text .= qq{$cat-$n};
+        $text .= $verbose ? qq{ Issue $i} : qq{i$i} if defined $i && $i > 1;
+        $text .= $verbose ? qq{ Amendment $a} : qq{a$a} if $a;
+        $text .= $verbose ? qq{ Corrigendum $c} : qq{c$c} if $c;
+        # $label is ignored
+    } else {
+        $cat = uc $cat;
+        $text .= qq{$cat-$n};
+        $text .= qq{v$i} if defined $i && $i > 1; # version
+        $text .= sprintf("_Rev-%.2d", $a) if $a; # revision (major)
+        $text .= qq{.$c} if $c; # revision (minor)
+        # $label is ignored
+    }
+
+    return $text;
+}
+
+# Delete deprecated or obsoleted items if $deletedeprecated
+sub util_maybe_deleted
+{
+    my ($status) = @_;
+
+    $status = 'deleted'
+        if $deletedeprecated && $status =~ /deprecated|obsoleted/;
+
+    return $status;
+}
+
+# Determine whether a node has been deleted
+sub util_is_deleted
+{
+    my ($node) = @_;
+
+    for (; $node; $node = $node->{pnode}) {
+        if ($node->{status} && $node->{status} eq 'deleted') {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 # Expand all data model definition files.
 foreach my $file (@ARGV) {
     expand_toplevel($file);
@@ -5605,6 +6704,9 @@ foreach my $file (@ARGV) {
 sub sanity_node
 {
     my ($node) = @_;
+
+    # no warnings for deleted items
+    return if util_is_deleted($node);
 
     my $path = $node->{path};
     my $name = $node->{name};
@@ -5646,8 +6748,7 @@ sub sanity_node
     if ($object || $parameter) {
         my $objpar = $object ? 'object' : 'parameter';
         print STDERR "$path: $objpar has empty description\n"
-            if $pedantic > 1 && defined($description) && $description eq '' &&
-            $status ne 'deleted';
+            if $pedantic > 1 && defined($description) && $description eq '';
         # XXX should check all descriptions, not just obj / par ones (now
         #     better: checking enumeration descriptions)
         my $ibr = invalid_bibrefs($description);
@@ -5677,16 +6778,25 @@ sub sanity_node
             !($access ne 'readOnly' && $maxEntries eq 'unbounded') &&
             $enableParameter;
 
-        # these checks are relevant only for DT (assuming that the XML is
-        # schema compliant)
-        my $temp = $numEntriesParameter;
+        print STDERR "$path: enableParameter ($enableParameter) doesn't ".
+            "exist\n"
+            if $enableParameter && !$parameters->{$path.$enableParameter};
+
+        # XXX this is questionable use of "hidden" (TR-196?)
+        my $temp = $numEntriesParameter || '';
         $numEntriesParameter = $parameters->{$ppath.$numEntriesParameter} if
             $numEntriesParameter;
-        print STDERR "$path: missing numEntriesParameter ($temp)\n" if
-            ($maxEntries eq 'unbounded' || 
+        if (($maxEntries eq 'unbounded' || 
              ($maxEntries > 1 && $maxEntries > $minEntries)) &&
-             (!$numEntriesParameter ||
-              (!$hidden && $numEntriesParameter->{hidden}));
+            (!$numEntriesParameter ||
+             (!$hidden && $numEntriesParameter->{hidden}))) {
+            print STDERR "$path: missing or invalid numEntriesParameter ".
+                "($temp)\n";
+            # XXX should filter out only parameters (use grep)
+            print STDERR "\t" .
+                join(", ", map {$_->{name}} @{$node->{pnode}->{nodes}}) . "\n"
+                if $pedantic > 2;
+        }
 
         # XXX criterion for enableParameter isn't right (needs to consider
         #     unique keys; see {{keys}} expansion code) so disabled
@@ -5695,6 +6805,12 @@ sub sanity_node
         #print STDERR "$path: missing enableParameter\n" if
         #    $access ne 'readOnly' && $maxEntries eq 'unbounded' &&
         #    (!$enableParameter || (!$hidden && $enableParameter->{hidden}));
+
+        # XXX could be cleverer re checking for read-only / writable unique
+        #     keys
+        print STDERR "$path: no unique keys are defined\n" if
+            $pedantic && ($maxEntries eq 'unbounded' || $maxEntries > 1) &&
+            !$node->{noUniqueKeys} && !@{$node->{uniqueKeys}};
     }
 
     # parameter sanity checks
@@ -5834,6 +6950,7 @@ sub spec_node
     my ($node, $indent) = @_;
 
     # XXX don't count root node (it confuses people, e.g. me)
+    # XXX this gives the wrong answer for "xml2" output
     $spectotal->{$node->{spec}}++ if $indent && $node->{spec};
 }
 
@@ -5842,7 +6959,7 @@ sub spec_node
 $report = 'spec';
 report_node($root);
 
-foreach my $spec (@$specs) {
+foreach my $spec (sort @$specs) {
     print STDERR "$spec: $spectotal->{$spec}\n" if
         defined $spectotal->{$spec} && !$quiet;
 }
@@ -5854,7 +6971,7 @@ B<report.pl> - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--canonical] [--components] [--debugpath=pattern("")] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noprofiles] [--notemplates] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref] [--writonly] DM-instance...
+B<report.pl> [--autobase] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref] [--writonly] DM-instance...
 
 =over
 
@@ -5888,6 +7005,10 @@ affects only the B<xml2> report; generates a component for each object; if B<--n
 
 outputs debug information for parameters and objects whose path names match the specified pattern
 
+=item B<--deletedeprecated>
+
+mark all deprecated or obsoleted items as deleted
+
 =item B<--dtprofile=s>...
 
 affects only the B<xml2> report; can be specified multiple times; defines names of profiles to be used to generate an example DT instance
@@ -5907,6 +7028,12 @@ specifies a pattern; data models whose names begin with the pattern will be igno
 =item B<--importsuffix=string("")>
 
 specifies a suffix which, if specified, will be appended (preceded by a hyphen) to the name part of any imported files in b<xml> reports
+
+=item B<--include=d>...
+
+can be specified multiple times; specifies directories to search for files specified on the command line or included from other files; the current directory is always searched first and the directory B<../cwmp-bbf> is always searched last (and so doesn't need to be mentioned)
+
+no search is performed for files that already include directory names
 
 =item B<--info>
 
@@ -5942,6 +7069,12 @@ specifies that model definitions should not be reported
 
 affects only the B<xml2> report when B<--components> is specified; omits objects from component definitions
 
+=item B<--noparameters>
+
+affects only the B<xml2> report when B<--components> is specified; omits parameters from component definitions
+
+B<NOT YET IMPLEMENTED>
+
 =item B<--noprofiles>
 
 specifies that profile definitions should not be reported
@@ -5949,6 +7082,12 @@ specifies that profile definitions should not be reported
 =item B<--notemplates>
 
 suppresses template expansion (currently affects only B<html> reports
+
+=item B<--nowarnredef>
+
+disables parameter and object redefinition warnings (these warnings are also output if B<--verbose> is specified)
+
+there are some circumstances under which parameter or object redefinition is not worthy of comment
 
 =item B<--objpat=pattern>
 
@@ -5994,13 +7133,17 @@ DM XML containing only the changes made by the final file on the command line; s
 
 =item B<xml2>
 
-XML that is similar to the input but with all imports resolved; by default is DM XML; use B<--dtprofile>, optionally with B<--dtspec>, to generate DT XML for the specified profiles; use B<--canonical> to generate canonical and more easily compared descriptions; use B<--components> (perhaps with B<--noobjects>) to generate component definitions
+XML that is similar to the input but with all imports resolved; by default is DM XML; use B<--dtprofile>, optionally with B<--dtspec>, to generate DT XML for the specified profiles; use B<--canonical> to generate canonical and more easily compared descriptions; use B<--components> (perhaps with B<--noobjects> of B<--noparameters>) to generate component definitions
 
 =item B<xsd>
 
 W3C schema
 
 =back
+
+=item B<--showspec>
+
+currently affects only the B<html> report; generates a B<Spec> rather than a B<Version> column
 
 =item B<--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc>
 
@@ -6044,7 +7187,7 @@ transforms output (currently HTML only) so it looks like a B<UPnP DM> (Device Ma
 
 =item B<--ugly>
 
-disables some prettifications, e.g. inserting spaces to encourage line breaks, and omitting the B<spec> column in HTML reports
+disables some prettifications, e.g. inserting spaces to encourage line breaks
 
 =item B<--verbose>
 
@@ -6068,7 +7211,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/05/11 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#114 $
+$Date: 2009/07/27 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#126 $
 
 =cut
