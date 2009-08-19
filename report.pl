@@ -133,6 +133,7 @@ binmode STDOUT, ":utf8";
 
 # Command-line options
 my $autobase = 0;
+my $autodatatype = 0;
 my $canonical = 0;
 my $components = 0;
 my $debugpath = '';
@@ -168,6 +169,7 @@ my $verbose;
 my $warndupbibref = 0;
 my $writonly = 0;
 GetOptions('autobase' => \$autobase,
+           'autodatatype' => \$autodatatype,
            'canonical' => \$canonical,
            'components' => \$components,
            'debugpath:s' => \$debugpath,
@@ -220,8 +222,8 @@ if ($noparameters) {
 
 if ($info) {
     print STDERR q{$Author: wlupton $
-$Date: 2009/07/27 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#126 $
+$Date: 2009/08/19 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#128 $
 };
     exit(1);
 }
@@ -238,7 +240,8 @@ $verbose = 0 unless defined($verbose);
 
 $nocomments = 0 if $verbose;
 
-$noprofiles = 1 if $components || @$dtprofiles;
+# XXX upnpdm profiles are broken...
+$noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
 
 # Globals.
 my $allfiles = [];
@@ -2600,7 +2603,7 @@ sub type_string
     #     base type but at the time of writing, data types are used only for
     #     IPAddress and MACAddress
     if (!$dataType) {
-    } elsif ($value =~ /^(IP|MAC)Address$/) {
+    } elsif ($value =~ /^(IP(v4|v6)?|MAC)(Address|Prefix)$/) {
         $value = 'string';
     } else {
         print STDERR "$value: named data types other than IPAddress and ".
@@ -2672,7 +2675,7 @@ sub get_typeinfo
         }
     }
 
-    return {value =>$value, dataType => $dataType, unsigned => $unsigned};
+    return {value => $value, dataType => $dataType, unsigned => $unsigned};
 }
 
 # Add size or list size to type / value string
@@ -4101,8 +4104,9 @@ END
     }
 
     if ($indent) {
-        if ($upnpdm && $path eq '') {
-            print STDERR "ignoring BBF-specific object\n" if $verbose;
+        if ($upnpdm && !$object && $node->{pnode}->{type} &&
+            $node->{pnode}->{type} eq 'model') {
+            print STDERR "$path: ignoring top-level parameter\n" if $verbose;
             return;
         }
 
@@ -4428,10 +4432,15 @@ sub html_escape {
         # Remove BBF-specific root-ish objects
         $value =~ s/(?:InternetGateway)?Device\/([A-Z])/$1/g;
         $value =~ s/Services\/([A-Z])/$1/g;
+        $value =~ s/\w+Service\/#\/([A-Z])/$1/g;
 
         # Final hack to get rid BBF-specific root-ish objects
         $value = '' if $value =~ /^(?:InternetGateway)?Device\.$/;
         $value = '' if $value =~ /^Services\/$/;
+
+        # XXX this doesn't quite work because leaves empty top-level
+        #     Service object and any top-level parameters, e.g. Enable
+        $value = '' if $value =~ /^\w+Service\/#\/$/;
 
         print STDERR "$before -> $value\n" if
                                      $verbose > 1 && $value ne $before;
@@ -4538,6 +4547,14 @@ sub html_template
         $inval = "{{list}}" . $sep . $inval;
     }
 
+    # auto-prefix {{datatype}} if autodatatype is set and the parameter has
+    # a named data type
+    if ($p->{type} && $p->{type} eq 'dataType' && $autodatatype &&
+        $inval !~ /\{\{nodatatype\}\}/) {
+        my $sep = !$inval ? "" : "  ";
+        $inval = "{{datatype}}" . $sep . $inval;
+    }
+
     # auto-append {{enum}} or {{pattern}} if there are values and it's not
     # already there (put it on the same line if the value is empty or ends
     # with a sentence terminator, allowing single quote formatting chars)
@@ -4589,6 +4606,11 @@ sub html_template
           text0 => \&html_template_list,
           text1 => \&html_template_list},
          {name => 'nolist',
+          text0 => q{}},
+         {name => 'datatype',
+          text0 => \&html_template_datatype,
+          text1 => \&html_template_datatype},
+         {name => 'nodatatype',
           text0 => q{}},
          {name => 'hidden',
           text0 => q{{{mark|hidden}}When read, this parameter returns {{null}}, regardless of the actual value.},
@@ -4781,6 +4803,27 @@ sub html_template_list
     return $text;
 }
 
+# XXX want to be able to control level of generated info?
+sub html_template_datatype
+{
+    my ($opts, $arg) = @_;
+
+    my $type = $opts->{type};
+    my $syntax = $opts->{syntax};
+
+    my $typeinfo = get_typeinfo($type, $syntax);
+
+    my $dtname = $typeinfo->{value};
+    my ($dtdef) = grep {$_->{name} eq $dtname} @{$root->{dataTypes}};
+
+    # XXX should check for valid data type? (should always be)
+
+    my $text = $dtdef->{description};
+    $text .= '.' unless $text =~ /\.$/;
+
+    return $text;
+}
+
 sub html_template_keys
 {
     my ($opts) = @_;
@@ -4922,8 +4965,10 @@ sub html_template_paramref
     if (!util_is_deleted($opts->{node})) {
         print STDERR "$object$param: reference to invalid parameter $path\n"
             if $invalid;
-        # XXX make this nicer
-        if (!$invalid && $parameters->{$path}->{status} eq 'deleted') {
+        # XXX make this nicer (not sure why test of status is needed here but
+        #     upnpdm triggers "undefined" errors otherwise
+        if (!$invalid && $parameters->{$path}->{status} &&
+            $parameters->{$path}->{status} eq 'deleted') {
             print STDERR "$object$param: reference to deleted parameter ".
                 "$path\n";
             $invalid = '!';
@@ -4970,8 +5015,10 @@ sub html_template_objectref
     if (!util_is_deleted($opts->{node})) {
         print STDERR "$object$param: reference to invalid object $path\n"
             if $invalid;
-        # XXX make this nicer
-        if (!$invalid && $objects->{$path}->{status} eq 'deleted') {
+        # XXX make this nicer (not sure why test of status is needed here but
+        #     upnpdm triggers "undefined" errors otherwise
+        if (!$invalid && $objects->{$path}->{status} &&
+            $objects->{$path}->{status} eq 'deleted') {
             print STDERR "$object$param: reference to deleted object $path\n";
             $invalid = '!';
         }
@@ -5008,8 +5055,10 @@ sub html_template_valueref
         if (!util_is_deleted($opts->{node})) {
             print STDERR "$object$param: reference to invalid parameter ".
                 "$path\n" if $invalid;
-            # XXX make this nicer
-            if (!$invalid && $parameters->{$path}->{status} eq 'deleted') {
+            # XXX make this nicer (not sure why test of status is needed here
+            #     but upnpdm triggers "undefined" errors otherwise
+            if (!$invalid && $parameters->{$path}->{status} &&
+                $parameters->{$path}->{status} eq 'deleted') {
                 print STDERR "$object$param: reference to deleted parameter ".
                     "$path\n";
                 $invalid = '!';
@@ -5217,8 +5266,6 @@ sub html_template_reference
 }
 
 # Generate relative path given...
-# XXX doesn't work properly if doing UPnP DM translation (need to re-think
-#     relative path syntax)
 sub relative_path
 {
     my ($parent, $name, $scope) = @_;
@@ -5228,12 +5275,16 @@ sub relative_path
 
     my $path;
 
+    my $sep = $upnpdm ? q{#} : q{.};
+    my $sepp = $upnpdm ? q{\#} : q{\.};
+    my $instp = $upnpdm ? q{\#} : q{\{};
+
     if ($scope eq 'normal' && $name =~ /^(Device|InternetGatewayDevice)\./) {
         $path = $name;
-    } elsif (($scope eq 'normal' && $name =~ /^\./) || $scope eq 'model') {
-        my ($root, $next) = split /\./, $parent;
-        $next = ($next =~ /^\{/) ? ('.' . $next) : '';
-        my $sep = ($name =~ /^\./) ? '' : '.';
+    } elsif (($scope eq 'normal' && $name =~ /^$sepp/) || $scope eq 'model') {
+        my ($root, $next) = split /$sepp/, $parent;
+        $next = ($next =~ /^$instp/) ? ($sep . $next) : '';
+        my $sep = ($name =~ /^$sepp/) ? '' : $sep;
         $path = $root . $next . $sep . $name;
     } else {
         $path = $parent . $name;
@@ -6971,7 +7022,7 @@ B<report.pl> - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref] [--writonly] DM-instance...
+B<report.pl> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref] [--writonly] DM-instance...
 
 =over
 
@@ -6992,6 +7043,10 @@ The script parses, validates (ahem) and reports on these files, generating outpu
 =item B<--autobase>
 
 causes automatic addition of B<base> attributes when models, parameters and objects are re-defined, and suppression of redefinition warnings (useful when processing auto-generated data model definitions)
+
+=item B<--autodatatype>
+
+causes the B<{{datatype}}> template to be automatically prefixed for parameters with named data types
 
 =item B<--canonical>
 
@@ -7211,7 +7266,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/07/27 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#126 $
+$Date: 2009/08/19 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#128 $
 
 =cut
