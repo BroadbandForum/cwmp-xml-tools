@@ -1,0 +1,44 @@
+
+==========================================================================================================================
+Versioning:
+
+Description:
+
+(4:15:09 PM) jwalls: the end result is
+(4:15:14 PM) jwalls: when there is an import
+(4:15:36 PM) jwalls: it prints out ALL of the stuff from the imported file, 
+		with the changes or additions made from the new file
+
+How to do it:
+
+Way 1:
+
+Description:
+Everytime something in the table is changed, the "version" gets updated with whatever version the new data came from.
+Therefore, if you process doc1, there's a table for doc1, table 1.
+Then, process doc2, inserting the information NOT into a blank table, but with table 1.
+
+BAD!!!!
+
+
+------------
+DO THISSS: Way 2:
+
+Create two different tables, then merge them.
+That is, you have table 1, and you update it using table 2.
+If anything changes from table 2, the version of the doc that table 2 was derrived from is put in the "version" block,
+and the variable is swapped out.
+
+This will be done by making a row a table of cells.
+Cells will have a "changed" attribute.
+
+Prior to tabling, produce a version code for the document.
+
+After a tabling, if (a version column existss) and any cells in a row are changed (have row tell us this), 
+change Version of row to docVersion.
+
+Printers will now have 2 modes: norm, diff.
+norm: ignore changed attr on cells
+diff: change attr on cells makes them follow guidelines set in a reference local to the printer.
+
+=========================================================================================================================

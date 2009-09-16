@@ -1,0 +1,81 @@
+<html>
+<head>
+<title>The TRminator BBF Plugins</title>
+<h1>
+Threepio + TRminator Developer Guide
+</h1>
+<b>The TRminator BBF Plugins</b>
+</head>
+<HR>
+<h2>
+Index:
+</h2>
+<a href="#about">
+About TRminator
+</a>
+<br>
+<a href="#uis">
+The User Interfaces
+</a>
+<br>
+<a href="#processor">
+Table Post Processor
+</a>
+<HR>
+<a name="about">
+<h2>
+About TRminator
+</h2>
+</a>
+<body>
+TRminator is an add-on package for the Threepio XML Data Model table-maker engine.
+<br>
+It consists of a graphical user interface and a command-line user interface,
+as well as a Post Processor for 
+<a href="table.html#table">
+Tables
+</a> 
+created by 
+<a href="threepio.html">
+Threepio
+</a>
+that processes BBF-style markup.
+</body>
+
+
+<a name="uis">
+<h2>
+The User Interfaces
+</h2>
+</a>
+<body>
+TRminator provides a graphical user interface (defined in GUI.java) and a command-line user interface (defined in CLI.java).
+<br>
+The GUI contains a mode for non-BBF documents, but the CLI is currently optimized for BBF documents.
+</body>
+
+<a name="processor">
+<h2>
+Table Post Processor
+</h2>
+</a>
+<body>
+TRminator contains a Table Post Processor that handles BBF-style markup in curly braces. It is defined in "TablePostProcessor.java."
+<br>
+There are Objects of class MarkupProcessor that are also defined in this file. They are used one after another, in the method doReplaces.
+<br>
+Some of these may have to be run before each other, if the markup handling of one creates more markup, or markup depends on data created by other markup. 
+<br>
+A ModelTable object created using Threepio can be run through TablePostProcessor's <b>deMarkupTable</b> method to remove and process BBF markup.
+<br>
+This needs to be done prior to printing the table out.
+</body>
+
+<br>
+<HR>
+<HR>
+<pre>
+<b>TRminator Documentation updated 2009/08/23</b>
+TRminator, Threepio XML Conversion API, and all other information provided in this file &copy;2009 UNH-IOL unless otherwise stated.
+</pre>
+</html>
