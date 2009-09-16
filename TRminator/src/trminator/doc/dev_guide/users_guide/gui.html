@@ -1,0 +1,145 @@
+<HTML>
+<HEADER>
+<TITLE>
+TRminator Graphical Interface
+</TITLE>
+<h1>
+TRminator Graphical Interface
+</h1>
+</HEADER>
+<HR>
+<h2>
+Index
+</h2>
+<a href="#intro">Introduction</a>
+<br>
+<a href="#directions">Running TRminator with Graphical Interface</a>
+<br>
+<a href="#common">Common Features to All Modes</a>
+<br>
+<b>
+Modes:
+<br>
+</b>
+&nbsp&nbsp&nbsp&nbsp<a href="#m1">Versioned Document -> Table (default)</a>
+<br>
+&nbsp&nbsp&nbsp&nbsp<a href="#m2">General XML -> Table</a>
+<br>
+&nbsp&nbsp&nbsp&nbsp<a href="#m3">Non-Sequential Documents -> Diff Table</a>
+<br>
+<a href="#advanced">Advanced Configuration</a>
+<HR>
+<a name="intro">
+<h2>
+Introduction
+</h2>
+</a>
+The following instructions are for the TRminator Graphical Interface.
+<br>
+If you are interested in the command-line interface of TRminator, go <a href="cli.html">here</a>.
+<a name="directions">
+<h2>
+Running TRminator with Graphical Interface
+</h2>
+</a>
+There are two ways to run TRminator with the graphical interface.
+<br>
+In most environments, this can be done by double-clicking on the executable jar.
+<br>
+In all environments, the program can be run in Graphical mode via the command line:
+<pre>
+<b>user@host></b> java -jar TRminator.jar -gui
+</pre>
+There are currently no supported command-line arguments.
+<br>
+<a name="common">
+<h2>
+Common Features to All Modes
+</h2>
+</a>
+<p>
+Each time a file location (input OR output) or option is changed, the "GO" button is disabled.
+<br>
+Users must click the "Load File"/"Load Files" button in order to enable the GO button.
+<br>
+Each time the Load button is clicked, the program makes sure it can write to the output path, and deletes any file there.
+<br>
+Then the input file(s) go(es) through an in-depth validation process, to ensure that no errors occurr due to a missing file.
+<br>
+<br>
+<b>NOTICE:</b> because of this validation and possible requirement for completion of the table, 
+<br>all files associated with the input file(s) via "import" statements MUST be located in top level of the directory where the input file is located.
+<br>Attempts to subvert this by using [File > Change Working Directory] will likely result in error.
+<br>
+<h3>
+Menu options
+</h3>
+&nbsp&nbsp&nbsp&nbsp <b>File > Change Working Directory</b> allows the user to pick a directory where they will choose input files from.
+<br>
+&nbsp&nbsp&nbsp&nbsp The actual benefit of this option is quite minimal, as the setting is not guaranteed to be persistent.
+<br>
+&nbsp&nbsp&nbsp&nbsp <b>Edit > Change Cols </b> allows the user to edit the columns that exist in the output table.
+<br>
+<br>
+<a href="img/cole.jpg"><img src="img/thumbs/cole_thumb.jpg" alt="col_edit" /></a>
+<br>
+<b>NOTICE:</b> Changing the columns from the default configuration may have adverse effects, as selected features may depend on the existence of some columns.
+</p>
+<h2>
+Using the Different Modes:
+</h2>
+<a name="m1">
+<h3>
+Versioned Document => Table (default)
+</h3>
+<a href="img/t_a.jpg"><img src="img/thumbs/t_a_thumb.jpg" alt="small_tr" /></a>
+<p>
+This mode is for creating an HTML table representing a versioned BBF document's content.
+<br>
+Each version imported (recursively) by the document is included in the table, and bibliographic information is attached in a separate table.
+<br>
+Consequentially, 
+<br>
+By default, HTML formatting is used to show the changes since the last version of the document (if applicable).
+<br>
+Users may toggle this feature using the "Diff final two tables" check box under "Misc. Options." 
+<br>
+Also available is an option to include a table of profiles.
+<br>
+<br>
+<b>NOTICE:</b> in the event of a file with more than one model, the user will be prompted to pick the desired model from a list.
+</p>
+<a name="m2">
+<h3>
+General XML  => Table
+</h3>
+</a>
+<a href="img/t_b.jpg"><img src="img/thumbs/t_b_thumb.jpg" alt="small_tr" /></a>
+<p>
+This mode is for creating an HTML table representing an XML document like BBF's TR-069, TR-198 documents.
+<br>
+Unlike the default mode, no inheritance or dependence is validated or included.
+<br>
+Also, the user must specify the name of the object that contains the desired data.
+</p>
+<a name="m3">
+<h3>
+Non-Sequential Documents => Diff Table
+</h3>
+</a>
+<a href="img/t_c.jpg"><img src="img/thumbs/t_c_thumb.jpg" alt="small_tr" /></a>
+<p>
+This mode is for creating an HTML table representing the differences between a BBF document and an older version of that document.
+<br>
+Essentially, this mode carries out the functions of the default (first) mode twice; once for each of the files, and then compares them.
+<br>
+The resulting table has HTML formatting that shows the difference between the two input files.
+</p>
+<HR>
+<HR>
+<pre>
+<b>TRminator Documentation updated 2009/08/12</b>
+TRminator, Threepio XML Conversion API, and all other information provided in this file &copy;2009 UNH-IOL unless otherwise stated.
+</pre>
+</html>
+</html>
