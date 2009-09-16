@@ -1,0 +1,94 @@
+<html>
+<head>
+<title>The Table: an object full of objects</title>
+<h1>
+Threepio + TRminator Developer Guide
+</h1>
+<b>The Table: an object full of objects</b>
+</head>
+<HR>
+<h2>
+Index:
+</h2>
+<a href="#table">The Table class</a>
+<br>
+<a href="#row">The Row class</a>
+<br>
+<a href="#scell">The StringCell class</a>
+<br>
+<HR>
+<a name="table">
+<h2>
+The Table Class
+</h2>
+</a>
+<body>
+<b>Package:</b> threepio.tabler.container
+<br>
+<b>Description:</b> 
+The threepio.tabler.container.Table class is an 
+<a href="classes.html#ihm">IndexedHashMap</a>
+that has String keys and 
+<a href="#row">row</a>
+values
+<br>
+<b>Requirements:</b> 
+none
+<br>
+<b>Uses:</b>
+<br>
+Multiple derivatives of Table are used to store the information found in XML documents.
+<br>
+All Tabler objects produce at least one of these derivatives.
+</body>
+<a name="row">
+<h2>
+The Row Class
+</h2>
+</a>
+<body>
+<b>Package:</b> threepio.tabler.container
+<br>
+<b>Description:</b> 
+The threepio.tabler.container.Row class is an ArrayList of 
+<a href="#scell">
+StringCells
+</a>
+With a static size.
+<br>
+<b>Requirements:</b> 
+No adding is done, other than during construction.
+<br>
+<b>Uses:</b>
+<br>
+Rows are used to model a row for a table for organization and printing.
+</body>
+<a name="scell">
+<h2>
+The StringCell Class
+</h2>
+</a>
+<body>
+<b>Package:</b> threepio.tabler.container
+<br>
+<b>Description:</b> 
+The threepio.tabler.container.StringCell class is an Object that models a cell in a table.
+<b>Requirements:</b> 
+none
+<br>
+<b>Uses:</b>
+<br>
+StringCells store the actual data in the cell, as well as attributes that describe them.
+<br>
+There is a "flag" boolean value available, to signify a need for advanced processing.
+<br>
+For example, the flag is used in the current implementation of Tabler to tell the methods if new information is to be appended to the current data, or is to replace it.
+<br>
+</body>
+<HR>
+<HR>
+<pre>
+<b>TRminator Documentation updated 2009/08/20</b>
+TRminator, Threepio XML Conversion API, and all other information provided in this file &copy;2009 UNH-IOL unless otherwise stated.
+</pre>
+</html>
