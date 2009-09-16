@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  TR-069 Data Model Data Types
+
+  Notice:
+  The Broadband Forum is a non-profit corporation organized to create
+  guidelines for broadband network system development and deployment. This
+  Broadband Forum XML Document has been approved by members of the Forum.
+  This Broadband Forum XML Document is not binding on the Broadband Forum,
+  any of its members, or any developer or service provider. This Broadband
+  Forum XML Document is subject to change, but only with approval of members
+  of the Forum.  This XML Document is copyrighted by the Broadband Forum,
+  and all rights are reserved.  Portions of this XML Document may be
+  copyrighted by Broadband Forum members.
+
+  This Broadband Forum XML Document is provided AS IS, WITH ALL FAULTS.
+  ANY PERSON HOLDING A COPYRIGHT IN THIS BROADBAND FORUM XML DOCUMENT,
+  OR ANY PORTION THEREOF, DISCLAIMS TO THE FULLEST EXTENT PERMITTED BY
+  LAW ANY REPRESENTATION OR WARRANTY, EXPRESS OR IMPLIED, INCLUDING, BUT
+  NOT LIMITED TO, ANY WARRANTY:
+
+  (A) OF ACCURACY, COMPLETENESS, MERCHANTABILITY, FITNESS FOR A PARTICULAR
+      PURPOSE, NON-INFRINGEMENT, OR TITLE;
+  (B) THAT THE CONTENTS OF THIS BROADBAND FORUM XML DOCUMENT ARE SUITABLE
+      FOR ANY PURPOSE, EVEN IF THAT PURPOSE IS KNOWN TO THE COPYRIGHT HOLDER;
+  (C) THAT THE IMPLEMENTATION OF THE CONTENTS OF THE DOCUMENTATION WILL NOT
+      INFRINGE ANY THIRD PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR OTHER
+      RIGHTS.
+
+  By using this Broadband Forum XML Document, users acknowledge that
+  implementation may require licenses to patents.  The Broadband Forum
+  encourages but does not require its members to identify such patents.
+  For a list of declarations made by Broadband Forum member companies,
+  please see http://www.broadband-forum.org.  No assurance is given that
+  licenses to patents necessary to implement this XML Document will be
+  available for license at all or on reasonable and non-discriminatory terms.
+
+  ANY PERSON HOLDING A COPYRIGHT IN THIS BROADBAND FORUM XML DOCUMENT, OR
+  ANY PORTION THEREOF, DISCLAIMS TO THE FULLEST EXTENT PERMITTED BY LAW
+  (A) ANY LIABILITY (INCLUDING DIRECT, INDIRECT, SPECIAL, OR CONSEQUENTIAL
+  DAMAGES UNDER ANY LEGAL THEORY) ARISING FROM OR RELATED TO THE USE OF OR
+  RELIANCE UPON THIS XML DOCUMENT; AND (B) ANY OBLIGATION TO UPDATE OR
+  CORRECT THIS XML DOCUMENT.
+
+  Broadband Forum XML Documents may be copied, downloaded, stored on a
+  server or otherwise re-distributed in their entirety only, and may not be
+  modified without the advance written permission of the Broadband Forum.
+
+  The text of this notice must be included in all copies.
+
+  Summary:
+  TR-069 Data Model Data Types.  Contains normative definitions of named (i.e.
+  not built-in) data types that can be used in data model definitions.
+
+  Version History:
+  November 2008: tr-106-1-0-0-types.xml, corresponds to parts of TR-106
+                 section 3.2, with some updates from Amendments 1 and 2.
+-->
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-0 cwmp-datamodel.xsd"
+             spec="urn:broadband-forum-org:tr-106-1-0-0">
+
+  <dataType name="IPAddress">
+    <description>All IPv4 addresses and subnet masks are represented as strings in IPv4 dotted-decimal notation.  All IPv6 addresses and subnet masks MUST be represented using any of the 3 standard textual representations as defined in RFC 3513 {{bibref|RFC3513|sections 2.2.1, 2.2.2 and 2.2.3}}.  Both lower-case and upper-case letters can be used.  Use of the lower-case letters is RECOMMENDED.  Examples of valid IPv6 address textual representations:
+* 1080:0:0:800:ba98:3210:11aa:12dd
+* 1080::800:ba98:3210:11aa:12dd
+* 0:0:0:0:0:0:13.1.68.3
+Unspecified or inapplicable IP addresses and subnet masks MUST be represented as empty strings unless otherwise specified by the parameter definition.</description>
+    <string>
+      <size maxLength="45"/>
+    </string>
+  </dataType>
+
+  <dataType name="MACAddress">
+    <description>All MAC addresses are represented as strings of 12 hexadecimal digits (digits 0-9, letters A-F or a-f) displayed as six pairs of digits separated by colons.  Unspecified or inapplicable MAC addresses MUST be represented as empty strings unless otherwise specified by the parameter definition.</description>
+    <string>
+      <size maxLength="17"/>
+      <pattern value=""/>
+      <pattern value="([0-9A-Fa-f][0-9A-Fa-f]:){5}([0-9A-Fa-f][0-9A-Fa-f])"/>
+    </string>
+  </dataType>
+
+  <bibliography>
+    <reference id="RFC3513">
+      <name>RFC 3513</name>
+      <title>Internet Protocol Version 6 (IPv6) Addressing Architecture</title>
+      <organization>IETF</organization>
+      <category>RFC</category>
+      <hyperlink>http://www.ietf.org/rfc/rfc3513.txt</hyperlink>
+    </reference>
+  </bibliography>
+</dm:document>
