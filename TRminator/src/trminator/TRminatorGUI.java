@@ -37,7 +37,7 @@ public class TRminatorGUI extends javax.swing.JFrame
     private boolean goodToGo;
     private String containerName;
     private ArrayList<String> modelNames1, modelNames2;
-    private boolean debugMode = true;
+    private boolean debugMode = false;
     private IndexedHashMap cols = new IndexedHashMap();
 
     /**
