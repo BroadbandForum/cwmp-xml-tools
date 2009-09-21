@@ -175,7 +175,7 @@ public class TablePostProcessor
         String data = null, rowName;
         String[] statements;
         int bar, rbrack, terminator, firstRow;
-        
+
         ExclusiveArrayList<String> errors = new ExclusiveArrayList<String>();
         String aStatement;
 
@@ -258,7 +258,7 @@ public class TablePostProcessor
                         aStatement = aStatement.substring(0, terminator);
 
                         // check against list of known markup statements
-                        if (! statementIsAllowed(aStatement))
+                        if (!statementIsAllowed(aStatement))
                         {
                             // there is unknown markup. list where aStatement happens.
                             errors.add(rowName + ": unknown markup: " + aStatement);
@@ -296,15 +296,14 @@ public class TablePostProcessor
         return table;
     }
 
-
     @SuppressWarnings("empty-statement")
     private boolean statementIsAllowed(String s)
     {
         int i;
-        for (i = 0; ((i < allowed.length) && ! (allowed[i].equals(s))); i++);
+        for (i = 0; ((i < allowed.length) && !(allowed[i].equals(s))); i++);
 
         return (i < allowed.length);
-        
+
     }
 
     /**
@@ -566,12 +565,15 @@ public class TablePostProcessor
                                 if (index == -1)
                                 {
                                     errList.add("not able to find " + searchItem);
+
+                                } else
+                                {
+
+                                    full = t.get(index).getKey().replace(".", "_");
+
+                                    buff.replace(start, end, "<a href=#" + full + ">" + parts[1] + "</a>");
+                                    end = start;
                                 }
-
-                                full = t.get(index).getKey().replace(".", "_");
-
-                                buff.replace(start, end, "<a href=#" + full + ">" + parts[1] + "</a>");
-                                end = start;
                             }
                         }
 
