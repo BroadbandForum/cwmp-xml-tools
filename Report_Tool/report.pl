@@ -223,7 +223,7 @@ if ($noparameters) {
 if ($info) {
     print STDERR q{$Author: wlupton $
 $Date: 2009/09/22 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#133 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#134 $
 };
     exit(1);
 }
@@ -7094,7 +7094,7 @@ foreach my $spec (sort @$specs) {
 # documentation
 =head1 NAME
 
-B<report.pl> - generate report on TR-069 DM instances (data model definitions)
+report.pl - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
@@ -7111,6 +7111,10 @@ B<report.pl> [--autobase] [--autodatatype] [--canonical] [--components] [--debug
 The files specified on the command line are assumed to be XML TR-069 data model definitions compliant with the I<cwmp:datamodel> (DM) XML schema.
 
 The script parses, validates (ahem) and reports on these files, generating output in various possible formats to I<stdout>.
+
+There are a large number of options but in practice only a few need to be used.  For example:
+
+./report.pl --pedantic --report html tr-098-1-2-0.xml >tr-098-1-2-0.html
 
 =head1 OPTIONS
 
@@ -7343,6 +7347,6 @@ This script is only for illustration of concepts and has many shortcomings.
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
 $Date: 2009/09/22 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#133 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#134 $
 
 =cut
