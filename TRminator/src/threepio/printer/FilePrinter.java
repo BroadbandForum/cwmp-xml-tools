@@ -25,6 +25,7 @@ public abstract class FilePrinter
      * @param table - the table to convert
      * @param diffMode - sets method to insert diff formatting or not
      * @param looks - sets the method to do cosmetic work or not.
+     * @throws Exception - when there is a file missing or an IO error.
      * @return the file, as a string.
      */
     public abstract String convertTable(XTable table, boolean diffMode, boolean looks) throws Exception;
@@ -33,6 +34,7 @@ public abstract class FilePrinter
      * a shortcut for converting a table without diffing.
      * @param table - the table to convert
      * @return the file, as a string.
+     * @throws Exception - when there is a file missing or an IO error.
      */
     public String convertTable(XTable table) throws Exception
     {

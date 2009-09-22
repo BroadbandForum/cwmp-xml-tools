@@ -12,6 +12,7 @@ import java.util.ArrayList;
  * item with the same value in it.
  * @see ArrayList
  * @author jhoule
+ * @param <K> - a Key type.
  */
 public class ExclusiveArrayList<K> extends ArrayList<K>
 {

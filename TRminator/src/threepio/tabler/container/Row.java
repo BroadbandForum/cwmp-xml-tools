@@ -313,6 +313,11 @@ public class Row extends ArrayList<StringCell>
        return false;
     }
 
+    /**
+     * Returns true if the cell's data contains the passed string.
+     * @param s - the string to check for.
+     * @return true if the string is in the cell's data, false if not.
+     */
     @SuppressWarnings("empty-statement")
     public boolean containsInCell(String s)
     {
@@ -325,11 +330,19 @@ public class Row extends ArrayList<StringCell>
         return false;
     }
 
+    /**
+     * adds an Object to the "bucket" of extra Objects the programmer may use.
+     * @param o - the object to add to the "bucket."
+     */
     public void addToBucket(Object o)
     {
         bucket.add(o);
     }
 
+    /**
+     * returns the "bucket" of objects the programmer may use.
+     * @return the "bucket."
+     */
     public ArrayList getBucket()
     {
         return bucket;

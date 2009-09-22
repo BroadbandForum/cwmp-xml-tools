@@ -99,6 +99,8 @@ public class TablerController
      *
      * @param ID - the name of the document, NOT the filename.
      * @param path - the path for finding the doucment.
+     * @param majorItemType - the type of Item to make rows for.
+     * @param insertHeader - to insert a Header row or not, with colum names.
      * @return the table, layered on top of all old versions.
      * @throws java.lang.Exception - when
      */

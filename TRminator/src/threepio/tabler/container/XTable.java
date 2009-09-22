@@ -15,6 +15,9 @@ import threepio.documenter.XDoc;
 public class XTable extends Table
 {
 
+    /**
+     * A list of the Components found in the Table or for the Table.
+     */
     protected ArrayList<TRComponent> components;
     /**
      * storage for associated documents
@@ -178,6 +181,7 @@ public class XTable extends Table
      * findSpot finds a spot in a table for an object with given path.
      * @param path - the path for the object to place
      * @return an index where the item should go
+     * @throws Exception - when a required object cannot be found.
      */
     public int findSpot(String path) throws Exception
     {

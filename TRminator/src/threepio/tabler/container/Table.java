@@ -20,7 +20,14 @@ public abstract class Table extends IndexedHashMap<String, Row> implements Versi
      * the version of the table.
      */
     String version;
+    /**
+     * The character that separates the parts of a path for an object.
+     */
     public static char SEPARATOR = '.';
+    /**
+     * The string to insert into a cell that is blank.
+     * This is currently the HTML non-breaking space.
+     */
     public static String BLANK_CELL_TEXT = "&nbsp";
 
     /**

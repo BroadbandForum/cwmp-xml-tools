@@ -51,6 +51,7 @@ public class XTag
     /**
      * Constructor, taking in raw text of a tag.
      * @param raw - the raw text of a tag
+     * @throws Exception - when files are missing
      */
     public XTag(String raw) throws Exception
     {

@@ -14,6 +14,7 @@ import java.util.ArrayList;
  * @see ArrayList
  * @see Versioned
  * @author jhoule
+ * @param <K> - a Key Type that extends Versioned
  */
 public class ExclusiveVersionList<K extends Versioned> extends ExclusiveArrayList<K>
 {

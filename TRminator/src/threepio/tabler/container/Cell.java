@@ -10,6 +10,7 @@ package threepio.tabler.container;
  * It is where the "live" parts of the table happen, such as "knowing" if the data
  * was changed, or was inserted.
  * @author jhoule
+ * @param <E> - the Type of the data inside the Cell.
  */
 public abstract class Cell<E>
 {

@@ -25,6 +25,9 @@ public class IHMEditPanel extends javax.swing.JPanel
     /** Creates new form IHMEditPanel
      * Adds the map's keys to the list
      * And sets label texts.
+     * @param map - the IHM to edit
+     * @param keyLabel - the string to set the key to on the form
+     * @param valLabel - the string to set teh val to on the form.
      */
     public IHMEditPanel(IndexedHashMap<String, String> map, String keyLabel, String valLabel)
     {

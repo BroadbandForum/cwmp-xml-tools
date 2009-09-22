@@ -35,6 +35,7 @@ public class TRminatorCLI
      * for creating HTML tables, in files, from XML Data Models, like those made by
      * the BBF.
      * @param args - command-line arguments.
+     * @param appVersion - the version String to identify the underlying program.
      */
     public static void main(final String appVersion, String args[])
     {

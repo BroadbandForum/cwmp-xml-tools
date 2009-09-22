@@ -24,6 +24,9 @@ import threepio.tabler.container.XTable;
  */
 public abstract class Tabler
 {
+    /**
+     * The name for all Header (column name) rows.
+     */
     public static String HEADER_ROW_NAME = "HEADER";
     /**
      * a table for associations of items in XML with Column names.
@@ -41,6 +44,9 @@ public abstract class Tabler
 
     List<String> nonStandards;
 
+    /**
+     * The standard labels to use to label a row.
+     */
     public static String[] stdLabels =
     {
         "name", "base"
@@ -70,6 +76,7 @@ public abstract class Tabler
 
      /**
      * constructor that takes in an IHM for column settings, List of specials.
+     * @param specials - a list of special values made by the programmer to use when Tabling.
      * @param cols
      */
     public Tabler(IndexedHashMap<String, String> cols, List<String> specials)
@@ -106,6 +113,7 @@ public abstract class Tabler
      * @param doc - the document.
      * @param model - the model to get components for.
      * @return the list of tables for the components defined in the document.
+     * @throws Exception - when encountering a problem with a file.
      */
     abstract protected Table getComponents(Doc doc, String model) throws Exception;
 

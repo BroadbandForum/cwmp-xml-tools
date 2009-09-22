@@ -16,6 +16,9 @@ import java.util.logging.Logger;
  */
 public class TRminatorApp
 {
+    /**
+     * the version of the application
+     */
     public static final String appVersion = "TRminator RC4 (220909)";
     private static final  String strUseGui = "-gui", strUseCli = "-cli";
     private static final String[] modes =

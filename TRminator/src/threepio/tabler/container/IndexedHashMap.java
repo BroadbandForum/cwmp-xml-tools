@@ -19,6 +19,8 @@ import java.util.Map.Entry;
  * private map.
  * 
  * @author jhoule
+ * @param <K> - the Type of the Keys in the Map.
+ * @param <V> - the Type of the Values in the map.
  */
 public class IndexedHashMap<K, V> extends ArrayList<Entry<K, V>>
 {

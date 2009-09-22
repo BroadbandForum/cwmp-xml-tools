@@ -12,6 +12,7 @@ import java.util.LinkedList;
  * A MultiMap is a hashmap with Strings as Keys and generic Linked Lists for values.
  * Some functionality has been added, exposing the lists.
  * @author jhoule
+ * @param <E> - a Type for the values that will be stored in the map.
  */
 public abstract class MultiMap<E> extends HashMap<String, LinkedList<E>>
 {

@@ -31,8 +31,9 @@ import threepio.printer.HTMLPrinter;
  */
 public class Threepio
 {
+
     /**
-     docToPrintedTable turns an XDoc object into a ModelTable object, and prints it out
+    docToPrintedTable turns an XDoc object into a ModelTable object, and prints it out
      * as an HTML table, to a file.
      * @param cols - an IHM of the columns to use for the table.
      * @param ID - the ID of the body in the file to put into the ModelTable.
@@ -84,12 +85,13 @@ public class Threepio
      * @param ID - name of object to table
      * @param pathIn - the path for the file to use as input.
      * @param fileOut - the file to output the table to.
+     * @param cols - IHM of columns to use.
      * @return true if the conversion worked, false if not.
      * @throws Exception - upon most any error.
      */
     public static boolean xmlToPrintedTable(IndexedHashMap<String, String> cols, String ID, String pathIn, File fileOut) throws Exception
     {
-        return printTable((ModelTable)xmlToTable(cols, ID, pathIn), fileOut);
+        return printTable((ModelTable) xmlToTable(cols, ID, pathIn), fileOut);
     }
 
     /**
@@ -132,6 +134,7 @@ public class Threepio
      * @param pathIn2 - the path for the second file to get input from.
      * @param fileOut - the file to output the HTML table to.
      * @param majorItemType - the type of item that defines a row.
+     * @param cols - IHM of columns to use.
      * @return true if the conversion worked, false if not.
      * @throws Exception - upon most any error.
      */
@@ -207,6 +210,7 @@ public class Threepio
      * @param diff - if the diffing formatting should show or not.
      * @param looks - if the table should be formatted to have everything fit nicely on a page or webpage or not.
      * @return true if the print worked, false if not.
+     * @throws Exception - when there are file problems.
      */
     public static boolean printTable(XTable table, File fileOut, boolean diff, boolean looks) throws Exception
     {
@@ -216,9 +220,11 @@ public class Threepio
         XTable biblio = null;
 
         if (table instanceof ModelTable)
-            biblio = ((ModelTable)table).getBiblio();
+        {
+            biblio = ((ModelTable) table).getBiblio();
+        }
 
-        buff.append("<html>\n<head><title>" + table.getVersion()+ "</title></head>\n");
+        buff.append("<html>\n<head><title>" + table.getVersion() + "</title></head>\n");
         buff.append(printer.convertTable(table, diff, looks));
         if (biblio != null)
         {
@@ -227,7 +233,7 @@ public class Threepio
             buff.append(printer.convertTable(biblio));
         }
 
-         buff.append("</html>");
+        buff.append("</html>");
         try
         {
             writer = new BufferedWriter(new FileWriter(fileOut));
@@ -260,7 +266,7 @@ public class Threepio
      * @return true if the table printed alright.
      * @throws Exception - when something goes wrong in printing.
      */
-     public static boolean printModelTable(ModelTable table, File fileOut, boolean diff, boolean profiles, boolean looks) throws Exception
+    public static boolean printModelTable(ModelTable table, File fileOut, boolean diff, boolean profiles, boolean looks) throws Exception
     {
         BufferedWriter writer;
         HTMLPrinter printer = new HTMLPrinter();
@@ -269,10 +275,10 @@ public class Threepio
 
         if (table instanceof ModelTable)
         {
-            biblio = ((ModelTable)table).getBiblio();
-            profs = ((ModelTable)table).getProfiles();
+            biblio = ((ModelTable) table).getBiblio();
+            profs = ((ModelTable) table).getProfiles();
         }
-        buff.append("<html>\n<head><title>" + table.getVersion()+ "</title></head>\n");
+        buff.append("<html>\n<head><title>" + table.getVersion() + "</title></head>\n");
         buff.append(printer.convertTable(table, diff, looks));
 
         if (profs != null && !profs.isEmpty() && profiles)
@@ -294,7 +300,7 @@ public class Threepio
         }
 
 
-         buff.append("</html>");
+        buff.append("</html>");
         try
         {
             writer = new BufferedWriter(new FileWriter(fileOut));
@@ -317,12 +323,13 @@ public class Threepio
         return true;
     }
 
-
     /**
      * gets a list of missing depdendencies (files) for a model, in a file.
      * @param path - the path for the file to use.
      * @param modelName - the model to get the files for.
      * @return a string of file paths, one per line.
+     * @throws Exception - when files are not found or there is an IO error.
+     *
      */
     public static String getMissingDepends(String path, String modelName) throws Exception
     {
@@ -392,17 +399,17 @@ public class Threepio
                     while (it.hasNext())
                     {
                         tempEnt1 = it.next();
-                       file = FileIntake.resolveFile(new File(workPath + FileIntake.fileSep + tempEnt1.getValue()));
+                        file = FileIntake.resolveFile(new File(workPath + FileIntake.fileSep + tempEnt1.getValue()));
 
-                       if (file == null)
-                       {
-                           throw new FileNotFoundException("cannot import due to missing file");
-                       }
+                        if (file == null)
+                        {
+                            buff.append(oldPath + "\n");
+                        } else
+                        {
 
-
-                        files.add(new Doublet<String, File>(tempEnt1.getKey(), file));
-                        curModel = tempEnt1.getKey();
-                        
+                            files.add(new Doublet<String, File>(tempEnt1.getKey(), file));
+                            curModel = tempEnt1.getKey();
+                        }
                     }
                 }
             } else
@@ -423,5 +430,4 @@ public class Threepio
         }
         return buff.toString();
     }
-    
 }

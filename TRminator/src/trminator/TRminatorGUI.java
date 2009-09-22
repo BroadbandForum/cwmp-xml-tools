@@ -43,6 +43,7 @@ public class TRminatorGUI extends javax.swing.JFrame
     /**
      * Creates new TRminatorGUI form.
      * auto-fills the column map, which is user-editable.
+     * @param appVersion - the version string to identify the underlying application.
      */
     public TRminatorGUI(String appVersion)
     {
@@ -1446,6 +1447,7 @@ public class TRminatorGUI extends javax.swing.JFrame
     /**
      * Runs the instance of Threepio.
      * @param args the command line arguments
+     * @param appVersion - the application version to identify the underlying application.
      */
     public static void main(final String appVersion, String args[])
     {
@@ -1460,6 +1462,10 @@ public class TRminatorGUI extends javax.swing.JFrame
         });
     }
 
+    /**
+     * returns the column index for the one that defines the type of an item.
+     * @return the index of the type column.
+     */
     public int getTypeCol()
     {
         int typeCol;

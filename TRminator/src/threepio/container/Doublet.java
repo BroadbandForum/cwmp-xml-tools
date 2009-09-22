@@ -13,6 +13,8 @@ import java.util.Map.Entry;
  * Unlike an entry in a map, the key can be changed.
  *
  * @see java.util.Map.Entry
+ * @param <K> - a key Type
+ * @param <V> - a value Type
  * @author jhoule
  */
 public class Doublet<K, V> implements Entry<K, V>

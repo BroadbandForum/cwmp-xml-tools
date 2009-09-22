@@ -63,6 +63,10 @@ public class BBFEnum
         this(v, d, new String());
     }
 
+    /**
+     * Tag constructor. Creates a BBFEnum from an XTag.
+     * @param t - the XTag to build the BBFEnum from.
+     */
     public BBFEnum(XTag t)
     {
         this(t.getParams().get("value"), t.getParams().get("description"), t.getParams().get("access"));

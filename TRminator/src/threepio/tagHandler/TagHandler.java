@@ -31,6 +31,9 @@ public abstract class TagHandler
      * what is left of the document is what is after the closing tag of the part
      * the handler was to parse.
      * @param doc - the document to handle.
+     * @param before - the parts of the document that occurred before the Tag.
+     * @param tag - the tag to handle.
+     * @param where - the index of the cell in which to put the result of the handling of the tag.
      */
     public abstract void handle(Doc doc, Doc before, XTag tag, IndexedHashMap columns,
             Row row, int where);

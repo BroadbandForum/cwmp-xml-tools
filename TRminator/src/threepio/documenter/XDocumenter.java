@@ -79,6 +79,7 @@ public class XDocumenter implements Documenter
      * converts the supplied XML or HTML file to an XDoc
      * @param f - the file
      * @return the document, as a bucket of tags and strings.
+     * @throws Exception - when files are missing.
      */
     @Override
     public XDoc convertFile(File f) throws Exception

@@ -31,6 +31,10 @@ public class StringCell extends Cell<String>
         return this.data.equalsIgnoreCase(e);
     }
 
+    /**
+     * attaches the string e to the string data of the cell, before the original string.
+     * @param e - the string to attach.
+     */
     public void prePend(String e)
     {
         if (this.data == null)
