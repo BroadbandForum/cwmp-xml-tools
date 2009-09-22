@@ -568,7 +568,7 @@ public class TablePostProcessor
 
                                 if (index == -1)
                                 {
-                                    errList.add("not able to find " + searchItem);
+                                    errList.add("not able to find " + searchItem + "for the row " + rowName);
 
                                 } else
                                 {

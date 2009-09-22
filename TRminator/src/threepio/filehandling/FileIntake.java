@@ -7,6 +7,7 @@ package threepio.filehandling;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 
 /**
@@ -21,8 +22,8 @@ public class FileIntake
     /**
      * the file separator that should be used program-wide.
      */
-    public static final String fileSep = System.getProperty("file.separator");
-    
+    public static final String fileSep = File.separator;
+
     /**
      * Returns the part of a file starting with the startSnippet, as a string.
      * @param f - the file
@@ -75,8 +76,36 @@ public class FileIntake
     {
         String name;
         File[] files;
-        int delim;
-        File dir = original.getParentFile();
+        int delim, comp;
+        File file, dir;
+
+        if (original == null)
+        {
+            throw new Exception("File Resolver encountered null File object.");
+        }
+
+        name = original.getName();
+
+        if (original.exists())
+        {
+            if (original.getParentFile() != null)
+            {
+                // File object represents file and full path to file.
+                return original;
+            }
+
+            // file doesn't represent full path. this means file is in
+            // is the local directory (".").
+            // constructing File object for this file, with full path.
+            return new File("." + File.separatorChar + name);
+        }
+
+        // if we get here:
+        // the original file doesn't exist, so try to find a file
+        // with a very similar path.
+
+        // get the directory the file should be in
+        dir = original.getParentFile();
 
         if (dir == null)
         {
@@ -85,32 +114,31 @@ public class FileIntake
             dir = currentDir();
         }
 
-
         if (!dir.exists())
         {
-            throw new Exception("parent directory doesn't exist: " + dir.getAbsolutePath());
+            throw new Exception("directory doesn't exist: " + dir.getAbsolutePath());
         }
 
-        if (!original.exists())
+        // change the name we look for to the file without the extension.
+        delim = name.lastIndexOf('.');
+        name = name.substring(0, delim);
+        files = dir.listFiles();
+
+        // find the file with the name that is most similar.
+        file = null;
+        comp = Integer.MAX_VALUE;
+        for (int i = 0; i < files.length; i++)
         {
-
-            name = original.getName();
-            delim = name.lastIndexOf('.');
-            name = name.substring(0, delim);
-            files = dir.listFiles();
-
-            int i;
-            for (i = 0; i < files.length && !(files[i].getName().contains(name)); i++);
-
-            if (i >= files.length)
+            if ((files[i].getName().contains(name)))
             {
-                return null;
+                if ((Math.abs(files[i].getName().compareToIgnoreCase(name))) < comp)
+                {
+                    file = files[i];
+                }
             }
-
-            return files[i];
-
         }
-        return original;
+
+        return file;
     }
 
     /**
@@ -137,6 +165,11 @@ public class FileIntake
         long len;
 
         f = resolveFile(f);
+
+        if (f == null)
+        {
+            throw new FileNotFoundException("cannot load into buffer: file not found");
+        }
 
         // read file into buffer
         try

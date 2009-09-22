@@ -43,7 +43,7 @@ public class TRminatorCLI
         String pathIn = null, pathTwo = null, pathOut = null, modelName = null, modelTwo = null, depends = new String();
         HashMap<String, String> userOpts = null;
         IndexedHashMap<String, String> cols = new IndexedHashMap<String, String>();
-        File fIn = null, fTwo = null, fOut = null, dirOut = null;
+        File fIn = null, fTwo = null, fOut = null;
         ModelTable table;
         TablePostProcessor processor = new TablePostProcessor();
         int typeCol;
@@ -118,14 +118,6 @@ public class TRminatorCLI
         {
             fOut = getOut(pathOut);
 
-            dirOut = fOut.getParentFile();
-
-            if (dirOut == null)
-            {
-                // fOut was a relative File to the execution directory.
-                dirOut = FileIntake.currentDir();
-            }
-
         } catch (IOException ex)
         {
             Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "error creating file", ex);
@@ -196,7 +188,7 @@ public class TRminatorCLI
             {
                 table = Threepio.docToTable(cols, modelName, pathIn, "Object");               
             }
-            processor.deMarkupTable(table, new File(dirOut.getPath() + FileIntake.fileSep + "post.err"), typeCol);
+            processor.deMarkupTable(table, new File(fOut.getParent() + FileIntake.fileSep + "post.err"), typeCol);
             Threepio.printModelTable(table, fOut, diff, prof, looks);
 
 
@@ -321,9 +313,17 @@ public class TRminatorCLI
     private static File getIn(String pathIn)
     {
         // make File object for input
-        File fIn = new File(pathIn);
+        File fIn = null;
 
-        if (fIn == null || !fIn.exists())
+        try
+        {
+            fIn = FileIntake.resolveFile(new File(pathIn));
+        } catch (Exception ex)
+        {
+            fail(ex.getMessage());
+        }
+
+        if (fIn == null)
         {
             fail("Input file " + pathIn + " does not exist");
         }
@@ -358,6 +358,11 @@ public class TRminatorCLI
             fail("The output file is a directory!");
         }
 
+        if (fOut.getParentFile() == null)
+        {
+            fOut = new File("." + File.separatorChar + fOut.getName());
+        }
+
         // delete any file that exists there.
         if (fOut.exists())
         {
@@ -367,8 +372,6 @@ public class TRminatorCLI
 
         // make a new file here.
         fOut.createNewFile();
-
-
 
         return fOut;
     }

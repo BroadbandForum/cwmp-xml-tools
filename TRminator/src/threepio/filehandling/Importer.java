@@ -3,7 +3,7 @@
  * Project: Threepio
  * Author: Jeff Houle
  */
-package threepio.importer;
+package threepio.filehandling;
 
 import threepio.documenter.XDoc;
 import threepio.documenter.XTag;

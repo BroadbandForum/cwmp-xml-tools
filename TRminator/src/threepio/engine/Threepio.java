@@ -9,7 +9,7 @@ import threepio.container.Doublet;
 import threepio.documenter.XDoc;
 import threepio.documenter.XDocumenter;
 import threepio.filehandling.FileIntake;
-import threepio.importer.Importer;
+import threepio.filehandling.Importer;
 import java.io.*;
 import java.util.Iterator;
 import java.util.Map.Entry;
@@ -108,7 +108,8 @@ public class Threepio
 
         XTable table = null;
 
-        File file = new File(pathIn);
+        File file = FileIntake.resolveFile(new File(pathIn));
+
         try
         {
             table = (ModelTable) xTabler.parseContainer(documenter.convertFile(file), "name", ID, true);
@@ -337,15 +338,17 @@ public class Threepio
         Entry<String, String> tempEnt1;
         Entry<String, File> tempEnt2;
         Stack<Entry<String, File>> files = new Stack<Entry<String, File>>();
-        file = new File(path);
+
+        file = FileIntake.resolveFile(new File(path));
+
+        if (file == null)
+        {
+            throw new FileNotFoundException("Cannot list dependencies because cannot locate original file");
+        }
+
         String curModel = modelName;
 
         workPath = file.getParent();
-        if (workPath == null)
-        {
-            // the file is relative to the execution directory.
-           workPath = FileIntake.currentDir().getAbsolutePath();
-        }
         files.add(new Doublet<String, File>(curModel, file));
 
         // go through files.
@@ -354,24 +357,19 @@ public class Threepio
             tempEnt2 = files.pop();
             file = tempEnt2.getValue();
 
-            if (file == null)
-            {
-                System.err.println("a null file is on the list");
-            }
-
             canDoc = true;
             importer = new Importer();
 
             curModel = tempEnt2.getKey();
 
-            oldPath = file.getAbsolutePath();
+            oldPath = file.getPath();
 
 
             if (FileIntake.canResolveFile(file))
             {
                 try
                 {
-                    doc = doccer.convertFile(new Doublet(curModel, file.getAbsolutePath()));
+                    doc = doccer.convertFile(new Doublet(curModel, file.getPath()));
 
                 } catch (Exception ex)
                 {
@@ -394,8 +392,12 @@ public class Threepio
                     while (it.hasNext())
                     {
                         tempEnt1 = it.next();
-                        file = new File(workPath + FileIntake.fileSep + tempEnt1.getValue());
-                        file = FileIntake.resolveFile(file);
+                       file = FileIntake.resolveFile(new File(workPath + FileIntake.fileSep + tempEnt1.getValue()));
+
+                       if (file == null)
+                       {
+                           throw new FileNotFoundException("cannot import due to missing file");
+                       }
 
 
                         files.add(new Doublet<String, File>(tempEnt1.getKey(), file));
@@ -411,11 +413,10 @@ public class Threepio
 
         if (importer.hasBiblio())
         {
-            file = new File(workPath + FileIntake.fileSep + importer.getBiblio());
-            oldPath = file.getAbsolutePath();
-            file = FileIntake.resolveFile(file);
+            file = FileIntake.resolveFile(new File(workPath + FileIntake.fileSep + importer.getBiblio()));
+            oldPath = workPath + FileIntake.fileSep + importer.getBiblio();
 
-            if (!file.exists())
+            if (file == null)
             {
                 buff.append(oldPath);
             }

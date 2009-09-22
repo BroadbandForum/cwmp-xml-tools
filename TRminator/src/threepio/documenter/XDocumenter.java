@@ -7,6 +7,7 @@ package threepio.documenter;
 
 import threepio.filehandling.FileIntake;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Map.Entry;
 
@@ -39,6 +40,13 @@ public class XDocumenter implements Documenter
         doc = new XDoc();
         try
         {
+            f = FileIntake.resolveFile(f);
+
+            if (f == null)
+            {
+                throw new FileNotFoundException("cannot document the file. it is missing.");
+            }
+
             buff = FileIntake.fileToStringBuffer(f);
         } catch (Exception ex)
         {
@@ -48,14 +56,18 @@ public class XDocumenter implements Documenter
         s = 0;
         temp = null;
 
-        doc.path = f.getAbsolutePath();
+        doc.path = f.getPath();
     }
 
     @Override
     public XDoc convertFile(Entry<String, String> info) throws Exception
     {
-        File inFile = new File(info.getValue());
-        inFile = FileIntake.resolveFile(inFile);
+        File inFile = FileIntake.resolveFile(new File(info.getValue()));
+        
+        if (inFile == null)
+        {
+            throw new FileNotFoundException("Documenter cannot convert the file. It doesn't exist.");
+        }
         setUp(inFile);
 
         doc.setVersion(info.getKey());

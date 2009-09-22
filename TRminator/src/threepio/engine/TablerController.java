@@ -9,8 +9,9 @@ import threepio.tabler.*;
 import threepio.container.Doublet;
 import threepio.documenter.XDoc;
 import threepio.documenter.XDocumenter;
-import threepio.importer.Importer;
+import threepio.filehandling.Importer;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -112,15 +113,16 @@ public class TablerController
         ExclusiveVersionList<XTable> bibs = new ExclusiveVersionList<XTable>();
         IndexedHashMap<String, String> inputs = new IndexedHashMap<String, String>();
         XTable refTable = null, masterRef = null;
-        File file, dir = null;
+        File file;
 
-        file = new File(path);
-        dir = file.getParentFile();
+        file = FileIntake.resolveFile(new File(path));
 
-        if (dir == null)
+        if (file == null)
         {
-            dir = FileIntake.currentDir();
+            throw new FileNotFoundException("cannot make a table becuase the file is missing");
         }
+
+        path = file.getPath();
 
         // put our first document in the list. This is the one a user will be looking for.
         inputs.put(ID, path);
@@ -145,7 +147,7 @@ public class TablerController
 
             if (imp.hasBiblio())
             {
-                bibDoc = doccer.convertFile(new File(dir.getPath() + FileIntake.fileSep + imp.getBiblio()));
+                bibDoc = doccer.convertFile(new File(file.getParent() + FileIntake.fileSep + imp.getBiblio()));
                 refTable = makeRefTable(bibDoc);
             } else
             {
@@ -160,8 +162,7 @@ public class TablerController
             {
                 tempDoublet = new Doublet(it.next());
 
-                file = new File(path);
-                tempDoublet.setValue(dir.getPath() + FileIntake.fileSep + tempDoublet.getValue());
+                tempDoublet.setValue(file.getParent() + FileIntake.fileSep + tempDoublet.getValue());
 
                 if (!(inputs.containsKey(Tabler.abrevVersion(tempDoublet.getKey()))))
                 {
@@ -180,8 +181,6 @@ public class TablerController
             System.out.println("making table for " + doc.getVersion());
 
             table = makeTable(doc, majorItemType, refTable);
-
-            
 
             System.out.println("made table for " + doc.getVersion());
 
