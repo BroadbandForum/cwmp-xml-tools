@@ -222,8 +222,8 @@ if ($noparameters) {
 
 if ($info) {
     print STDERR q{$Author: wlupton $
-$Date: 2009/08/19 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#128 $
+$Date: 2009/09/22 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#133 $
 };
     exit(1);
 }
@@ -687,11 +687,9 @@ sub expand_model_component
     my $Path = $context->[0]->{path};
 
     my $path = $component->findvalue('@path');
-    # XXX this isn't doing anything, because $path is always defined; but
-    #     fixing this breaks other things; the problem that we are trying
-    #     to solve here is to propagate path to nested component references
-    $path = $Path unless defined $path;
     my $name = $component->findvalue('@ref');
+
+    $Path .= $path;
 
     # XXX a kludge... will apply to the first items only (really want a way
     #     of passing arguments)
@@ -742,11 +740,10 @@ sub expand_model_component
     #     as children of the result of add_path; this has been avoided by a
     #     hack in expand_model_profile; an alternative would be to look at the
     #     component contents before expanding it?
-    my $spath = $path;
     ($pnode, $path) = add_path($context, $mnode, $pnode, $path, 0);
 
     # pass information from caller to the new component context
-    unshift @$context, {file => $file, spec => $spec, path => $spath,
+    unshift @$context, {file => $file, spec => $spec, path => $Path,
                         name => $name,
                         previousParameter => $hash->{previousParameter},
                         previousObject => $hash->{previousObject},
@@ -1713,7 +1710,7 @@ sub add_path
 {
     my ($context, $mnode, $pnode, $name, $return_last) = @_;
 
-    print STDERR "add_path name=$name\n" if $verbose > 1;
+    print STDERR "add_path name=$pnode->{path}$name\n" if $verbose > 1;
 
     my $tname = $name;
     $tname =~ s/\.\{/\{/g;
@@ -1814,7 +1811,7 @@ sub add_object
         # XXX if both name and ref are defined, this is a rename operation
         # XXX what if the new-named object already exists?
         # XXX what are the implications for history?
-        # XXX should this be marked as a change?
+        # XXX should this be marked as a change? yes
         if ($name && $ref) {
             $objects->{$path} = undef;
             $path = $pnode->{path} . $name;
@@ -1828,6 +1825,7 @@ sub add_object
                 if ($tnode->{type} ne 'object') {
                     my $opath = $tnode->{path};
                     my $tpath = $path . $tnode->{name};
+                    $tnode->{path} = $tpath;
                     $parameters->{$opath} = undef;
                     $parameters->{$tpath} = $tnode;
                 }
@@ -2045,7 +2043,7 @@ sub add_parameter
         # XXX if both name and ref are defined, this is a rename operation
         # XXX what if the new-named parameter already exists?
         # XXX what are the implications for history?
-        # XXX should this be marked as a change?
+        # XXX should this be marked as a change? yes
         if ($name && $ref) {
             $parameters->{$path} = undef;
             $path = $pnode->{path} . $name;
@@ -2426,6 +2424,10 @@ sub get_values
             $description = '{{empty}}' unless $description;
         }
 
+        # remove any leading or trailing whitespace
+        $description =~ s/^\s*//;
+        $description =~ s/\s*$//;
+
         # XXX not sure if we should to this
         $description = lcfirst $description;
         $description =~ s/\.$//;
@@ -2439,7 +2441,7 @@ sub get_values
         if (!$anchor) {
             $list .= $value;
         } else {
-            # XXX remove backslashes (needs done properly)
+            # XXX remove backslashes (needs doing properly)
             my $tvalue = $value;
             $tvalue =~ s/\\//g;
 
@@ -3156,48 +3158,8 @@ $i             spec="$lspec">
             }
         }
 
-        if ($bibliography) {
-            my $description = $bibliography->{description};
-            my $descact = $bibliography->{descact} || 'create';
-            my $references = $bibliography->{references};
-
-            $descact = $descact ne 'create' ? qq{ action="$descact"} : qq{};
-
-            print qq{$i  <bibliography>\n};
-            print qq{$i    <description$descact>$description</description>\n}
-            if $description;
-
-            foreach my $reference (sort {$a->{id} cmp $b->{id}} @$references) {
-                my $id = $reference->{id};
-                my $spec = $reference->{spec};
-
-                if ($spec ne $lspec) {
-                    print STDERR "reference $id defined in {$file}\n" if
-                        $verbose > 1;
-                    next;
-                }
-
-                if (!$bibrefs->{$id}) {
-                    # XXX dangerous to omit it since it might be defined here
-                    #     in order to make it available to later versions
-                    # XXX for now, have hard-list of things not to omit
-                    my $omit = ($id !~ /TR-069|TR-106/);
-                    if ($omit) {
-                        print STDERR "reference $id not used (omitted)\n"
-                            if $verbose;
-                        next;
-                    }
-                }
-
-                print qq{$i    <reference id="$id">\n};
-                foreach my $element (qw{name title organization category
-                                            date hyperlink}) {
-                    my $value = xml_escape($reference->{$element});
-                    print qq{$i      <$element>$value</$element>\n} if $value;
-                }
-                print qq{$i    </reference>\n};
-            }
-            print qq{$i  </bibliography>\n};
+        if ($bibliography && %$bibliography) {
+            xml_bibliography($bibliography, $indent, {usespec => $lspec});
         }
 
         $node->{xml}->{element} = 'dm:document';
@@ -3435,6 +3397,72 @@ $i             spec="$lspec">
     }
 }
 
+sub xml_bibliography
+{
+    my ($bibliography, $indent, $opts) = @_;
+
+    $indent = 0 unless $indent;
+    my $i = "  " x $indent;
+
+    my $usespec = $opts->{usespec};
+    my $ignspec = $opts->{ignspec};
+
+    my $description = $bibliography->{description};
+    my $descact = $bibliography->{descact} || 'create';
+    my $references = $bibliography->{references};
+    
+    $descact = $descact ne 'create' ? qq{ action="$descact"} : qq{};
+    
+    print qq{$i  <bibliography>\n};
+    print qq{$i    <description$descact>$description</description>\n}
+    if $description;
+    
+    foreach my $reference (sort {$a->{id} cmp $b->{id}} @$references) {
+        my $id = $reference->{id};
+        my $file = $reference->{file};
+        my $spec = $reference->{spec};
+        
+        # ignore if outputting entries from specified spec (usespec) but this
+        # comes from another spec
+        if ($usespec && $spec ne $usespec) {
+            print STDERR "$file: ignoring {$spec}$id\n" if $verbose > 1;
+            next;
+        }
+
+        # ignore if ignoring entries from specified spec (ignspec) and this
+        # comes from that spec
+        if ($ignspec && $spec eq $ignspec) {
+            print STDERR "$file: ignoring {$spec}$id\n" if $verbose > 1;
+            next;
+        }
+        
+        # XXX this can include unused references (I think because these 
+        #     are bibrefs for all read data models, not for reported data
+        #     models
+        if (!$bibrefs->{$id}) {
+            # XXX dangerous to omit it since it might be defined here
+            #     in order to make it available to later versions
+            # XXX for now, have hard-list of things not to omit
+            # XXX hack to remove exceptions for xml2 report
+            my $omit = ($id !~ /TR-069|TR-106/);
+            $omit = 0 if $report eq 'xml2';
+            if ($omit) {
+                print STDERR "reference $id not used (omitted)\n";
+                next;
+            }
+        }
+        
+        print qq{$i    <reference id="$id">\n};
+        foreach my $element (qw{name title organization category
+                                            date hyperlink}) {
+            my $value = xml_escape($reference->{$element});
+            print qq{$i      <$element>$value</$element>\n} if $value;
+        }
+        print qq{$i    </reference>\n};
+    }
+    print qq{$i  </bibliography>\n};
+}
+
 # XXX could use postpar as is done for the xml2 report
 sub xml_post
 {
@@ -3490,6 +3518,8 @@ sub xml_changed
 #
 # XXX doesn't do a complete job
 # XXX this COULD be merged with the other XML report... I suppose...
+# XXX better now, but: (a) need header comment, (b) need any undefined
+#     bibrefs, (c) various other little things showed up by the 181 XML
 
 sub xml2_node
 {
@@ -3511,6 +3541,15 @@ sub xml2_node
         my $xsi = $node->{xsi};
         my $schemaLocation = $node->{schemaLocation};
         my $specattr = 'spec';
+
+        my $history = $node->{history};
+        my $description = $node->{description};
+        my $descact = $node->{descact};
+        ($description, $descact) = get_description($description, $descact,
+                                                   $history, 1);
+        $description = clean_description($description, $node->{name})
+            if $canonical;
+        $description = xml_escape($description);        
 
         # XXX have to hard-code DT stuff (can't get this from input files)
         my $d = @$dtprofiles ? qq{dt} : qq{dm};
@@ -3534,6 +3573,7 @@ $i             xmlns:xsi="$xsi"
 $i             xsi:schemaLocation="$schemaLocation"
 $i             $specattr="$dmspec">
 };
+        print qq{$i  <description>$description</description>\n} if $description;
         # XXX for now hard-code bibliography and data type imports for DM
         if (!@$dtprofiles) {
             print qq{$i  <import file="tr-069-biblio.xml" spec="urn:broadband-forum-org:tr-069-biblio"/>
@@ -3542,6 +3582,13 @@ $i    <dataType name="IPAddress"/>
 $i    <dataType name="MACAddress"/>
 $i  </import>
 };
+
+            my $bibliography = $node->{bibliography};
+            if ($bibliography && %$bibliography) {
+                xml_bibliography(
+                    $bibliography, $indent,
+                    {ignspec => 'urn:broadband-forum-org:tr-069-biblio'});
+            }
         } else {
             my $temp = util_list($dtprofiles);
             print qq{$i  <annotation>Auto-generated from $temp profiles.</annotation>\n};
@@ -3580,6 +3627,7 @@ $i  </import>
         my $syntax = $node->{syntax};
         my $majorVersion = $node->{majorVersion};
         my $minorVersion = $node->{minorVersion};
+        my $extends = $node->{extends};
 
         my $requirement = '';
         my $version = version($majorVersion, $minorVersion);
@@ -3652,7 +3700,7 @@ $i  </import>
             $requirement = $access;
             $access = '';
             $element = $1; # parameter or object
-            $node->{xml2}->{element} = $element;
+            $node->{xml2}->{element} = ($element eq 'object') ? $element : '';
         }
 
         $name = $name ? qq{ name="$name"} : qq{};
@@ -3670,6 +3718,7 @@ $i  </import>
             qq{ minEntries="$minEntries"} : qq{};
         $maxEntries = defined $maxEntries ?
             qq{ maxEntries="$maxEntries"} : qq{};
+        $base = $extends ? qq{ extends="$extends"} : qq{};
         $version = $version ? qq{ dmr:version="$version"} : qq{};
 
         ($description, $descact) = get_description($description, $descact,
@@ -3681,9 +3730,10 @@ $i  </import>
         my $end_element = (@{$node->{nodes}} || $description || $syntax) ? '' : '/';
         print qq{$i<!--\n} if $element eq 'object' && $noobjects;
         print qq{$i<$element$name$base$ref$access$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$end_element>\n};
+        $node->{xml2}->{element} = '' if $end_element;
         print qq{$i  <description>$description</description>\n} if
             $description;
-        if ($uniqueKeys) {
+        if ($uniqueKeys && !@$dtprofiles) {
             foreach my $uniqueKey (@$uniqueKeys) {
                 print qq{$i  <uniqueKey>\n};
                 foreach my $parameter (@$uniqueKey) {
@@ -3700,9 +3750,13 @@ $i  </import>
             my $base = $syntax->{base};
             my $ref = $syntax->{ref};
             my $list = $syntax->{list};
+            my $minListLength = $syntax->{minListLength};
+            my $maxListLength = $syntax->{maxListLength};
             my $minLength = $syntax->{minLength};
             my $maxLength = $syntax->{maxLength};
             # XXX not supporting multiple ranges
+            my $minListItems = $syntax->{listRanges}->[0]->{minInclusive};
+            my $maxListItems = $syntax->{listRanges}->[0]->{maxInclusive};
             my $minInclusive = $syntax->{ranges}->[0]->{minInclusive};
             my $maxInclusive = $syntax->{ranges}->[0]->{maxInclusive};
             my $step = $syntax->{ranges}->[0]->{step};
@@ -3717,10 +3771,18 @@ $i  </import>
             $base = $base ? qq{ base="$base"} : qq{};
             $ref = $ref ? qq{ ref="$ref"} : qq{};
             $hidden = $hidden ? qq{ hidden="true"} : qq{};
+            $minListLength = defined $minListLength && $minListLength ne '' ?
+                qq{ minLength="$minListLength"} : qq{};
+            $maxListLength = defined $maxListLength && $maxListLength ne '' ?
+                qq{ maxLength="$maxListLength"} : qq{};
             $minLength = defined $minLength && $minLength ne '' ?
                 qq{ minLength="$minLength"} : qq{};
             $maxLength = defined $maxLength && $maxLength ne '' ?
                 qq{ maxLength="$maxLength"} : qq{};
+            $minListItems = defined $minListItems && $minListItems ne '' ?
+                qq{ minItems="$minListItems"} : qq{};
+            $maxListItems = defined $maxListItems && $maxListItems ne '' ?
+                qq{ maxItems="$maxListItems"} : qq{};
             $minInclusive = defined $minInclusive && $minInclusive ne '' ?
                 qq{ minInclusive="$minInclusive"} : qq{};
             $maxInclusive = defined $maxInclusive && $maxInclusive ne '' ?
@@ -3756,15 +3818,17 @@ $i  </import>
                 qq{ targetParam="$targetParam"} : qq{};
             $targetParamScope = $targetParamScope ?
                 qq{ targetParamScope="$targetParamScope"} : qq{};            
-            $nullValue = $nullValue ? qq{ nullValue="$nullValue"} : qq{};
+            $nullValue = defined $nullValue ?
+                qq{ nullValue="$nullValue"} : qq{};
 
             print qq{$i  <syntax$hidden>\n};
             if ($list) {
-                my $ended = ($minLength || $maxLength) ? '' : '/';
-                print qq{$i    <list$ended>\n};
-                print qq{$i      <size$minLength$maxLength/>\n} unless $ended;
+                my $ended = ($minListLength || $maxListLength ||
+                             $minListItems || $maxListItems) ? '' : '/';
+                print qq{$i    <list$minListItems$maxListItems$ended>\n};
+                print qq{$i      <size$minListLength$maxListLength/>\n} unless
+                    $ended;
                 print qq{$i    </list>\n} unless $ended;
-                $minLength = $maxLength = undef;
             }
             my $ended = ($minLength || $maxLength || $minInclusive ||
                          $maxInclusive || $step || $reference || %$values ||
@@ -3809,23 +3873,22 @@ $i  </import>
             print qq{$i    <default type="object" value="$default"$defstat/>\n}
             if defined $default;
             print qq{$i  </syntax>\n};
-            # XXX hack
             print qq{$i</parameter>\n};
+            $node->{xml2}->{element} = '';
         }
     }
 }
 
-# this is called (for objects only) after all parameters
+# this is called (for objects and objectRefs only) after all parameters
 sub xml2_postpar
 {
     my ($node) = @_;
 
-    # XXX this catches the case where an object wasn't mentioned in any
-    #     profiles and so no <object> element was output
     my $element = $node->{xml2}->{element};
-    return unless $element;
+    return if !$element;
 
-    my $i = '    ';
+    # XXX wrong for profiles?
+    my $i = $node->{type} eq 'object' ? '    ' : '      ';;
 
     print qq{$i<!--\n} if $noobjects;
     print qq{$i</object>\n};
@@ -3835,17 +3898,20 @@ sub xml2_postpar
     }
 }
 
-# this is used only to close model (if not generating components) and top-level
-# elements
+# this is used only to close elements other than object and objectRef (unless
+# already closed)
 sub xml2_post
 {
     my ($node, $indent) = @_;
 
-    $indent = 0 unless $indent;
-    return if $indent > 1;
-    return if $components && $indent > 0;
-
     my $element = $node->{xml2}->{element};
+    return if !$element || $element eq 'object';
+
+    $indent = 0 unless $indent;
+    return if $node->{name} eq 'object';
+    
+    # XXX this catches model
+    return if $components && $indent > 0;
 
     my $i = "  " x $indent;
     print qq{$i</$element>\n};
@@ -4057,7 +4123,7 @@ END
     </ul> <!-- Table of Contents -->
 END
         my $bibliography = $node->{bibliography};
-        if ($bibliography) {
+        if ($bibliography && %$bibliography) {
             print <<END;
       <li><a href="#References">References</a></li>
 END
@@ -4818,8 +4884,13 @@ sub html_template_datatype
 
     # XXX should check for valid data type? (should always be)
 
-    my $text = $dtdef->{description};
-    $text .= '.' unless $text =~ /\.$/;
+    # XXX previously included the description...
+    #my $text = $dtdef->{description};
+    #$text .= '.' unless $text =~ /\.$/;
+
+    # XXX now just return "[datatype] "
+    # XXX this should be a link to a data types section
+    my $text = qq{[$dtname] };
 
     return $text;
 }
@@ -6691,6 +6762,11 @@ sub util_doc_name
     # "cat-n", i, a and c are numeric and label can't begin with a digit
     my ($cat, $n, $i, $a, $c, $label) =
         $text =~ /^([^-]+)-(\d+)-(\d+)?-(\d+)(?:-(\d+))?(-\D.*)?$/;
+
+    # if doesn't match, apply heuristics
+    if (!$cat) {
+        return uc $text;
+    }
     
     $text = '';
     if ($cat =~ /^(dsl|bbf)$/) {
@@ -6975,7 +7051,7 @@ sub report_node
     #     not nest objects (need to integrate this properly)
     unshift @_, $node, $indent;
     "${report}_postpar"->(@_) if
-        $node->{type} eq 'object' && defined &{"${report}_postpar"};
+        $node->{type} =~ /^object/ && defined &{"${report}_postpar"};
     shift; shift;
 
     foreach my $child (@{$node->{nodes}}) {
@@ -7266,7 +7342,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/08/19 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#128 $
+$Date: 2009/09/22 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#133 $
 
 =cut
