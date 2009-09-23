@@ -340,7 +340,7 @@ public class Threepio
         boolean canDoc = true;
         Importer importer = new Importer();
         Iterator<Entry<String, String>> it;
-        String workPath, oldPath;
+        String workPath, oldPath, thePath;
         File file;
         Entry<String, String> tempEnt1;
         Entry<String, File> tempEnt2;
@@ -399,11 +399,12 @@ public class Threepio
                     while (it.hasNext())
                     {
                         tempEnt1 = it.next();
-                        file = FileIntake.resolveFile(new File(workPath + FileIntake.fileSep + tempEnt1.getValue()));
+                        thePath = workPath + FileIntake.fileSep + tempEnt1.getValue();
+                        file = FileIntake.resolveFile(new File(thePath));
 
                         if (file == null)
                         {
-                            buff.append(oldPath + "\n");
+                            buff.append(thePath + "\n");
                         } else
                         {
 

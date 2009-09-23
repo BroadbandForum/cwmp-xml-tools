@@ -97,7 +97,7 @@ public class FileIntake
             // file doesn't represent full path. this means file is in
             // is the local directory (".").
             // constructing File object for this file, with full path.
-            return new File("." + File.separatorChar + name);
+            return new File(currentDir().getPath() + File.separatorChar + name);
         }
 
         // if we get here:
