@@ -121,7 +121,12 @@ public class FileIntake
 
         // change the name we look for to the file without the extension.
         delim = name.lastIndexOf('.');
-        name = name.substring(0, delim);
+
+        if (delim >= 0)
+        {
+            // had an extension. remove it.
+            name = name.substring(0, delim);
+        }
         files = dir.listFiles();
 
         // find the file with the name that is most similar.

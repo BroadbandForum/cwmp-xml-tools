@@ -354,7 +354,7 @@ public class TRminatorCLI
         // make a file for output.
         File fOut = new File(pathOut);
 
-        if (!fOut.isFile())
+        if (fOut.isDirectory())
         {
             fail("The output file is a directory!");
         }
