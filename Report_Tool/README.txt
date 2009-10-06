@@ -67,9 +67,7 @@ Options:
     --include=d...
         can be specified multiple times; specifies directories to search for
         files specified on the command line or included from other files;
-        the current directory is always searched first and the directory
-        ../cwmp-bbf is always searched last (and so doesn't need to be
-        mentioned)
+        the current directory is always searched first
 
         no search is performed for files that already include directory
         names

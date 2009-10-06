@@ -222,8 +222,8 @@ if ($noparameters) {
 
 if ($info) {
     print STDERR q{$Author: wlupton $
-$Date: 2009/09/22 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#134 $
+$Date: 2009/10/06 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#136 $
 };
     exit(1);
 }
@@ -261,6 +261,7 @@ my $root = {spec => '', path => '', name => '', type => '',
             status => 'current', dynamic => 0};
 my $highestMajor = 0;
 my $highestMinor = 0;
+my $previouspath = '';
 
 # Parse and expand a data model definition file.
 # XXX also does minimal expansion of schema files
@@ -427,6 +428,8 @@ sub expand_import
         my $element = $item->findvalue('local-name()');
         my $name = $item->findvalue('@name');
         my $ref = $item->findvalue('@base');
+        # DO NOT default ref to name here; empty ref indicates an initial
+        # definition of something!
         
         update_imports($file, $fspec, $file, $fspec, $element, $name, $ref,
                        $item);
@@ -437,6 +440,12 @@ sub expand_import
     # expand imports in the imported file
     foreach my $item ($toplevel->findnodes('import')) {
 	expand_import($context, $root, $item);
+    }
+
+    # expand data types in the imported file
+    # XXX this is experimental (it's so reports can include data types)
+    foreach my $item ($toplevel->findnodes('dataType')) {
+	expand_dataType($context, $root, $item);
     }
 
     # expand bibliogaphy in the imported file
@@ -487,7 +496,8 @@ sub update_imports
 }
 
 # Expand a dataType definition.
-# XXX does the minimum to support TR-106
+# XXX does the minimum to support TR-106; both it and syntax should use the
+#     schema structures to avoid duplication.
 sub expand_dataType
 {    
     my ($context, $pnode, $dataType) = @_;
@@ -1046,8 +1056,9 @@ sub expand_model_parameter
     my $units = $parameter->findvalue('syntax/*/units/@value');
     my $description = $parameter->findvalue('description');
     my $descact = $parameter->findvalue('description/@action');
-    my $default = $parameter->findvalue('syntax/default/@type') eq 'object' ?
+    my $default = $parameter->findvalue('syntax/default/@type') ?
         $parameter->findvalue('syntax/default/@value') : undef;
+    my $deftype = $parameter->findvalue('syntax/default/@type');
     my $defstat = $parameter->findvalue('syntax/default/@status');
 
     # XXX majorVersion and minorVersion are no longer in the schema
@@ -1215,8 +1226,8 @@ sub expand_model_parameter
 
     add_parameter($context, $mnode, $pnode, $name, $ref, $type, $syntax,
                   $access, $status, $description, $descact, $values, $default,
-                  $defstat, $majorVersion, $minorVersion, $activeNotify,
-                  $forcedInform, $units, $previous);
+                  $deftype, $defstat, $majorVersion, $minorVersion,
+                  $activeNotify, $forcedInform, $units, $previous);
 }
 
 # Expand a data model profile.
@@ -1620,7 +1631,7 @@ sub add_model
         # retain info from previous versions
         unshift @{$nnode->{history}}, $cnode;
     } else {
-        print STDERR "unnamed model\n" unless $name;
+        print STDERR "unnamed model (after $previouspath)\n" unless $name;
         my $dynamic = $pnode->{dynamic};
         # XXX experimental; may break stuff? YEP!
         #my $path = $isService ? '.' : '';
@@ -1633,6 +1644,7 @@ sub add_model
                   majorVersion => $majorVersion, minorVersion => $minorVersion,
                   nodes => [], history => undef};
         push @{$pnode->{nodes}}, $nnode;
+        $previouspath = $path;
     }
 
     return $nnode;
@@ -1894,7 +1906,7 @@ sub add_object
             }
         }
     } else {
-        print STDERR "$path: unnamed object\n" unless $name;
+        print STDERR "unnamed object (after $previouspath)\n" unless $name;
 
         # XXX this is still how we're handling the version number...
 	$majorVersion = $mnode->{majorVersion} unless defined $majorVersion;
@@ -1914,6 +1926,7 @@ sub add_object
                   default => undef, dynamic => $dynamic,
                   majorVersion => $majorVersion, minorVersion => $minorVersion,
                   nodes => [], history => undef};
+        $previouspath = $path;
         # XXX ensure minEntries and maxEntries are defined (will be overridden
         #     by the caller if necessary; all this logic should be here)
         # XXX no, bad idea! but yes, all this logic should be here
@@ -1964,7 +1977,7 @@ sub mark_changed
 sub add_parameter
 {
     my ($context, $mnode, $pnode, $name, $ref, $type, $syntax, $access,
-        $status, $description, $descact, $values, $default, $defstat,
+        $status, $description, $descact, $values, $default, $deftype, $defstat,
         $majorVersion, $minorVersion, $activeNotify, $forcedInform, $units,
         $previous)
         = @_;
@@ -1988,6 +2001,7 @@ sub add_parameter
     # don't default descact, so can tell whether it was specified
     # assume that values defaulting has already been handled
     # don't touch default, since undefined is significant
+    $deftype = 'object' unless $deftype;
     $defstat = 'current' unless $defstat;
     # don't touch version, since undefined is significant
     $activeNotify = 'normal' unless $activeNotify;
@@ -2229,6 +2243,13 @@ sub add_parameter
             $nnode->{default} = $default;
             $changed->{default} = 1;
         }
+        if (defined $default && $deftype ne $nnode->{deftype}) {
+            print STDERR "$path: deftype: $nnode->{deftype} -> $deftype\n"
+                if $verbose;
+            $nnode->{deftype} = $deftype;
+            # note that this marks default, not deftype, as changed
+            $changed->{default} = 1;
+        }
         # to remove a default, status (defstat) is set to "deleted" (default
         # will always be defined, because the value attribute is mandatory
         if (defined $default && $defstat ne $nnode->{defstat}) {
@@ -2279,7 +2300,7 @@ sub add_parameter
         #     test)
         # XXX why should it break anything; restore with debug message...
         #$default = undef if !$dynamic && @$context > 1;
-        if (defined $default && !$dynamic) {
+        if (defined $default && $deftype eq 'object' && !$dynamic) {
             $default = undef;
             print STDERR "$path: removing default value\n" if $verbose;
         }
@@ -2288,11 +2309,11 @@ sub add_parameter
 		  spec => $spec, lspec => $spec, type => $type,
                   syntax => $syntax, access => $access, status => $status,
 		  description => $description, descact => $descact,
-                  values => $values, default => $default, defstat => $defstat,
-                  dynamic => $dynamic, majorVersion => $majorVersion,
-                  minorVersion => $minorVersion, activeNotify => $activeNotify,
-                  forcedInform => $forcedInform, units => $units, nodes => [],
-                  history => undef};
+                  values => $values, default => $default, deftype => $deftype,
+                  defstat => $defstat, dynamic => $dynamic,
+                  majorVersion => $majorVersion, minorVersion => $minorVersion,
+                  activeNotify => $activeNotify, forcedInform => $forcedInform,
+                  units => $units, nodes => [], history => undef};
         # if previous is defined, it's a hint to insert this node after the
         # node of this name, if it exists
         my $index = @{$pnode->{nodes}};
@@ -2428,8 +2449,10 @@ sub get_values
         $description =~ s/^\s*//;
         $description =~ s/\s*$//;
 
-        # XXX not sure if we should to this
-        $description = lcfirst $description;
+        # avoid leading upper-case in value description unless an acronym
+        # XXX better than it was (it was unconditional) but isi it OK?
+        $description = lcfirst $description
+            if $description =~ /^[A-Z][a-z]/;
         $description =~ s/\.$//;
 
 	my $any = $description || $optional || $deprecated || $obsoleted;
@@ -2848,11 +2871,10 @@ sub find_file
         push @$dirs, $dir;
     } else
 
-    # XXX for now, always prepend "." and append "../cwmp-bbf"
+    # always prepend "." to the list of includes
     {
         push @$dirs, File::Spec->curdir();
         push @$dirs, @$includes;
-        push @$dirs, File::Spec->catdir(File::Spec->updir(), 'cwmp-bbf');
     }
 
     my $ffile = $file;
@@ -3328,6 +3350,7 @@ $i             spec="$lspec">
             my $step = $syntax->{ranges}->[0]->{step};
             my $values = $node->{values};
             my $default = $node->{default};
+            my $deftype = $node->{deftype};
             my $defstat = $node->{defstat};
 
             $base = $base ? qq{ base="$base"} : qq{};
@@ -3387,7 +3410,7 @@ $i             spec="$lspec">
                 print qq{$i      </enumeration>\n} unless $ended;
             }
             print qq{$i    </$type>\n} unless $ended;
-            print qq{$i    <default type="object" value="$default"$defstat/>\n}
+            print qq{$i    <default type="$deftype" value="$default"$defstat/>\n}
             if defined $default && ($basename eq 'name' ||
                                     $changed->{default});
             print qq{$i  </syntax>\n};
@@ -3763,6 +3786,7 @@ $i  </import>
             my $values = $node->{values};
             my $units = $node->{units};
             my $default = $node->{default};
+            my $deftype = $node->{deftype};
             my $defstat = $node->{defstat};
 
             # XXX a bit of a kludge...
@@ -3870,7 +3894,7 @@ $i  </import>
             }
             print qq{$i      <units value="$units"/>\n} if $units;
             print qq{$i    </$type>\n} unless $ended;
-            print qq{$i    <default type="object" value="$default"$defstat/>\n}
+            print qq{$i    <default type="$deftype" value="$default"$defstat/>\n}
             if defined $default;
             print qq{$i  </syntax>\n};
             print qq{$i</parameter>\n};
@@ -4063,6 +4087,8 @@ sub html_node
     my $pname = html_escape($node->{pnode}->{name}, {empty => ''});
     # XXX don't need to pass hidden, list, reference etc (are in syntax)
     #     but does no harm (now passing node too!) :(
+    my $factory = ($node->{deftype} && $node->{deftype} eq 'factory') ?
+        html_escape(util_default($node->{default})) : undef;
     $description =
         html_escape($description,
                     {default => '', empty => '',
@@ -4075,6 +4101,7 @@ sub html_node
                      syntax => $node->{syntax},
                      list => $node->{syntax}->{list},
                      hidden => $node->{syntax}->{hidden},
+                     factory => $factory,
                      reference => $node->{syntax}->{reference},
                      uniqueKeys => $node->{uniqueKeys},
                      enableParameter => $node->{enableParameter},
@@ -4122,6 +4149,11 @@ END
         $html_buffer .= <<END;
     </ul> <!-- Table of Contents -->
 END
+        my $datatypes = $node->{dataTypes};
+        if ($autodatatype && $datatypes && @$datatypes) {
+            #print STDERR Dumper($datatypes);
+            # XXX data type output is TBD
+        }
         my $bibliography = $node->{bibliography};
         if ($bibliography && %$bibliography) {
             print <<END;
@@ -4201,8 +4233,11 @@ END
             $access eq 'delete' ? 'D' :
             $access eq 'createDelete' ? 'C' : '-';
 
-        my $default = (defined $node->{defstat} && $node->{defstat} eq
-                       'deleted') ? undef : $node->{default};
+        my $default = $node->{default};
+        undef $default
+            if defined $node->{deftype} && $node->{deftype} ne 'object';
+        undef $default
+            if defined $node->{defstat} && $node->{defstat} eq 'deleted';
 	$default = html_escape($default,
                                {quote => scalar($type =~ /^string/),
                                 hyphenate => 1});
@@ -4231,9 +4266,18 @@ END
         <li><a href="#$title">Data Model Definition</a></li>
         <ul> <!-- Data Model Definition -->
 END
+            my $boiler_plate = '';
+            $boiler_plate = <<END if $node->{minorVersion};
+For a given implementation of this data model, the CPE MUST indicate
+support for the highest version number of any object or parameter that
+it supports.  For example, even if the CPE supports only a single
+parameter that was introduced in version $version, then it will indicate
+support for version $version.  The version number associated with each object
+and parameter is shown in the <b>Version</b> column.<p>
+END
             $html_buffer .= <<END;
     <h1><a name="$title">$title</a></h1>
-    $description<p>
+    $description<p>$boiler_plate
     <table width="100%" $tabopts> <!-- Data Model Definition -->
       <tbody>
         <tr>
@@ -4636,11 +4680,17 @@ sub html_template
             $inval !~ /\{\{pattern\}\}/ && $inval !~ /\{\{nopattern\}\}/;
     }
 
-    # similarly auto-append {{hidden}} and {{keys}} if appropriate
+    # similarly auto-append {{hidden}}, {{factory}} and {{keys}} if
+    # appropriate
     if ($p->{hidden} && $inval !~ /\{\{hidden/ &&
         $inval !~ /\{\{nohidden\}\}/) {
         my $sep = !$inval ? "" : "\n";
         $inval .= $sep . "{{hidden}}";
+    }
+    if ($p->{factory} && $inval !~ /\{\{factory/ &&
+        $inval !~ /\{\{nofactory\}\}/) {
+        my $sep = !$inval ? "" : "\n";
+        $inval .= $sep . "{{factory}}";
     }
     if ($p->{uniqueKeys} && @{$p->{uniqueKeys}}&&
         $inval !~ /\{\{keys/ && $inval !~ /\{\{nokeys\}\}/) {
@@ -4682,6 +4732,10 @@ sub html_template
           text0 => q{{{mark|hidden}}When read, this parameter returns {{null}}, regardless of the actual value.},
           text1 => q{{{mark|hidden}}When read, this parameter returns ''$a[0]'', regardless of the actual value.}},
          {name => 'nohidden',
+          text0 => q{}},
+         {name => 'factory',
+          text0 => q{{{mark|factory}}This parameter has a factory default value of ''$p->{factory}''.}},
+         {name => 'nofactory',
           text0 => q{}},
          {name => 'null',
           text0 => \&html_template_null},
@@ -4947,6 +5001,7 @@ sub html_template_keys
                 foreach my $parameter (@$uniqueKey) {
                     my $path = $object . $parameter;
                     my $defaulted = defined $parameters->{$path}->{default} &&
+                        $parameters->{$path}->{deftype} eq 'object' &&
                         $parameters->{$path}->{defstat} ne 'deleted';
                     push @params, $parameter unless $defaulted;
                     $i++;
@@ -5624,11 +5679,13 @@ END
 # - {{type}} => model type: "Root Object" or "Service Object"
 # - {{def}} => "definition" or "definitions" (depends on number of models)
 # - {{err}} => "errata and clarifications"
+# - {{ver}} => "vm.n"
 my $htmlbbf_comments = {
     rpcs => 'TR-069 RPCs',
-    dm => 'TR-069 Data Model Definition Schema',
-    dt => 'TR-069 Device Type Schema',
-    dtf => 'TR-069 Device Type Schema feature definitions',
+    dm => 'TR-069 Data Model Definition Schema (DM Schema) {{ver}}',
+    dmr => 'TR-069 Data Model Report Schema (DMR Schema)',
+    dt => 'TR-069 Device Type Schema (DT Schema) {{ver}}',
+    dtf => 'TR-069 DT (Device Type) Features Schema (DTF Schema)',
     bibref => 'TR-069 data model bibliographic references',
     types => 'TR-069 Data Model Data Types',
     objdef => 'TR-069 {{name}} {{type}} {{def}}',
@@ -5648,14 +5705,16 @@ my $htmlbbf_info = {
         comment => 'dm', trname => 'tr-106-1-2', date => '2008-11'},
     'cwmp-datamodel-1-1.xsd' => {
         comment => 'dm', trname => 'tr-106-1-3', date => '2009-09'},
+    'cwmp-datamodel-report.xsd' => {
+        comment => 'dmr', date => '2009-09'},
     'cwmp-devicetype-1-0.xsd' => {
         comment => 'dt', trname => 'tr-106-1-3', date => '2009-09'},
     'cwmp-devicetype-features.xsd' => {
-        comment => 'dtf', trname => 'tr-106-1-3', date => '2009-09'},
+        comment => 'dtf', date => '2009-09'},
     'tr-069-biblio.xml' => {
         comment => 'bibref', support => 1},
     'tr-106-1-0-0-types.xml' => {
-        comment => 'types', support => 1, trname => 'tr-106-1-0'}
+        comment => 'types', support => 1}
 };
 
 my $htmlbbf = [];
@@ -5711,7 +5770,7 @@ sub htmlbbf_begin
        suite of documents are listed below.</p>
     <p/>
     <p>Note: all the files below are directly reachable via:
-       http://www.broadband-forum.org/cwmp/&lt;filename&gt;</p>
+       http://www.broadband-forum.org/cwmp/&lt;filename&gt;.</p>
 
     <a name="Schema"/>
     <h1>Schema Files</h1>
@@ -5744,8 +5803,6 @@ END
 
     print <<END;
     </table>
-    <p><sup>1</sup>TBD (note re cwmp-datamodel-report.xsd)</p>
-    <p><sup>2</sup>TBD (note re omitted corrigendum numbers etc)</p>
   </body>
 </html>
 END
@@ -5826,6 +5883,11 @@ END
     my $def = 'definition' . ($mult ? 's' : '');
     my $err = 'errata and clarifications';
 
+    my ($maj, $min) = $name =~ /-(\d+)-(\d+)\.xsd$/;
+    $maj = '?' unless defined $maj;
+    $min = '?' unless defined $min;
+    my $ver = qq{v${maj}.${min}};
+
     if (!$comment && !$opts->{schema} && !$opts->{support}) {
         $comment .= $mult ? 'comp' : 'obj';
         $comment .= $seen ? 'err'  : 'def';
@@ -5836,6 +5898,7 @@ END
     $comment =~ s/{{type}}/$type/;
     $comment =~ s/{{def}}/$def/;
     $comment =~ s/{{err}}/$err/;
+    $comment =~ s/{{ver}}/$ver/;
 
     $trname = $spec unless $trname;
     $trname = util_doc_name($trname, {verbose => 1});
@@ -5854,17 +5917,22 @@ END
     
     my $xmllink = qq{cwmp/$name};
 
-    # XXX there are no standards for TR URLS; this is a BBF problem and they
-    #     should fix it!
+    # this is believed to follow the new BBF TR URL standard
     my $trlink = qq{technical/download/${trname}.pdf};
-    $trlink =~ s/ //g;
+    $trlink =~ s/ (Issue|Amendment|Corrigendum)/_$1/;
+    $trlink =~ s/ /-/g;
+
+    # no TR link for support files or if TR name doesn't begin TR (catches
+    # unversioned schemas)
+    $trlink = qq{<a href="$trlink">$trname</a>};
+    $trlink = '&nbsp;' if $support || $trname !~ /^TR/;
 
     print <<END;
       <tr>
         <td><a href="$xmllink">$name</a></td>
         <td>$comment</td>
         <td>$date</td>
-        <td><a href="$trlink">$trname</a></td>
+        <td>$trlink</td>
       </tr>
 END
 }
@@ -6063,11 +6131,18 @@ END
         my $update_type = $version_update eq 'Initial' ? '-' :
             $version_update eq 'Major' ? 'Replacement' : 'Incremental';
 
+        # XXX hack: we currently KNOW that 143 and 157 define both root
+        #     objects so the HTML includes "-dev" or "-igd"
+        my $htmlsuff =
+            $row->{file} !~ /^tr-(143|157)/ ? '' :
+            $row->{name} =~ /^Internet/ ? '-igd' :
+            $row->{name} =~ /^Device/ ? '-dev' : '';
+
         $text .= <<END;
         <tr>
           $moc<td rowspan="$mrowspan"><a name="D:$row->{name}">$row->{name}</a></td>$mcc
           $moc<td rowspan="$mrowspan">$row->{type}</td>$mcc
-          <td><a href="cwmp/$row->{file}.html">$version</a> <a href="cwmp/$row->{file}.xml">(XML)</a></td>
+          <td><a href="cwmp/$row->{file}$htmlsuff.html">$version</a> <a href="cwmp/$row->{file}.xml">(XML)</a></td>
           <td>$version_update</td>
           <td>$update_type</td>
           <td>$row->{tr_name}</td>
@@ -6957,6 +7032,8 @@ sub sanity_node
             $node->{pnode}->{maxEntries} eq 'unbounded' &&
             !$node->{pnode}->{fixedObject};
 
+        # XXX should also check that it's legal for the data type, e.g. a
+        #     valid integer
 	print STDERR "$path: default $udefault is not one of the enumerated " .
 	    "values\n" if $pedantic && defined $default &&
             !($syntax->{list} && $default eq '') && has_values($values) &&
@@ -7166,7 +7243,7 @@ specifies a suffix which, if specified, will be appended (preceded by a hyphen) 
 
 =item B<--include=d>...
 
-can be specified multiple times; specifies directories to search for files specified on the command line or included from other files; the current directory is always searched first and the directory B<../cwmp-bbf> is always searched last (and so doesn't need to be mentioned)
+can be specified multiple times; specifies directories to search for files specified on the command line or included from other files; the current directory is always searched first
 
 no search is performed for files that already include directory names
 
@@ -7346,7 +7423,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/09/22 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#134 $
+$Date: 2009/10/06 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#136 $
 
 =cut
