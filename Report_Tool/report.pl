@@ -222,8 +222,8 @@ if ($noparameters) {
 
 if ($info) {
     print STDERR q{$Author: wlupton $
-$Date: 2009/10/06 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#136 $
+$Date: 2009/10/08 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#139 $
 };
     exit(1);
 }
@@ -4734,7 +4734,7 @@ sub html_template
          {name => 'nohidden',
           text0 => q{}},
          {name => 'factory',
-          text0 => q{{{mark|factory}}This parameter has a factory default value of ''$p->{factory}''.}},
+          text0 => q{{{mark|factory}}The factory default value MUST be ''$p->{factory}''.}},
          {name => 'nofactory',
           text0 => q{}},
          {name => 'null',
@@ -6123,14 +6123,6 @@ END
             $first = 0;
         }
 
-        my $version = $row->{version};
-        my $version_update = $version eq '1.0' ? 'Initial' :
-            $version =~ /^\d+\.0$/ ? 'Major' : 'Minor';
-        # XXX not quite the same as in PD-148 because ALL XML minor versions
-        #     are incremental (not worth keeping this column?)
-        my $update_type = $version_update eq 'Initial' ? '-' :
-            $version_update eq 'Major' ? 'Replacement' : 'Incremental';
-
         # XXX hack: we currently KNOW that 143 and 157 define both root
         #     objects so the HTML includes "-dev" or "-igd"
         my $htmlsuff =
@@ -6138,13 +6130,28 @@ END
             $row->{name} =~ /^Internet/ ? '-igd' :
             $row->{name} =~ /^Device/ ? '-dev' : '';
 
+        my $version = $row->{version};
+        my $version_entry = qq{<a href="cwmp/$row->{file}.xml">$version</a>};
+
+        my $version_update = $version eq '1.0' ? 'Initial' :
+            $version =~ /^\d+\.0$/ ? 'Major' : 'Minor';
+        my $version_update_entry =
+            qq{<a href="cwmp/$row->{file}$htmlsuff.html">$version_update</a>};
+
+        # XXX not quite the same as in PD-148 because ALL XML minor versions
+        #     are incremental (not worth keeping this column?)
+        my $update_type = $version_update eq 'Initial' ? '-' :
+            $version_update eq 'Major' ? 'Replacement' : 'Incremental';
+        my $update_type_entry = $update_type eq '-' ? '-' :
+            qq{<a href="cwmp/$row->{file}$htmlsuff-last.html">$update_type</a>};
+
         $text .= <<END;
         <tr>
           $moc<td rowspan="$mrowspan"><a name="D:$row->{name}">$row->{name}</a></td>$mcc
           $moc<td rowspan="$mrowspan">$row->{type}</td>$mcc
-          <td><a href="cwmp/$row->{file}$htmlsuff.html">$version</a> <a href="cwmp/$row->{file}.xml">(XML)</a></td>
-          <td>$version_update</td>
-          <td>$update_type</td>
+          <td>$version_entry</td>
+          <td>$version_update_entry</td>
+          <td>$update_type_entry</td>
           <td>$row->{tr_name}</td>
           <!-- <td>$row->{dependencies}</td> -->
         </tr>
@@ -6919,6 +6926,7 @@ sub sanity_node
     my $syntax = $node->{syntax};
     my $values = $node->{values};
     my $default = $node->{default};
+    my $deftype = $node->{deftype};
     my $dynamic = $node->{dynamic};
     my $minEntries = $node->{minEntries};
     my $maxEntries = $node->{maxEntries};
@@ -7052,9 +7060,11 @@ sub sanity_node
 	    maxlength_appropriate($path, $name, $type) &&
             has_values($values) && $syntax->{maxLength};
 
+        # XXX why the special case for lists?
 	print STDERR "$path: parameter within static object has " .
 		"a default value\n" if $pedantic && !$dynamic &&
-                defined($default) && !($syntax->{list} && $default eq '');
+                defined($default) && $deftype eq 'object' &&
+                !($syntax->{list} && $default eq '');
 
 	# XXX other checks to make: profiles reference valid parameters,
 	#     reference types, default is valid for type, other facets are
@@ -7423,7 +7433,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/10/06 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#136 $
+$Date: 2009/10/08 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#139 $
 
 =cut
