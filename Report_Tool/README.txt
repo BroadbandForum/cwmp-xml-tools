@@ -5,8 +5,8 @@ Usage:
     [--importsuffix=string("")] [--include=d]... [--info] [--lastonly]
     [--marktemplates] [--noautomodel] [--nocomments] [--nolinks]
     [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
-    [--notemplates] [--nowarnredef] [--objpat=pattern("")]
-    [--pedantic[=i(1)]] [--quiet]
+    [--notemplates] [--nowarnredef] [--nowarnprofbadref]
+    [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet]
     [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec]
     [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc]
     [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref]
@@ -123,6 +123,14 @@ Options:
 
         there are some circumstances under which parameter or object
         redefinition is not worthy of comment
+
+    --nowarnprofbadref
+        disables warnings when a profile references an invalid object or
+        parameter
+
+        there are some circumstances under which it's useful to use an
+        existing profile definition where some objects or parameters that it
+        references have been (deliberately) deleted
 
     --objpat=pattern
         specifies an object name pattern (a regular expression); objects

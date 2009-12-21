@@ -156,6 +156,7 @@ my $noparameters = 0;
 my $noprofiles = 0;
 my $notemplates = 0;
 my $nowarnredef = 0;
+my $nowarnprofbadref;
 my $objpat = '';
 my $pedantic;
 my $quiet = 0;
@@ -192,6 +193,7 @@ GetOptions('autobase' => \$autobase,
 	   'noprofiles' => \$noprofiles,
 	   'notemplates' => \$notemplates,
            'nowarnredef' => \$nowarnredef,
+           'nowarnprofbadref' => \$nowarnprofbadref,
 	   'objpat:s' => \$objpat,
 	   'pedantic:i' => \$pedantic,
 	   'quiet' => \$quiet,
@@ -222,8 +224,8 @@ if ($noparameters) {
 
 if ($info) {
     print STDERR q{$Author: wlupton $
-$Date: 2009/10/08 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#139 $
+$Date: 2009/12/21 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#145 $
 };
     exit(1);
 }
@@ -464,16 +466,33 @@ sub expand_import
             next;
         }
 
-        my ($fitem) = $toplevel->findnodes(qq{$element\[\@name="$ref"\]});
-        # XXX warning here could give multiple warnings if also warn when try
-        #     to reference (but not warning at all is worse?)
-        # XXX gives spurious warning when a name is imported from another
-        #     namespace (need to find the item in the other namespace too)
-        # XXX for now, suppress warning for GatewayInfo; that way, don't have
-        #     to document the error (pending proper fix)
-        print STDERR "{$file}$ref: $element not found\n" unless
-            $fitem || $ref eq 'GatewayInfo';
+        # XXX this logic is from expand_model_component
+        my ($elem) = grep {$_->{element} eq $element && $_->{name} eq $ref}
+        @{$imports->{$file}->{imports}};
+        if (!$elem) {
+            print STDERR "{$file}$ref: $element not found\n";
+            next;
+        }
+        my $dfile = $elem->{file};
 
+        # find the actual element (first check whether we have already seen it)
+        my ($delem) = grep {$_->{element} eq $element && $_->{name} eq $ref}
+        @{$imports->{$dfile}->{imports}};
+        my $fitem = $delem ? $delem->{item} : undef;
+        if ($fitem) {
+            print STDERR "{$file}$ref: $element already found in $dfile\n"
+                if $verbose;
+        } elsif ($dfile eq $file) {
+            ($fitem) = $toplevel->findnodes(qq{$element\[\@name="$ref"\]});
+        } else {
+            (my $ddir, $dfile) = find_file($dfile.'.xml');
+            my $dtoplevel = parse_file($ddir, $dfile);
+            ($fitem) = $dtoplevel->findnodes(qq{$element\[\@name="$ref"\]});
+        }
+        print STDERR "{$file}$ref: $element not found in $dfile\n"
+            unless $fitem;
+
+        # XXX update regardless; will get another error if try to use it
         update_imports($cfile, $cspec, $file, $fspec, $element, $name, $ref,
                        $fitem);
     }
@@ -492,7 +511,8 @@ sub update_imports
           ref => $ref, item => $item});
 
     my $alias = $dfile ne $file ? qq{ = {$dfile}$ref} : qq{};
-    print STDERR "added $element {$file}$name$alias\n" if $verbose;
+    print STDERR "update_imports: added $element {$file}$name$alias\n"
+        if $verbose;
 }
 
 # Expand a dataType definition.
@@ -1250,6 +1270,8 @@ sub expand_model_profile
     $status = util_maybe_deleted($status);
     update_bibrefs($description, $spec);
 
+    $name = $base unless $name;
+
     # XXX want to do this consistently; really want to get defaults from
     #     somewhere (not hard-coded)
     $status = 'current' unless $status;
@@ -1296,11 +1318,11 @@ sub expand_model_profile
         # XXX don't automatically report this until have sorted out profile
         #     re-definition
         print STDERR "$name: profile already defined\n" if
-            $pedantic && !$autobase;
+            $pedantic && !$autobase && $base && $name ne $base;
         # XXX profiles can never change, so just give up; BUT this means that
         #     we won't detect corrections, deprecations etc, so is not good
         #     enough
-        return;
+        #return;
     } else {
         # if base specified, find base profile
         my $baseprof;
@@ -1406,7 +1428,8 @@ sub expand_model_profile_object
     # XXX need bad hyperlink to be visually apparent
     unless ($objects->{$name} && %{$objects->{$name}}) {
 	print STDERR "profile $Pnode->{name} references invalid $name\n"
-            unless $noprofiles;
+            unless $noprofiles || $nowarnprofbadref;
+        return;
     }
 
     # XXX should check that access matches the referenced object's access
@@ -1427,14 +1450,15 @@ sub expand_model_profile_object
         }
     }
     # XXX this logic isn't implemented for extends profiles (it is less
-    #     necessary but can be added if need be
+    #     necessary but can be added if need be)
 
-    # node shouldn't already exist, but check anyway
+    my $push_needed = 1;
     my $push_deferred = 0;
     my @match = grep {$_->{name} eq $name} @{$pnode->{nodes}};
     my $nnode;
     if (@match) {
 	$nnode = $match[0];
+        $push_needed = 0;
     } else {
 	$nnode = {pnode => $pnode, path => $name, name => $name,
                   type => 'objectRef', access => $access, status => $status,
@@ -1453,10 +1477,11 @@ sub expand_model_profile_object
     }
 
     # suppress push if possible
+    # XXX not supporting previousObject in profiles
     if ($can_ignore && $push_deferred && !@{$nnode->{nodes}}) {
         print STDERR "profile $Pnode->{name} will ignore object $name\n" if
             $verbose;
-    } else {
+    } elsif ($push_needed) {
         push(@{$pnode->{nodes}}, $nnode);
         $profiles->{$Pnode->{name}}->{$name} =
             $access;
@@ -1489,7 +1514,8 @@ sub expand_model_profile_parameter
     # XXX need bad hyperlink to be visually apparent
     unless ($parameters->{$path} && %{$parameters->{$path}}) {
 	print STDERR "profile $Pnode->{name} references invalid $path\n"
-            unless $noprofiles;
+            unless $noprofiles || $nowarnprofbadref;
+        return;
     } elsif ($access ne 'readOnly' &&
              $parameters->{$path}->{access} eq 'readOnly') {
 	print STDERR "profile $Pnode->{name} has invalid requirement ".
@@ -1509,17 +1535,41 @@ sub expand_model_profile_parameter
         }
     }
 
-    # node shouldn't already exist, but check anyway
+    # determine name of previous sibling (if any) as a hint for where to
+    # create the new node
+    # XXX can i assume that there's ALWAYS a text node between each
+    #     parameter node?
+    my $previous = dmr_previous($parameter);
+    my $prevnode = $parameter->previousSibling()->previousSibling();
+    if (!defined $previous &&
+        $prevnode && $prevnode->findvalue('local-name()') eq 'parameter') {
+        $previous = $prevnode->findvalue('@ref');
+        $previous = undef if $previous eq '';
+    }    
+
     my @match = grep {$_->{name} eq $name} @{$pnode->{nodes}};
     my $nnode;
     if (@match) {
 	$nnode = $match[0];
     } else {
-        push(@{$pnode->{nodes}},
-             {pnode => $pnode, name => $name, type => 'parameterRef',
-              access => $access, status => $status, nodes => []});
-        $profiles->{$Pnode->{name}}->{$path} =
-            $access;
+        $nnode = {pnode => $pnode, name => $name, type => 'parameterRef',
+                  access => $access, status => $status, nodes => []};
+
+        # if previous is defined, it's a hint to insert this node after the
+        # node of this name, if it exists
+        my $index = @{$pnode->{nodes}};
+        if (defined $previous && $previous eq '') {
+            $index = 0;
+        } elsif ($previous) {
+            for (0..$index-1) {
+                if (@{$pnode->{nodes}}[$_]->{name} eq $previous) {
+                    $index = $_+1;
+                    last;
+                }
+            }
+        }
+        splice @{$pnode->{nodes}}, $index, 0, $nnode;
+        $profiles->{$Pnode->{name}}->{$path} = $access;
     }
 }
 
@@ -2450,9 +2500,10 @@ sub get_values
         $description =~ s/\s*$//;
 
         # avoid leading upper-case in value description unless an acronym
-        # XXX better than it was (it was unconditional) but isi it OK?
+        # XXX better than it was (it was unconditional) but is it OK?
         $description = lcfirst $description
-            if $description =~ /^[A-Z][a-z]/;
+            if ($description =~ /^[A-Z][a-z]/ &&
+                $description !~ /^\S+\s+[A-Z]/);
         $description =~ s/\.$//;
 
 	my $any = $description || $optional || $deprecated || $obsoleted;
@@ -2632,7 +2683,7 @@ sub type_string
         $value = 'string';
     } else {
         print STDERR "$value: named data types other than IPAddress and ".
-            "MACAddress not supported\n";
+            "MACAddress not supported\n" if $verbose;
     }
 
     # lists are always strings at the CWMP level
@@ -2809,7 +2860,7 @@ sub parse_file
     # XXX only use dir of non-blank ('' can be interpreted as '/')
     my $tfile = $dir ? File::Spec->catfile($dir, $file) : $file;
 
-    print STDERR "parsing file: $tfile\n" if $verbose;
+    print STDERR "parse_file: parsing $tfile\n" if $verbose;
 
     # parse file
     my $parser = XML::LibXML->new();
@@ -3933,6 +3984,9 @@ sub xml2_post
 
     $indent = 0 unless $indent;
     return if $node->{name} eq 'object';
+
+    # XXX this is a hack (I hate this logic)
+    return if @$dtprofiles && $element eq 'parameter';
     
     # XXX this catches model
     return if $components && $indent > 0;
@@ -4152,7 +4206,37 @@ END
         my $datatypes = $node->{dataTypes};
         if ($autodatatype && $datatypes && @$datatypes) {
             #print STDERR Dumper($datatypes);
-            # XXX data type output is TBD
+            print <<END;
+      <li><a href="#DataTypes">Data Types</a></li>
+END
+            $html_buffer .= <<END;
+    <h1><a name="DataTypes">Data Types</a></li>
+    <table border="0"> <!-- Data Types -->
+END
+            foreach my $datatype (sort {$a->{name} cmp $b->{name}}
+                                  @$datatypes) {
+                my $name = $datatype->{name};
+                my $description = $datatype->{description};
+                my $descact = $datatype->{descact};
+
+                $name = qq{<a name="$name">$name</a>};
+
+                # XXX this needs a generic utility that will escape any
+                #     description with full template expansion
+                # XXX more generally, a data type report should be quite like
+                #     a parameter report (c.f. UPnP relatedStateVariable)
+                $description = html_escape($description);
+
+                $html_buffer .= <<END;
+      <tr>
+        <td>$name</td>
+        <td>$description</td>
+      </tr>
+END
+            }
+            $html_buffer .= <<END;
+    </table> <!-- Data Types -->
+END
         }
         my $bibliography = $node->{bibliography};
         if ($bibliography && %$bibliography) {
@@ -4644,7 +4728,7 @@ sub html_template
         $inval !~ /\{\{noreference\}\}/) {
         my $sep = !$inval ? "" : "  ";
         if ($inval =~ /\{\{list\}\}/) {
-            $inval = ($inval =~ s/\{\{list\}\}/&$sep\{\{reference\}\}/);
+            $inval =~ s/(\{\{list\}\})/$1$sep\{\{reference\}\}/;
         } else {
             $inval = "{{reference}}" . $sep . $inval;
         }
@@ -4943,8 +5027,9 @@ sub html_template_datatype
     #$text .= '.' unless $text =~ /\.$/;
 
     # XXX now just return "[datatype] "
-    # XXX this should be a link to a data types section
-    my $text = qq{[$dtname] };
+    my $text = $nolinks ?
+        qq{[''$dtname''] } :
+        qq{[''<a href="#$dtname">$dtname</a>''] };
 
     return $text;
 }
@@ -5082,7 +5167,7 @@ sub html_template_paramref
     print STDERR "$object$param: {{param}} argument unnecessary when ".
         "referring to current parameter\n" if $pedantic && $name eq $param;
 
-    my $path = relative_path($object, $name, $scope);
+    (my $path, $name) = relative_path($object, $name, $scope);
 
     my $invalid = ($parameters->{$path} && %{$parameters->{$path}}) ? '' : '?';
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
@@ -5122,7 +5207,7 @@ sub html_template_objectref
     print STDERR "$object$param: {{object}} argument unnecessary when ".
         "referring to current object\n" if $pedantic && $name eq $object;
 
-    my $path = relative_path($object, $name, $scope);
+    (my $path, $name) = relative_path($object, $name, $scope);
     my $path1 = $path;
     $path1 .= '.' if $path1 !~ /\.$/;
 
@@ -5170,7 +5255,7 @@ sub html_template_valueref
     my $this = $name ? 0 : 1;
     $name = $param unless $name;
 
-    my $path = relative_path($object, $name, $scope);
+    (my $path, $name) = relative_path($object, $name, $scope);
 
     my $invalid = '';
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
@@ -5392,6 +5477,10 @@ sub html_template_reference
 }
 
 # Generate relative path given...
+# 
+# XXX note that DM instances can't really make use of the proposed "^" syntax
+#     because it implies a reference to a different data model, so it is not
+#     yet supported
 sub relative_path
 {
     my ($parent, $name, $scope) = @_;
@@ -5401,8 +5490,12 @@ sub relative_path
 
     my $path;
 
+    # XXX $parp (parent pattern) won't work for UPnP DM
+
     my $sep = $upnpdm ? q{#} : q{.};
     my $sepp = $upnpdm ? q{\#} : q{\.};
+    my $par = $upnpdm ? q{!} : q{#};
+    my $parp = $upnpdm ? q{\!} : q{\#};
     my $instp = $upnpdm ? q{\#} : q{\{};
 
     if ($scope eq 'normal' && $name =~ /^(Device|InternetGatewayDevice)\./) {
@@ -5413,10 +5506,27 @@ sub relative_path
         my $sep = ($name =~ /^$sepp/) ? '' : $sep;
         $path = $root . $next . $sep . $name;
     } else {
+        if ($scope eq 'normal' && $name =~ /^$parp/) {
+            my ($nlev) = ($name =~ /^($parp*)/);
+            $nlev = length $nlev;
+            # XXX need a utility for this!
+            my $tparent = $parent;
+            $parent =~ s/\.\{/\{/g;
+            #print STDERR "$parent $name $nlev\n";
+            my @comps = split /$sepp/, $parent;
+            splice @comps, -$nlev;
+            $parent = join $sep, @comps;
+            $parent =~ s/\{/\.\{/g;
+            $parent .= '.' if $parent;
+            print STDERR "$tparent: $name has too many $par characters\n"
+                unless $parent;
+            $name =~ s/^$parp*\.?//;
+            #print STDERR "$parent $name\n";
+        }
         $path = $parent . $name;
     }
 
-    return $path;
+    return ($path, $name);
 }
 
 # Generate appropriate {{object}} references from an XML list
@@ -7008,13 +7118,14 @@ sub sanity_node
                 if $pedantic > 2;
         }
 
-        # XXX criterion for enableParameter isn't right (needs to consider
-        #     unique keys; see {{keys}} expansion code) so disabled
-        #$enableParameter = $parameters->{$path.$enableParameter} if
-        #    $enableParameter;
-        #print STDERR "$path: missing enableParameter\n" if
-        #    $access ne 'readOnly' && $maxEntries eq 'unbounded' &&
-        #    (!$enableParameter || (!$hidden && $enableParameter->{hidden}));
+        # XXX old test for enableParameter considered "hidden"; why?
+        #$enableParameter =
+        #    $parameters->{$path.$enableParameter} if $enableParameter;
+        #(!$enableParameter || (!$hidden && $enableParameter->{hidden}))
+
+        print STDERR "$path: missing enableParameter\n" if
+            $access ne 'readOnly' && $maxEntries eq 'unbounded' &&
+            @{$node->{uniqueKeys}} && !$enableParameter;
 
         # XXX could be cleverer re checking for read-only / writable unique
         #     keys
@@ -7185,7 +7296,7 @@ report.pl - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref] [--writonly] DM-instance...
+B<report.pl> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref] [--writonly] DM-instance...
 
 =over
 
@@ -7311,6 +7422,12 @@ disables parameter and object redefinition warnings (these warnings are also out
 
 there are some circumstances under which parameter or object redefinition is not worthy of comment
 
+=item B<--nowarnprofbadref>
+
+disables warnings when a profile references an invalid object or parameter
+
+there are some circumstances under which it's useful to use an existing profile definition where some objects or parameters that it references have been (deliberately) deleted
+
 =item B<--objpat=pattern>
 
 specifies an object name pattern (a regular expression); objects that do not match this pattern will be ignored (the default of "" matches all objects)
@@ -7433,7 +7550,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/10/08 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#139 $
+$Date: 2009/12/21 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#145 $
 
 =cut

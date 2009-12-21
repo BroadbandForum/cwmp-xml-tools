@@ -30,7 +30,7 @@
 <p>
 </p>
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p><strong>report.pl</strong> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref] [--writonly] DM-instance...</p>
+<p><strong>report.pl</strong> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref] [--writonly] DM-instance...</p>
 <ul>
 <li><strong><a name="cannot_specify_both_report_and_special" class="item">cannot specify both --report and --special</a></strong>
 
@@ -172,6 +172,12 @@
 <dd>
 <p>disables parameter and object redefinition warnings (these warnings are also output if <strong>--verbose</strong> is specified)</p>
 <p>there are some circumstances under which parameter or object redefinition is not worthy of comment</p>
+</dd>
+<dt><strong><a name="nowarnprofbadref" class="item"><strong>--nowarnprofbadref</strong></a></strong></dt>
+
+<dd>
+<p>disables warnings when a profile references an invalid object or parameter</p>
+<p>there are some circumstances under which it's useful to use an existing profile definition where some objects or parameters that it references have been (deliberately) deleted</p>
 </dd>
 <dt><strong><a name="objpat_pattern" class="item"><strong>--objpat=pattern</strong></a></strong></dt>
 
@@ -318,8 +324,8 @@
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:wlupton@2wire.com">wlupton@2wire.com</a>&gt;</p>
-<p>$Date: 2009/10/08 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#139 $</p>
+<p>$Date: 2009/12/21 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#145 $</p>
 
 </body>
 
