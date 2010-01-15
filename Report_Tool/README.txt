@@ -3,14 +3,15 @@ Usage:
     [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]...
     [--dtspec[=s]] [--help] [--ignore=pattern("")]
     [--importsuffix=string("")] [--include=d]... [--info] [--lastonly]
-    [--marktemplates] [--noautomodel] [--nocomments] [--nolinks]
-    [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
+    [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate]
+    [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
     [--notemplates] [--nowarnredef] [--nowarnprofbadref]
     [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet]
     [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec]
+    [--showsyntax]
     [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc]
-    [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref]
-    [--writonly] DM-instance...
+    [--thisonly] [--ugly] [--upnpdm] [--verbose[=i(1)]]
+    [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
     *   cannot specify both --report and --special
 
@@ -94,6 +95,9 @@ Options:
         disables generation of XML comments showing what changed etc
         (--verbose always switches it off)
 
+    --nohyphenate
+        prevents automatic insertion of soft hyphens
+
     --nolinks
         affects only the html report; disables generation of hyperlinks
         (which makes it easier to import HTML into Word documents)
@@ -131,6 +135,9 @@ Options:
         there are some circumstances under which it's useful to use an
         existing profile definition where some objects or parameters that it
         references have been (deliberately) deleted
+
+        this is deprecated because it is no longer needed (use
+        status="deleted" as appropriate to suppress such errors)
 
     --objpat=pattern
         specifies an object name pattern (a regular expression); objects
@@ -177,6 +184,11 @@ Options:
     --showspec
         currently affects only the html report; generates a Spec rather than
         a Version column
+
+    --showsyntax
+        adds an extra column containing a summary of the parameter syntax;
+        is like the Type column for simple types, but includes additional
+        details for lists
 
     --special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc
         performs special checks, most of which assume that several versions
@@ -230,12 +242,20 @@ Options:
         disables some prettifications, e.g. inserting spaces to encourage
         line breaks
 
-    --verbose
-        enables verbose output
+        this is deprecated because it has been replaced with the more
+        specific --nohyphenate and --showsyntax
 
-    --warndupbibref
-        enables duplicate bibref warnings (these warnings are also output if
-        --verbose is specified)
+    --verbose[=i(1)]
+        enables verbose output; the higher the level the more the output
+
+    --warnbibref[=i(1)]
+        enables bibliographic reference warnings (these warnings are also
+        output if --verbose is specified); the higher the level the more
+        warnings
+
+        previously known as --warndupbibref, which is now deprecated (and
+        will be removed in a future release) because it covers more than
+        just duplicate bibliographic references
 
     --writonly
         reports only on writable parameters (should, but does not, suppress

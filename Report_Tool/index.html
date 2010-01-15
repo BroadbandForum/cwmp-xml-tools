@@ -30,7 +30,7 @@
 <p>
 </p>
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p><strong>report.pl</strong> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref] [--writonly] DM-instance...</p>
+<p><strong>report.pl</strong> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
 <ul>
 <li><strong><a name="cannot_specify_both_report_and_special" class="item">cannot specify both --report and --special</a></strong>
 
@@ -136,6 +136,11 @@
 <dd>
 <p>disables generation of XML comments showing what changed etc (<strong>--verbose</strong> always switches it off)</p>
 </dd>
+<dt><strong><a name="nohyphenate" class="item"><strong>--nohyphenate</strong></a></strong></dt>
+
+<dd>
+<p>prevents automatic insertion of soft hyphens</p>
+</dd>
 <dt><strong><a name="nolinks" class="item"><strong>--nolinks</strong></a></strong></dt>
 
 <dd>
@@ -178,6 +183,7 @@
 <dd>
 <p>disables warnings when a profile references an invalid object or parameter</p>
 <p>there are some circumstances under which it's useful to use an existing profile definition where some objects or parameters that it references have been (deliberately) deleted</p>
+<p>this is deprecated because it is no longer needed (use status=&quot;deleted&quot; as appropriate to suppress such errors)</p>
 </dd>
 <dt><strong><a name="objpat_pattern" class="item"><strong>--objpat=pattern</strong></a></strong></dt>
 
@@ -246,6 +252,11 @@
 <dd>
 <p>currently affects only the <strong>html</strong> report; generates a <strong>Spec</strong> rather than a <strong>Version</strong> column</p>
 </dd>
+<dt><strong><a name="showsyntax" class="item"><strong>--showsyntax</strong></a></strong></dt>
+
+<dd>
+<p>adds an extra column containing a summary of the parameter syntax; is like the Type column for simple types, but includes additional details for lists</p>
+</dd>
 <dt><strong><a name="special_deprecated_nonascii_normative_notify_obsoleted_profile_rfc" class="item"><strong>--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc</strong></a></strong></dt>
 
 <dd>
@@ -297,16 +308,18 @@
 
 <dd>
 <p>disables some prettifications, e.g. inserting spaces to encourage line breaks</p>
+<p>this is deprecated because it has been replaced with the more specific <strong>--nohyphenate</strong> and <strong>--showsyntax</strong></p>
 </dd>
-<dt><strong><a name="verbose" class="item"><strong>--verbose</strong></a></strong></dt>
+<dt><strong><strong>--verbose[=i(1)]</strong></strong></dt>
 
 <dd>
-<p>enables verbose output</p>
+<p>enables verbose output; the higher the level the more the output</p>
 </dd>
-<dt><strong><a name="warndupbibref" class="item"><strong>--warndupbibref</strong></a></strong></dt>
+<dt><strong><strong>--warnbibref[=i(1)]</strong></strong></dt>
 
 <dd>
-<p>enables duplicate bibref warnings (these warnings are also output if <strong>--verbose</strong> is specified)</p>
+<p>enables bibliographic reference warnings (these warnings are also output if <strong>--verbose</strong> is specified); the higher the level the more warnings</p>
+<p>previously known as <strong>--warndupbibref</strong>, which is now deprecated (and will be removed in a future release) because it covers more than just duplicate bibliographic references</p>
 </dd>
 <dt><strong><a name="writonly" class="item"><strong>--writonly</strong></a></strong></dt>
 
@@ -324,8 +337,8 @@
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:wlupton@2wire.com">wlupton@2wire.com</a>&gt;</p>
-<p>$Date: 2009/12/21 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#145 $</p>
+<p>$Date: 2010/01/14 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#149 $</p>
 
 </body>
 

@@ -141,6 +141,7 @@ my $deletedeprecated = 0;
 my $dtprofiles = [];
 my $dtspec = 'urn:example-com:device-1-0-0';
 my $help = 0;
+my $nohyphenate = 0;
 my $ignore = '';
 my $importsuffix = '';
 my $includes = [];
@@ -162,11 +163,13 @@ my $pedantic;
 my $quiet = 0;
 my $report = '';
 my $showspec = 0;
+my $showsyntax = 0;
 my $special = '';
 my $thisonly = 0;
 my $ugly = 0;
 my $upnpdm = 0;
 my $verbose;
+my $warnbibref = 0;
 my $warndupbibref = 0;
 my $writonly = 0;
 GetOptions('autobase' => \$autobase,
@@ -186,6 +189,7 @@ GetOptions('autobase' => \$autobase,
 	   'marktemplates' => \$marktemplates,
 	   'noautomodel' => \$noautomodel,
 	   'nocomments' => \$nocomments,
+	   'nohyphenate' => \$nohyphenate,
 	   'nolinks' => \$nolinks,
 	   'nomodels' => \$nomodels,
 	   'noobjects' => \$noobjects,
@@ -199,11 +203,13 @@ GetOptions('autobase' => \$autobase,
 	   'quiet' => \$quiet,
 	   'report:s' => \$report,
            'showspec' => \$showspec,
+           'showsyntax' => \$showsyntax,
            'special:s' => \$special,
 	   'thisonly' => \$thisonly,
            'upnpdm' => \$upnpdm,
            'ugly' => \$ugly,
 	   'verbose:i' => \$verbose,
+           'warnbibref' => \$warnbibref,
            'warndupbibref' => \$warndupbibref,
 	   'writonly' => \$writonly) or pod2usage(2);
 pod2usage(2) if $report && $special;
@@ -224,15 +230,34 @@ if ($noparameters) {
 
 if ($info) {
     print STDERR q{$Author: wlupton $
-$Date: 2009/12/21 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#145 $
+$Date: 2010/01/14 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#149 $
 };
     exit(1);
+}
+
+if ($ugly) {
+    print STDERR "--ugly is deprecated; use --nohyphenate and/or ".
+        "--showsyntax\n";
+    $nohyphenate = 1;
+    $showsyntax = 1;
+}
+
+if ($warndupbibref) {
+    print STDERR "--warndupbibref is deprecated; use --warnbibref\n";
+    $warnbibref = 1;
+}
+
+if ($nowarnprofbadref) {
+    print STDERR "--nowarnprofbadref is deprecated; it's no longer necessary\n";
 }
 
 *STDERR = *STDOUT if $report eq 'null';
 
 $marktemplates = '&&&&' if defined($marktemplates);
+
+$warnbibref = 1 if defined($warnbibref) and !$warnbibref;
+$warnbibref = 0 unless defined($warnbibref);
 
 $pedantic = 1 if defined($pedantic) and !$pedantic;
 $pedantic = 0 unless defined($pedantic);
@@ -598,14 +623,14 @@ sub expand_bibliography
                 # this isn't necessarily a problem; it can happen if two files
                 # with the same spec are processed
                 print STDERR "$id: duplicate bibref: {$file}$name\n"
-                    if $verbose || $warndupbibref;
+                    if $verbose || $warnbibref;
             } elsif ($dupref->{name} ne $name) {
                 print STDERR "$id: ambiguous bibref: ".
                     "{$dupref->{file}}$dupref->{name}, {$file}$name\n";
             } else {
                 print STDERR "$id: duplicate bibref: ".
                     "{$dupref->{file}}$dupref->{name}, {$file}$name\n"
-                    if $verbose || $warndupbibref;
+                    if $verbose || $warnbibref;
             }
         }
 
@@ -617,6 +642,67 @@ sub expand_bibliography
             my $value = $reference->findvalue($element);
             $hash->{$element} = $value ? $value : '';
         }
+
+        # XXX check for non-standard organization / category
+        my $bbf = 'Broadband Forum';
+        my $tr = 'Technical Report';
+        if ($hash->{organization} =~ /BBF|The\s+Broadband\s+Forum/i) {
+            print STDERR "$id: $file: replaced organization ".
+                "\"$hash->{organization}\" with \"$bbf\"\n"
+                if $warnbibref > 1 || $verbose;
+            $hash->{organization} = $bbf;
+        }
+        if ($hash->{category} =~ /TR/i) {
+            print STDERR "$id: $file: replaced category ".
+                "\"$hash->{category}\" with \"$tr\"\n"
+                if $warnbibref > 1 || $verbose;
+            $hash->{category} = $tr;
+        }
+
+        # XXX check for missing category
+        if ($hash->{organization} eq $bbf && !$hash->{category}) {
+             print STDERR "$id: $file: missing $bbf category (\"$tr\" ".
+                 "assumed)\n" if $warnbibref > 1 || $verbose;
+            $hash->{category} = $tr;
+        }
+        if ($hash->{organization} eq 'IETF' && !$hash->{category}) {
+             print STDERR "$id: $file: missing IETF category (\"RFC\" ".
+                 "assumed)\n" if $warnbibref > 1 || $verbose;
+            $hash->{category} = 'RFC';
+        }
+
+        # XXX could also check for missing date (etc)...
+
+        # for TRs, don't want hyperlink, so can auto-generate the correct
+        # hyperlink according to BBF conventions
+        if ($hash->{organization} eq $bbf && $hash->{category} eq $tr) {
+            if ($hash->{hyperlink}) {
+                print STDERR "$id: $file: replaced deprecated $bbf $tr ".
+                    "hyperlink\n" if $warnbibref > 1 || $verbose;
+            }
+            my $h = qq{http://www.broadband-forum.org/technical/download/};
+            my $trname = $id;
+            $trname =~ s/i(\d+)/_Issue-$1/;
+            $trname =~ s/a(\d+)/_Amendment-$1/;
+            $trname =~ s/c(\d+)/_Corrigendum-$1/;
+            $h .= $trname;
+            $h .= qq{.pdf};
+            $hash->{hyperlink} = $h;
+        }
+
+        # for RFCs, don't want hyperlink, so can auto-generate the correct
+        # hyperlink according to IETF conventions
+        if ($hash->{organization} eq 'IETF' && $hash->{category} eq 'RFC') {
+            if ($hash->{hyperlink}) {
+                print STDERR "$id: $file: replaced deprecated IETF RFC ".
+                    "hyperlink\n" if $warnbibref > 1 || $verbose;
+            }
+            my $h = qq{http://tools.ietf.org/html/};
+            $h .= lc $id;
+            $hash->{hyperlink} = $h;
+        }
+
+        # XXX could also replace the hyperlinks for other organisations?
 
         if ($dupref) {
             my $changed = 0;
@@ -1093,15 +1179,9 @@ sub expand_model_parameter
     #     between nodes being absent and nodes having blank values (see the
     #     descdef handling here)
 
-    # XXX maxLength handling is suspect here; also minLength handling should be
-    #     consistent with maxLength (but minLength isn't really used...)
-
     my $syntax;
     if (defined($type)) {
-        # XXX not handling multiple sizes
-        # XXX for a list, minLength and maxLength refer to the item
 	foreach my $attr (('@ref', '@base', '@maxLength',
-                           'size/@minLength', 'size/@maxLength',
                            'instanceRef/@refType', 'instanceRef/@targetParent',
                            'instanceRef/@targetParentScope',
                            'pathRef/@refType','pathRef/@targetParent',
@@ -1131,12 +1211,42 @@ sub expand_model_parameter
         my $nullValue = ($type->findnodes('enumerationRef/@nullValue'))[0];
         $syntax->{nullValue} = $nullValue->findvalue('.') if $nullValue;
 
+        # handle multiple sizes
+        foreach my $size ($type->findnodes('size')) {
+            my $minLength = $size->findvalue('@minLength');
+            my $maxLength = $size->findvalue('@maxLength');
+            my $status = $size->findvalue('@status');
+
+            # XXX this is brain dead handling of status="deleted"; should
+            #     check for a matching entry
+            if ($status && $status eq 'deleted') {
+                $syntax->{sizes} = [];
+                next;
+            }
+
+            $minLength = undef if $minLength eq '';
+            $maxLength = undef if $maxLength eq '';
+            if (defined $minLength || defined $maxLength) {
+                push @{$syntax->{sizes}}, {minLength => $minLength,
+                                           maxLength => $maxLength};
+            }
+        }
+
         # handle multiple ranges 
         # XXX no support for status="deleted"
         foreach my $range ($type->findnodes('range')) {
             my $minInclusive = $range->findvalue('@minInclusive');
             my $maxInclusive = $range->findvalue('@maxInclusive');
             my $step = $range->findvalue('@step');
+            my $status = $range->findvalue('@status');
+
+            # XXX this is brain dead handling of status="deleted"; should
+            #     check for a matching entry
+            if ($status && $status eq 'deleted') {
+                $syntax->{ranges} = [];
+                next;
+            }
+
             $minInclusive = undef if $minInclusive eq '';
             $maxInclusive = undef if $maxInclusive eq '';
             $step = undef if $step eq '';
@@ -1159,8 +1269,14 @@ sub expand_model_parameter
             push @{$syntax->{listRanges}}, {minInclusive => $minItems,
                                             maxInclusive => $maxItems};
         }
+        my $minLength = $parameter->findvalue('syntax/list/size/@minLength');
         my $maxLength = $parameter->findvalue('syntax/list/size/@maxLength');
-        $syntax->{maxListLength} = $maxLength if $maxLength;
+        $minLength = undef if $minLength eq '';
+        $maxLength = undef if $maxLength eq '';
+        if (defined $minLength || defined $maxLength) {
+            push @{$syntax->{listSizes}}, {minLength => $minLength,
+                                           maxLength => $maxLength};
+        }
     }
 
     if (defined($type)) {
@@ -1364,7 +1480,8 @@ sub expand_model_profile
                   extends => $extends, spec => $spec, type => 'profile',
                   access => '', status => $status, description => $description,
                   model => $model, nodes => [],
-                  baseprof => $baseprof, extendsprofs => $extendsprofs};
+                  baseprof => $baseprof, extendsprofs => $extendsprofs,
+                  errors => {}};
         # determine where to insert the new node; after base profile first;
         # then after extends profiles; after previous node otherwise
         my $index = @{$mnode->{nodes}};
@@ -1395,6 +1512,7 @@ sub expand_model_profile
             }
         }
         splice @{$mnode->{nodes}}, $index, 0, $nnode;
+        $profiles->{$name}->{defmodel} = $mnode->{name};
     }
 
     # expand nested parameters and objects
@@ -1425,13 +1543,19 @@ sub expand_model_profile_object
 
     $name = $Path . $name if $Path;
 
-    # XXX need bad hyperlink to be visually apparent
+    # these errors are reported by sanity_node
     unless ($objects->{$name} && %{$objects->{$name}}) {
-	print STDERR "profile $Pnode->{name} references invalid $name\n"
-            unless $noprofiles || $nowarnprofbadref;
+        if ($noprofiles) {
+        } elsif (!defined $Pnode->{errors}->{$name}) {
+            $Pnode->{errors}->{$name} = {status => $status};
+        } else {
+            $Pnode->{errors}->{$name}->{status} = $status;
+        }
+        delete $Pnode->{errors}->{$name} if $status eq 'deleted';
         return;
     }
 
+    # XXX need bad hyperlink to be visually apparent
     # XXX should check that access matches the referenced object's access
 
     # if requirement is not greater than that of the base profile or one of
@@ -1483,8 +1607,7 @@ sub expand_model_profile_object
             $verbose;
     } elsif ($push_needed) {
         push(@{$pnode->{nodes}}, $nnode);
-        $profiles->{$Pnode->{name}}->{$name} =
-            $access;
+        $profiles->{$Pnode->{name}}->{$name} = $access;
     }
 }
 
@@ -1511,16 +1634,23 @@ sub expand_model_profile_parameter
     # special case for parameter at top level of a profile
     $path = $Path . $path if $Path && $Pnode == $pnode;
 
-    # XXX need bad hyperlink to be visually apparent
+    # these errors are reported by sanity_node
     unless ($parameters->{$path} && %{$parameters->{$path}}) {
-	print STDERR "profile $Pnode->{name} references invalid $path\n"
-            unless $noprofiles || $nowarnprofbadref;
+        if ($noprofiles) {
+        } elsif (!defined $Pnode->{errors}->{$path}) {
+            $Pnode->{errors}->{$path} = {status => $status};
+        } else {
+            $Pnode->{errors}->{$path}->{status} = $status;
+        }
+        delete $Pnode->{errors}->{$path} if $status eq 'deleted';
         return;
     } elsif ($access ne 'readOnly' &&
              $parameters->{$path}->{access} eq 'readOnly') {
 	print STDERR "profile $Pnode->{name} has invalid requirement ".
             "($access) for $path ($parameters->{$path}->{access})\n";
     }
+
+    # XXX need bad hyperlink to be visually apparent
 
     # if requirement is not greater than that of the base profile, reduce
     # it to 'notSpecified'
@@ -2183,11 +2313,9 @@ sub add_parameter
             }
             # XXX special case: if type changed to dataType, discard sizes and
             #     ranges
-            if ($type eq 'dataType' && ($nnode->{syntax}->{minLength} ||
-                                        $nnode->{syntax}->{maxLength})) {
+            if ($type eq 'dataType' && $nnode->{syntax}->{sizes}) {
                 print STDERR "$path: discarding existing sizes\n" if $verbose;
-                $nnode->{syntax}->{minLength} = undef;
-                $nnode->{syntax}->{maxLength} = undef;
+                $nnode->{syntax}->{sizes} = undef;
             }
             if ($type eq 'dataType' && $nnode->{syntax}->{ranges}) {
                 print STDERR "$path: discarding existing ranges\n" if $verbose;
@@ -2278,6 +2406,8 @@ sub add_parameter
                 $nnode->{syntax}->{$key} = $value;
                 $changed->{syntax}->{$key} = 1;
             }
+            # XXX this won't work now multiple sizes are supported; also
+            #     ranges presumably weren't working before and still aren't
             if ($key =~ /(minLength|maxLength)/ && !$value &&
                 defined $nnode->{syntax}->{$key}) {
                 print STDERR "$path: $key: $old -> <deleted>\n" if $verbose;
@@ -2699,7 +2829,7 @@ sub type_string
 }
 
 # Form a "type", "string(maxLength)" or "int[minInclusive:maxInclusive]" syntax
-# string (multiple ranges are supported)
+# string (multiple sizes and ranges are supported)
 sub syntax_string
 {
     my ($type, $syntax, $human) = @_;
@@ -2755,32 +2885,72 @@ sub get_typeinfo
 }
 
 # Add size or list size to type / value string
+# XXX need better wording for case where a single maximum is specified?
+# XXX should check for overlapping sizes
 sub add_size
 {
     my ($syntax, $opts) = @_;
 
-    my $minLength = $opts->{list} ? 'minListLength' : 'minLength';
-    my $maxLength = $opts->{list} ? 'maxListLength' : 'maxLength';
+    my $sizes = $opts->{list} ? 'listSizes' : 'sizes';
+    return '' unless defined $syntax->{$sizes} && @{$syntax->{$sizes}};
 
     my $value = '';
 
-    if ($syntax->{$minLength} || defined $syntax->{$maxLength}) {
-        $value .= ' ' if $opts->{human};
-	$value .= '(';
-        if (!$opts->{human} && $syntax->{$minLength}) {
-            $value .= $syntax->{$minLength} . ':';
-        } elsif ($opts->{human}) {
-            my $item = $opts->{item} ? ' item' : '';
-            $value .= 'maximum' . $item . ' length ';
-        }
-        $value .= $syntax->{$maxLength} if defined $syntax->{$maxLength};
-	$value .= ')';
+    # all sizes guarantee to have a defined minlen or maxlen (or both)
+
+    # XXX in general, not using "defined"
+
+    $value .= ' ' if $opts->{human};
+    $value .= '(';
+
+    # special case where there is only a single size and no minLength (mostly
+    # to avoid changing what people are already used to)
+    if (@{$syntax->{$sizes}} == 1 &&
+        !$syntax->{$sizes}->[0]->{minLength} &&
+        $syntax->{$sizes}->[0]->{maxLength}) {
+        $value .= 'maximum length ' if $opts->{human};
+        $value .= $syntax->{$sizes}->[0]->{maxLength};
+        $value .= ')';
+        return $value;
     }
+
+    $value .= 'item ' if $opts->{human} && $opts->{item};
+    $value .= 'length ' if $opts->{human};
+
+    my $first = 1;
+    foreach my $size (@{$syntax->{$sizes}}) {
+        my $minlen = $size->{minLength};
+        my $maxlen = $size->{maxLength};
+
+        $value .= ', ' unless $first;
+
+        if (!$opts->{human}) {
+            $value .= $minlen . ':' if $minlen;
+            $value .= $maxlen if $maxlen;
+        } elsif ($minlen && !$maxlen) {
+            $value .= 'at least ' . $minlen;
+        } elsif (!$minlen && $maxlen) {
+            $value .= 'up to ' . $maxlen;
+        } elsif ($minlen == $maxlen) {
+            $value .= $minlen;
+        } else {
+            $value .= $minlen . ' to ' . $maxlen;
+        }
+
+        $first = 0;
+    }    
+
+    $value =~ s/(.*,)/$1 or/ if $opts->{human};
+
+    $value .= ')';
+
+    print STDERR Dumper($syntax->{$sizes}) if $value eq '()';
 
     return $value;
 }
 
 # Add ranges or list ranges to type / value string
+# XXX should check for overlapping ranges
 sub add_range
 {
     my ($syntax, $opts) = @_;
@@ -2792,7 +2962,9 @@ sub add_range
 
     # all ranges guarantee to have a defined minval or maxval (or both)
 
-    $value .= !$opts->{human} ? '[' : ' (';
+    $value .= ' ' if $opts->{human};
+    $value .= $opts->{human} ? '(' : '[';
+    $value .= 'value ' if $opts->{human} && !$opts->{list};
 
     my $first = 1;
     foreach my $range (@{$syntax->{$ranges}}) {
@@ -2802,34 +2974,42 @@ sub add_range
 
         $step = 1 unless defined $step;
 
+        $value .= ', ' unless $first;
+
         if (!$opts->{human}) {
-            $value .= ', ' unless $first;
             if (defined $minval && defined $maxval && $minval == $maxval) {
                 $value .= $minval if defined $minval;
             } else {
                 $value .= $minval if defined $minval;
                 $value .= ':';
                 $value .= $maxval if defined $maxval;
-                $value .= ':' if $step != 1;
-                $value .= $step if $step != 1;
+                $value .= ':' . $step if $step != 1;
             }
         } else {
-            $value .= ', ' unless $first;
+            my $add_step = 0;
             # XXX default minimum to 0 for unsigned types
             $minval = 0 if $opts->{unsigned} && !defined $minval;
-            if (defined $minval && defined $maxval) {
-                $value .= 'range ' . $minval . ' to ' . $maxval;
+            if (defined $minval && defined $maxval && $minval != $maxval) {
+                $value .= $minval . ' to ' . $maxval;
+                $add_step = 1;
+            } elsif (defined $minval && defined $maxval && $minval == $maxval) {
+                $value .= $minval;
             } elsif (defined $minval) {
-                $value .= 'minimum ' . $minval;
+                $value .= 'at least ' . $minval;
+                $add_step = 1;
             } elsif (defined $maxval) {
-                $value .= 'maximum ' . $maxval;
+                $value .= 'up to ' . $maxval;
+                $add_step = 1;
             }
+            $value .= ' stepping by ' . $step if $add_step && $step != 1;
             $value .= ' items' if $opts->{list};
         }
         $first = 0;
     }
 
-    $value .= !$opts->{human} ? ']' : ')';
+    $value =~ s/(.*,)/$1 or/ if $opts->{human};
+
+    $value .= $opts->{human} ? ')' : ']';
 
     return $value;
 }
@@ -3393,8 +3573,9 @@ $i             spec="$lspec">
             my $base = $syntax->{base};
             my $ref = $syntax->{ref};
             my $list = $syntax->{list};
-            my $minLength = $syntax->{minLength};
-            my $maxLength = $syntax->{maxLength};
+            # XXX notsupport ing multiple sizes
+            my $minLength = $syntax->{sizes}->[0]->{minLength};
+            my $maxLength = $syntax->{sizes}->[0]->{maxLength};
             # XXX not supporting multiple ranges
             my $minInclusive = $syntax->{ranges}->[0]->{minInclusive};
             my $maxInclusive = $syntax->{ranges}->[0]->{maxInclusive};
@@ -3824,10 +4005,11 @@ $i  </import>
             my $base = $syntax->{base};
             my $ref = $syntax->{ref};
             my $list = $syntax->{list};
-            my $minListLength = $syntax->{minListLength};
-            my $maxListLength = $syntax->{maxListLength};
-            my $minLength = $syntax->{minLength};
-            my $maxLength = $syntax->{maxLength};
+            # XXX not supporting multiple sizes
+            my $minListLength = $syntax->{listSizes}->[0]->{minLength};
+            my $maxListLength = $syntax->{listSizes}->[0]->{maxLength};
+            my $minLength = $syntax->{sizes}->[0]->{minLength};
+            my $maxLength = $syntax->{sizes}->[0]->{maxLength};
             # XXX not supporting multiple ranges
             my $minListItems = $syntax->{listRanges}->[0]->{minInclusive};
             my $maxListItems = $syntax->{listRanges}->[0]->{maxInclusive};
@@ -4082,6 +4264,32 @@ sub clean_description
     return $description;
 }
 
+# compare by bibid (designed to be used with sort)
+sub bibid_cmp
+{
+    # try to split into string prefix, numeric middle, and string suffix;
+    # sort alphabetically on the prefix, numerically on the middle, and
+    # alphabetically on the suffic (gives correct ordering in many common
+    # cases, e.g. "RFC1234" -> {RFC, 1234,} and TR-069a2 -> {TR-, 069, a2}.
+
+    my ($ap, $am, $as) = ($a->{id} =~ /(.*?)(\d*)([iac]?\d*)$/);
+    my ($bp, $bm, $bs) = ($b->{id} =~ /(.*?)(\d*)([iac]?\d*)$/);
+
+    # XXX does an empty string compare as numeric zero?  if not, need to
+    #     check for this case
+
+    #print STDERR "a: $a->{id} $ap $am $as\n";
+    #print STDERR "b: $b->{id} $bp $bm $bs\n";
+
+    if ($ap ne $bp) {
+        return ($ap cmp $bp);
+    } elsif ($am != $bm) {
+        return ($am <=> $bm);
+    } else {
+        return ($as cmp $bs);
+    }
+}
+
 # HTML report of node.
 # XXX using the "here" strings makes this very hard to read, and throws off
 #     emacs indentation; best avoided...
@@ -4116,12 +4324,12 @@ sub html_node
 
     # foo_oc (open comment) and foo_cc (close comment) control generation of
     # optional columns, e.g. the syntax column when generating ugly output
-    my $synt_oc =  $ugly     ? '' : '<!-- ';
-    my $synt_cc =  $ugly     ? '' : ' -->';
-    my $vers_oc = !$showspec ? '' : '<!-- ';
-    my $vers_cc = !$showspec ? '' : ' -->';
-    my $spec_oc =  $showspec ? '' : '<!-- ';
-    my $spec_cc =  $showspec ? '' : ' -->';
+    my $synt_oc =  $showsyntax ? '' : '<!-- ';
+    my $synt_cc =  $showsyntax ? '' : ' -->';
+    my $vers_oc = !$showspec   ? '' : '<!-- ';
+    my $vers_cc = !$showspec   ? '' : ' -->';
+    my $spec_oc =  $showspec   ? '' : '<!-- ';
+    my $spec_cc =  $showspec   ? '' : ' -->';
 
     # common processing for all nodes
     my $model = ($node->{type} =~ /model/);
@@ -4148,8 +4356,10 @@ sub html_node
                     {default => '', empty => '',
                      node => $node,
                      path => $path,
+                     model => $profile ? $node->{pnode}->{name} : '',
                      param => $parameter ? $name : '',
                      object => $parameter ? $ppath : $object ? $path : undef,
+                     profile => $profile ? $name : '',
                      access => $node->{access},
                      type => $node->{type},
                      syntax => $node->{syntax},
@@ -4248,7 +4458,7 @@ END
     <table border="0"> <!-- References -->
 END
             my $references = $bibliography->{references};
-            foreach my $reference (sort {$a->{id} cmp $b->{id}} @$references) {
+            foreach my $reference (sort bibid_cmp @$references) {
                 my $id = $reference->{id};
                 next unless $bibrefs->{$id};
                 # XXX this works for lastonly but doesn't work when hiding
@@ -4262,11 +4472,13 @@ END
                 my $category = xml_escape($reference->{category});
                 my $date = xml_escape($reference->{date});
                 my $hyperlink = xml_escape($reference->{hyperlink});
-                
-                $id = qq{<a name="$id">[$id]</a>};
+
+                my $hid = $hyperlink ? qq{<a href="$hyperlink">$id</a>} : $id;
+                $id = qq{<a name="$id">[$hid]</a>};
                 
                 $title = $title ? qq{, <em>$title</em>} : qq{};
                 $organization = $organization ? qq{, $organization} : qq{};
+                # XXX category is no longer used
                 $category = $category ? qq{ $category} : qq{};
                 $date = $date ? qq{, $date} : qq{};
                 $hyperlink = $hyperlink ?
@@ -4275,7 +4487,7 @@ END
                 $html_buffer .= <<END;
       <tr>
         <td>$id</td>
-        <td>$name$title$organization$category$date$hyperlink.</td>
+        <td>$name$title$organization$date.</td>
       </tr>
 END
             }
@@ -4426,23 +4638,11 @@ END
                 $html_profile_active = 1;
             }
             my $title = qq{$name Profile};
-            my $extends = $node->{extends};
-            my $baseprofs = $base;
-            my $plural = '';
-            if ($extends) {
-                $plural = 's' if $baseprofs;
-                $baseprofs .= ' ' if $baseprofs;
-                $baseprofs .= $extends;
-                $baseprofs =~ s/ /, /g;
-                $baseprofs =~ s/, ([^,]+$)/ and $1/;
-            }
-            # XXX would like these to be hyperlinks
-            $description = qq{This profile extends the requirements of the $baseprofs profile$plural as follows:} if !$description && $baseprofs;
             print <<END;
-          <li><a href="#$title">$title</a></li>
+          <li><a href="#$name">$title</a></li>
 END
             $html_buffer .= <<END;
-    <h3><a name="$title">$title</a></h3>
+    <h3><a name="$name">$title</a></h3>
     $description<p>
     <table width="60%" $tabopts> <!-- $title -->
       <tbody>
@@ -4657,20 +4857,15 @@ sub html_escape {
         $value = html_hyperlink($value);
     }
 
-    # XXX fudge wrap of very long names and types
-    #$value =~ s/([^\d]\.)/$1 /g if $opts->{fudge} && !$ugly;
-    #$value =~ s/\(/ \(/g if $opts->{fudge} && !$ugly;
-    #$value =~ s/\[/ \[/g if $opts->{fudge} && !$ugly;
-    # firefox 3 supports &shy;
-    $value =~ s/([^\d]\.)/$1&shy;/g if $opts->{fudge} && !$ugly;
-    $value =~ s/&shy;$// if $opts->{fudge} && !$ugly;
-    $value =~ s/\(/&shy;\(/g if $opts->{fudge} && !$ugly;
-    $value =~ s/\[/&shy;\[/g if $opts->{fudge} && !$ugly;
+    # XXX fudge wrap of very long names and types (firefox 3 supports &shy;)
+    $value =~ s/([^\d]\.)/$1&shy;/g if $opts->{fudge} && !$nohyphenate;
+    $value =~ s/&shy;$// if $opts->{fudge} && !$nohyphenate;
+    $value =~ s/\(/&shy;\(/g if $opts->{fudge} && !$nohyphenate;
+    $value =~ s/\[/&shy;\[/g if $opts->{fudge} && !$nohyphenate;
 
-    # XXX try to hyphenate long words
-    #$value =~ s/([a-z_])([A-Z])/$1<br>$2/g if $opts->{hyphenate} && !$ugly;
-    # firefox 3 supports &shy;
-    $value =~ s/([a-z_])([A-Z])/$1&shy;$2/g if $opts->{hyphenate} && !$ugly;
+    # XXX try to hyphenate long words (firefox 3 supports &shy;)
+    $value =~ s/([a-z_])([A-Z])/$1&shy;$2/g if
+        $opts->{hyphenate} && !$nohyphenate;
 
     $value = '&nbsp;' if $opts->{nbsp} && $value eq '';
 
@@ -4749,6 +4944,12 @@ sub html_template
         $inval = "{{datatype}}" . $sep . $inval;
     }
 
+    # auto-prefix {{profdesc}} if it's a profile
+    if ($p->{profile} && $inval !~ /\{\{noprofdesc\}\}/) {
+        my $sep = !$inval ? "" : "  ";
+        $inval = "{{profdesc}}" . $sep . $inval;
+    }
+
     # auto-append {{enum}} or {{pattern}} if there are values and it's not
     # already there (put it on the same line if the value is empty or ends
     # with a sentence terminator, allowing single quote formatting chars)
@@ -4798,6 +4999,9 @@ sub html_template
           text0 => q{''$p->{object}''},
           text1 => \&html_template_objectref,
           text2 => \&html_template_objectref},
+         {name => 'profile',
+          text0 => q{''$p->{profile}''},
+          text1 => q{<a href="#$a[0]">''$a[0]''</a>}},
          {name => 'keys',
           text0 => \&html_template_keys},
          {name => 'nokeys',
@@ -4811,6 +5015,10 @@ sub html_template
           text0 => \&html_template_datatype,
           text1 => \&html_template_datatype},
          {name => 'nodatatype',
+          text0 => q{}},
+         {name => 'profdesc',
+          text0 => \&html_template_profdesc},
+         {name => 'noprofdesc',
           text0 => q{}},
          {name => 'hidden',
           text0 => q{{{mark|hidden}}When read, this parameter returns {{null}}, regardless of the actual value.},
@@ -5030,6 +5238,45 @@ sub html_template_datatype
     my $text = $nolinks ?
         qq{[''$dtname''] } :
         qq{[''<a href="#$dtname">$dtname</a>''] };
+
+    return $text;
+}
+
+sub html_template_profdesc
+{
+    my ($opts, $arg) = @_;
+
+    my $node = $opts->{node};
+    my $name = $node->{name};
+    my $base = $node->{base};
+    my $extends = $node->{extends};
+
+    # model in which profile was first defined
+    my $defmodel = $profiles->{$name}->{defmodel};
+
+    # same model but excluding minor version number
+    my $defmodelmaj = $defmodel;
+    $defmodelmaj =~ s/\.\d+$//;
+
+    my $baseprofs = $base;
+    my $plural = '';
+    if ($extends) {
+        $plural = 's' if $baseprofs || $extends =~ / /;
+        $baseprofs .= ' ' if $baseprofs;
+        $baseprofs .= $extends;
+    }
+    if ($baseprofs) {
+        $baseprofs =~ s/(\w+:\d+)/{{profile|$1}}/g;
+        $baseprofs =~ s/ /, /g;
+        $baseprofs =~ s/, ([^,]+$)/ and $1/;
+    }
+
+    my $text = $baseprofs ? qq{The} : qq{This table defines the};
+    $text .= qq{ {{profile}} profile for the ''$defmodelmaj'' object};
+    $text .= qq{ is defined as the union of the $baseprofs profile$plural }.
+        qq{and the additional requirements defined in this table} if $baseprofs;
+    $text .= qq{.  The minimum REQUIRED version for this profile is }.
+        qq{''$defmodel''.};
 
     return $text;
 }
@@ -5282,9 +5529,9 @@ sub html_template_valueref
         if ($syntax->{reference} && $syntax->{reference} eq 'enumerationRef') {
             my $targetParam = $syntax->{targetParam};
             my $targetParamScope = $syntax->{targetParamScope};
-            my $targetPath = relative_path($node->{pnode}->{path},
-                                           $targetParam, $targetParamScope);
-            if ($parameters->{$targetPath} &&
+            my ($targetPath) = relative_path($node->{pnode}->{path},
+                                             $targetParam, $targetParamScope);
+            if (!$parameters->{$targetPath} ||
                 !%{$parameters->{$targetPath}}) {
                 print STDERR "$path: enumerationRef references non-existent ".
                     "parameter $targetPath: ignored\n";
@@ -5366,7 +5613,7 @@ sub html_template_reference
         my $targetParentReadOnly = 1;
         if ($targetParent) {
             foreach my $tp (split ' ', $targetParent) {
-                my $tpp = relative_path($object, $tp, $targetParentScope);
+                my ($tpp) = relative_path($object, $tp, $targetParentScope);
                 $tpp .= '{i}.' if $targetType eq 'row';
                 my $tpn = $objects->{$tpp};
                 $targetParentReadOnly = 0
@@ -7052,6 +7299,7 @@ sub sanity_node
     my $object = ($type && $type eq 'object');
     my $parameter = ($type &&
                      $type !~ /model|object|profile|parameterRef|objectRef/);
+    my $profile = ($type && $type eq 'profile');
 
     $default = undef
         if defined $node->{defstat} && $node->{defstat} eq 'deleted';
@@ -7183,6 +7431,13 @@ sub sanity_node
         #     but would need to use history)
     }
 
+    # profile sanity checks
+    if ($profile) {
+        foreach my $path (sort keys %{$node->{errors}}) {
+            print STDERR "profile $name references invalid $path\n";
+        }
+    }
+
     foreach my $child (@{$node->{nodes}}) {
 	sanity_node($child);
     }    
@@ -7296,7 +7551,7 @@ report.pl - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose] [--warndupbibref] [--writonly] DM-instance...
+B<report.pl> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
 =over
 
@@ -7390,6 +7645,10 @@ disables the auto-generation, if no B<model> element was encountered, of a B<Com
 
 disables generation of XML comments showing what changed etc (B<--verbose> always switches it off)
 
+=item B<--nohyphenate>
+
+prevents automatic insertion of soft hyphens
+
 =item B<--nolinks>
 
 affects only the B<html> report; disables generation of hyperlinks (which makes it easier to import HTML into Word documents)
@@ -7427,6 +7686,8 @@ there are some circumstances under which parameter or object redefinition is not
 disables warnings when a profile references an invalid object or parameter
 
 there are some circumstances under which it's useful to use an existing profile definition where some objects or parameters that it references have been (deliberately) deleted
+
+this is deprecated because it is no longer needed (use status="deleted" as appropriate to suppress such errors)
 
 =item B<--objpat=pattern>
 
@@ -7484,6 +7745,10 @@ W3C schema
 
 currently affects only the B<html> report; generates a B<Spec> rather than a B<Version> column
 
+=item B<--showsyntax>
+
+adds an extra column containing a summary of the parameter syntax; is like the Type column for simple types, but includes additional details for lists
+
 =item B<--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc>
 
 performs special checks, most of which assume that several versions of the same data model have been supplied on the command line, and many of which operate only on the highest version of the data model
@@ -7528,13 +7793,17 @@ transforms output (currently HTML only) so it looks like a B<UPnP DM> (Device Ma
 
 disables some prettifications, e.g. inserting spaces to encourage line breaks
 
-=item B<--verbose>
+this is deprecated because it has been replaced with the more specific B<--nohyphenate> and B<--showsyntax>
 
-enables verbose output
+=item B<--verbose[=i(1)]>
 
-=item B<--warndupbibref>
+enables verbose output; the higher the level the more the output
 
-enables duplicate bibref warnings (these warnings are also output if B<--verbose> is specified)
+=item B<--warnbibref[=i(1)]>
+
+enables bibliographic reference warnings (these warnings are also output if B<--verbose> is specified); the higher the level the more warnings
+
+previously known as B<--warndupbibref>, which is now deprecated (and will be removed in a future release) because it covers more than just duplicate bibliographic references
 
 =item B<--writonly>
 
@@ -7550,7 +7819,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2009/12/21 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#145 $
+$Date: 2010/01/14 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#149 $
 
 =cut
