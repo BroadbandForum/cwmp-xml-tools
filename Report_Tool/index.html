@@ -233,12 +233,13 @@
 <dt><strong><a name="xml" class="item"><strong>xml</strong></a></strong></dt>
 
 <dd>
-<p>DM XML containing only the changes made by the final file on the command line; see also <strong>--autobase</strong> and <strong>--lastonly</strong></p>
+<p>if <strong>--lastonly</strong> is specified, DM XML containing only the changes made by the final file on the command line; see also <strong>--autobase</strong></p>
+<p>if <strong>--lastonly</strong> is not specified, DM XML with all imports resolved (apart from bibliographic references and data type definitions); use <strong>--dtprofile</strong>, optionally with <strong>--dtspec</strong>, to generate DT XML for the specified profiles; use <strong>--canonical</strong> to generate canonical and more easily compared descriptions; use <strong>--components</strong> (perhaps with <strong>--noobjects</strong> or <strong>--noparameters</strong>) to generate component definitions</p>
 </dd>
 <dt><strong><a name="xml2" class="item"><strong>xml2</strong></a></strong></dt>
 
 <dd>
-<p>XML that is similar to the input but with all imports resolved; by default is DM XML; use <strong>--dtprofile</strong>, optionally with <strong>--dtspec</strong>, to generate DT XML for the specified profiles; use <strong>--canonical</strong> to generate canonical and more easily compared descriptions; use <strong>--components</strong> (perhaps with <strong>--noobjects</strong> of <strong>--noparameters</strong>) to generate component definitions</p>
+<p>same as the <strong>xml</strong> report with <strong>--lastonly</strong> not specified; deprecated (use <strong>xml</strong> instead)</p>
 </dd>
 <dt><strong><a name="xsd" class="item"><strong>xsd</strong></a></strong></dt>
 
@@ -337,8 +338,8 @@
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:wlupton@2wire.com">wlupton@2wire.com</a>&gt;</p>
-<p>$Date: 2010/01/14 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#149 $</p>
+<p>$Date: 2010/01/20 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#150 $</p>
 
 </body>
 

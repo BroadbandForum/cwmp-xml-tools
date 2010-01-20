@@ -168,16 +168,20 @@ Options:
 
         xls Excel XML spreadsheet
 
-        xml DM XML containing only the changes made by the final file on the
-            command line; see also --autobase and --lastonly
+        xml if --lastonly is specified, DM XML containing only the changes
+            made by the final file on the command line; see also --autobase
+
+            if --lastonly is not specified, DM XML with all imports resolved
+            (apart from bibliographic references and data type definitions);
+            use --dtprofile, optionally with --dtspec, to generate DT XML
+            for the specified profiles; use --canonical to generate
+            canonical and more easily compared descriptions; use
+            --components (perhaps with --noobjects or --noparameters) to
+            generate component definitions
 
         xml2
-            XML that is similar to the input but with all imports resolved;
-            by default is DM XML; use --dtprofile, optionally with --dtspec,
-            to generate DT XML for the specified profiles; use --canonical
-            to generate canonical and more easily compared descriptions; use
-            --components (perhaps with --noobjects of --noparameters) to
-            generate component definitions
+            same as the xml report with --lastonly not specified; deprecated
+            (use xml instead)
 
         xsd W3C schema
 
