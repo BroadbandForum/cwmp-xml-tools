@@ -158,4 +158,12 @@ public class XDoc extends Doc
     {
         return runOver(type).getValue();
     }
+
+    @Override
+    public String toString()
+    {
+        return super.toString();
+    }
+
+    
 }

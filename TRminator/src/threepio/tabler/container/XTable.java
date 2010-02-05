@@ -157,9 +157,9 @@ public class XTable extends Table
         int spot = indexByKeyOf(path);
         String endingSepRemoved = path;
 
-        if (path.endsWith(String.valueOf(SEPARATOR)))
+        if (path.endsWith(DELIM))
         {
-            endingSepRemoved = path.substring(0, path.lastIndexOf(SEPARATOR));
+            endingSepRemoved = path.substring(0, path.lastIndexOf(DELIM));
         }
 
         int otherSpot = indexByKeyOf(endingSepRemoved);
@@ -190,13 +190,13 @@ public class XTable extends Table
         if (spot < 0)
         {
 
-            int end = path.lastIndexOf(SEPARATOR);
+            int end = path.lastIndexOf(DELIM);
             if (path.endsWith("."));
             {
-                end = path.substring(0, end).lastIndexOf(SEPARATOR);
+                end = path.substring(0, end).lastIndexOf(DELIM);
             }
 
-            String objPath = path.substring(0, end) + SEPARATOR;
+            String objPath = path.substring(0, end) + DELIM;
 
             if (containsKey(objPath))
             {

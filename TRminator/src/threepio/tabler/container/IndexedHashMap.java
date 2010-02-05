@@ -362,7 +362,7 @@ public class IndexedHashMap<K, V> extends ArrayList<Entry<K, V>>
     }
 
     /**
-     * swaps an entry from one place to another. returns true if the swap worked.
+     * swaps an entry's location with another's. returns true if the swap worked.
      * @param from - the loc of the first entry to swap
      * @param to - the loc of the other entry to swap.
      * @return true if the swap worked, false if not.
@@ -381,6 +381,30 @@ public class IndexedHashMap<K, V> extends ArrayList<Entry<K, V>>
             return true;
         }
         return false;
+    }
+
+    /**
+     * moves an Entry in the list from one index to another.
+     * @param from - the old index
+     * @param to - the new index
+     * @return true if the move was done, false if not.
+     */
+    public boolean move(int from, int to)
+    {
+        int end = this.size() -1;
+
+
+         if (!((from < 0 || from > end) || (to < 0 || to > end)))
+        {
+            Entry<K, V> temp = this.get(from);
+
+            this.remove(from);
+            this.put(to, temp);
+
+            return true;
+        }
+        return false;
+
     }
 
     /**

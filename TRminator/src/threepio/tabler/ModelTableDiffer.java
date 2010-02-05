@@ -5,6 +5,7 @@
  */
 package threepio.tabler;
 
+import java.util.HashMap;
 import java.util.Map.Entry;
 import threepio.tabler.container.Row;
 import threepio.tabler.container.Table;
@@ -33,7 +34,7 @@ public class ModelTableDiffer
      */
     private TableList theBreakup(ModelTable input, String majorItemType, int typeCol)
     {
-        System.out.println("breaking up " + input.getVersion());
+        // System.err.println("breaking up " + input.getVersion());
 
         TableList list = new TableList();
 
@@ -48,8 +49,10 @@ public class ModelTableDiffer
             }
             if (input.get(i).getValue().get(typeCol).getData().equalsIgnoreCase(majorItemType))
             {
-                if (! table.isEmpty())
+                if (!table.isEmpty())
+                {
                     list.add(table);
+                }
 
                 table = new ModelTable();
                 table.setVersion(input.get(i).getKey());
@@ -87,10 +90,12 @@ public class ModelTableDiffer
         Row temp;
         Entry<String, Row> ent;
 
-        System.out.println("diffing " + a.getVersion() + " and " + b.getVersion());
+        HashMap<String, String> aDMRs = a.getDMRs();
+
+        System.out.println("diffing (" + a.getVersion() + ") and (" + b.getVersion() + ")");
 
         TableList listA = theBreakup(a, majorItemType, 1), listB = theBreakup(b, majorItemType, 1);
-        
+
         for (int i = 0; i < listB.size(); i++)
         {
             // diff each table, if possible.
@@ -112,9 +117,8 @@ public class ModelTableDiffer
                         key = table.get(j).getKey();
                         if (other.containsKey(key))
                         {
-                            temp =  table.get(key).merge(other.get(key), verColNum);
-                        }
-                        else
+                            temp = table.get(key).merge(other.get(key), verColNum);
+                        } else
                         {
                             temp = table.get(key);
                         }
@@ -126,13 +130,13 @@ public class ModelTableDiffer
                     for (int m = 0; m < other.size(); m++)
                     {
                         ent = other.get(m);
-                        if (! diffed.containsKey(ent.getKey()))
+                        if (!diffed.containsKey(ent.getKey()))
                         {
                             ent.getValue().makeFresh();
                             diffed.put(ent);
                         }
                     }
-                    
+
                 }
             }
         }
@@ -144,7 +148,7 @@ public class ModelTableDiffer
         for (int k = 0; k < listA.size(); k++)
         {
             table = listA.get(k);
-            if (! result.containsKey(table.getFirstKey()))
+            if (!result.containsKey(table.getFirstKey()))
             {
                 table.makeFresh();
                 result.put(table);
@@ -186,6 +190,11 @@ public class ModelTableDiffer
         result.setBiblio(a.getBiblio());
 
         result.setVersion(a.getVersion() + " diffed against " + b.getVersion());
+
+        if (!aDMRs.isEmpty())
+        {
+            result =  TableReorderer.reOrder(result, a.getDMRs());
+        }
 
         return result;
     }

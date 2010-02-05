@@ -127,6 +127,7 @@ public abstract class Tabler
      * @param d - the doc
      * @param param - the parameter to identify the container by
      * @param paramValue - the value of the parameter to identify the container by.
+     * @param MajorItemType - the type of item to make rows for.
      * @param orderedLabels - the labels to use for rows, in order from most prominent to least.
      * @param refTable - the reference table to use.
      * @param includeContainer - wether to include the container element.

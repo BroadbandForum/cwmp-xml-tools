@@ -55,4 +55,12 @@ public class StringCell extends Cell<String>
     {
         return (this.data.contains(e) || this.data.contains(e.toLowerCase()) || this.data.contains(e.toUpperCase()));
     }
+
+    @Override
+    public String toString()
+    {
+        return this.data;
+    }
+
+
 }

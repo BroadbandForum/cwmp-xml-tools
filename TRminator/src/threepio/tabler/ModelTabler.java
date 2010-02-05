@@ -62,8 +62,6 @@ public class ModelTabler extends Tabler
         this.substitutes.put("name", "base");
     }
 
-   
-
     /**
      * parseContainer parses a "container" XML body out of a Doc. into an Xtable.
      * @param doc - the doc
@@ -92,16 +90,13 @@ public class ModelTabler extends Tabler
         XDoc before = new XDoc(), after = new XDoc();
         TagHandler h = null;
         HandlerFactory f = new HandlerFactory();
-        String curRowName = null, prevRowName = null, majorItemName = null;
+        String curRowName = null, prevRowName = null, prevMajor = "", majorItemName = "", dmr = null;
         boolean inside = false;
         Object x;
-        char[] sep =
-        {
-            Table.SEPARATOR
-        };
-        String sepStr = new String(sep);
-        version = doc.getVersion();
         
+        String sepStr = Path.delim;
+        version = doc.getVersion();
+
         x = d.poll();
 
         if (x == null)
@@ -148,48 +143,60 @@ public class ModelTabler extends Tabler
 
         t = importTag(x);
 
-        System.out.println("XDocTabler is tabling " + paramValue);
+        // System.err.println("XDocTabler is tabling " + paramValue);
         while (inside)
         {
 
             if (curRowName != null && !(tagIsColumn(t)))
             {
-                prevRowName = new String(curRowName);
+                prevRowName = curRowName;
+
+
             }
 
             if (!(tagIsColumn(t)) && !t.isCloser())
             {
                 // get the name for the row.
 
+                dmr = getDMR(t);
+
+                if (dmr != null && dmr.isEmpty())
+                {
+                    // This isn't working correctly.
+                    // "Services" shoots to the top. Is it an issue in the XML?
+                    dmr = majorItemName;
+                }
+
+                prevMajor = majorItemName;
                 curRowName = null;
                 for (int i = 0; (i < orderedLabels.length && curRowName == null); i++)
                 {
                     curRowName = t.getParams().get(orderedLabels[i]);
+
                 }
 
-                if (curRowName == null)
+
+
+                if (!(curRowName == null || majorItemType == null))
                 {
-                    //System.err.println();
-                } else
-                {
-                    if (majorItemType != null)
+
+                    if (t.getType().equalsIgnoreCase(majorItemType))
                     {
+                        majorItemName = curRowName;
 
-                        if (t.getType().equalsIgnoreCase(majorItemType))
+                    } else
+                    {
+                        if (t.getType().equalsIgnoreCase("Profile"))
                         {
-                            majorItemName = curRowName;
-
-                        } else
-                        {
-                            if (t.getType().equalsIgnoreCase("Profile"))
-                            {
-                                majorItemName = majorItemName.substring(0, majorItemName.indexOf(sepStr) + 1);
-                            }
-
-                            curRowName = majorItemName + curRowName;
+                            majorItemName = majorItemName.substring(0, majorItemName.indexOf(sepStr) + 1);
                         }
+
+                        curRowName = majorItemName + curRowName;
+
+
                     }
                 }
+
 
             }
             // closer tags mean the row is done.
@@ -206,8 +213,16 @@ public class ModelTabler extends Tabler
                         System.err.println("a row exists without a name");
                     }
 
-                    System.out.println("placing row: " + prevRowName);
+
+                    // System.out.println("placing row: " + prevRowName);
                     table.put(prevRowName, row);
+
+                    if (dmr != null)
+                    {
+                        // add information as to where to put this table later.
+                        table.addDmr(prevRowName, dmr);
+                    }
+
                     row = new Row(columns.size());
 
                     if (t.getType().equalsIgnoreCase(majorItemType) && majorItemName.indexOf(sepStr) != majorItemName.lastIndexOf(sepStr))
@@ -247,8 +262,14 @@ public class ModelTabler extends Tabler
 
                     if (!row.isEmpty() && row.hasFirstColFilled())
                     {
-                        System.out.println("placing row: " + prevRowName);
+                        // System.out.println("placing row: " + prevRowName);
                         table.put(prevRowName, row);
+
+                        if (dmr != null)
+                        {
+                            // add information as to where to put this table later.
+                            table.addDmr(prevRowName, dmr);
+                        }
 
                         row = new Row(columns.size());
                     }
@@ -274,6 +295,12 @@ public class ModelTabler extends Tabler
                         {
                             // componentTag parameters containsInCell this.
                             row.set(i, parameters.get(v));
+
+                            if (parameters.get(v).contains("null"))
+                            {
+                                System.err.println();
+                            }
+
                         }
                     }
                 }
@@ -304,7 +331,6 @@ public class ModelTabler extends Tabler
 
         if (!doc.isEmpty()) // assign components.
         {
-            //table.put(getComponents(doc.copyOf(), paramValue, majorItemType, orderedLabels, refTable));
 
             table.setComponents(getComponents(doc.copyOf(), paramValue, majorItemType, orderedLabels, refTable));
         }
@@ -329,7 +355,7 @@ public class ModelTabler extends Tabler
         table.setInfoAfter(after);
 
         table.setDoc(doc);
-        
+
         return table;
     }
 
@@ -575,5 +601,27 @@ public class ModelTabler extends Tabler
     public boolean canParse(Doc d)
     {
         return (d instanceof XDoc);
+    }
+
+    private String getDMR(XTag t)
+    {
+        // TODO: update to somehow get as much of path as possible
+
+        String dmr = null;
+
+        dmr = t.getParams().get("dmr:previousParameter");
+
+        if (dmr == null)
+        {
+
+            dmr = t.getParams().get("dmr:previousObject");
+        }
+
+        if (dmr == null)
+        {
+            dmr = t.getParams().get("dmr:previousProfile");
+        }
+
+        return dmr;
     }
 }

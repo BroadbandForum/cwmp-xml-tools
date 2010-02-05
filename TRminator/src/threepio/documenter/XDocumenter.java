@@ -40,14 +40,12 @@ public class XDocumenter implements Documenter
         doc = new XDoc();
         try
         {
-            f = FileIntake.resolveFile(f);
-
-            if (f == null)
+            if (! FileIntake.canResolveFile(f))
             {
                 throw new FileNotFoundException("cannot document the file. it is missing.");
             }
 
-            buff = FileIntake.fileToStringBuffer(f);
+            buff = FileIntake.fileToStringBuffer(f, true);
         } catch (Exception ex)
         {
             throw (ex);
@@ -62,7 +60,7 @@ public class XDocumenter implements Documenter
     @Override
     public XDoc convertFile(Entry<String, String> info) throws Exception
     {
-        File inFile = FileIntake.resolveFile(new File(info.getValue()));
+        File inFile = FileIntake.resolveFile(new File(info.getValue()), true);
         
         if (inFile == null)
         {
@@ -180,15 +178,20 @@ public class XDocumenter implements Documenter
 
                 if (buff.substring(0, 1).matches("\\s"))
                 {
-                    throw new Exception("Tag body starts with whitespace");
+                    System.err.println("Tag body starts with whitespace: ");
+                    System.err.println(buff.substring(s, e + 1));
+                    //throw new Exception("Tag body starts with whitespace");
                 }
 
                 if (buff.substring(e - 1, e).matches("\\s"))
                 {
-                    throw new Exception("Tag body ends with whitespace");
+                    System.out.println("WARNING: Tag body ends with whitespace:");
+                    System.out.println("\t" + buff.substring(s, e + 1));
+                    System.out.println();
+                    //throw new Exception("Tag body ends with whitespace");
                 }
 
-                XTag tempTag = new XTag(buff.substring(s, e + 1));
+                XTag tempTag = new XTag(buff.substring(s, e + 1).trim());
                 doc.add(tempTag);
                 buff.delete(s, e + 1);
             } else

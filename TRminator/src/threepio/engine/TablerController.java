@@ -117,7 +117,7 @@ public class TablerController
         XTable refTable = null, masterRef = null;
         File file;
 
-        file = FileIntake.resolveFile(new File(path));
+        file = FileIntake.resolveFile(new File(path), true);
 
         if (file == null)
         {
@@ -128,7 +128,8 @@ public class TablerController
 
         // put our first document in the list. This is the one a user will be looking for.
         inputs.put(ID, path);
-        System.out.println("adding input " + ID);
+        System.out.println("INFO: adding input " + file.getName());
+        System.out.println();
 
         // go through all inputs, making table for them, IF REQUIRED.
         // if the table has already been processed and added to tables,
@@ -170,7 +171,7 @@ public class TablerController
                 {
                     // add to queue to process if it hasn't already been processed.
                     inputs.put(tempDoublet);
-                    System.out.println("adding input " + tempDoublet.getKey());
+                    // System.err.println("adding input " + tempDoublet.getKey());
                 }
             }
 
@@ -180,11 +181,12 @@ public class TablerController
             }
 
             // get the table for the ith document
-            System.out.println("making table for " + doc.getVersion());
+            // System.err.println("making table for " + doc.getVersion());
 
             table = makeTable(doc, majorItemType, refTable);
 
-            System.out.println("made table for " + doc.getVersion());
+            System.out.println("INFO: made table for " + table.getVersion());
+            System.out.println();
 
             // check to see if there were components,
             // iff there were, (and table is emptyish) the table should be
@@ -287,7 +289,7 @@ public class TablerController
                 // the result table now has "old" data on it,
                 // since there is a new one going into it.
                 result.makeStale();
-
+               // System.err.println(tables.get(i).getValue().getDMRs().size());
                 result = differ.diffTable(tables.get(i).getValue(), result, majorItemType, myTabler.verColNum());
             } else
             {
@@ -395,6 +397,7 @@ public class TablerController
         }
 
         table.setVersion(version);
+
         return table;
     }
 

@@ -144,4 +144,20 @@ public abstract class Doc extends ConcurrentLinkedQueue implements Versioned
      */
     @Override
     public abstract boolean addAll(Collection c);
+
+    @Override
+    public String toString()
+    {
+        StringBuilder builder = new StringBuilder();
+
+        builder.append(this.getClass().getName());
+        builder.append(" ");
+        builder.append(this.version);
+        builder.append(" size = ");
+        builder.append(this.size());
+
+        return builder.toString();
+    }
+
+
 }

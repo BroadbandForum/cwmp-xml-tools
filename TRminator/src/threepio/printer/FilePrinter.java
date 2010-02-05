@@ -41,16 +41,4 @@ public abstract class FilePrinter
         return convertTable(table, false, false);
     }
 
-    /**
-     * prints a table to a file, returning that file.
-     * @param table - the table to print.
-     * @param file - the file to print to.
-     * @return true if it went okay, false if not.
-     */
-    public abstract File printTable(XTable table, File file);
-
-    /**
-     * carries out any setting up of variables, including all statics
-     */
-    abstract void setUp();
 }

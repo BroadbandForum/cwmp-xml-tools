@@ -6,7 +6,8 @@
  */
 package trminator;
 
-import threepio.engine.Threepio;
+import threepio.tabler.TablePostProcessor;
+import threepio.engine.ThreepioEngine;
 import threepio.documenter.XDocumenter;
 import java.io.File;
 import java.util.ArrayList;
@@ -20,15 +21,16 @@ import javax.swing.JRadioButton;
 
 import javax.swing.JTextField;
 import threepio.filehandling.FileIntake;
+import threepio.printer.HTMLPrinter;
 import threepio.tabler.container.IndexedHashMap;
 import threepio.tabler.container.ModelTable;
 
 /**
- * TRminatorGUI is a Threepio GUI.
+ * TRminatorGUI is a ThreepioEngine GUI.
  * It's where user I/O occurs.
- * It relies on Threepio for most functionality.
+ * It relies on ThreepioEngine for most functionality.
  * @author jhoule
- * @see Threepio
+ * @see ThreepioEngine
  */
 public class TRminatorGUI extends javax.swing.JFrame
 {
@@ -839,6 +841,8 @@ public class TRminatorGUI extends javax.swing.JFrame
     /**
      * Changes the model, based on what the user has input on the UI.
      * @param which - the number of the model to change, based on the input.
+     * @return true if the change completed.
+     * @throws Exception when the Model cannot be changed due to human error.
      */
     private boolean changeModel(int which) throws Exception
     {
@@ -939,6 +943,8 @@ public class TRminatorGUI extends javax.swing.JFrame
      */
     private void process()
     {
+        ThreepioEngine seeThree = new ThreepioEngine();
+        HTMLPrinter printer = new HTMLPrinter();
         int mode = getMode();
         String err = null;
         ModelTable table;
@@ -953,12 +959,12 @@ public class TRminatorGUI extends javax.swing.JFrame
                     // Versioned Document -> Table
                     try
                     {
-                        table = Threepio.docToTable(cols, txtModelName1.getText(), fileIn1.getAbsolutePath(), "Object");
+                        table = seeThree.docToModelTable(cols, txtModelName1.getText(), fileIn1.getAbsolutePath(), "Object");
 
                         // using getParent() is okay here since the GUI always has full paths.
                        processor.deMarkupTable(table, new File(fileOut.getParent() + FileIntake.fileSep + "post.err"), getTypeCol());
 
-                        Threepio.printModelTable(table, fileOut, chkDiff.isSelected(), chkProfiles.isSelected(), chkLooks.isSelected());
+                        seeThree.printModelTable(table, fileOut, chkDiff.isSelected(), chkProfiles.isSelected(), chkLooks.isSelected());
 
 
                     } catch (Exception ex)
@@ -981,7 +987,7 @@ public class TRminatorGUI extends javax.swing.JFrame
                     // XML -> Table
                     try
                     {
-                        Threepio.xmlToPrintedTable(cols, containerName, fileIn1.getAbsolutePath(), fileOut);
+                        seeThree.xmlToPrintedModelTable(cols, printer, containerName, fileIn1.getAbsolutePath(), fileOut);
                     } catch (Exception ex)
                     {
                         JOptionPane.showMessageDialog(this, ex.getMessage(), "Error while making tables", JOptionPane.ERROR_MESSAGE);
@@ -995,12 +1001,12 @@ public class TRminatorGUI extends javax.swing.JFrame
                     // diffing two versioned documents -> table
                     try
                     {
-                        table = Threepio.diffTwoTables(cols, txtModelName1.getText(), fileIn1.getAbsolutePath(), txtModelName2.getText(), fileIn2.getAbsolutePath(), fileOut, "Object");
+                        table = seeThree.diffTwoTables(cols, txtModelName1.getText(), fileIn1.getAbsolutePath(), txtModelName2.getText(), fileIn2.getAbsolutePath(), fileOut, "Object");
 
                         // using getParent() is okay here since the GUI always has full paths.
                         processor.deMarkupTable(table, new File(fileOut.getParent() + FileIntake.fileSep + "post.err"), getTypeCol());
 
-                        Threepio.printTable(table, fileOut, true, chkLooks.isSelected());
+                        seeThree.printTable(table, printer, fileOut, "", "", true, chkLooks.isSelected());
 
                     } catch (Exception ex)
                     {
@@ -1137,6 +1143,7 @@ public class TRminatorGUI extends javax.swing.JFrame
     private boolean theStrainer()
     {
 
+        ThreepioEngine seeThree = new ThreepioEngine();
         XDocumenter doccer = new XDocumenter();
         String missingDepends = null;
 
@@ -1151,7 +1158,7 @@ public class TRminatorGUI extends javax.swing.JFrame
                     modelNames1 = doccer.getModelNames(fileIn1);
                     changeModel(1);
 
-                    missingDepends = Threepio.getMissingDepends(fileIn1.getAbsolutePath(), txtModelName1.getText());
+                    missingDepends = seeThree.getMissingDepends(fileIn1.getAbsolutePath(), txtModelName1.getText());
 
                     if (missingDepends.isEmpty())
                     {
@@ -1191,7 +1198,7 @@ public class TRminatorGUI extends javax.swing.JFrame
                     changeModel(1);
                     changeModel(2);
 
-                    missingDepends = Threepio.getMissingDepends(fileIn1.getAbsolutePath(), txtModelName1.getText()) + Threepio.getMissingDepends(fileIn2.getAbsolutePath(), txtModelName2.getText());
+                    missingDepends = seeThree.getMissingDepends(fileIn1.getAbsolutePath(), txtModelName1.getText()) + seeThree.getMissingDepends(fileIn2.getAbsolutePath(), txtModelName2.getText());
                     if (missingDepends.isEmpty())
                     {
                         go = true;
@@ -1445,7 +1452,7 @@ public class TRminatorGUI extends javax.swing.JFrame
     }
 
     /**
-     * Runs the instance of Threepio.
+     * Runs the instance of ThreepioEngine.
      * @param args the command line arguments
      * @param appVersion - the application version to identify the underlying application.
      */

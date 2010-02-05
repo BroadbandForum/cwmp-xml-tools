@@ -6,7 +6,6 @@
 package threepio.printer;
 
 import threepio.printer.container.StringMultiMap;
-import java.io.File;
 import threepio.tabler.Tabler;
 import threepio.tabler.container.Row;
 import threepio.tabler.container.StringCell;
@@ -48,8 +47,7 @@ public class HTMLPrinter extends FilePrinter
         return super.convertTable(table);
     }
 
-    @Override
-    void setUp()
+    private void setUp()
     {
         // set up Reference for row modifiers.
         refHTMLRow = new StringMultiMap();
@@ -95,8 +93,12 @@ public class HTMLPrinter extends FilePrinter
 
                 insert = cell.getData();
 
-                buff.append(newLine + "\t\t" + leftBrack + colTag);
+                if (insert.contains("Wi-Fi Protected Setup"))
+                {
+                    System.out.println();
+                }
 
+                buff.append(newLine + "\t\t" + leftBrack + colTag);
 
                 buff.append(getFormattedModifiers(getCellModifiers(cell, looks)));
 
@@ -105,6 +107,7 @@ public class HTMLPrinter extends FilePrinter
                 if (looks)
                 {
 
+                    // TODO: make "looks" ignore non-visible characters ("<a>").
 
                     if (insert.length() > lineLen)
                     {
@@ -232,9 +235,17 @@ public class HTMLPrinter extends FilePrinter
         return buff.toString();
     }
 
-    @Override
-    public File printTable(XTable table, File file)
+    /**
+     * Does "looks" modifications while ignoring HTML tags.
+     * @param str - the original string
+     * @param len - the max length.
+     * @return a String like the original, with newlines inserted to keep
+     * lines from getting beyond the max length.
+     */
+    private String doLooks(String str, int len)
     {
-        throw new UnsupportedOperationException("Not supported yet.");
+        // TODO: implement this.
+      throw new UnsupportedOperationException("not yet implemented");
     }
+
 }

@@ -51,4 +51,21 @@ public class XHTMLHelper
     {
         return makeBasicElement("span", b);
     }
+
+    /**
+     * returns a string that contains the amount of "tabs" specified.
+     * @param tabs - the amount of tabs to return
+     * @return a string of tabs.
+     */
+    public static String tabber(int tabs)
+    {
+        StringBuffer buff = new StringBuffer();
+
+        for (int i = 0; i < tabs; i++)
+        {
+            buff.append("\t");
+        }
+
+        return buff.toString();
+    }
 }

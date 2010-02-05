@@ -144,6 +144,8 @@ public class XTag
                 value = cleanedKeysAndValues.get(i + 1);
                 parameters.put(key, value);
             }
+
+ 
             parameters.put("type", type);
         }
     }

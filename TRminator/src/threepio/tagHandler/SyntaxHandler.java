@@ -5,6 +5,7 @@
  */
 package threepio.tagHandler;
 
+import java.util.HashMap;
 import threepio.documenter.Doc;
 import threepio.documenter.XTag;
 
@@ -23,13 +24,15 @@ public class SyntaxHandler extends TagHandler
     @Override
     public void handle(Doc doc, Doc before, XTag tag, IndexedHashMap columns, Row row, int where)
     {
-        XTag t = null;
+        XTag t = null, temp;
+        boolean lo = false, hi = false;
         String value = null;
-        int sz = -1;
-        String intString = null, type = null;
+        int sz = -1, szTwo = -1;
+        String intString = null, type = null, tmp = null;
         boolean findDefault = false;
         Object x;
         int descr = columns.indexByValOf("description");
+        HashMap<String, String> params;
 
         String status = null;
 
@@ -46,7 +49,7 @@ public class SyntaxHandler extends TagHandler
             System.err.println("Syntax was not tag.");
         }
 
-        value = t.getType().toLowerCase();
+        value = t.getType();
 
         // handle the fact that some syntax tags have a "/" at the end.
         if (value.contains("/"))
@@ -56,25 +59,50 @@ public class SyntaxHandler extends TagHandler
 
         value = value.trim();
 
-        if (value.equals("string"))
+        temp = (XTag) doc.peek();
+        params = temp.getParams();
+
+        if (value.equals("string") && temp != null)
         {
-            intString = t.getParams().get("maxLength");
+            intString = params.get("maxLength");
 
             if (intString != null)
             {
-                sz = Integer.parseInt(t.getParams().get("maxLength"));
-                value = ("String(" + sz + ")");
+                sz = Integer.parseInt(intString);
+                value = (value + "(" + sz + ")");
 
             }
 
             // String without maxLength is just String. No mod needed.
 
         }
-        // unsignedInt needs no modification
+
+        if (value.equals("unsignedint") && temp != null)
+        {
+            intString = params.get("minInclusive");
+
+            if (intString != null)
+            {
+                lo = true;
+                sz = Integer.parseInt(intString);
+            }
+
+            intString = params.get("maxInclusive");
+
+            if (intString != null)
+            {
+                hi = true;
+                szTwo = Integer.parseInt(intString);
+            }
+
+            if (lo && hi)
+            {
+                value = (value + "[" + sz + ", " + szTwo + "]");
+            }
+        }
 
         if (value == null || value.isEmpty())
         {
-
 
             value = Table.BLANK_CELL_TEXT;
         }
@@ -94,29 +122,33 @@ public class SyntaxHandler extends TagHandler
         while ((!(doc.peek() instanceof XTag)) || (doc.peek() instanceof XTag && !((XTag) doc.peek()).getType().equals("syntax")))
         {
             x = doc.poll();
+            tmp = null;
 
             if (x instanceof XTag)
             {
                 t = ((XTag) x);
+                params = t.getParams();
                 type = t.getType();
+                value = "";
 
-                if (findDefault && type.equals("default"))
+                if (!t.isCloser())
                 {
-                    
-                    if (t.getParams().containsKey("status"))
+                    if (findDefault && type.equals("default"))
                     {
-                        status = t.getParams().get("status");
-                    }
+                        tmp = params.get("value");
 
-                    if (t.getParams().containsKey("value"));
-                    {
-                        value = t.getParams().get("value");
-
-                        // set the default
-                        if (value.equals("1.0"))
+                        if (tmp != null);
                         {
-                            status = t.getParams().get("status");
+                            value = tmp;
+
+                            if (value == null)
+                            {
+                                System.err.println(params.containsKey("value"));
+                            }
                         }
+
+                        status = params.get("status");
+
 
                         if (value.isEmpty() || value == null)
                         {
@@ -131,20 +163,15 @@ public class SyntaxHandler extends TagHandler
 
                         row.set(where, value);
 
-                        if (!(status == null || status.isEmpty()) && row.get(descr).getData().equals(Row.BLANK_CELL_TEXT))
-                        {
-                            row.set(descr, "STATUS = " + status);
-                        }
                     }
-                }
 
-                if (type.equalsIgnoreCase("enumeration") && !t.isCloser())
-                {
-                    row.addToBucket(new BBFEnum(t));
+                    if (type.equalsIgnoreCase("enumeration"))
+                    {
+                        row.addToBucket(new BBFEnum(t));
+                    }
                 }
             }
         }
-
         doc.poll();
     }
 

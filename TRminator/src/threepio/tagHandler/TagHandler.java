@@ -33,6 +33,8 @@ public abstract class TagHandler
      * @param doc - the document to handle.
      * @param before - the parts of the document that occurred before the Tag.
      * @param tag - the tag to handle.
+     * @param columns - a map of the columns required in a table.
+     * @param row - the row where the tag to handle shows up.
      * @param where - the index of the cell in which to put the result of the handling of the tag.
      */
     public abstract void handle(Doc doc, Doc before, XTag tag, IndexedHashMap columns,

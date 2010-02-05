@@ -28,16 +28,11 @@ public class ExclusiveVersionList<K extends Versioned> extends ExclusiveArrayLis
     @SuppressWarnings("empty-statement")
     public boolean contains(Object o)
     {
-        if (o instanceof Versioned)
-        {
             Versioned it = (Versioned) o;
 
             int i;
             for (i = 0; (i < size() && !(get(i).getVersion().equals(it.getVersion()))); i++);
 
             return (i < size());
-        }
-
-        return super.contains(o);
     }
 }

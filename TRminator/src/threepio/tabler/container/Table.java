@@ -6,8 +6,10 @@
 package threepio.tabler.container;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import threepio.container.Versioned;
+import threepio.tabler.Path;
 
 /**
  * Table containsInCell some shared functionality for tables.
@@ -23,8 +25,18 @@ public abstract class Table extends IndexedHashMap<String, Row> implements Versi
     /**
      * The character that separates the parts of a path for an object.
      */
-    public static char SEPARATOR = '.';
+
     /**
+     * a map where the keys are names of items and the values are other items that are their "DMR previous" property.
+     */
+    private HashMap<String, String> dmrInfoMap;
+
+    /**
+     * The string that is the delimiter in a Path for an object or param.
+     */
+    public static String DELIM = Path.delim;
+
+            /**
      * The string to insert into a cell that is blank.
      * This is currently the HTML non-breaking space.
      */
@@ -37,6 +49,7 @@ public abstract class Table extends IndexedHashMap<String, Row> implements Versi
     public Table()
     {
         version = null;
+        dmrInfoMap = new HashMap<String, String>();
     }
 
     /**
@@ -45,9 +58,11 @@ public abstract class Table extends IndexedHashMap<String, Row> implements Versi
      */
     public Table(Table t)
     {
+        this();
         this.addAll(t);
 
         this.version = t.version;
+        this.dmrInfoMap.putAll(t.dmrInfoMap);
     }
 
     @Override
@@ -60,6 +75,28 @@ public abstract class Table extends IndexedHashMap<String, Row> implements Versi
     public void setVersion(String v)
     {
         version = new String(v);
+    }
+
+    /**
+     * returns the mapped DMR info for rows that have it.
+     * @return the map of DMR info.
+     */
+    public HashMap<String, String> getDMRs()
+    {
+        return dmrInfoMap;
+    }
+
+    /**
+     * adds a DMR entry to the DMR Map
+     * @param row - the name of the row
+     * @param dmr - the name of the item in its dmr statement.
+     */
+    public void addDmr(String row, String dmr)
+    {
+        if (! row.equals(dmr))
+        {
+            dmrInfoMap.put(row, dmr);
+        }
     }
 
     /**
@@ -175,58 +212,50 @@ public abstract class Table extends IndexedHashMap<String, Row> implements Versi
      */
     public int indexOfClosestMatch(String partial, String scope)
     {
-        ArrayList<Integer> itemIndexes = new ArrayList<Integer>();
+        ArrayList<String> itemKeys = new ArrayList<String>();
 
         // get the index of the item to use for scope.
-        int scopeIndex;
-        int bestIndex = -1, bestDifference = this.size();
-        int difference;
+       
+        String bestKey = null;
+        int bestCompare = Integer.MAX_VALUE;
+        int curCompare;
         int ibk = indexByKeyOf(partial);
         String key;
 
-        if (scope == null)
-        {
-            scopeIndex = -1;
-        } else
-        {
-            scopeIndex = indexOfClosestMatch(scope);
-        }
-
-        if (ibk >= 0)
+         if (ibk >= 0)
         {
             return ibk;
         }
-
+       
         // get all indexes of things starting or ending with partial.
         for (int i = 0; i < this.size(); i++)
         {
             key = this.get(i).getKey();
             if (key.endsWith(partial))
             {
-                itemIndexes.add(i);
+               itemKeys.add(key);
             }
         }
 
-        if (itemIndexes.size() > 0)
+        if (itemKeys.size() > 0)
         {
-            bestIndex = itemIndexes.get(0);
-            if (scopeIndex >= 0)
+            bestKey = itemKeys.get(0);
+           
+            if (scope != null)
             {
-                // find the index closest to scopeIndex.
-                bestDifference = Math.abs(bestIndex - scopeIndex);
-
-                for (int j = 1; j < itemIndexes.size(); j++)
+                bestCompare = Math.abs(bestKey.compareTo(scope));
+                for (int j = 1; j < itemKeys.size(); j++)
                 {
-                    difference = Math.abs(itemIndexes.get(j) - scopeIndex);
+                    curCompare = Math.abs(itemKeys.get(j).compareTo(scope));
 
-                    if (difference < bestDifference)
-                    {
-                        bestIndex = itemIndexes.get(j);
-                        bestDifference = difference;
-                    }
+                   if (curCompare < bestCompare)
+                   {
+                       bestCompare = curCompare;
+                       bestKey = itemKeys.get(j);
+                   }
                 }
             }
-            return bestIndex;
+            return indexByKeyOf(bestKey);
         }
         return -1;
     }
@@ -241,4 +270,20 @@ public abstract class Table extends IndexedHashMap<String, Row> implements Versi
     {
         return indexOfClosestMatch(name, null);
     }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder builder = new StringBuilder();
+
+        builder.append(this.getClass().getName());
+        builder.append(" ");
+        builder.append(this.version);
+        builder.append(" size = ");
+        builder.append(this.size());
+
+        return builder.toString();
+    }
+
+
 }

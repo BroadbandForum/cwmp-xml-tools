@@ -3,7 +3,7 @@
  * Project: TRminator
  * Author: Jeff Houle
  */
-package trminator;
+package threepio.tabler;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import threepio.engine.ExclusiveArrayList;
-import threepio.tabler.BBFEnum;
 import threepio.tabler.container.IndexedHashMap;
 import threepio.tabler.container.ModelTable;
 import threepio.tabler.container.Row;
@@ -184,11 +183,6 @@ public class TablePostProcessor
         // compose map for coded document names and actual document names.
         HashMap<String, String> referenceNames = tableToNameHash(table.getBiblio());
 
-        if (table.getBiblio() == null)
-        {
-            System.err.println(table.getVersion());
-        }
-
         // make an array of instantiated of the DataProcessors to be used.
         MarkupProcessor[] procs =
         {
@@ -315,17 +309,14 @@ public class TablePostProcessor
     private void printString(String str, File out) throws Exception
     {
         FileWriter writer;
-     
-        if (out == null)
-        {
-            throw new Exception("output file is null");
-        }
+
+       
 
         if (out.exists())
         {
             out.delete();
         }
-        
+
         out.createNewFile();
 
         if (!out.canWrite())
@@ -489,7 +480,7 @@ public class TablePostProcessor
         {
             StringBuffer buff;
             String[] parts;
-            String temp, shortName, mark, full, searchItem;
+            String temp, shortName, mark, full, searchItem, moddedItem;
             int start, end, index;
 
             result = input;
@@ -552,23 +543,33 @@ public class TablePostProcessor
 
 
                                 searchItem = parts[1];
-                                index = t.indexOfClosestMatch(searchItem, rowName);
 
-                                if (index == -1 && mark.equals("object"))
-                                {
-                                    searchItem += ".";
-                                    index = t.indexOfClosestMatch(searchItem, rowName);
-                                }
+                                index = -1;
+                                
 
-                                if (index == -1 && mark.equals("object"))
+                                if (mark.equals("object"))
                                 {
-                                    searchItem += "{i}.";
-                                    index = t.indexOfClosestMatch(searchItem, rowName);
+
+                                    moddedItem = searchItem + ".{i}.";
+                                    index = t.indexOfClosestMatch(moddedItem, rowName);
+
+                                    if (index == -1)
+                                    {
+                                        moddedItem = searchItem + ".";
+                                        index = t.indexOfClosestMatch(moddedItem, rowName);
+                                    }
+
                                 }
 
                                 if (index == -1)
                                 {
-                                    errList.add("not able to find " + searchItem + "for the row " + rowName);
+                                    index = t.indexOfClosestMatch(searchItem, rowName);
+                                }
+
+
+                                if (index == -1)
+                                {
+                                    errList.add("not able to find " + searchItem + " for the row " + rowName);
 
                                 } else
                                 {

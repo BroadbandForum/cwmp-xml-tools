@@ -305,7 +305,8 @@ public class Row extends ArrayList<StringCell>
     @Override
     public boolean remove(Object o)
     {
-       if (super.remove(o))
+        StringCell c = (StringCell) o;
+       if (super.remove(c))
        {
            --capacity;
            return true;
@@ -314,7 +315,7 @@ public class Row extends ArrayList<StringCell>
     }
 
     /**
-     * Returns true if the cell's data contains the passed string.
+     * Returns true if a cell's data from this row contains the passed string.
      * @param s - the string to check for.
      * @return true if the string is in the cell's data, false if not.
      */

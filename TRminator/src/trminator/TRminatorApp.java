@@ -19,7 +19,7 @@ public class TRminatorApp
     /**
      * the version of the application
      */
-    public static final String appVersion = "TRminator RC4 (220909)";
+    public static final String appVersion = "TRminator RC4 (271009)";
     private static final  String strUseGui = "-gui", strUseCli = "-cli";
     private static final String[] modes =
     {
@@ -78,7 +78,7 @@ public class TRminatorApp
                         {
                             try
                             {
-                                TRminatorCLI.main(appVersion, newArgs);
+                                TRminatorCLI.main(newArgs);
 
                             } catch (Exception ex)
                             {
