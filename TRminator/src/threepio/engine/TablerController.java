@@ -64,6 +64,7 @@ public class TablerController
         ModelTabler myTabler;
         IndexedHashMap<String, String> cols = new IndexedHashMap<String, String>();
         XTable temp;
+        String data;
         XTable res = new XTable();
         cols.put("Name", "name");
         cols.put("Title", "title");
@@ -81,7 +82,12 @@ public class TablerController
 
         for (int i = 0; i < temp.size(); i++)
         {
-            temp.get(i).getValue().get(0).prePend("<a name=\"" + temp.get(i).getKey() + "\"></a>");
+            StringBuffer buff = new StringBuffer();
+            buff.append("<a name=\"" + temp.get(i).getKey() + "\">");
+            buff.append(temp.get(i).getValue().get(0).getData());
+            buff.append("</a>");
+
+            temp.get(i).getValue().get(0).silentSet(buff.toString());
         }
 
         res.setVersion(temp.getVersion());

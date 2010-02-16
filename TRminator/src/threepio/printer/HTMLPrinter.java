@@ -5,6 +5,10 @@
  */
 package threepio.printer;
 
+import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import threepio.documenter.XTag;
 import threepio.printer.container.StringMultiMap;
 import threepio.tabler.Tabler;
 import threepio.tabler.container.Row;
@@ -47,6 +51,9 @@ public class HTMLPrinter extends FilePrinter
         return super.convertTable(table);
     }
 
+    /**
+     * Sets up some variables for
+     */
     private void setUp()
     {
         // set up Reference for row modifiers.
@@ -93,11 +100,6 @@ public class HTMLPrinter extends FilePrinter
 
                 insert = cell.getData();
 
-                if (insert.contains("Wi-Fi Protected Setup"))
-                {
-                    System.out.println();
-                }
-
                 buff.append(newLine + "\t\t" + leftBrack + colTag);
 
                 buff.append(getFormattedModifiers(getCellModifiers(cell, looks)));
@@ -106,33 +108,32 @@ public class HTMLPrinter extends FilePrinter
 
                 if (looks)
                 {
+                    insert = doLooks(insert, lineLen);
 
-                    // TODO: make "looks" ignore non-visible characters ("<a>").
-
-                    if (insert.length() > lineLen)
-                    {
-                        insertBuff = new StringBuffer();
-
-                        insertBuff.append(insert);
-
-                        left = 0;
-                        next = insertBuff.indexOf(".");
-                        while (next >= 0)
-                        {
-
-                            if (next - left < lineLen)
-                            {
-                                next = insertBuff.indexOf(".", next + 1);
-                            } else
-                            {
-                                insertBuff.insert(next + 1, lineBreak);
-                                left = next + lbLen;
-                                next = insertBuff.indexOf(".", left);
-                            }
-                        }
-
-                        insert = insertBuff.toString();
-                    }
+//                    if (insert.length() > lineLen)
+//                    {
+//                        buff = new StringBuffer();
+//
+//                        buff.append(insert);
+//
+//                        left = 0;
+//                        next = buff.indexOf(".");
+//                        while (next >= 0)
+//                        {
+//
+//                            if (next - left < lineLen)
+//                            {
+//                                next = buff.indexOf(".", next + 1);
+//                            } else
+//                            {
+//                                buff.insert(next + 1, lineBreak);
+//                                left = next + lbLen;
+//                                next = buff.indexOf(".", left);
+//                            }
+//                        }
+//
+//                        insert = buff.toString();
+//                    }
                 }
 
                 buff.append(insert);
@@ -214,7 +215,8 @@ public class HTMLPrinter extends FilePrinter
 
     /**
      * gets a formatting string for a cell, based on it's contents and/or flags.
-     * @param cell - teh cell.
+     * @param cell - the cell.
+     * @param looks - whether to follow the "looks" rules for formatting.
      * @return the modifiers, if any.
      */
     private String getCellModifiers(StringCell cell, boolean looks)
@@ -237,15 +239,65 @@ public class HTMLPrinter extends FilePrinter
 
     /**
      * Does "looks" modifications while ignoring HTML tags.
-     * @param str - the original string
-     * @param len - the max length.
+     * @param body - the original string
+     * @param lineLen - the max length.
      * @return a String like the original, with newlines inserted to keep
      * lines from getting beyond the max length.
      */
-    private String doLooks(String str, int len)
+    protected String doLooks(String body, int lineLen)
     {
-        // TODO: implement this.
-      throw new UnsupportedOperationException("not yet implemented");
-    }
+        // storage for removed snippets
+        ArrayList<String> tags = new ArrayList<String>();
 
+        // a pattern that matches <a name="blah">blah</a> OR a tag.
+
+        String strPat = XTag.patternString;
+        Pattern pat = Pattern.compile(strPat, Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pat.matcher(body);
+        String placeHold = "`";
+        String lineBreak = "<br>";
+        String result = new String();
+        StringBuffer buff = new StringBuffer();
+        int left, next;
+        int lbLen = lineBreak.length();
+        RegexHelper rghlp = new RegexHelper();
+
+        // replace the tags and collect them.
+        result = RegexHelper.changeAll(matcher, body, placeHold, tags);
+
+        // format visible text (with placeholders there);
+        buff.append(result);
+
+        if (result.length() > lineLen)
+        {
+
+            left = 0;
+            next = buff.indexOf(".");
+            while (next >= 0)
+            {
+                if (next - left < lineLen)
+                {
+                    next = buff.indexOf(".k", next + 1);
+                } else
+                {
+                    buff.insert(next + 1, lineBreak);
+                    left = next + lbLen;
+                    next = buff.indexOf(".", left);
+                }
+            }
+        }
+
+        // place the tags in where the placeholders are.
+
+        int dex;
+
+        for (String s : tags)
+        {
+            dex = buff.indexOf(placeHold);
+
+            buff.replace(dex, dex + 1, s);
+        }
+
+        return buff.toString();
+    }
 }

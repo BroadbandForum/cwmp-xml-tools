@@ -739,6 +739,7 @@ public class TablePostProcessor
                             numBuff.append(nums.get(j).getValue());
                             numBuff.append("\">");
                             numBuff.append(nums.get(j).getValue());
+                            numBuff.append("</a>");
                         }
                         numBuff.append("</pre>");
 

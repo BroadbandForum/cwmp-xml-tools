@@ -19,7 +19,7 @@ public class TRminatorApp
     /**
      * the version of the application
      */
-    public static final String appVersion = "TRminator RC4 (271009)";
+    public static final String appVersion = "TRminator RC5 (100215)";
     private static final  String strUseGui = "-gui", strUseCli = "-cli";
     private static final String[] modes =
     {

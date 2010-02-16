@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map.Entry;
+import java.util.regex.Pattern;
 
 /**
  * A self-building class for a Tag from XML or HTML.
@@ -243,4 +244,7 @@ public class XTag
 
         return ret;
     }
+
+    public static String patternString = "</?[a-zA-z]*[^>]*>";
+    public static Pattern pattern = Pattern.compile("</?[a-zA-z]*[^>]*>", Pattern.CASE_INSENSITIVE);
 }
