@@ -25,6 +25,8 @@ Options:
         causes the {{datatype}} template to be automatically prefixed for
         parameters with named data types
 
+        this is deprecated because it is enabled by default
+
     --canonical
         affects only the xml2 report; causes descriptions to be processed
         into a canonical form that eases comparison with the original

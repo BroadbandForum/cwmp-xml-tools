@@ -120,6 +120,22 @@ use Text::Balanced qw{extract_bracketed};
 use URI::Escape;
 use XML::LibXML;
 
+my $tool_author = q{$Author: wlupton $};
+my $tool_vers_date = q{$Date: 2010/02/17 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#151 $};
+
+my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
+
+my ($tool_vers_date_only) = ($tool_vers_date =~ /([\d\/]+)/);
+my ($tool_id_only) = ($tool_id =~ /([^\/ ]+)\s*\$$/);
+
+my $tool_run_date;
+{
+    my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) =
+        localtime(time);
+    $tool_run_date = sprintf "%04d/%02d/%02d", 1900+$year, $mon+1, $mday;
+}
+
 # XXX these have to match the current version of the DT schema
 my $dtver = qq{1-0};
 my $dturn = qq{urn:broadband-forum-org:cwmp:devicetype-${dtver}};
@@ -229,9 +245,9 @@ if ($noparameters) {
 }
 
 if ($info) {
-    print STDERR q{$Author: wlupton $
-$Date: 2010/01/20 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#150 $
+    print STDERR qq{$tool_author
+$tool_vers_date
+$tool_id
 };
     exit(1);
 }
@@ -244,6 +260,10 @@ if ($report eq 'xml2') {
 }
 if ($report eq 'xml' && !$lastonly) {
     $report = 'xml2';
+}
+
+if ($autodatatype) {
+    print STDERR "--autodatatype is deprecated because it's set by default\n";
 }
 
 if ($ugly) {
@@ -294,6 +314,7 @@ my $bibrefs = {};
 my $objects = {};
 my $parameters = {};
 my $profiles = {};
+my $anchors = {};
 my $root = {spec => '', path => '', name => '', type => '',
             status => 'current', dynamic => 0};
 my $highestMajor = 0;
@@ -569,12 +590,23 @@ sub expand_dataType
     my $maxLength = $dataType->findvalue('string/size/@maxLength');
     my $patterns = $dataType->findnodes('string/pattern');
 
+    my $prim;
+    foreach my $type (('base64', 'boolean', 'dateTime', 'hexBinary',
+                       'int', 'long', 'string', 'unsignedInt',
+                       'unsignedLong')) {
+        # XXX using prim as loop var didn't work; "last" undefined it?
+        if ($dataType->findnodes($type)) {
+            $prim = $type;
+            last;
+        }
+    }
+
     $status = util_maybe_deleted($status);
     update_bibrefs($description, $spec);
 
     print STDERR "expand_dataType name=$name base=$base\n" if $verbose > 1;
 
-    my $node = {name => $name, base => $base, spec => $spec,
+    my $node = {name => $name, base => $base, prim => $prim, spec => $spec,
                 status => $status, description => $description,
                 descact => $descact, minLength => $minLength,
                 maxLength => $maxLength, patterns => []};
@@ -656,13 +688,13 @@ sub expand_bibliography
         # XXX check for non-standard organization / category
         my $bbf = 'Broadband Forum';
         my $tr = 'Technical Report';
-        if ($hash->{organization} =~ /BBF|The\s+Broadband\s+Forum/i) {
+        if ($hash->{organization} =~ /^(BBF|The\s+Broadband\s+Forum)$/i) {
             print STDERR "$id: $file: replaced organization ".
                 "\"$hash->{organization}\" with \"$bbf\"\n"
                 if $warnbibref > 1 || $verbose;
             $hash->{organization} = $bbf;
         }
-        if ($hash->{category} =~ /TR/i) {
+        if ($hash->{category} =~ /^TR$/i) {
             print STDERR "$id: $file: replaced category ".
                 "\"$hash->{category}\" with \"$tr\"\n"
                 if $warnbibref > 1 || $verbose;
@@ -670,12 +702,14 @@ sub expand_bibliography
         }
 
         # XXX check for missing category
-        if ($hash->{organization} eq $bbf && !$hash->{category}) {
+        if ($id =~ /^TR/i && $name =~ /^TR/i &&
+            $hash->{organization} eq $bbf && !$hash->{category}) {
              print STDERR "$id: $file: missing $bbf category (\"$tr\" ".
                  "assumed)\n" if $warnbibref > 1 || $verbose;
             $hash->{category} = $tr;
         }
-        if ($hash->{organization} eq 'IETF' && !$hash->{category}) {
+        if ($id =~ /^RFC/i && $name =~ /^RFC/i &&
+            $hash->{organization} eq 'IETF' && !$hash->{category}) {
              print STDERR "$id: $file: missing IETF category (\"RFC\" ".
                  "assumed)\n" if $warnbibref > 1 || $verbose;
             $hash->{category} = 'RFC';
@@ -1136,14 +1170,17 @@ sub expand_model_uniqueKey
 {
     my ($context, $mnode, $pnode, $uniqueKey) = @_;
 
+    my $functional = boolean($uniqueKey->findvalue('@functional'), 1);
+
     # expand nested parameter references
-    my $parameters = [];
+    my $keyparams = [];
     foreach my $parameter ($uniqueKey->findnodes('parameter')) {
         my $ref = $parameter->findvalue('@ref');
-        push @$parameters, $ref;
+        push @$keyparams, $ref;
     }
     # XXX would prefer the caller to do this
-    push @{$pnode->{uniqueKeys}}, $parameters;
+    push @{$pnode->{uniqueKeys}}, {functional => $functional,
+                                   keyparams => $keyparams};
 }
 
 # Expand a data model parameter.
@@ -1554,14 +1591,17 @@ sub expand_model_profile_object
 
     # this is the path attribute from component reference
     my $Path = $context->[0]->{path};
+    my $spec = $context->[0]->{spec};
 
     my $name = $object->findvalue('@ref');
     my $access = $object->findvalue('@requirement');
     my $status = $object->findvalue('@status');
-    # XXX description and descact too
+    my $description = $object->findvalue('description');
+    my $descact = $object->findvalue('description/@action');
 
     $status = 'current' unless $status;
     $status = util_maybe_deleted($status);
+    update_bibrefs($description, $spec);
 
     print STDERR "expand_model_profile_object path=$Path ref=$name\n" if
         $verbose > 1;
@@ -1611,6 +1651,7 @@ sub expand_model_profile_object
     } else {
 	$nnode = {pnode => $pnode, path => $name, name => $name,
                   type => 'objectRef', access => $access, status => $status,
+                  description => $description, descact => $descact,
                   nodes => [], baseobj => $baseobj};
         $push_deferred = 1;
     }
@@ -1643,14 +1684,17 @@ sub expand_model_profile_parameter
 
     # this is the path attribute from component reference
     my $Path = $context->[0]->{path};
+    my $spec = $context->[0]->{spec};
 
     my $name = $parameter->findvalue('@ref');
     my $access = $parameter->findvalue('@requirement');
     my $status = $parameter->findvalue('@status');
-    # XXX description and descact too
+    my $description = $parameter->findvalue('description');
+    my $descact = $parameter->findvalue('description/@action');
 
     $status = 'current' unless $status;
     $status = util_maybe_deleted($status);
+    update_bibrefs($description, $spec);
 
     print STDERR "expand_model_profile_parameter path=$Path ref=$name\n" if
         $verbose > 1;
@@ -1700,15 +1744,19 @@ sub expand_model_profile_parameter
         $prevnode && $prevnode->findvalue('local-name()') eq 'parameter') {
         $previous = $prevnode->findvalue('@ref');
         $previous = undef if $previous eq '';
-    }    
+    }
 
     my @match = grep {$_->{name} eq $name} @{$pnode->{nodes}};
     my $nnode;
     if (@match) {
 	$nnode = $match[0];
     } else {
-        $nnode = {pnode => $pnode, name => $name, type => 'parameterRef',
-                  access => $access, status => $status, nodes => []};
+        # XXX recently added path; there is code elsewhere that creates it
+        #     when needed rather than taking from the node (should tidy up)
+        $nnode = {pnode => $pnode, path => $path, name => $name,
+                  type => 'parameterRef', access => $access, status => $status,
+                  description => $description, descact => $descact,
+                  nodes => []};
 
         # if previous is defined, it's a hint to insert this node after the
         # node of this name, if it exists
@@ -2830,16 +2878,7 @@ sub type_string
     my $typeinfo = get_typeinfo($type, $syntax);
     my ($value, $dataType) = ($typeinfo->{value}, $typeinfo->{dataType});
 
-    # XXX if named data type, should traverse data type hierarchy to determine
-    #     base type but at the time of writing, data types are used only for
-    #     IPAddress and MACAddress
-    if (!$dataType) {
-    } elsif ($value =~ /^(IP(v4|v6)?|MAC)(Address|Prefix)$/) {
-        $value = 'string';
-    } else {
-        print STDERR "$value: named data types other than IPAddress and ".
-            "MACAddress not supported\n" if $verbose;
-    }
+    $value = base_type($value) if $dataType;
 
     # lists are always strings at the CWMP level
     if ($syntax->{list}) {
@@ -2851,6 +2890,26 @@ sub type_string
     }
 
     return $value;
+}
+
+# Determine a named data type's base type
+sub base_type
+{
+    my ($name, $recurse) = @_;
+
+    my ($defn) = grep {$_->{name} eq $name} @{$root->{dataTypes}};
+    if (!defined $defn) {
+        print STDERR "$name: undefined named data type; invalid XML?\n";
+        return $name;
+    }
+
+    my $base = $defn->{base};
+    my $prim = $defn->{prim};
+
+    print STDERR "$name: no base or primitive data type; invalid XML?\n"
+        if !$base  && !$prim;
+
+    return $base ? ($recurse ? base_type($base) : $base) : $prim;
 }
 
 # Form a "type", "string(maxLength)" or "int[minInclusive:maxInclusive]" syntax
@@ -3040,8 +3099,9 @@ sub add_range
 # Return 0/1 given string representation of boolean
 sub boolean
 {
-    my ($value) = @_;
-    return ($value =~ /1|t|true/i) ? 1 : 0;
+    my ($value, $default) = @_;
+    $default = 0 unless defined $default;
+    return (!$value) ? $default : ($value =~ /1|t|true/i) ? 1 : 0;
 }
 
 # Form a "m.n" version string from major and minor versions
@@ -3511,8 +3571,11 @@ $i             spec="$lspec">
         # XXX should drive this by more general "created" logic
         if ($uniqueKeys && $basename eq 'name') {
             for my $uniqueKey (@$uniqueKeys) {
-                print qq{$i  <uniqueKey>\n};
-                for my $parameter (@$uniqueKey) {
+                my $functional = $uniqueKey->{functional};
+                my $keyparams = $uniqueKey->{keyparams};
+                $functional = !$functional ? qq{ functional="false"} : qq{};
+                print qq{$i  <uniqueKey$functional>\n};
+                for my $parameter (@$keyparams) {
                     print qq{$i    <parameter ref="$parameter"/>\n};
                 }
                 print qq{$i  </uniqueKey>\n};
@@ -3695,7 +3758,7 @@ sub xml_bibliography
     print qq{$i    <description$descact>$description</description>\n}
     if $description;
     
-    foreach my $reference (sort {$a->{id} cmp $b->{id}} @$references) {
+    foreach my $reference (sort bibid_cmp @$references) {
         my $id = $reference->{id};
         my $file = $reference->{file};
         my $spec = $reference->{spec};
@@ -4014,8 +4077,11 @@ $i  </import>
             $description;
         if ($uniqueKeys && !@$dtprofiles) {
             foreach my $uniqueKey (@$uniqueKeys) {
-                print qq{$i  <uniqueKey>\n};
-                foreach my $parameter (@$uniqueKey) {
+                my $functional = $uniqueKey->{functional};
+                my $keyparams = $uniqueKey->{keyparams};
+                $functional = !$functional ? qq{ functional="false"} : qq{};
+                print qq{$i  <uniqueKey$functional>\n};
+                foreach my $parameter (@$keyparams) {
                     print qq{$i    <parameter ref="$parameter"/>\n};
                 }
                 print qq{$i  </uniqueKey>\n};
@@ -4293,25 +4359,186 @@ sub bibid_cmp
 {
     # try to split into string prefix, numeric middle, and string suffix;
     # sort alphabetically on the prefix, numerically on the middle, and
-    # alphabetically on the suffic (gives correct ordering in many common
-    # cases, e.g. "RFC1234" -> {RFC, 1234,} and TR-069a2 -> {TR-, 069, a2}.
+    # alphabetically on the suffix (gives correct ordering in many common
+    # cases, e.g. "RFC1234" -> {RFC, 1234,} and TR-069a2 -> {TR-, 069, a2}
+    # (ignore case on the alphabetic sorts)
 
     my ($ap, $am, $as) = ($a->{id} =~ /(.*?)(\d*)([iac]?\d*)$/);
     my ($bp, $bm, $bs) = ($b->{id} =~ /(.*?)(\d*)([iac]?\d*)$/);
 
-    # XXX does an empty string compare as numeric zero?  if not, need to
-    #     check for this case
-
-    #print STDERR "a: $a->{id} $ap $am $as\n";
-    #print STDERR "b: $b->{id} $bp $bm $bs\n";
-
     if ($ap ne $bp) {
-        return ($ap cmp $bp);
+        return (lc $ap cmp lc $bp);
     } elsif ($am != $bm) {
         return ($am <=> $bm);
     } else {
-        return ($as cmp $bs);
+        return (lc $as cmp lc $bs);
     }
+}
+
+# Create an HTML anchor of a specified type; supported types (with their
+# abbreviations) are:
+# - heading: section heading
+# - datatype: data type
+# - bibref: bibliographic reference
+# - path: data model object or parameter
+# - value: parameter enumeration or pattern
+# - profile: data model profile
+# - profoot: profile footnote
+#
+# Anchor names are standardized to the extent that external documents can
+# reliably reference resources within HTML files
+#
+# The general form of an anchor name is:
+# - <namespace-prefix><name>
+# 
+# <namespace> depends on the anchor type and is used to prevent ambiguous
+# anchor names; possible values are:
+# - H: section Heading
+# - T: data Type
+# - R: bibliographic Reference
+# - P: Profile
+# - D: Data model (everything else)
+#
+# <namespace-prefix> is the namespace followed by a period.
+#
+# <name> is the name within the namespace and depends on the anchor type:
+# - heading (H): the section name
+# - datatype (T): the data type (unchanged)
+# - bibref (R): the bibref id (unchanged)
+# - path (D): the full path name (unchanged)
+# - value (D): parameter path name, a period and the value
+# - profile (P): the data model name (major version only), a period, and the
+#                profile name (including version)
+# - profoot (P): the profile anchor name, a period, and the obj/par path name
+#
+# Note that section names might not be unique (better to use a counter, or
+# else derive from the section naming hierarchy, which is more complicated)
+#
+# Note that these processing rules need to be published
+
+my $html_anchor_prefix_separator = qq{.};
+my $html_anchor_heading_prefix   = qq{H$html_anchor_prefix_separator};
+my $html_anchor_datatype_prefix  = qq{T$html_anchor_prefix_separator};
+my $html_anchor_reference_prefix = qq{R$html_anchor_prefix_separator};
+my $html_anchor_profile_prefix   = qq{P$html_anchor_prefix_separator};
+my $html_anchor_datamodel_prefix = qq{D$html_anchor_prefix_separator};
+
+sub html_anchor
+{
+    my ($label, $type, $opts) = @_;
+
+    # label and opts as used as follows:
+    # - heading: label is section name
+    # - datatype: label is data type name
+    # - bibref: label is bibref id
+    # - path: label is the obj/par node (NOT the path)
+    # - pathref: label is the path
+    # - value: label is the value; param node is in $opts->{node}
+    # - profile: label is the profile node (NOT the path)
+    # - profoot: label is the profile obj/par node (NOT the path)
+
+    my $node = $opts->{node};
+
+    # validate type (any error is a programming error)
+    my $types = ['heading', 'datatype', 'bibref', 'path', 'pathref', 'value',
+                 'profile', 'profoot'];
+    die "html_anchor: undefined anchor type\n" unless $type;
+    die "html_anchor: unsupported anchor type: $type\n"
+        unless grep {$type eq $_} @$types;
+
+    # validate label
+    die "html_anchor: for type '$type', must supply label" unless $label;
+
+    # determine namespace
+    my $namespace_prefix = {heading  => $html_anchor_heading_prefix,
+                            datatype => $html_anchor_datatype_prefix,
+                            bibref   => $html_anchor_reference_prefix,
+                            profile  => $html_anchor_profile_prefix,
+                            profoot  => $html_anchor_profile_prefix}->{$type};
+    $namespace_prefix = $html_anchor_datamodel_prefix
+        unless $namespace_prefix;
+
+    # pre-process for the 
+
+    # determine the name as a function of anchor type (for many it is just the
+    # supplied label)
+    my $name = $label;
+    if ($type eq 'path') {
+        die "html_anchor: for type '$type', label must be node" if $node;
+        $node = $label;
+        $name = $node->{path};
+        $label = $node->{type} eq 'object' ? $node->{path} : $node->{name};
+    } elsif ($type eq 'value') {
+        die "html_anchor: for type '$type', node must be in opts" unless $node;
+        $name = qq{$node->{path}.$label};
+        $label = '';
+    } elsif ($type eq 'profile') {
+        die "html_anchor: for type '$type', label must be node" if $node;
+        $node = $label;
+        my $mnode = $node->{pnode};
+        my $mname = $mnode->{name};
+        $mname =~ s/:(\d+)\.\d+$/:$1/;
+        $name = qq{$mname.$node->{name}};
+        $label = '';
+    } elsif ($type eq 'profoot') {
+        die "html_anchor: for type '$type', label must be node" if $node;
+        $node = $label;
+        # XXX this is not nice...
+        my $object = ($node->{type} eq 'objectRef');
+        my $Pnode = $object ? $node->{pnode} : $node->{pnode}->{pnode};
+        my $mnode = $Pnode->{pnode};
+        my $mname = $mnode->{name};
+        $mname =~ s/:(\d+)\.\d+$/:$1/;
+        $name = qq{$mname.$Pnode->{name}.$node->{path}};
+        # XXX nor is this
+        $label = ++$Pnode->{html_profoot_num};
+    }
+
+    # form the anchor name
+    my $aname = qq{$namespace_prefix$name};
+
+    # form the anchor definition
+    my $adef = qq{};
+    $adef .= qq{<a name="$aname"};
+    $adef .= qq{>$label</a>} if $label;
+    $adef .= qq{/>} if !$label;
+
+    # form the anchor reference (as a service to the caller)
+    my $aref = qq{};
+    $aref .= qq{<a href="#$aname"};
+    $aref .= qq{>$label</a>} if $label;
+    $aref .= qq{/>} if !$label;
+
+    # special case: for anchors of type path, define an additional anchor
+    # which (for multi-instance objects) will be the table name, e.g. for
+    # A.B.{i}., also define A.B
+    # XXX could also define A.B.{i} and A.B. but hasn't seemed necessary
+    if ($type eq 'path') {
+        my $path = $node->{path};
+        my $tpath = $path;
+        $tpath =~ s/(\.\{i\})?\.$//;
+        if ($tpath ne $path) {
+            $adef = qq{<a name="$namespace_prefix$tpath"/>$adef};
+        }
+    }
+
+    # if already defined, and if the label has changed, warn and update it
+    my $hash = $anchors->{$aname};
+    if (defined $hash) {
+        if ($label ne $hash->{label}) {
+            print STDERR "html_anchor: warning: $aname label changed\n"
+                if $pedantic; 
+            $hash->{label} = $label;
+            $hash->{def} = $adef;
+            $hash->{ref} = $aref;
+        }
+    } else {
+        # XXX will refine this as becomes necessary
+        $hash = {name => $aname, label => $label, def => $adef, ref => $aref};
+        $anchors->{$aname} = $hash;
+    }
+
+    return $hash;
 }
 
 # HTML report of node.
@@ -4363,6 +4590,7 @@ sub html_node
 
     my $history = $node->{history};
     my $description = $node->{description};
+    my $origdesc = $description;
     my $descact = $node->{descact};
     ($description, $descact) = get_description($description, $descact,
                                                $history, 1);
@@ -4373,6 +4601,8 @@ sub html_node
     my $pname = html_escape($node->{pnode}->{name}, {empty => ''});
     # XXX don't need to pass hidden, list, reference etc (are in syntax)
     #     but does no harm (now passing node too!) :(
+    # XXX should work harder to define profile, object and parameter within
+    #     profiles (so could use templates in descriptions)
     my $factory = ($node->{deftype} && $node->{deftype} eq 'factory') ?
         html_escape(util_default($node->{default})) : undef;
     $description =
@@ -4401,7 +4631,11 @@ sub html_node
     if (!$indent) {
 	my $title = "$node->{spec}";
 	$title .= " ($objpat)" if $objpat ne '';
+        $title .= " (changes)" if $lastonly;
+        my $logo = qq{<a href="http://www.broadband-forum.org"><img src="http://www.broadband-forum.org/images/logo-broadband-forum.gif" alt="Broadband Forum" style="border:0px;"/></a>};
 	print <<END;
+<!-- DO NOT EDIT; generated by Broadband Forum $tool_id_only ($tool_vers_date_only version) on $tool_run_date.
+     See $tool_url. -->
 <html>
   <head>
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
@@ -4423,6 +4657,13 @@ sub html_node
     </style>
   </head>
   <body>
+  <table width="100%" border="0" style="text-align:center;">
+    <tr>
+      <td valign="middle">$logo</td>
+      <td valign="middle"><h1>$title</h1></td>
+      <td valign="middle">$logo</td>
+    </tr>
+  </table>
 END
         if ($description) {
             print <<END;
@@ -4438,22 +4679,43 @@ END
     </ul> <!-- Table of Contents -->
 END
         my $datatypes = $node->{dataTypes};
-        if ($autodatatype && $datatypes && @$datatypes) {
+        if ($datatypes && @$datatypes) {
             #print STDERR Dumper($datatypes);
+            my $anchor = html_anchor('Data Types', 'heading');
             print <<END;
-      <li><a href="#DataTypes">Data Types</a></li>
+      <li>$anchor->{ref}</li>
 END
+            # XXX what will keep the TR-106 bibrefs up to date?
+            my $preamble = <<END;
+The parameters defined in this specification make use of a limited subset of the default SOAP data types {{bibref|SOAP}}.  The complete set of data types along with the notation used to represent these types is listed in {{bibref|TR-106a4|Section 3.2}}.  The following named data types are used by this specification.
+END
+            # XXX this does nothing, and invalid bibrefs aren't detected
+            update_bibrefs($preamble, $node->{spec});
+            $preamble = html_escape($preamble);
             $html_buffer .= <<END;
-    <h1><a name="DataTypes">Data Types</a></li>
-    <table border="0"> <!-- Data Types -->
+    <h1>$anchor->{def}</h1>
+    $preamble<p>
+    <table $tabopts> <!-- Data Types -->
+    <tr>
+      <th class="g">Data Type</th>
+      <th class="g">Base Type</th>
+      <th class="g">Description</th>
+    </tr>
 END
+            # XXX this is still very basic; no ranges, lengths etc;
             foreach my $datatype (sort {$a->{name} cmp $b->{name}}
                                   @$datatypes) {
                 my $name = $datatype->{name};
+                my $base = base_type($name, 0);
                 my $description = $datatype->{description};
+                # XXX not using this yet
                 my $descact = $datatype->{descact};
 
-                $name = qq{<a name="$name">$name</a>};
+                my $name_anchor = html_anchor($name, 'datatype');
+                my $base_anchor = html_anchor($base, 'datatype');
+
+                # want hyperlinks only for named data types
+                my $baseref = $base =~ /^[A-Z]/ ? $base_anchor->{ref} : $base;
 
                 # XXX this needs a generic utility that will escape any
                 #     description with full template expansion
@@ -4463,7 +4725,8 @@ END
 
                 $html_buffer .= <<END;
       <tr>
-        <td>$name</td>
+        <td>$name_anchor->{def}</td>
+        <td>$baseref</td>
         <td>$description</td>
       </tr>
 END
@@ -4473,14 +4736,17 @@ END
 END
         }
         my $bibliography = $node->{bibliography};
+        my $anchor = html_anchor('References', 'heading');
         if ($bibliography && %$bibliography) {
             print <<END;
-      <li><a href="#References">References</a></li>
+      <li>$anchor->{ref}</li>
 END
             $html_buffer .= <<END;
-    <h1><a name="References">References</a></h1>
+    <h1>$anchor->{def}</h1>
     <table border="0"> <!-- References -->
 END
+            # XXX would prefer not to have to know link format
+            my $prefix = $html_anchor_reference_prefix;
             my $references = $bibliography->{references};
             foreach my $reference (sort bibid_cmp @$references) {
                 my $id = $reference->{id};
@@ -4498,7 +4764,7 @@ END
                 my $hyperlink = xml_escape($reference->{hyperlink});
 
                 my $hid = $hyperlink ? qq{<a href="$hyperlink">$id</a>} : $id;
-                $id = qq{<a name="$id">[$hid]</a>};
+                $id = qq{<a name="$prefix$id">[$hid]</a>};
                 
                 $title = $title ? qq{, <em>$title</em>} : qq{};
                 $organization = $organization ? qq{, $organization} : qq{};
@@ -4583,10 +4849,12 @@ END
 
         if ($model) {
             my $title = qq{$name Data Model};
+            $title .= qq{ (changes)} if $lastonly;
+            my $anchor = html_anchor($title, 'heading');
             print <<END;
-      <li><a href="#$title">$title</a></li>
+      <li>$anchor->{ref}</li>
       <ul> <!-- $title -->
-        <li><a href="#$title">Data Model Definition</a></li>
+        <li><a href="#$anchor->{name}">Data Model Definition</a></li>
         <ul> <!-- Data Model Definition -->
 END
             my $boiler_plate = '';
@@ -4599,19 +4867,19 @@ support for version $version.  The version number associated with each object
 and parameter is shown in the <b>Version</b> column.<p>
 END
             $html_buffer .= <<END;
-    <h1><a name="$title">$title</a></h1>
+    <h1>$anchor->{def}</h1>
     $description<p>$boiler_plate
     <table width="100%" $tabopts> <!-- Data Model Definition -->
       <tbody>
         <tr>
-          <th width="10%">Name</th>
-          <th width="10%">Type</th>
-          $synt_oc<th>Syntax</th>$synt_cc
-          <th width="10%" class="c">Write</th>
-          <th width="50%">Description</th>
-          <th width="10%" class="c">Object Default</th>
-          $vers_oc<th width="10%" class="c">Version</th>$vers_cc
-          $spec_oc<th class="c">Spec</th>$spec_cc
+          <th width="10%" class="g">Name</th>
+          <th width="10%" class="g">Type</th>
+          $synt_oc<th class="g">Syntax</th>$synt_cc
+          <th width="10%" class="gc">Write</th>
+          <th width="50%" class="g">Description</th>
+          <th width="10%" class="gc">Object Default</th>
+          $vers_oc<th width="10%" class="gc">Version</th>$vers_cc
+          $spec_oc<th class="gc">Spec</th>$spec_cc
 	</tr>
 END
             $html_parameters = [];
@@ -4625,15 +4893,17 @@ END
         # XXX so only outputting these tables if there are profiles... BAD!
         if ($profile) {
             if (!$html_profile_active) {
+                my $anchor = html_anchor('Inform and Notification Requirements',
+                                         'heading');
                 print <<END;
         </ul> <!-- Data Model Definition -->
-        <li><a href="#Inform and Notification Requirements">Inform and Notification Requirements</a></li>
+        <li>$anchor->{ref}</li>
         <ul> <!-- Inform and Notification Requirements -->
 END
                 $html_buffer .= <<END;
       </tbody>
     </table> <!-- Data Model Definition -->
-    <h2><a name="Inform and Notification Requirements">Inform and Notification Requirements</a></h2>
+    <h2>$anchor->{def}</h2>
 END
                 $html_buffer .=
                 html_param_table(qq{Forced Inform Parameters},
@@ -4653,25 +4923,62 @@ END
                                  {tabopts => $tabopts, sepobj => 1},
                                  grep {$_->{activeNotify} eq 'canDeny'}
                                  @$html_parameters);
-                my $title = qq{Profile Definitions};
+                my $panchor = html_anchor('Profile Definitions', 'heading');
+                my $nanchor = html_anchor('Notation', 'heading');
                 print <<END;
         </ul> <!-- Inform and Notification Requirements -->
-        <li><a href="#$title">$title</a></li>
-        <ul> <!-- $title -->
+        <li>$panchor->{ref}</li>
+        <ul> <!-- $panchor->{label} -->
+          <li>$nanchor->{ref}</li>
 END
                 $html_buffer .= <<END;
-    <h2><a name="$title">$title</a></h2>
+    <h2>$panchor->{def}</h2>
+    <h3>$nanchor->{def}</h3>
+    The following abbreviations are used to specify profile requirements:<p>
+    <table width="60%" $tabopts>
+      <tbody>
+        <tr>
+          <th class="gc">Abbreviation</th>
+          <th class="g">Description</th>
+        </tr>
+        <tr>
+          <td class="pc">R</td>
+          <td>Read support is REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">W</td>
+          <td>Both Read and Write support is REQUIRED.  This MUST NOT be specified for a parameter that is defined as read-only.</td>
+        </tr>
+        <tr>
+          <td class="pc">P</td>
+          <td>The object is REQUIRED to be present.</td>
+        </tr>
+        <tr>
+          <td class="pc">C</td>
+          <td>Creation and deletion of instances of the object via AddObject and DeleteObject is REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">A</td>
+          <td>Creation of instances of the object via AddObject is REQUIRED, but deletion is not REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">D</td>
+          <td>Deletion of instances of the object via DeleteObject is REQUIRED, but creation is not REQUIRED.</td>
+        </tr>
+      </tbody>
+    </table>
 END
                 $html_profile_active = 1;
             }
-            my $title = qq{$name Profile};
+            my $anchor = html_anchor(qq{$name Profile}, 'heading');
+            my $panchor = html_anchor($node, 'profile');
             print <<END;
-          <li><a href="#$name">$title</a></li>
+          <li>$anchor->{ref}</li>
 END
             $html_buffer .= <<END;
-    <h3><a name="$name">$title</a></h3>
+    <h3>$panchor->{def}$anchor->{def}</h3>
     $description<p>
-    <table width="60%" $tabopts> <!-- $title -->
+    <table width="60%" $tabopts> <!-- $anchor->{label} -->
       <tbody>
         <tr>
           <th width="80%" class="g">Name</th>
@@ -4682,22 +4989,15 @@ END
 
         if ($model || $profile) {
         } elsif (!$html_profile_active) {
-            # note that the second anchor does NOT have a trailing dot;
-            # this is to allow use of (for example) {{object|table}}
-            # XXX should verify that all links have defined anchors
-            $name = qq{<a name="$path">$name</a>} unless $nolinks;
-            my $anchor2 = qq{};
-            if (!$nolinks) {
-                my $tpath = $path;
-                $tpath =~ s/(\.\{i\})?\.$//;
-                $anchor2 = qq{<a name="$tpath"/>} if $tpath ne $path;
-            }
+            my $anchor = html_anchor($node, 'path');
+            $name = $anchor->{def} unless $nolinks;
+            # XXX would like syntax to be a link when it's a named data type
             print <<END if $object && !$nolinks;
-          <li><a href="#$path">$path</a></li>
+          <li>$anchor->{ref}</li>
 END
             $html_buffer .= <<END;
         <tr>
-          <td class="${class}">$anchor2$name</td>
+          <td class="${class}">$name</td>
           <td class="${class}">$type</td>
           $synt_oc<td class="${class}">$syntax</td>$synt_cc
           <td class="${class}c">$write</td>
@@ -4709,12 +5009,26 @@ END
 END
         } else {
             $path = $pname . $name unless $object;
-            $name = qq{<a href="#$path">$name</a>} unless $nolinks;
+            # XXX would prefer not to have to know link format
+            my $prefix = $html_anchor_datamodel_prefix;
+            $name = qq{<a href="#$prefix$path">$name</a>} unless $nolinks;
             $write = 'R' if $access eq 'readOnly';
+            my $footnote = qq{};
+            # XXX need to use origdesc because description has already been
+            #     escaped and an originally empty one might no longer be empty
+            if ($origdesc) {
+                my $anchor = html_anchor($node, 'profoot');
+                # XXX pretty horrible way to get the profile node
+                my $Pnode = $object ?
+                    $node->{pnode} : $node->{pnode}->{pnode};
+                push @{$Pnode->{html_footnotes}}, {anchor => $anchor,
+                                                   description => $description};
+                $footnote = qq{<sup>$anchor->{ref}</sup>};
+            }
             $html_buffer .= <<END;
         <tr>
           <td class="${class}">$name</td>
-          <td class="${class}c">$write</td>
+          <td class="${class}c">$write$footnote</td>
 	</tr>
 END
         }
@@ -4735,6 +5049,10 @@ sub html_post
       </tbody>
     </table> <!-- $name -->
 END
+        # output profile footnotes if any
+        if ($profile) {
+            $html_buffer .= html_profile_footnotes($node);
+        }
         # XXX this is heuristic (but usually correct)
         if (!$indent) {
             print <<END;
@@ -4742,6 +5060,9 @@ END
       </ul>
 END
             $html_buffer .= <<END;
+    <p>
+    <hr>
+    Generated by <a href="http://www.broadband-forum.org">Broadband Forum</a> <a href="$tool_url">$tool_id_only</a> ($tool_vers_date_only version) on $tool_run_date.<p>
   </body>
 </html>
 END
@@ -4758,14 +5079,16 @@ sub html_param_table
     my $tabopts = $hash->{tabopts};
     my $sepobj = $hash->{sepobj};
 
+    my $anchor = html_anchor($title, 'heading');
+
     my $html_buffer = qq{};
 
     print <<END;
-    <li><a href="#$title">$title</a></li>
+          <li>$anchor->{ref}</li>
 END
 
     $html_buffer .= <<END;
-    <h3><a name="$title">$title</a></h3>
+    <h3>$anchor->{def}</h3>
 END
 
     $html_buffer .= <<END;
@@ -4786,7 +5109,10 @@ END
             $object = html_escape($object, {empty => ''});
             if ($object && $object ne $curobj) {
                 $curobj = $object;
-                $object = qq{<a href="#$object">$object</a>} unless $nolinks;
+                # XXX would prefer not to have to know link format
+                my $prefix = $html_anchor_datamodel_prefix;
+                $object = qq{<a href="#$prefix$object">$object</a>}
+                unless $nolinks;
                 $html_buffer .= <<END;
         <tr>
           <td class="o">$object</td>
@@ -4796,7 +5122,9 @@ END
         }
         $path = html_escape($path, {empty => ''});
         $param = html_escape($param, {empty => ''});
-        $param = qq{<a href="#$path">$param</a>} unless $nolinks;
+        # XXX would prefer not to have to know link format
+        my $prefix = $html_anchor_datamodel_prefix;
+        $param = qq{<a href="#$prefix$path">$param</a>} unless $nolinks;
         $html_buffer .= <<END;
         <tr>
           <td>$param</td>
@@ -4808,6 +5136,46 @@ END
       </tbody>
     </table> <!-- $title -->
 END
+    return $html_buffer;
+}
+
+# Output profile footnotes, if any
+# XXX this is assumed to be called only on a profile node
+sub html_profile_footnotes
+{
+    my ($node) = @_;
+
+    my $footnotes = $node->{html_footnotes};
+    return qq{} unless $footnotes && @$footnotes;
+
+    my $mname = $node->{pnode}->{name};
+    my $pname = $node->{name};
+    my $aname = qq{$mname.$pname};
+
+    my $html_buffer = qq{};
+
+    $html_buffer .= <<END;
+    <table width="60%" border="0">
+      <tbody>
+END
+
+    foreach my $footnote (@$footnotes) {
+        my $anchor = $footnote->{anchor};
+        my $description = $footnote->{description};
+
+        $html_buffer .= <<END;
+        <tr>
+          <td width="1%"><sup>$anchor->{def}</sup></td>
+          <td>$description</td>
+        </tr>
+END
+    }
+
+    $html_buffer .= <<END;
+      </tbody>
+    </table>
+END
+
     return $html_buffer;
 }
 
@@ -4963,9 +5331,8 @@ sub html_template
         $inval = "{{list}}" . $sep . $inval;
     }
 
-    # auto-prefix {{datatype}} if autodatatype is set and the parameter has
-    # a named data type
-    if ($p->{type} && $p->{type} eq 'dataType' && $autodatatype &&
+    # auto-prefix {{datatype}} if the parameter has a named data type
+    if ($p->{type} && $p->{type} eq 'dataType' &&
         $inval !~ /\{\{nodatatype\}\}/) {
         my $sep = !$inval ? "" : "  ";
         $inval = "{{datatype}}" . $sep . $inval;
@@ -5019,16 +5386,16 @@ sub html_template
           text2 => \&html_template_bibref},
          {name => 'section', text => q{}},
          {name => 'param',
-          text0 => q{''$p->{param}''},
+          text0 => \&html_template_paramref,
           text1 => \&html_template_paramref,
           text2 => \&html_template_paramref},
          {name => 'object',
-          text0 => q{''$p->{object}''},
+          text0 => \&html_template_objectref,
           text1 => \&html_template_objectref,
           text2 => \&html_template_objectref},
          {name => 'profile',
-          text0 => q{''$p->{profile}''},
-          text1 => q{<a href="#$a[0]">''$a[0]''</a>}},
+          text0 => \&html_template_profileref,
+          text1 => \&html_template_profileref},
          {name => 'keys',
           text0 => \&html_template_keys},
          {name => 'nokeys',
@@ -5057,7 +5424,9 @@ sub html_template
          {name => 'nofactory',
           text0 => q{}},
          {name => 'null',
-          text0 => \&html_template_null},
+          text0 => \&html_template_null,
+          text1 => \&html_template_null,
+          text2 => \&html_template_null},
          {name => 'enum',
           text0 => \&html_template_enum,
           text1 => \&html_template_valueref,
@@ -5141,7 +5510,8 @@ sub html_template
             $cmd = defined $template->{'text'.$n} ? $template->{'text'.$n} :
                 $template->{text};
             if (ref($cmd)) {
-                $text = &$cmd($p, @a);
+                my $ttext = &$cmd($p, @a);
+                $text = $ttext if defined $ttext;
             } elsif (defined $cmd) {
                 print STDERR "$text: $cmd\n" if $verbose > 2;
                 my $ttext = eval "qq{$cmd}";
@@ -5154,7 +5524,7 @@ sub html_template
                 }
             }
         }
-        if ($name && $text =~ /^\[\[/) {
+        if ($name && (!defined $text || $text =~ /^\[\[/)) {
             print STDERR "$p->{path}: invalid template reference: $tref\n";
             #print STDERR "$name: n=$n cmd=<$cmd> text=<$text>\n";
             #foreach my $a (@a) {
@@ -5200,9 +5570,26 @@ sub html_template_issue
 # XXX currently rather simple-minded and no support for named data types
 sub html_template_null
 {
-    my ($opts) = @_;
+    my ($opts, $name, $scope) = @_;
 
-    my $type= $opts->{type};
+    my $object = $opts->{object};
+    my $param = $opts->{param};
+
+    my $this = $name ? 0 : 1;
+    $name = $param unless $name;
+
+    (my $path, $name) = relative_path($object, $name, $scope);
+
+    if (!$parameters->{$path} || !%{$parameters->{$path}}) {
+        # XXX don't warn if this item has been deleted
+        if (!util_is_deleted($opts->{node})) {
+            print STDERR "$object$param: reference to invalid parameter ".
+                "$path\n";
+        }
+        return undef;
+    }
+
+    my $type = $parameters->{$path}->{type};
 
     return '{{empty}}' if $type =~ /^(string|base64|hexBinary)/;
     return '{{false}}' if $type eq 'boolean';
@@ -5262,9 +5649,11 @@ sub html_template_datatype
     #$text .= '.' unless $text =~ /\.$/;
 
     # XXX now just return "[datatype] "
+    # XXX would prefer not to have to know link format
+    my $prefix = $html_anchor_datatype_prefix;
     my $text = $nolinks ?
         qq{[''$dtname''] } :
-        qq{[''<a href="#$dtname">$dtname</a>''] };
+        qq{[''<a href="#$prefix$dtname">$dtname</a>''] };
 
     return $text;
 }
@@ -5319,25 +5708,46 @@ sub html_template_keys
 
     my $text = qq{{{mark|keys}}};
 
-    my $enabled = $enableParameter ? qq{ enabled} : qq{};
-    $text .= qq{At most one$enabled entry in this table } .
-        qq{can exist with };
-    my $i = 0;
+    # for tables with enable parameters, need to generate separate text for
+    # non-functional (not affected by enable) and functional keys (affected
+    # by enable)
+    my $keys = [[], []];
     foreach my $uniqueKey (@$uniqueKeys) {
-        $text .= qq{, or with } if $i > 0;
-        $text .= qq{all } if @$uniqueKey > 2;
-        $text .= @$uniqueKey > 1 ? qq{the same values } : qq{a given value };
-        $text .= qq{for };
-        # XXX use util_list($uniqueKey, qq{{{param|\$1}}})
-        my $j = 0;
-        foreach my $parameter (@$uniqueKey) {
-            $text .= (($j < @$uniqueKey - 1) ? ', ' : ' and ') if $j > 0;
-            $text .= qq{{{param|$parameter}}};
-            $j++;
-        }
-        $i++;
+        my $functional = $uniqueKey->{functional};
+        my $conditional = defined($enableParameter) && $functional;
+        push @{$keys->[$conditional]}, $uniqueKey;
     }
-    $text .= qq{.};
+
+    # if have both unconditional and conditional keys, use separate paras
+    my $sep_paras = @{$keys->[1]};
+
+    # element 0 of $keys is the keys that are unconditionally unique; element
+    # 1 is the keys that are conditionally unique (i.e. only for enabled
+    # entries)
+    for (my $conditional = 0; $conditional < 2; $conditional++) {
+        next unless @{$keys->[$conditional]};
+
+        my $enabled = $conditional ? qq{ enabled} : qq{};
+        my $emphasis = (!$conditional && $enableParameter) ?
+            qq{ (regardless of whether or not it is enabled)} : qq{};
+        $text .= qq{At most one$enabled entry in this table$emphasis } .
+            qq{can exist with };
+
+        my $i = 0;
+        foreach my $uniqueKey (@{$keys->[$conditional]}) {
+            my $keyparams = $uniqueKey->{keyparams};
+            
+            $text .= qq{, or with } if $i > 0;
+            $text .= qq{all } if @$keyparams > 2;
+            $text .= @$keyparams > 1 ?
+                qq{the same values } : qq{a given value };
+            $text .= qq{for };
+            $text .= util_list($keyparams, qq{{{param|\$1}}});
+            $i++;
+        }
+        $text .= qq{.};
+        $text .= qq{\n} if $sep_paras;
+    }
 
     # XXX the next bit is needed only if one or more of the unique key
     #     parameters is writable; currently we don't have access to this
@@ -5353,40 +5763,38 @@ sub html_template_keys
             qq{SetParameterValuesFault element for each parameter in the } .
             qq{corresponding request whose modification would have resulted } .
             qq{in such a violation.} if 0;
-        if (!$enableParameter) {
-            my $i;
-            my @params = ();
-            foreach my $uniqueKey (@$uniqueKeys) {
-                foreach my $parameter (@$uniqueKey) {
+        my $i;
+        my $params = [];
+        foreach my $uniqueKey (@$uniqueKeys) {
+            my $functional = $uniqueKey->{functional};
+            my $keyparams = $uniqueKey->{keyparams};
+            my $conditional = defined($enableParameter) && $functional;
+            if (!$conditional) {
+                foreach my $parameter (@$keyparams) {
                     my $path = $object . $parameter;
                     my $defaulted = defined $parameters->{$path}->{default} &&
                         $parameters->{$path}->{deftype} eq 'object' &&
                         $parameters->{$path}->{defstat} ne 'deleted';
-                    push @params, $parameter unless $defaulted;
+                    push @$params, $parameter unless $defaulted;
                     $i++;
                 }
             }
-            if ($i && !@params) {
-                print STDERR "$object: all unique key parameters are " .
-                    "defaulted; need enableParameter\n";
-            }
-            if (@params) {
-                $text .= qq{  On creation of a new table entry, the CPE } .
-                    qq{MUST choose };
-                $text .= qq{an } if @params == 1;
-                $text .= qq{initial value};
-                $text .= qq{s} if @params > 1;
-                $text .= qq{ for };
-                # XXX use util_list(\$params, qq{{{param|\$1}}})
-                my $i = 0;
-                foreach my $param (@params) {
-                    $text .= (($i < @params - 1) ? ', ' : ' and ') if $i > 0;
-                    $text .= qq{{{param|$param}}};
-                    $i++;
-                }
-                $text .= qq{ such that the new entry does not conflict with } .
-                    qq{any existing entries.};
-            }
+        }
+        if ($i && !@$params) {
+            print STDERR "$object: all unique key parameters are " .
+                "defaulted; need enableParameter\n";
+        }
+        if (@$params) {
+            $text .= qq{  } unless $sep_paras;
+            $text .= qq{On creation of a new table entry, the CPE } .
+                qq{MUST choose };
+            $text .= qq{an } if @$params == 1;
+            $text .= qq{initial value};
+            $text .= qq{s} if @$params > 1;
+            $text .= qq{ for };
+            $text .= util_list($params, qq{{{param|\$1}}});
+            $text .= qq{ such that the new entry does not conflict with } .
+                qq{any existing entries.};
         }
     }
 
@@ -5419,12 +5827,27 @@ sub html_template_bibref
 {
     my ($opts, $bibref, $section) = @_;
 
-    my $text = qq{\[};
-    $text .= qq{<a href="#$bibref">} unless $nolinks;
+    my $path = $opts->{path};
+    $path = '<unknown>' unless $path;
+
+    if ($section) {
+        my $origsection = $section;
+        $section = qq{Section $section} if $section =~ /^\d/;
+        $section = ucfirst $section;
+        print STDERR "$path: {{bibref}} section argument was changed: ".
+          "\"$origsection\" -> \"$section\"\n"
+          if $warnbibref > 1 && $origsection ne $section;
+    }
+
+    my $text = qq{};
+    $text .= qq{$section / } if $section;
+    $text .= qq{\[};
+    # XXX would prefer not to have to know link format
+    my $prefix = $html_anchor_reference_prefix;
+    $text .= qq{<a href="#$prefix$bibref">} unless $nolinks;
     $text .= qq{$bibref};
     $text .= qq{</a>} unless $nolinks;
     $text .= qq{\]};
-    $text .= qq{ $section} if $section;
 
     return $text;
 }
@@ -5438,7 +5861,14 @@ sub html_template_paramref
     my $object = $opts->{object};
     my $param = $opts->{param};
 
-    print STDERR "$object$param: {{param}} argument unnecessary when ".
+    # parameterless case (no "name") is special
+    unless ($name) {
+        print STDERR "$object: {{param}} is appropriate only within a ".
+            "parameter description\n" unless $param;
+        return qq{''$param''};
+    }
+
+    print STDERR "$object$param: {{param}} argument is unnecessary when ".
         "referring to current parameter\n" if $pedantic && $name eq $param;
 
     (my $path, $name) = relative_path($object, $name, $scope);
@@ -5461,7 +5891,9 @@ sub html_template_paramref
     }
 
     my $text = qq{};
-    $text .= qq{<a href="#$path">} unless $nolinks;
+    # XXX would prefer not to have to know link format
+    my $prefix = $html_anchor_datamodel_prefix;
+    $text .= qq{<a href="#$prefix$path">} unless $nolinks;
     $text .= qq{''$name$invalid''};
     $text .= qq{</a>} unless $nolinks;
 
@@ -5477,9 +5909,23 @@ sub html_template_objectref
     my $object = $opts->{object};
     my $param = $opts->{param};
 
-    # XXX this probably needs to be cleverer
+    # parameterless case (no "name") is special; use just the last component
+    # of the path
+    # XXX this is an experiment
+    unless ($name) {
+        my $name = $object;
+        $name =~ s/\.(\{i\}\.)?$//;
+        $name =~ s/.*\.//;
+        # XXX would prefer not to have to know link format
+        my $prefix = $html_anchor_datamodel_prefix;
+        return qq{<a href="#$prefix$object">''$name''</a>};
+    }
+
+    # XXX this probably needs to be cleverer, since "name" can take various
+    #     forms
     print STDERR "$object$param: {{object}} argument unnecessary when ".
-        "referring to current object\n" if $pedantic && $name eq $object;
+        "referring to current object\n"
+        if $pedantic && $name && $name eq $object;
 
     (my $path, $name) = relative_path($object, $name, $scope);
     my $path1 = $path;
@@ -5510,7 +5956,9 @@ sub html_template_objectref
     }
    
     my $text = qq{};
-    $text .= qq{<a href="#$path">} unless $nolinks;
+    # XXX would prefer not to have to know link format
+    my $prefix = $html_anchor_datamodel_prefix;
+    $text .= qq{<a href="#$prefix$path">} unless $nolinks;
     $text .= qq{''$name$invalid''};
     $text .= qq{</a>} unless $nolinks;
 
@@ -5591,11 +6039,40 @@ sub html_template_valueref
         $tvalue =~ s/\\//g;
 
         my $sep = $upnpdm ? '/' : '.';
-        $text .= qq{<a href="#$path$sep$tvalue">} unless $nolinks;
+        # XXX would prefer not to have to know link format
+        my $prefix = $html_anchor_datamodel_prefix;
+        $text .= qq{<a href="#$prefix$path$sep$tvalue">} unless $nolinks;
         $text .= qq{''$value$invalid''};
         $text .= qq{</a>} unless $nolinks;
     }
    
+    return $text;
+}
+
+# generates reference to profile: optional argument is the profile name
+sub html_template_profileref
+{
+    my ($opts, $profile) = @_;
+
+    my $node = $opts->{node};
+
+    my $makelink = $profile && !$nolinks;
+
+    $profile = $opts->{profile} unless $profile;
+
+    # XXX logical taken from html_anchor
+    # XXX would prefer not to have to know link format
+    my $prefix = $html_anchor_profile_prefix;
+    my $mnode = $node->{pnode};
+    my $mname = $mnode->{name};
+    $mname =~ s/:(\d+)\.\d+$/:$1/;
+    my $aname = qq{$prefix$mname.$profile};
+
+    my $text = qq{};
+    $text .= qq{<a href="#$prefix$mname.$profile">} if $makelink;
+    $text .= qq{''$profile''};
+    $text .= qq{</a>} if $makelink;
+
     return $text;
 }
 
@@ -5947,10 +6424,12 @@ sub html_font
 
     # XXX "%%" anchor expansion should be elsewhere (hyperlink?)
     # XXX need to escape special characters out of anchors and references
+    # XXX would prefer not to have to know link format
     if ($opts->{param}) {
         my $object = $opts->{object} ? $opts->{object} : '';
         my $path = $object . $opts->{param};
-        $inval =~ s|%%([^%]*)%%([^%]*)%%|<a name="$path.$2">$1</a>|g;
+        my $prefix = $html_anchor_datamodel_prefix;
+        $inval =~ s|%%([^%]*)%%([^%]*)%%|<a name="$prefix$path.$2">$1</a>|g;
     }
 
     return $inval;
@@ -7398,7 +7877,7 @@ sub sanity_node
         #    $parameters->{$path.$enableParameter} if $enableParameter;
         #(!$enableParameter || (!$hidden && $enableParameter->{hidden}))
 
-        print STDERR "$path: missing enableParameter\n" if
+        print STDERR "$path: writable table but no enableParameter\n" if
             $access ne 'readOnly' && $maxEntries eq 'unbounded' &&
             @{$node->{uniqueKeys}} && !$enableParameter;
 
@@ -7471,7 +7950,7 @@ sub sanity_node
 }
 
 if ($root->{bibliography}) {
-    foreach my $reference (sort {$a->{id} cmp $b->{id}}
+    foreach my $reference (sort bibid_cmp
                            @{$root->{bibliography}->{references}}) {
         my $id = $reference->{id};
         my $spec = $reference->{spec};
@@ -7607,6 +8086,8 @@ causes automatic addition of B<base> attributes when models, parameters and obje
 =item B<--autodatatype>
 
 causes the B<{{datatype}}> template to be automatically prefixed for parameters with named data types
+
+this is deprecated because it is enabled by default
 
 =item B<--canonical>
 
@@ -7848,7 +8329,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/01/20 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#150 $
+$Date: 2010/02/17 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#151 $
 
 =cut
