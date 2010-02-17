@@ -251,8 +251,7 @@ public class HTMLPrinter extends FilePrinter
 
         // a pattern that matches <a name="blah">blah</a> OR a tag.
 
-        String strPat = XTag.patternString;
-        Pattern pat = Pattern.compile(strPat, Pattern.CASE_INSENSITIVE);
+        Pattern pat = XTag.pattern;
         Matcher matcher = pat.matcher(body);
         String placeHold = "`";
         String lineBreak = "<br>";

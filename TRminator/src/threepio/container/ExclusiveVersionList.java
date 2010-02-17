@@ -3,8 +3,9 @@
  * Project: Threepio
  * Author: Jeff Houle
  */
-package threepio.engine;
+package threepio.container;
 
+import threepio.container.ExclusiveArrayList;
 import threepio.container.Versioned;
 import java.util.ArrayList;
 

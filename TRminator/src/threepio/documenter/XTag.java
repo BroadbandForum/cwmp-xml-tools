@@ -245,6 +245,13 @@ public class XTag
         return ret;
     }
 
-    public static String patternString = "</?[a-zA-z]*[^>]*>";
-    public static Pattern pattern = Pattern.compile("</?[a-zA-z]*[^>]*>", Pattern.CASE_INSENSITIVE);
+    /**
+     * Case-sensitive case-matching regex for a tag.
+     */
+    public static String patternString = "</?[a-zA-Z]*[^>]*>";
+
+    /**
+     * Case-INSENSITIVE pattern regex for a tag (cheap).
+     */
+    public static Pattern pattern = Pattern.compile("</?[A-Z]*[^>]*>", Pattern.CASE_INSENSITIVE);
 }

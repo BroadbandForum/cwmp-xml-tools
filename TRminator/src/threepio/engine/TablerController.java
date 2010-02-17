@@ -5,6 +5,7 @@
  */
 package threepio.engine;
 
+import threepio.container.ExclusiveVersionList;
 import threepio.tabler.*;
 import threepio.container.Doublet;
 import threepio.documenter.XDoc;
