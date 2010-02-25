@@ -1,11 +1,11 @@
 Usage:
-    report.pl [--autobase] [--autodatatype] [--canonical] [--components]
-    [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]...
-    [--dtspec[=s]] [--help] [--ignore=pattern("")]
-    [--importsuffix=string("")] [--include=d]... [--info] [--lastonly]
-    [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate]
-    [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
-    [--notemplates] [--nowarnredef] [--nowarnprofbadref]
+    report.pl [--autobase] [--autodatatype] [--autoentriesdesc]
+    [--canonical] [--components] [--debugpath=pattern("")]
+    [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help]
+    [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]...
+    [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments]
+    [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters]
+    [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref]
     [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet]
     [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec]
     [--showsyntax]
@@ -26,6 +26,13 @@ Options:
         parameters with named data types
 
         this is deprecated because it is enabled by default
+
+    --autoentriesdesc
+        causes descriptions for NumberOfEntries parameters to be
+        automatically generated, quietly overriding the previous
+        description, if any
+
+        currently works only with the html report
 
     --canonical
         affects only the xml2 report; causes descriptions to be processed
@@ -86,8 +93,15 @@ Options:
         work properly if this option is specified
 
     --marktemplates
-        mark selected template expansions with &&&& followed by the template
-        name and a colon
+        mark selected template expansions with &&&& followed by
+        template-related information, a colon and a space
+
+        for example, the reference template is marked by a string such as
+        &&&&pathRef-strong:, &&&&pathRef-weak:, &&&&instanceRef-strong:,
+        &&&&instanceRef-strong-list: or enumerationRef:
+
+        and the list template is marked by a string such as
+        &&&&list-unsisgnedInt: or &&&&list-IPAddress:
 
     --noautomodel
         disables the auto-generation, if no model element was encountered,
@@ -190,6 +204,10 @@ Options:
     --showspec
         currently affects only the html report; generates a Spec rather than
         a Version column
+
+        note that if an object or parameter is modified, the spec for it's
+        parent, and so on up to the root object, is updated (this is not
+        what would intuitively be expected)
 
     --showsyntax
         adds an extra column containing a summary of the parameter syntax;

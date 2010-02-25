@@ -30,7 +30,7 @@
 <p>
 </p>
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p><strong>report.pl</strong> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
+<p><strong>report.pl</strong> [--autobase] [--autodatatype] [--autoentriesdesc] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
 <ul>
 <li><strong><a name="cannot_specify_both_report_and_special" class="item">cannot specify both --report and --special</a></strong>
 
@@ -59,6 +59,12 @@
 <dd>
 <p>causes the <strong>{{datatype}}</strong> template to be automatically prefixed for parameters with named data types</p>
 <p>this is deprecated because it is enabled by default</p>
+</dd>
+<dt><strong><a name="autoentriesdesc" class="item"><strong>--autoentriesdesc</strong></a></strong></dt>
+
+<dd>
+<p>causes descriptions for <strong>NumberOfEntries</strong> parameters to be automatically generated, quietly overriding the previous description, if any</p>
+<p>currently works only with the <strong>html</strong> report</p>
 </dd>
 <dt><strong><a name="canonical" class="item"><strong>--canonical</strong></a></strong></dt>
 
@@ -125,7 +131,9 @@
 <dt><strong><a name="marktemplates" class="item"><strong>--marktemplates</strong></a></strong></dt>
 
 <dd>
-<p>mark selected template expansions with <strong>&amp;&amp;&amp;&amp;</strong> followed by the template name and a colon</p>
+<p>mark selected template expansions with <strong>&amp;&amp;&amp;&amp;</strong> followed by template-related information, a colon and a space</p>
+<p>for example, the <strong>reference</strong> template is marked by a string such as <strong>&amp;&amp;&amp;&amp;pathRef-strong:</strong>, <strong>&amp;&amp;&amp;&amp;pathRef-weak:</strong>, <strong>&amp;&amp;&amp;&amp;instanceRef-strong:</strong>, <strong>&amp;&amp;&amp;&amp;instanceRef-strong-list:</strong> or <strong>enumerationRef:</strong></p>
+<p>and the <strong>list</strong> template is marked by a string such as <strong>&amp;&amp;&amp;&amp;list-unsisgnedInt:</strong> or <strong>&amp;&amp;&amp;&amp;list-IPAddress:</strong></p>
 </dd>
 <dt><strong><a name="noautomodel" class="item"><strong>--noautomodel</strong></a></strong></dt>
 
@@ -253,6 +261,7 @@
 
 <dd>
 <p>currently affects only the <strong>html</strong> report; generates a <strong>Spec</strong> rather than a <strong>Version</strong> column</p>
+<p>note that if an object or parameter is modified, the spec for it's parent, and so on up to the root object, is updated (this is not what would intuitively be expected)</p>
 </dd>
 <dt><strong><a name="showsyntax" class="item"><strong>--showsyntax</strong></a></strong></dt>
 
@@ -339,8 +348,8 @@
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:wlupton@2wire.com">wlupton@2wire.com</a>&gt;</p>
-<p>$Date: 2010/02/17 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#151 $</p>
+<p>$Date: 2010/02/25 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#152 $</p>
 
 </body>
 
