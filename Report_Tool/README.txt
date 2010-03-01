@@ -1,16 +1,16 @@
 Usage:
-    report.pl [--autobase] [--autodatatype] [--autoentriesdesc]
-    [--canonical] [--components] [--debugpath=pattern("")]
-    [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help]
-    [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]...
-    [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments]
-    [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters]
-    [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref]
+    report.pl [--autobase] [--autodatatype] [--canonical] [--components]
+    [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]...
+    [--dtspec[=s]] [--help] [--ignore=pattern("")]
+    [--importsuffix=string("")] [--include=d]... [--info] [--lastonly]
+    [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate]
+    [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
+    [--notemplates] [--nowarnredef] [--nowarnprofbadref]
     [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet]
     [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec]
     [--showsyntax]
     [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc]
-    [--thisonly] [--ugly] [--upnpdm] [--verbose[=i(1)]]
+    [--thisonly] [--tr106=s(TR106a4)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
     [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
     *   cannot specify both --report and --special
@@ -26,13 +26,6 @@ Options:
         parameters with named data types
 
         this is deprecated because it is enabled by default
-
-    --autoentriesdesc
-        causes descriptions for NumberOfEntries parameters to be
-        automatically generated, quietly overriding the previous
-        description, if any
-
-        currently works only with the html report
 
     --canonical
         affects only the xml2 report; causes descriptions to be processed
@@ -257,6 +250,10 @@ Options:
     --thisonly
         outputs only definitions defined in the files on the command line,
         not those from imported files
+
+    --tr106=s(TR106a4)
+        indicates the TR-106 version (i.e. the bibref name) to be referenced
+        in any automatically generated description text
 
     --upnpdm
         transforms output (currently HTML only) so it looks like a UPnP DM
