@@ -122,7 +122,7 @@ use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2010/03/01 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#154 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#155 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -4800,7 +4800,7 @@ END
       <li>$anchor->{ref}</li>
 END
             my $preamble = <<END;
-The parameters defined in this specification make use of a limited subset of the default SOAP data types {{bibref|SOAP}}.  The complete set of data types along with the notation used to represent these types is listed in {{bibref|$tr106|Section 3.2}}.  The following named data types are used by this specification.
+The parameters defined in this specification make use of a limited subset of the default SOAP data types {{bibref|SOAP1.1}}.  The complete set of data types along with the notation used to represent these types is listed in {{bibref|$tr106|Section 3.2}}.  The following named data types are used by this specification.
 END
             update_bibrefs($preamble, $node->{spec});
             # XXX sanity_node only detects invalid bibrefs in node and value
@@ -8547,6 +8547,6 @@ This script is only for illustration of concepts and has many shortcomings.
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
 $Date: 2010/03/01 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#154 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#155 $
 
 =cut
