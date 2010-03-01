@@ -122,7 +122,7 @@ use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2010/03/01 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#153 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#154 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -4060,6 +4060,11 @@ $i  </import>
                 $descact = 'replace';
                 $syntax = undef;
             }
+        } elsif ($element eq 'profile') {
+            unless ($name) {
+                $node->{xml2}->{element} = '';
+                return;
+            }
         } elsif ($element =~ /(\w+)Ref/) {
             $ref = $name;
             $name = '';
@@ -6699,7 +6704,7 @@ my $htmlbbf_comments = {
     dmr => 'TR-069 Data Model Report Schema (DMR Schema)',
     dt => 'TR-069 Device Type Schema (DT Schema) {{ver}}',
     dtf => 'TR-069 DT (Device Type) Features Schema (DTF Schema)',
-    bibref => 'TR-069 data model bibliographic references',
+    bibref => 'TR-069 Data Model Bibliographic References',
     types => 'TR-069 Data Model Data Types',
     objdef => 'TR-069 {{name}} {{type}} {{def}}',
     objerr => 'TR-069 {{name}} {{type}} {{err}}',
@@ -6718,6 +6723,8 @@ my $htmlbbf_info = {
         comment => 'dm', trname => 'tr-106-1-2', date => '2008-11'},
     'cwmp-datamodel-1-1.xsd' => {
         comment => 'dm', trname => 'tr-106-1-3', date => '2009-09'},
+    'cwmp-datamodel-1-2.xsd' => {
+        comment => 'dm', trname => 'tr-106-1-4', date => '2010-02'},
     'cwmp-datamodel-report.xsd' => {
         comment => 'dmr', date => '2009-09'},
     'cwmp-devicetype-1-0.xsd' => {
@@ -6840,7 +6847,7 @@ sub htmlbbf_file
     <table width="100%" $tabopts>
       <tr>
         <th width="15%">Filename</th>
-        <th width="60%">Comment</th>
+        <th width="60%">Comment / HTML</th>
         <th width="12%">Publication Date</th>
         <th width="13%">Technical Report</th>
       </tr>
@@ -6875,6 +6882,10 @@ END
     my $mult = 0;
     my $type = 'Root Object';
     my $mnames = '';
+    # XXX this exposes a logic error here, since the HTML file naming
+    #     conventions assume that all data models in a file either define
+    #     a new major version or not (actually a reasonable assumption)
+    my $newmaj = 1;
     if ($models) {
         foreach my $model (@$models) {
             my $mname = $model->findvalue('@name');
@@ -6890,6 +6901,9 @@ END
 
             $mnames .= ' and ' if $mult;
             $mnames .= $mname;
+
+            my ($mmaj, $mmin) = ($mname =~ /:(\d+)\.(\d+)/);
+            $newmaj = 0 if $mmin;
         }   
     }
 
@@ -6912,6 +6926,29 @@ END
     $comment =~ s/{{def}}/$def/;
     $comment =~ s/{{err}}/$err/;
     $comment =~ s/{{ver}}/$ver/;
+
+    # add the HTML hyperlinks
+    my $suffices = [];
+    if ($schema || $support || $name !~ /\.xml$/) {
+        # no HTML for schema or support files
+    } elsif ($name =~ /^tr-(143|157)/) {
+        push @$suffices, '-dev';
+        push @$suffices, '-igd';
+    } else {
+        push @$suffices, '';
+    }
+    my $nsuffices = [];
+    foreach my $suffix (@$suffices) {
+        push @$nsuffices, qq{$suffix-last} unless $newmaj;
+    }
+    push @$suffices, @$nsuffices;
+    $comment .= qq{<ul>} if @$suffices;
+    foreach my $suffix (@$suffices) {
+        my $hname = $name;
+        $hname =~ s/(\.xml)$/$suffix.html/;
+        $comment .= qq{<li><a href="cwmp/$hname">$hname</a></li>};
+    }
+    $comment .= qq{</ul>} if @$suffices;
 
     $trname = $spec unless $trname;
     $trname = util_doc_name($trname, {verbose => 1});
@@ -8510,6 +8547,6 @@ This script is only for illustration of concepts and has many shortcomings.
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
 $Date: 2010/03/01 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#153 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#154 $
 
 =cut
