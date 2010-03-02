@@ -121,8 +121,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/03/01 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#155 $};
+my $tool_vers_date = q{$Date: 2010/03/02 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#156 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -184,7 +184,7 @@ my $showspec = 0;
 my $showsyntax = 0;
 my $special = '';
 my $thisonly = 0;
-my $tr106 = 'TR106a4';
+my $tr106 = 'TR-106';
 my $ugly = 0;
 my $upnpdm = 0;
 my $verbose = undef;
@@ -682,6 +682,10 @@ sub expand_bibliography
 
         print STDERR "expand_bibliography_reference id=$id name=$name\n" if
             $verbose > $vlevel;
+
+        # keep track of the latest available TR-106 reference
+        # XXX should be able to use bibid_cmp (or similar)
+        $tr106 = $id if $id =~ /^TR-106/ && $id gt $tr106;
 
         my $hash = {id => $id, name => $name, file => $file};
         foreach my $element (qw{title organization category date hyperlink}) {
@@ -3282,12 +3286,6 @@ sub specs_match
 # XXX it's a bit inefficient to do it this way
 sub null_node {}
 
-sub sara_node
-{
-    my ($node) = @_;
-    print "$node->{path}\n";
-}
-
 # Text report of node.
 sub text_node
 {
@@ -4625,10 +4623,9 @@ sub html_get_anchor
         $dontref = $hash->{dontref};
     }
 
-    # XXX this updates dontref for paths and values, but should also do so
-    #     for others so as to avoid references to undefined targets, e.g.
-    #     bibrefs (this is all rather heuristic, but the worst thing that
-    #     can happen is that there is a link to nowhere)
+    # XXX this updates dontref for paths, values and profiles, but this
+    #     might not be sufficient? (this is all rather heuristic, but the
+    #     worst thing that can happen is that there is a link to nowhere)
     if ($type eq 'path') {
         my $node = $objects->{$name};
         $node = $parameters->{$name} unless $node;
@@ -4638,6 +4635,9 @@ sub html_get_anchor
         $pname =~ s/\.[^\.]*$//;
         my $node = $parameters->{$pname};
         $dontref = $lastonly && $node->{lspec} && $node->{lspec} ne $lspec;
+    } elsif ($type eq 'profile') {
+        # XXX this isn't quite right, but no-one will notice!
+        $dontref = 1;
     }
 
     # generate the reference text
@@ -4800,7 +4800,7 @@ END
       <li>$anchor->{ref}</li>
 END
             my $preamble = <<END;
-The parameters defined in this specification make use of a limited subset of the default SOAP data types {{bibref|SOAP1.1}}.  The complete set of data types along with the notation used to represent these types is listed in {{bibref|$tr106|Section 3.2}}.  The following named data types are used by this specification.
+The parameters defined in this specification make use of a limited subset of the default SOAP data types {{bibref|SOAP1.1}}.  The complete set of data types, along with the notation used to represent these types, is listed in {{bibref|$tr106|Section 3.2}}.  The following named data types are used by this specification.
 END
             update_bibrefs($preamble, $node->{spec});
             # XXX sanity_node only detects invalid bibrefs in node and value
@@ -6688,9 +6688,9 @@ END
 #
 # Similar output to that on CWMP web page at http://www.broadband-forum.org/
 # cwmp.php.  Used to pass requirements to AMS.  Will hopefull evolve to be
-# more like the "PD-148" report.
+# more like the "OD-148" report.
 
-# implementation concepts are similar to those for the "PD-148" report.
+# implementation concepts are similar to those for the "OD-148" report.
 
 # Comments with informal template expansion:
 # - {{name}} => model name: name:m.n or "and"-separated list
@@ -6983,9 +6983,9 @@ END
 END
 }
 
-# HTML "PD-148" report of node.
+# HTML "OD-148" report of node.
 #
-# Similar output to that of PD-148 sections 2 and 3; pass each data model
+# Similar output to that of OD-148 sections 2 and 3; pass each data model
 # on the command line (duplication doesn't matter because no file is ever
 # read more than once).
 
@@ -7184,7 +7184,7 @@ END
         my $version_update_entry =
             qq{<a href="cwmp/$row->{file}$htmlsuff.html">$version_update</a>};
 
-        # XXX not quite the same as in PD-148 because ALL XML minor versions
+        # XXX not quite the same as in OD-148 because ALL XML minor versions
         #     are incremental (not worth keeping this column?)
         my $update_type = $version_update eq 'Initial' ? '-' :
             $version_update eq 'Major' ? 'Replacement' : 'Incremental';
@@ -8264,7 +8264,7 @@ report.pl - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR106a4)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
+B<report.pl> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
 =over
 
@@ -8508,9 +8508,11 @@ check which model, object, parameter or profile descriptions mention RFCs withou
 
 outputs only definitions defined in the files on the command line, not those from imported files
 
-=item B<--tr106=s(TR106a4)>
+=item B<--tr106=s(TR-106)>
 
 indicates the TR-106 version (i.e. the B<bibref> name) to be referenced in any automatically generated description text
+
+the default value is the latest version of TR-106 that is referenced elsewhere in the data model (or B<TR-106> if it is not referenced elsewhere)
 
 =item B<--upnpdm>
 
@@ -8546,7 +8548,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/03/01 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#155 $
+$Date: 2010/03/02 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#156 $
 
 =cut

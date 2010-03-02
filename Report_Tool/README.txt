@@ -10,7 +10,7 @@ Usage:
     [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec]
     [--showsyntax]
     [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc]
-    [--thisonly] [--tr106=s(TR106a4)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
+    [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
     [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
     *   cannot specify both --report and --special
@@ -251,9 +251,13 @@ Options:
         outputs only definitions defined in the files on the command line,
         not those from imported files
 
-    --tr106=s(TR106a4)
+    --tr106=s(TR-106)
         indicates the TR-106 version (i.e. the bibref name) to be referenced
         in any automatically generated description text
+
+        the default value is the latest version of TR-106 that is referenced
+        elsewhere in the data model (or TR-106 if it is not referenced
+        elsewhere)
 
     --upnpdm
         transforms output (currently HTML only) so it looks like a UPnP DM

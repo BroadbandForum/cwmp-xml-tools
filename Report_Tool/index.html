@@ -30,7 +30,7 @@
 <p>
 </p>
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p><strong>report.pl</strong> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR106a4)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
+<p><strong>report.pl</strong> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
 <ul>
 <li><strong><a name="cannot_specify_both_report_and_special" class="item">cannot specify both --report and --special</a></strong>
 
@@ -304,10 +304,11 @@
 <dd>
 <p>outputs only definitions defined in the files on the command line, not those from imported files</p>
 </dd>
-<dt><strong><a name="s" class="item"><strong>--tr106=s(TR106a4)</strong></a></strong></dt>
+<dt><strong><a name="s" class="item"><strong>--tr106=s(TR-106)</strong></a></strong></dt>
 
 <dd>
 <p>indicates the TR-106 version (i.e. the <strong>bibref</strong> name) to be referenced in any automatically generated description text</p>
+<p>the default value is the latest version of TR-106 that is referenced elsewhere in the data model (or <strong>TR-106</strong> if it is not referenced elsewhere)</p>
 </dd>
 <dt><strong><a name="upnpdm" class="item"><strong>--upnpdm</strong></a></strong></dt>
 
@@ -347,8 +348,8 @@
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:wlupton@2wire.com">wlupton@2wire.com</a>&gt;</p>
-<p>$Date: 2010/03/01 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#155 $</p>
+<p>$Date: 2010/03/02 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#156 $</p>
 
 </body>
 
