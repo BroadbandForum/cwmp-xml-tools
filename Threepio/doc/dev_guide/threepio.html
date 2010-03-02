@@ -1,0 +1,249 @@
+<html>
+<head>
+<title>The Threepio Engine</title>
+<h1>
+Threepio + TRminator Developer Guide
+</h1>
+<b>The Threepio Engine</b>
+</head>
+<HR>
+<h2>
+Index:
+</h2>
+<a href="#about">
+About The Threepio Engine
+</a>
+<br>
+<a href="#threepio">
+The Threepio Class
+</a>
+<br>
+<a href="#documenter">
+Documenter (Interface)
+</a>
+<br>
+<a href="#tabler">
+Tabler (Abstract Class)
+</a>
+<br>
+<a href="#th">
+Tag Handlers
+</a>
+<br>
+<a href="#components">
+Working with Components
+</a>
+<br>
+<a href="#profiles">
+Working with Profiles
+</a>
+<HR>
+
+<a name="about">
+<h2>
+About The The Threepio Engine
+</h2>
+</a>
+The Threepio Engine is designed to be a small, quick, extensible XML processor 
+focused on the creation of <a href="table.html#table">Tables</a> with a row for each item of a (currently) hard-coded "major item type."
+<br>
+There are also hard-coded column names, which are filled by the engine. Unlike the "major item type," 
+it is intended that the user can define and/or re-order these.
+<br>
+To see completed impelmentation of User Interfaces for the Threepio engine, see information on 
+<a href="trminator.html">the TRminator</a>, a set of user interfaces created for 
+<a href="http://www.broadband-forum.org/">
+the Broadband Forum
+</a> 
+for creating <a href="table.html#table">Tables</a> of their Data Models.
+<br>
+
+<a name="threepio">
+<h2>
+The Threepio class
+</h2>
+</a>
+<body>
+<b>Package:</b> threepio.engine
+<br>
+<b>Description:</b> 
+The Threepio class is intended to be a liason between User interfaces and the lower level classes use for creating <a href="table.html#table">Tables</a>.
+<br>
+It contains three methods that carry out useful sets of method calls, in three functions:
+<br>
+<br>
+* <a name="mode1">docToTable</a> is a method that creates a <a href="table.html#table">Table</a> for a Data Model from an XML document, involving any previous versions of the model, 
+as imported in the newest file. The table is then printed out to a file, in HTML format.
+<br>
+Options include diffing the most recent version and one previous.
+<br>
+<br>
+* diffTWoTables carries out the function of <a href="#model1">docToTable</a> for two different versions of the same Data Model, 
+and prints out a table of a diff between the two.
+<br>
+<br>
+* xmlToPrintedTable prints out an HTML table of the contents of a user-defined "container" from an XML document.
+<br>
+<br>
+<b>Requirements:</b> 
+none
+<br>
+<b>Uses:</b>
+<br>
+Threepio has methods that work well as "cookie-cutter" ones to call from a UI.
+<br>
+<a href="trminator.html">the TRminator</a>
+relies heavily on Threepio.
+</body>
+
+<a name="documenter">
+<h2>
+Documenter (Interface)
+</h2>
+</a>
+<body>
+<b>Package:</b> threepio.documenter
+<br>
+<b>Description:</b> 
+The Documenter Interface defines methods used to create Doc objects from raw XML.
+<br>
+These Doc objects are simply queues of XTag objects (a class that models a Tag from HTML or XML) and Strings.
+<br>
+Docs are much easier to work with than the raw XML.
+<br>
+<br>
+<b>Requirements:</b> 
+Documenters must be able to convert files based solely on their XML, or based on an Entry/
+<a href="classes.html#doublet">
+Doublet
+</a>
+that has a key of the file's path as a String, and a value of the model version.
+<br>
+<b>Uses:</b>
+<br>
+<a href="#threepio">
+Threepio 
+</a>
+uses the XDocumenter class to create XDoc objects (an implementation of Doc), when making <a href="table.html#table">Tables</a> out of XML Data Models.
+</body>
+
+<a name="tabler">
+<h2>
+Tabler (Abstract Class)
+</h2>
+</a>
+<body>
+<b>Package:</b> threepio.tabler
+<br>
+<b>Description:</b> 
+The Tabler converts Doc objects to <a href="table.html#table">Table</a> objects.
+<br>
+These Table objects are IndexedHashMaps, with keys of row names, and values of Rows (lists of cells).
+<br>
+<br>
+<b>Requirements:</b> 
+Tablers must produce some form of Table, with input of some form of Doc.
+<b>Uses:</b>
+<br>
+<a href="#threepio">
+Threepio 
+</a>
+uses a TablerController object, which uses Tabler objects to create the tables that are printed out.
+</body>
+
+<a name="tabler">
+<h2>
+Tabler (Abstract Class)
+</h2>
+</a>
+<body>
+<b>Package:</b> threepio.tabler
+<br>
+<b>Description:</b> 
+The Tabler class converts Doc objects to Table objects.
+<br>
+Table objects are IndexedHashMaps, with keys of row names, and values of Rows (lists of cells).
+<br>
+<br>
+<b>Requirements:</b> 
+Tablers must produce some form of Table, with input of some form of Doc.
+<b>Uses:</b>
+<br>
+<a href="#threepio">
+Threepio 
+</a>
+uses a TablerController object, which uses Tabler objects to create the tables that are printed out.
+</body>
+
+<a name="th">
+<h2>
+TagHandler (Abstract Class)
+</h2>
+</a>
+<body>
+<b>Package:</b> threepio.taghandler
+<br>
+<b>Description:</b> 
+TagHandler objects are used to process XML based on a single tag type.
+<br>
+<br>
+<b>Requirements:</b> 
+TagHandlers must have a type that they handle, 
+and MUST ONLY handle the information that starts with that tag type and ends with a closing tag of that type.
+<br>
+They MUST remove the information they handled. They MUST be named in a way that denotes the type they handle.
+<br>
+The HandlerFactory MUST be updated with this classname.
+<b>Uses:</b>
+<br>
+<a href="#tabler">
+Tablers
+</a>
+rely on TagHandlers to parse Docs, through use of the HandlerFactory. 
+Extension of GeneralTagHandler is often sufficient for creating a new TagHandler.
+</body>
+
+<a name="components">
+<h2>
+Working with Components
+</h2>
+</a>
+<body>
+Components (used in <a href="http://www.broadband-forum.org/">
+Broadband Forum
+</a> 
+Data Models) require extra parsing work. The ModelTabler class, a 
+<a href="#tabler">
+Tabler,
+</a>
+has two getComponents methods that return a <a href="table.html#table">Table</a> based on the component objects in the document. 
+</body>
+
+<a name="profiles">
+<h2>
+Working with Profiles
+</h2>
+</a>
+<body>
+Profiles (used in <a href="http://www.broadband-forum.org/">
+Broadband Forum
+</a> 
+Data Models) are defined in-line with the rest of the data in the Data Models, 
+but are usually not expected to be in the same table as the rest of the data. 
+For this reason, the ModelTabler class, a 
+<a href="#tabler">
+Tabler,
+</a>
+creates a single row for each profile in a separate <a href="table.html#table">Table</a>,
+which can optionally be included in a table with the <a href="table.html#table">Table</a> for the main data.
+</body>
+
+
+<br>
+<HR>
+<HR>
+<pre>
+<b>TRminator Documentation updated 2009/08/23</b>
+TRminator, Threepio XML Conversion API, and all other information provided in this file &copy;2009 UNH-IOL unless otherwise stated.
+</pre>
+</html>
