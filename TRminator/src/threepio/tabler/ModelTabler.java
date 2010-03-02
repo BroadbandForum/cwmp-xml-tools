@@ -14,6 +14,7 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import threepio.tabler.container.ColumnMap;
 import threepio.tabler.container.IndexedHashMap;
 import threepio.tabler.container.Row;
 import threepio.tabler.container.ModelTable;
@@ -42,7 +43,7 @@ public class ModelTabler extends Tabler
      * ModelTabler is a tabler for BBF models
      * @param cols - an IHM of the columns that the table should contain.
      */
-    public ModelTabler(IndexedHashMap<String, String> cols)
+    public ModelTabler(ColumnMap cols)
     {
         super(cols);
     }
@@ -112,7 +113,7 @@ public class ModelTabler extends Tabler
 
                 t = importTag(x);
 
-                if (t.getParams().get(param) != null && t.getParams().get(param).equals(paramValue))
+                if (t.getParams().get(param) != null && t.getParams().get(param).equalsIgnoreCase(paramValue))
                 {
                     inside = true;
                     containerType = t.getType();
@@ -228,7 +229,6 @@ public class ModelTabler extends Tabler
                     if (t.getType().equalsIgnoreCase(majorItemType) && majorItemName.indexOf(sepStr) != majorItemName.lastIndexOf(sepStr))
                     {
                         majorItemName = majorItemName.substring(0, majorItemName.lastIndexOf(sepStr));
-                        majorItemName = majorItemName.substring(0, majorItemName.lastIndexOf(sepStr));
                     }
                 }
 
@@ -296,11 +296,6 @@ public class ModelTabler extends Tabler
                             // componentTag parameters containsInCell this.
                             row.set(i, parameters.get(v));
 
-                            if (parameters.get(v).contains("null"))
-                            {
-                                System.err.println();
-                            }
-
                         }
                     }
                 }
@@ -310,11 +305,11 @@ public class ModelTabler extends Tabler
             x = d.poll();
 
             // toggle exit code if x is null, isn't a Tag, or it's a Tag, but it ends our highest object.
-            if (x == null || !(x instanceof XTag) || ((x instanceof XTag) && (((XTag) x).getType().equals(containerType))))
+            if (x == null || !(x instanceof XTag) || ((x instanceof XTag) && (((XTag) x).getType().equalsIgnoreCase(containerType))))
             {
                 inside = false;
 
-                if ((x instanceof XTag) && (((XTag) x).getType().equals(containerType)))
+                if ((x instanceof XTag) && (((XTag) x).getType().equalsIgnoreCase(containerType)))
                 {
                     // if this was another model componentTag, it's either another model, or a closer.
                     // skip over it for the next look at things.
@@ -379,15 +374,15 @@ public class ModelTabler extends Tabler
 
         XTag t = ((XTag) x);
         String k, v;
-        Entry ent;
+        Entry<String, String> ent;
 
         Iterator<Entry<String, String>> it = substitutes.entrySet().iterator();
         while (it.hasNext())
         {
             ent = it.next();
 
-            k = (String) ent.getKey();
-            v = (String) ent.getValue();
+            k =  ent.getKey();
+            v =  ent.getValue();
 
             // if the key doesn't exist, copy the componentTag's value for the key (which is the VALUE defined in this file).
 
@@ -431,7 +426,6 @@ public class ModelTabler extends Tabler
         HashMap<String, String> descriptions = new HashMap<String, String>();
         Entry<XTag, XDoc> ent;
         String path;
-        int j;
         String tmp;
         Row row;
         DescriptionHandler descrHandler = new DescriptionHandler();
@@ -456,7 +450,8 @@ public class ModelTabler extends Tabler
             {
                 while (!((o == null) || (o instanceof XTag && ((XTag) o).getParams().containsValue(model) && ((XTag) o).isCloser() && ((XTag) o).getType().equalsIgnoreCase("model"))))
                 {
-                    if (!((XTag) o).isCloser())
+
+                    if ((o instanceof XTag) && (!((XTag) o).isCloser()))
                     {
                         refs.add((XTag) o);
                     }

@@ -11,6 +11,7 @@ import threepio.documenter.XTag;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import threepio.tabler.container.ColumnMap;
 import threepio.tabler.container.IndexedHashMap;
 import threepio.tabler.container.Row;
 import threepio.tabler.container.Table;
@@ -40,7 +41,7 @@ public abstract class Tabler
     /**
      * the heading of the column to put versions into.
      */
-    static String VER_COL_NAME = "Version";
+    static String VER_COL_NAME = "VERSION";
 
     List<String> nonStandards;
 
@@ -60,14 +61,14 @@ public abstract class Tabler
     {
         substitutes = new HashMap<String, String>();
         setupSubstitutes();
-        columns = new IndexedHashMap<String, String>();
+        columns = new ColumnMap();
     }
 
     /**
      * constructor that takes in an IHM for column settings.
      * @param cols
      */
-    public Tabler(IndexedHashMap<String, String> cols)
+    public Tabler(ColumnMap cols)
     {
         this();
         columns = cols;
@@ -79,7 +80,7 @@ public abstract class Tabler
      * @param specials - a list of special values made by the programmer to use when Tabling.
      * @param cols
      */
-    public Tabler(IndexedHashMap<String, String> cols, List<String> specials)
+    public Tabler(ColumnMap cols, List<String> specials)
     {
         this();
         columns = cols;
@@ -174,7 +175,7 @@ public abstract class Tabler
      */
     boolean tagIsColumn(XTag tag)
     {
-        return columns.containsValue(tag.getType().toLowerCase());
+        return columns.containsValue(tag.getType());
     }
 
     /**

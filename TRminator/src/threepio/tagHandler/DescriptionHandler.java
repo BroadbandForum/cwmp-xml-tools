@@ -75,4 +75,10 @@ public class DescriptionHandler extends TagHandler
     {
         return "description";
     }
+
+     @Override
+    public String getFriendlyName()
+    {
+        return "Description";
+    }
 }

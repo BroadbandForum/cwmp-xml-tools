@@ -5,8 +5,6 @@
  */
 package threepio.container;
 
-import threepio.container.ExclusiveArrayList;
-import threepio.container.Versioned;
 import java.util.ArrayList;
 
 /**
@@ -29,11 +27,38 @@ public class ExclusiveVersionList<K extends Versioned> extends ExclusiveArrayLis
     @SuppressWarnings("empty-statement")
     public boolean contains(Object o)
     {
-            Versioned it = (Versioned) o;
+        Versioned it = (Versioned) o;
 
-            int i;
-            for (i = 0; (i < size() && !(get(i).getVersion().equals(it.getVersion()))); i++);
+        return ((find(it.getVersion())) >= 0);
+    }
 
-            return (i < size());
+    public boolean containsVersion(String v)
+    {
+        return ((find(v)) >= 0);
+    }
+
+    @SuppressWarnings("empty-statement")
+    public int find(String version)
+    {
+        int i;
+        for (i = 0; (i < size() && !(get(i).getVersion().equals(version))); i++);
+
+        if (i < size())
+        {
+            return i;
+        }
+        return -1;
+    }
+
+    public K get(String version)
+    {
+        int loc = find(version);
+
+        if (loc >= 0)
+        {
+            return this.get(loc);
+        }
+
+        return null;
     }
 }

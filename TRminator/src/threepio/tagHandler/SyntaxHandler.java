@@ -111,7 +111,7 @@ public class SyntaxHandler extends TagHandler
         row.set(where, value);
 
         // check for a need to find default.
-        where = columns.indexByValOf("default");
+        where = columns.indexByValOf("DEFAULT");
 
         if (where >= 0)
         {
@@ -119,7 +119,7 @@ public class SyntaxHandler extends TagHandler
         }
 
         // pop upto and </syntax>
-        while ((!(doc.peek() instanceof XTag)) || (doc.peek() instanceof XTag && !((XTag) doc.peek()).getType().equals("syntax")))
+        while ((!(doc.peek() instanceof XTag)) || (doc.peek() instanceof XTag && !((XTag) doc.peek()).getType().equals(getTypeHandled())))
         {
             x = doc.poll();
             tmp = null;
@@ -179,5 +179,11 @@ public class SyntaxHandler extends TagHandler
     public String getTypeHandled()
     {
         return "syntax";
+    }
+
+     @Override
+    public String getFriendlyName()
+    {
+        return "Type";
     }
 }

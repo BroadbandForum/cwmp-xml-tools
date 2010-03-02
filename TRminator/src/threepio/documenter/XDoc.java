@@ -83,11 +83,11 @@ public class XDoc extends Doc
 
         if (c == null)
         {
-            throw new NullPointerException();
+            throw new NullPointerException("adding a null collection to the document is not permitted");
         }
         if (c == this)
         {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("No adding a document to itself.");
         }
         boolean modified = false;
         Iterator e = c.iterator();
@@ -122,7 +122,7 @@ public class XDoc extends Doc
         // skip past parts that aren't import tags
         while (x != null &&
                 ((!(x instanceof XTag)) ||
-                ((x instanceof XTag) && (!(((XTag) x).getType().equals(type))))))
+                ((x instanceof XTag) && (!(((XTag) x).getType().equalsIgnoreCase(type))))))
         {
             trash.add(poll());
             x = peek();
@@ -130,7 +130,7 @@ public class XDoc extends Doc
 
         // now should be at next tag of type.
         // COULD BE A CLOSER.
-        return new Doublet(this, trash);
+        return new Doublet<XDoc, XDoc>(this, trash);
     }
 
     /**
@@ -164,6 +164,4 @@ public class XDoc extends Doc
     {
         return super.toString();
     }
-
-    
 }

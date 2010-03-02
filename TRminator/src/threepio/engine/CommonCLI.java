@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.Scanner;
 import threepio.documenter.XDocumenter;
 import threepio.filehandling.FileIntake;
-import threepio.tabler.container.IndexedHashMap;
 
 /**
  * CommonCLI holds some commonly useful CLI methods.
@@ -130,15 +129,15 @@ public abstract class CommonCLI {
         Integer choice;
         ArrayList<String> models;
 
-        // use the XDocumenter to get the names of models in the file.
-        models = doccer.getModelNames(fIn);
+        // use the XDocumenter to get the names of top-level models in the file.
+        models = doccer.getMainModelNames(fIn);
 
         switch (models.size())
         {
             case 0:
             {
                 // no models found.
-                throw new Exception(fIn.getName() + " doesn't contain any noticeable models.");
+                throw new Exception(fIn.getName() + " doesn't contain any top-level models.");
             }
 
             case 1:
@@ -203,7 +202,7 @@ public abstract class CommonCLI {
                 }
             }
         }
-        // never actually gets here (the list cant' have a size <0.
+        // never actually gets here (the list cant' have a size <0).
         return null;
     }
 
@@ -323,21 +322,4 @@ public abstract class CommonCLI {
 
         return true;
     }
-
-        /**
-     * setupCols fills the passed IndexedHashMap with the default values for columns, after emptying it.
-     * @param cols - the IHM to fill up.
-     */
-    public void setupCols(IndexedHashMap cols)
-    {
-        cols.clear();
-
-        cols.put("Name", "name");
-        cols.put("Type", "syntax");
-        cols.put("Write", "access");
-        cols.put("Description", "description");
-        cols.put("Default", "default");
-        cols.put("Version", "version");
-    }
-
 }

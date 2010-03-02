@@ -5,15 +5,16 @@
  */
 package trminator;
 
+import threepio.engine.UITools;
 import threepio.tabler.TablePostProcessor;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.logging.*;
-import threepio.engine.ThreepioEngine;
 import threepio.engine.CommonCLI;
+import threepio.engine.ThreepioEngine;
 import threepio.filehandling.FileIntake;
-import threepio.tabler.container.IndexedHashMap;
+import threepio.tabler.container.ColumnMap;
 import threepio.tabler.container.ModelTable;
 
 /**
@@ -49,14 +50,14 @@ public class TRminatorCLI extends CommonCLI
         Boolean diff = Boolean.TRUE, diffingTwo = Boolean.FALSE, prof = Boolean.FALSE, looks = Boolean.FALSE;
         String pathIn = null, pathTwo = null, pathOut = null, modelName = null, modelTwo = null, depends = new String();
         HashMap<String, String> userOpts = null;
-        IndexedHashMap<String, String> cols = new IndexedHashMap<String, String>();
+        ColumnMap cols = new ColumnMap();
         File fIn = null, fTwo = null, fOut = null;
         ModelTable table;
         TablePostProcessor processor = new TablePostProcessor();
         int typeCol;
 
         // set up the default columns.
-        cli.setupCols(cols);
+        UITools.setupCols(cols);
         System.out.println(TRminatorApp.appVersion + " is starting...\n");
 
         try

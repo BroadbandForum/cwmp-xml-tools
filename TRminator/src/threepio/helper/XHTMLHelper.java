@@ -3,7 +3,7 @@
  * Project: Threepio
  * Author: Jeff Houle
  */
-package threepio.printer;
+package threepio.helper;
 
 /**
  * XHTMLHelper provides some methods for use in XML and HTML handling.

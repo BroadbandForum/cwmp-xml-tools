@@ -17,4 +17,10 @@ public class TitleHandler extends GeneralTagHandler
     {
         return "title";
     }
+
+     @Override
+    public String getFriendlyName()
+    {
+        return "Title";
+    }
 }

@@ -23,6 +23,12 @@ public class HyperlinkHandler extends TagHandler{
        return "hyperlink";
     }
 
+     @Override
+    public String getFriendlyName()
+    {
+        return "Link";
+    }
+
     @Override
     public void handle(Doc doc, Doc before, XTag tag, IndexedHashMap columns, Row row, int where)
     {

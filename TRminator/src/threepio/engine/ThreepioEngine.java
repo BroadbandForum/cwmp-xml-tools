@@ -85,7 +85,7 @@ public class ThreepioEngine extends Engine
             {
                 try
                 {
-                    doc = doccer.convertFile(new Doublet(curModel, file.getPath()));
+                    doc = doccer.convertFile(new Doublet<String, String>(curModel, file.getPath()));
 
                 } catch (Exception ex)
                 {
@@ -159,8 +159,8 @@ public class ThreepioEngine extends Engine
         XTable biblio = null, profs = null;
 
 
-        biblio = ((ModelTable) table).getBiblio();
-        profs = ((ModelTable) table).getProfiles();
+        biblio = table.getBiblio();
+        profs = table.getProfiles();
 
         buffPre.append("<html>\n<head><title>" + table.getVersion() + "</title></head>\n");
 

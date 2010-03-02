@@ -93,7 +93,7 @@ public abstract class Table extends IndexedHashMap<String, Row> implements Versi
      */
     public void addDmr(String row, String dmr)
     {
-        if (! row.equals(dmr))
+        if (! row.equalsIgnoreCase(dmr))
         {
             dmrInfoMap.put(row, dmr);
         }

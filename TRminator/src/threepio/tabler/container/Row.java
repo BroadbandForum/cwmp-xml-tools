@@ -24,7 +24,7 @@ public class Row extends ArrayList<StringCell>
     /**
      * any extra objects that the programmer sees fit to add to the row.
      */
-    private ArrayList bucket;
+    private ArrayList<Object> bucket;
 
     /**
      * The real size of the row, regardless of what happens to the underlying
@@ -51,7 +51,7 @@ public class Row extends ArrayList<StringCell>
         capacity = size;
         empty = true;
         attributes = new HashMap<String, String>();
-        bucket = new ArrayList();
+        bucket = new ArrayList<Object>();
 
         for (int i = 0; i < size; i++)
         {
@@ -344,7 +344,7 @@ public class Row extends ArrayList<StringCell>
      * returns the "bucket" of objects the programmer may use.
      * @return the "bucket."
      */
-    public ArrayList getBucket()
+    public ArrayList<Object> getBucket()
     {
         return bucket;
     }

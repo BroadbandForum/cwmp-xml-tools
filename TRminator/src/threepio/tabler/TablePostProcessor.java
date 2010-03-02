@@ -386,8 +386,11 @@ public class TablePostProcessor
          *
          * @param input - a string from the table.
          * @param t - the table that the string is found in.
+         * @param rowName - the name of the row where a cell is being processed.
          * @param r - the row that the string is found in.
          * @param typeCol - the index of the column in the row that will have type information.
+         * @param refNames - reference ids mapped to reference names.
+         * @throws Exception - because this has to be overridden by a class that actually does this.
          */
         void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames) throws Exception
         {
@@ -513,7 +516,7 @@ public class TablePostProcessor
 
                         temp = buff.substring(start, end);
 
-                        if (temp.equals("{{" + mark + "}}"))
+                        if (temp.equalsIgnoreCase("{{" + mark + "}}"))
                         {
                             shortName = rowName;
 
@@ -547,7 +550,7 @@ public class TablePostProcessor
                                 index = -1;
                                 
 
-                                if (mark.equals("object"))
+                                if (mark.equalsIgnoreCase("object"))
                                 {
 
                                     moddedItem = searchItem + ".{i}.";
@@ -697,7 +700,7 @@ public class TablePostProcessor
         void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames)
         {
             ArrayList<BBFEnum> nums;
-            ArrayList buck;
+            ArrayList<Object> buck;
             StringBuffer buff, numBuff;
             String[] parts;
             String temp, eName, vName;
@@ -944,6 +947,11 @@ public class TablePostProcessor
                     empty = "<Empty>";
                 }
 
+                if (type.equalsIgnoreCase("&nbsp"))
+                {
+                    System.err.println();
+                }
+
                 theNull = getTheNull(type);
 
                 if (theNull == null)
@@ -1042,7 +1050,7 @@ public class TablePostProcessor
         // second replaces 0-argument patterns with anchored patterns:
         // "Possible patterns: p0, p1," and 1-argument patterns with links to them.
         @Override
-        @SuppressWarnings("empty-statement")
+        @SuppressWarnings({"empty-statement", "unchecked"})
         void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames)
         {
             StringBuffer buff, patBuff;
@@ -1050,7 +1058,7 @@ public class TablePostProcessor
             String[] parts;
             String temp, searchItem, otherName, tagName;
             ExclusiveArrayList<String> patterns;
-            ArrayList buck;
+            ArrayList<Object> buck;
             Row otherRow;
 
             result = input;

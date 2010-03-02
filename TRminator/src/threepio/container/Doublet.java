@@ -9,7 +9,7 @@ import java.util.Map.Entry;
 
 /**
  * Doublet is a simple implementation of an Entry from a map,
- * for use elsewhere than a map.
+ * for use elsewhere than in maps.
  * Unlike an entry in a map, the key can be changed.
  *
  * @see java.util.Map.Entry

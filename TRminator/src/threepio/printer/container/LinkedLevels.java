@@ -5,7 +5,7 @@
 package threepio.printer.container;
 
 import java.util.ArrayList;
-import threepio.printer.XHTMLHelper;
+import threepio.helper.XHTMLHelper;
 import threepio.tabler.Path;
 
 /**

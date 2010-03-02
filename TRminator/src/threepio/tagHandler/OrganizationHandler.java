@@ -17,4 +17,10 @@ public class OrganizationHandler extends GeneralTagHandler
     {
         return "organization";
     }
+
+     @Override
+    public String getFriendlyName()
+    {
+        return "Org";
+    }
 }

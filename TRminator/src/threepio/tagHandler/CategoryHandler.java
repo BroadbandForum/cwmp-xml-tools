@@ -17,4 +17,10 @@ public class CategoryHandler extends GeneralTagHandler{
     {
         return "category";
     }
+
+    @Override
+    public String getFriendlyName()
+    {
+        return "Category";
+    }
 }

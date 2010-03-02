@@ -140,7 +140,7 @@ public class XTable extends Table
 
         if (data != null)
         {
-            return (data.equals(s));
+            return (data.equalsIgnoreCase(s));
         }
 
         return false;
@@ -191,7 +191,7 @@ public class XTable extends Table
         {
 
             int end = path.lastIndexOf(DELIM);
-            if (path.endsWith("."));
+            if (path.endsWith("."))
             {
                 end = path.substring(0, end).lastIndexOf(DELIM);
             }
@@ -296,4 +296,13 @@ public class XTable extends Table
             }
         }
     }
+
+    @Override
+    public String toString()
+    {
+
+        return super.toString();
+    }
+
+
 }

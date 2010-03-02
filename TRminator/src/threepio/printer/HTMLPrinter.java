@@ -5,6 +5,7 @@
  */
 package threepio.printer;
 
+import threepio.helper.RegexHelper;
 import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -249,9 +250,9 @@ public class HTMLPrinter extends FilePrinter
         // storage for removed snippets
         ArrayList<String> tags = new ArrayList<String>();
 
-        // a pattern that matches <a name="blah">blah</a> OR a tag.
+        // a genericPattern that matches <a name="blah">blah</a> OR a tag.
 
-        Pattern pat = XTag.pattern;
+        Pattern pat = XTag.genericPattern;
         Matcher matcher = pat.matcher(body);
         String placeHold = "`";
         String lineBreak = "<br>";

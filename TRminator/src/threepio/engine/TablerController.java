@@ -19,6 +19,7 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 import threepio.filehandling.FileIntake;
 import threepio.tabler.container.*;
+import threepio.tagHandler.*;
 
 /**
  * TablerController makes use of the Tabler, by wrapping it, in order to make a full table,
@@ -28,6 +29,7 @@ import threepio.tabler.container.*;
  */
 public class TablerController
 {
+
     /**
      * The tabler that this controller will wrap.
      */
@@ -39,7 +41,7 @@ public class TablerController
      * @see IndexedHashMap
      * @param cols - the columns to put in the table.
      */
-    public TablerController(IndexedHashMap<String, String> cols)
+    public TablerController(ColumnMap cols)
     {
         myTabler = new ModelTabler(cols);
     }
@@ -63,16 +65,23 @@ public class TablerController
     public static XTable makeRefTable(XDoc doc) throws Exception
     {
         ModelTabler myTabler;
-        IndexedHashMap<String, String> cols = new IndexedHashMap<String, String>();
+        ColumnMap cols = new ColumnMap();
         XTable temp;
-        String data;
         XTable res = new XTable();
-        cols.put("Name", "name");
-        cols.put("Title", "title");
-        cols.put("Org", "organization");
-        cols.put("Category", "category");
+
+        NameHandler nh = new NameHandler();
+        TitleHandler th = new TitleHandler();
+        OrganizationHandler oh = new OrganizationHandler();
+        CategoryHandler ch = new CategoryHandler();
+        HyperlinkHandler hh = new HyperlinkHandler();
+
+
+        cols.put(nh.getFriendlyName(), nh.getTypeHandled());
+        cols.put(th.getFriendlyName(), th.getTypeHandled());
+        cols.put(oh.getFriendlyName(), oh.getTypeHandled());
+        cols.put(ch.getFriendlyName(), ch.getTypeHandled());
         cols.put("Date", "date");
-        cols.put("Link", "hyperlink");
+        cols.put(hh.getFriendlyName(), hh.getTypeHandled());
 
         myTabler = new ModelTabler(cols);
         String[] labels =
@@ -103,23 +112,38 @@ public class TablerController
     /**
      * makeWholeTable makes a table for a document (by filename),
      * and one for each old, imported version of the document (recursively).
-     *
+     * 
      * @param ID - the name of the document, NOT the filename.
      * @param path - the path for finding the doucment.
      * @param majorItemType - the type of Item to make rows for.
      * @param insertHeader - to insert a Header row or not, with colum names.
      * @return the table, layered on top of all old versions.
-     * @throws java.lang.Exception - when
+     * @throws Exception when file-related errors occurr.
      */
     public ModelTable makeWholeTable(String ID, String path, String majorItemType, boolean insertHeader) throws Exception
+    {
+        return makeWholeTable(ID, path, majorItemType, insertHeader, new ExclusiveVersionList<XTable>());
+    }
+
+    /**
+     * helper for makeWholeTable(String, String, String, boolean).
+     *
+     * @param ID - the name of the document, NOT the filename.
+     * @param path - the path for finding the doucment.
+     * @param majorItemType - the type of Item to make rows for.
+     * @param insertHeader - to insert a Header row or not, with colum names.
+     * @param bibs - tables for bibliographic information.
+     * @return the table, layered on top of all old versions.
+     * @throws java.lang.Exception - when file-related errors occurr.
+     */
+    private ModelTable makeWholeTable(String ID, String path, String majorItemType, boolean insertHeader, ExclusiveVersionList<XTable> bibs) throws Exception
     {
         ModelTable table = null, two = null;
         Importer imp;
         XDocumenter doccer = new XDocumenter();
-        XDoc doc, bibDoc;
+        XDoc doc, bibDoc = null;
         Doublet<String, String> tempDoublet;
         IndexedHashMap<String, ModelTable> tables = new IndexedHashMap<String, ModelTable>();
-        ExclusiveVersionList<XTable> bibs = new ExclusiveVersionList<XTable>();
         IndexedHashMap<String, String> inputs = new IndexedHashMap<String, String>();
         XTable refTable = null, masterRef = null;
         File file;
@@ -143,56 +167,26 @@ public class TablerController
         // then just skip it.
         for (int i = 0; i < inputs.size(); i++)
         {
-            tempDoublet = new Doublet(inputs.get(i));
+            tempDoublet = new Doublet<String, String>(inputs.get(i));
             doc = doccer.convertFile(tempDoublet);
 
-            // import the information defined prior to the tabled model.
             imp = new Importer();
-
 
             if (!doc.isEmpty())
             {
                 imp.importFrom(doc, doc.getVersion());
             }
 
-            if (imp.hasBiblio())
-            {
-                bibDoc = doccer.convertFile(new File(file.getParent() + FileIntake.fileSep + imp.getBiblio()));
-                refTable = makeRefTable(bibDoc);
-            } else
-            {
-                bibDoc = null;
-                refTable = null;
-            }
+            // do bib stuff
+            setbibRefs(imp, file, bibs, refTable, doc, bibDoc);
 
             // iterate through the docs that the document depends on,
             // making tables for them and the document
-            Iterator<Entry<String, String>> it = imp.getToTable().entrySet().iterator();
-            while (it.hasNext())
-            {
-                tempDoublet = new Doublet(it.next());
-
-                tempDoublet.setValue(file.getParent() + FileIntake.fileSep + tempDoublet.getValue());
-
-                if (!(inputs.containsKey(Tabler.abrevVersion(tempDoublet.getKey()))))
-                {
-                    // add to queue to process if it hasn't already been processed.
-                    inputs.put(tempDoublet);
-                    // System.err.println("adding input " + tempDoublet.getKey());
-                }
-            }
-
-            if (refTable != null)
-            {
-                bibs.add(refTable);
-            }
-
-            // get the table for the ith document
-            // System.err.println("making table for " + doc.getVersion());
+            inputs = compileInputs(imp, file, inputs);
 
             table = makeTable(doc, majorItemType, refTable);
 
-            System.out.println("INFO: made table for " + table.getVersion());
+            System.out.println("INFO: made table for " + table.getVersion() + "\nsize = " + table.size());
             System.out.println();
 
             // check to see if there were components,
@@ -201,17 +195,16 @@ public class TablerController
 
             if (!table.getComponents().isEmpty())
             {
-                 if (inputs.size() < 2)
-                    {
-                        throw new Exception("no other inputs to insert into");
-                    }
+                if (inputs.size() < 2)
+                {
+                    throw new Exception("no other inputs to insert into");
+                }
 
-                    two = makeWholeTable(inputs.get(inputs.size() - 1).getKey(),
-                            inputs.get(inputs.size() - 1).getValue(), majorItemType, insertHeader);
+                two = makeWholeTable(inputs.get(inputs.size() - 1).getKey(),
+                        inputs.get(inputs.size() - 1).getValue(), majorItemType, insertHeader);
 
-                     table = insertComponents(two, table.getComponents(), table.getVersion());
+                table = insertComponents(two, table.getComponents(), table.getVersion());
             }
-            
 
             table.setBiblio(refTable);
             table.makeStale();
@@ -221,23 +214,9 @@ public class TablerController
         }
 
         // compile the master bibliographic table
-        for (int i = 0; i < bibs.size(); i++)
-        {
-            if (masterRef == null)
-            {
-                masterRef = bibs.get(i);
-            } else
-            {
-                for (int j = 0; j < bibs.get(i).size(); j++)
-                {
-                    if (!(masterRef.containsKey(bibs.get(i).get(j).getKey())))
-                    {
-                        masterRef.add(bibs.get(i).get(j));
-                    }
-                }
-            }
-        }
+        masterRef = makeMasterRef(masterRef, bibs);
 
+        // make the actual table.
         table = new ModelTable();
 
         if (insertHeader)
@@ -259,9 +238,109 @@ public class TablerController
     }
 
     /**
+     * Compiles a list of tables based on the tables that the file references
+     * and/or that the tabler needs to make the table for the file.
+     * @param imp - the importer that was used on the file.
+     * @param file - the file that is being tabled.
+     * @param inputs - the list of tables already made. This is modified!!
+     * @return the modified list of tables.
+     */
+    private IndexedHashMap<String, String> compileInputs(Importer imp, File file, IndexedHashMap<String, String> inputs)
+    {
+        Doublet<String, String> tempDoublet;
+        Iterator<Entry<String, String>> it = imp.getToTable().entrySet().iterator();
+        while (it.hasNext())
+        {
+            tempDoublet = new Doublet<String, String>(it.next());
+
+            tempDoublet.setValue(file.getParent() + FileIntake.fileSep + tempDoublet.getValue());
+
+            if (!(inputs.containsKey(Tabler.abrevVersion(tempDoublet.getKey()))))
+            {
+                // add to queue to process if it hasn't already been processed.
+                inputs.put(tempDoublet);
+                // System.err.println("adding input " + tempDoublet.getKey());
+            }
+        }
+
+        return inputs;
+    }
+
+    /**
+     * Imports the documents requried for bibliographic information
+     * and updates the pointers for the bibliograhic document and reference table.
+     * @param imp - the intatntiated importer that has already imported from a document.
+     * @param file - the main file the table is being made from.
+     * @param bibs - the list of tables containing bibliographic information
+     * @param refTable - the pointer for the reference table for the main document.
+     * @param doc - the pionter for the main document.
+     * @param bibDoc - the pointer for the bibliographic document for the main document.
+     * @throws Exception - upon an importing failure.
+     */
+    private void setbibRefs(Importer imp, File file, ExclusiveVersionList<XTable> bibs, XTable refTable, XDoc doc, XDoc bibDoc) throws Exception
+    {
+        // import the information defined prior to the tabled model.
+        XDocumenter doccer = new XDocumenter();
+
+        if (imp.hasBiblio())
+        {
+            if (bibs.containsVersion(imp.getBiblio()))
+            {
+                // we already have this information, don't re-make anything.
+                refTable = bibs.get(imp.getBiblio());
+            } else
+            {
+                // make new doc and table for biblio information.
+                bibDoc = doccer.convertFile(new File(file.getParent() + FileIntake.fileSep + imp.getBiblio()));
+                refTable = makeRefTable(bibDoc);
+
+                if (refTable != null)
+                {
+                    // the table was made, so add it to the library.
+                    bibs.add(refTable);
+                }
+            }
+        } else
+        {
+            bibDoc = null;
+            refTable = null;
+        }
+    }
+
+    /**
+     * helper for makeWholeTable.
+     * Compiles or re-compiles a master reference table.
+     * @param masterRef - the master reference table (or null)
+     * @param bibs - the list of bibliographic documents.
+     * @return - an XTable of all reference information.
+     */
+    private XTable makeMasterRef(XTable masterRef, ExclusiveVersionList<XTable> bibs)
+    {
+        for (int i = 0; i < bibs.size(); i++)
+        {
+            if (masterRef == null)
+            {
+                masterRef = bibs.get(i);
+            } else
+            {
+                for (int j = 0; j < bibs.get(i).size(); j++)
+                {
+                    if (!(masterRef.containsKey(bibs.get(i).get(j).getKey())))
+                    {
+                        masterRef.add(bibs.get(i).get(j));
+                    }
+                }
+            }
+        }
+
+        return masterRef;
+    }
+
+    /**
      * sortAndMelt sorts the tables so that the oldest is first and the newest is last.
      * it then overlaps the tables, using the differ
      * @param tables - the list of tables to work with.
+     * @param majorItemType - the type that the body of the table represents.
      * @return the table that is the result of the operations.
      * @throws java.lang.Exception - when diffing fails.
      */
@@ -277,6 +356,7 @@ public class TablerController
      * a table representing all of the data of all the tables.
      * THIS CAN ONLY BE USED ON A SORTED LIST OF TABLES.
      * @param tables - the tables to work with.
+     * @param majorItemType - the type that the body of the table represents.
      * @return the table that is the result of the melting.
      * @throws java.lang.Exception
      */
@@ -296,7 +376,7 @@ public class TablerController
                 // the result table now has "old" data on it,
                 // since there is a new one going into it.
                 result.makeStale();
-               // System.err.println(tables.get(i).getValue().getDMRs().size());
+                // System.err.println(tables.get(i).getValue().getDMRs().size());
                 result = differ.diffTable(tables.get(i).getValue(), result, majorItemType, myTabler.verColNum());
             } else
             {
@@ -351,6 +431,7 @@ public class TablerController
     /**
      * accesses the parsing method of the wrapped Tabler, using this document and reference table.
      * @param doc - the document
+     * @param majorItemType - the top-level type for the document.
      * @param refTable - the reference table for the tabling process.
      * @return the table made by the tabler.
      * @throws Exception - if anything goes wrong when tabling.
@@ -390,12 +471,12 @@ public class TablerController
             prevObj = params.get("dmr:previousObject");
 
             prevPath = params.get("path");
-            
+
             if (prevObj != null)
             {
                 prevPath = prevPath + prevObj;
             }
-            
+
             // will find the spot after the previous object.
             where = table.findSpotAfter(prevPath);
 
@@ -446,7 +527,7 @@ public class TablerController
      * @return the index of the column that defines the type of object in a row, -1 if there isnt' one.
      * @see Tabler#typeColNum() 
      */
-    public  int typeColNum()
+    public int typeColNum()
     {
         return myTabler.typeColNum();
     }

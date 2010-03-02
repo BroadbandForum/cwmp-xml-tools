@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * @see XDoc
  * @author jhoule
  */
-public abstract class Doc extends ConcurrentLinkedQueue implements Versioned
+public abstract class Doc extends ConcurrentLinkedQueue<Object> implements Versioned
 {
     String version;
     String path;
@@ -68,7 +68,7 @@ public abstract class Doc extends ConcurrentLinkedQueue implements Versioned
      */
     public boolean contains(String str)
     {
-        Iterator it = this.iterator();
+        Iterator<Object> it = this.iterator();
 
         Object o;
 
@@ -92,7 +92,7 @@ public abstract class Doc extends ConcurrentLinkedQueue implements Versioned
      */
     public boolean containsTagType(String type)
     {
-        Iterator it = this.iterator();
+        Iterator<Object> it = this.iterator();
         Object o;
 
         while (it.hasNext())
@@ -143,7 +143,7 @@ public abstract class Doc extends ConcurrentLinkedQueue implements Versioned
      * @return the result of the addition.
      */
     @Override
-    public abstract boolean addAll(Collection c);
+    public abstract boolean addAll(Collection<? extends Object> c);
 
     @Override
     public String toString()

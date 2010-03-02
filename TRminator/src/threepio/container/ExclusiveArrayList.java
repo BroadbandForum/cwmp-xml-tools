@@ -57,6 +57,7 @@ public class ExclusiveArrayList<K> extends ArrayList<K>
      /**
      * Adding overridden to only accept one instance of a K
      * @param element - the K to try to add.
+      * @param index - the index to place the item.
      */
     @Override
     public void add(int index, K element)

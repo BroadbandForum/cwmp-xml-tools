@@ -86,7 +86,7 @@ public class Importer
 
         x = doc.peek();
 
-        while (x instanceof XTag && ((XTag) x).getType().equals("import"))
+        while (x instanceof XTag && ((XTag) x).getType().equalsIgnoreCase("import"))
         {
             imTag = (XTag) x;
 
@@ -106,9 +106,9 @@ public class Importer
                 doc.poll();
                 x = doc.peek();
 
-                while (x instanceof XTag && !((XTag) x).isCloser() && !((XTag) x).getType().equals("import"))
+                while (x instanceof XTag && !((XTag) x).isCloser() && !((XTag) x).getType().equalsIgnoreCase("import"))
                 {
-                    if (((XTag) x).getType().equals("model"))
+                    if (((XTag) x).getType().equalsIgnoreCase("model"))
                     {
                         modelTag = (XTag) x;
 

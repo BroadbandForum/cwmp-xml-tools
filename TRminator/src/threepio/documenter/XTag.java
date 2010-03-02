@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map.Entry;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -20,16 +21,15 @@ import java.util.regex.Pattern;
  */
 public class XTag
 {
+
     /**
      * signifys if it's a closing tag or not.
      */
     private boolean closer;
-
     /**
      * signifies if it's a one-line, "self-terminating" tag or not.
      */
     private boolean selfCloser;
-
     /**
      * the type (first word) of the tag
      */
@@ -39,6 +39,11 @@ public class XTag
      * entered into a HashMap.
      */
     private HashMap<String, String> parameters;
+    /**
+     * A CSV list of the artificially inserted parameters.
+     * Keeps them from showing up when spitting tag back out.
+     */
+    private String artificial = "type,";
 
     /**
      * no-argument constructor.
@@ -58,13 +63,20 @@ public class XTag
     {
         this();
 
+        // check against formatting requirements.
+        Matcher match = genericMatcher(raw);
+        if (!match.matches())
+        {
+            throw new Exception("raw input does not match required tag format!");
+        }
+
         /**
-         * placekeeper for spaces
+         * cursor for spaces
          */
         int space = -1;
 
         /**
-         * placekeeper for right angle brackets (greater thans).
+         * cursor for right angle brackets (greater thans).
          */
         int rbracket = -1;
 
@@ -110,8 +122,8 @@ public class XTag
             // make sure tag ends with right angle bracket (greater than)
             if (rbracket < 0)
             {
-                System.err.println("can't find a right bracket... was there no space?");
-                throw new Exception("File format error.");
+                System.err.println("can't find a right bracket.");
+                throw new Exception("Tag formating error.");
             }
 
             // get parameters. here, keys becomes both keys and values, separated
@@ -146,7 +158,7 @@ public class XTag
                 parameters.put(key, value);
             }
 
- 
+            //add the artificial parameter type.
             parameters.put("type", type);
         }
     }
@@ -190,11 +202,13 @@ public class XTag
     /**
      * returns the string representation of this XTag.
      * parameters are NOT guaranteed to be in original order.
+     * artificially created tags for other purposes are NOT included.
      * @return the Tag as a string.
      */
     @Override
     public String toString()
     {
+        String k, v;
         StringBuffer buff = new StringBuffer();
 
         // open tag
@@ -202,19 +216,26 @@ public class XTag
         buff.append(getType());
 
         // put parameters in 
-        Iterator<Entry<String, String>> it = (Iterator<Entry<String, String>>) parameters.entrySet().iterator();
+        Iterator<Entry<String, String>> it = parameters.entrySet().iterator();
         Entry<String, String> ent = null;
 
         // parse through parameters.
         while (it.hasNext())
         {
             ent = it.next();
-            buff.append(" ");
+            k = ent.getKey();
 
-            buff.append(ent.getKey());
-            buff.append("=\"");
-            buff.append(ent.getValue());
-            buff.append("\"");
+            // insert non-artificial params only.
+            if (!(artificial.contains(k)))
+            {
+                v = ent.getValue();
+                buff.append(" ");
+
+                buff.append(k);
+                buff.append("=\"");
+                buff.append(v);
+                buff.append("\"");
+            }
         }
 
         // close tag
@@ -246,12 +267,131 @@ public class XTag
     }
 
     /**
-     * Case-sensitive case-matching regex for a tag.
+     * constructs a String for a Pattern for matching tags of any type
+     * @param canClose - if true, the tag can be a closing tag, otherwise it cannot.
+     * @param caseSensitive - if true, CASE_INSENSITIVE option does not matter. If false, CASE_INSENSITIVE is needed to include lowercase tags.
+     * @param allowWhiteSpaces - if true, will allow matches to tags with erroneous whitespace inside tag.
+     * @return the string for the pattern.
+     * @see Pattern#CASE_INSENSITIVE
      */
-    public static String patternString = "</?[a-zA-Z]*[^>]*>";
+    public static String genericPatternString(boolean canClose, boolean allowWhiteSpaces, boolean caseSensitive)
+    {
+        StringBuffer buff = new StringBuffer();
+
+        // start pattern of tag type
+        buff.append("[");
+
+        if (caseSensitive)
+        {
+            // account for case Sensitivity by adding the lowercase set of characters.
+            // in truth, this subverts case sensitivity.
+            buff.append("a-z");
+        }
+
+        // finish the tag type pattern
+        buff.append("A-Z|\\?|\\!]+");
+
+        return typedPatternString(canClose, allowWhiteSpaces, buff.toString());
+    }
 
     /**
-     * Case-INSENSITIVE pattern regex for a tag (cheap).
+     * constructs a pattern that is used to match a type of tag.
+     * @param canClose - if true, the tags found can contain the '/' prior to the type, in order to close an object.
+     * @param allowWhiteSpaces - if true, will allow matches to tags with erroneous whitespace inside tag.
+     * @param type - the type of tag to match.
+     * @return a string representing the Pattern.
      */
-    public static Pattern pattern = Pattern.compile("</?[A-Z]*[^>]*>", Pattern.CASE_INSENSITIVE);
+    public static String typedPatternString(boolean canClose, boolean allowWhiteSpaces, String type)
+    {
+        StringBuffer buff = new StringBuffer();
+
+        // open tag.
+        buff.append("<");
+
+        if (allowWhiteSpaces)
+        {
+            buff.append("\\s*");
+        }
+
+        if (canClose)
+        {
+            // make pattern accept tags that close objects.
+            buff.append("/?");
+        }
+
+        // add tag type
+        buff.append(type);
+
+        // add the optional parameters pattern
+        buff.append("[^>]*");
+
+        if (allowWhiteSpaces)
+        {
+            buff.append("\\s*");
+        }
+
+        // close the tag
+        buff.append(">");
+
+        return buff.toString();
+    }
+    /**
+     * Case-INSENSITIVE Pattern for a tag (cheap).
+     */
+    public static Pattern genericPattern = Pattern.compile(genericPatternString(true, true, false), Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Case-INSENSITIVE Pattern for a type of tag (cheap).
+     * @param type - the type of tag to match.
+     * @return a Pattern for the type of tag.
+     */
+    public static Pattern typedPattern(String type)
+    {
+        return Pattern.compile(typedPatternString(true, true, type), Pattern.CASE_INSENSITIVE);
+    }
+
+    /**
+     * Case-INSENSITIVE Pattern for a type of tag(cheap). Option to include closing tags or not.
+     * @param type - the type of tag to match.
+     * @param canClose - iff true, closing tags match, otherwise, they do not.
+     * @return a Pattern for the type of tag.
+     */
+    public static Pattern typedPattern(String type, boolean canClose)
+    {
+        return Pattern.compile(typedPatternString(canClose, true, type), Pattern.CASE_INSENSITIVE);
+    }
+
+    /**
+     * A matcher for the genericPattern 
+     * @param str - the string to find matches in.
+     * @return a Matcher for finding matches in the string.
+     * @see #genericPattern
+     */
+    public static Matcher genericMatcher(String str)
+    {
+        return genericPattern.matcher(str);
+    }
+
+    /**
+     * a Matcher for the typedPattern. Opiton to include closing tags or not.
+     * @param str - the string to find matches in.
+     * @param type - the type of tags to match.
+     * @param canClose - iff true, closing tags match, otherwise they do not.
+     * @return a Matcher for finding matches in the string.
+     */
+    public static Matcher typedMatcher(String str, String type, boolean canClose)
+    {
+        return typedPattern(type, canClose).matcher(str);
+    }
+
+    /**
+     * a Matcher for typedPattern.
+     * @param str - the string to find matches in.
+     * @param type - the type of tags to match.
+     * @return a matcher for finding matches in the string.
+     */
+    public static Matcher typedMatcher(String str, String type)
+    {
+        return typedPattern(type).matcher(str);
+    }
 }

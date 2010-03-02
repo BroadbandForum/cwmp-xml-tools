@@ -3,7 +3,7 @@
  * Project: Threepio
  * Author: Jeff Houle
  */
-package threepio.printer;
+package threepio.helper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,9 +25,10 @@ public class RegexHelper{
      */
     public static ArrayList<String> extractAll (String regex, String body)
     {
-        ArrayList list = new ArrayList<String>();
-        Pattern pat = Pattern.compile(regex);
+        ArrayList<String> list = new ArrayList<String>();
+        Pattern pat = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
         Matcher matcher = pat.matcher(body);
+
 
         while (matcher.find())
         {
@@ -45,7 +46,7 @@ public class RegexHelper{
      */
     public static ArrayList<String> extractAll (Matcher m, String body)
     {
-         ArrayList list = new ArrayList<String>();
+         ArrayList<String> list = new ArrayList<String>();
 
          m.reset();
         while (m.find())

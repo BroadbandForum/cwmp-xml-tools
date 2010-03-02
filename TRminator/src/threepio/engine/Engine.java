@@ -17,6 +17,7 @@ import threepio.filehandling.FileIntake;
 import threepio.printer.FilePrinter;
 import threepio.tabler.ModelTableDiffer;
 import threepio.tabler.ModelTabler;
+import threepio.tabler.container.ColumnMap;
 import threepio.tabler.container.IndexedHashMap;
 import threepio.tabler.container.ModelTable;
 import threepio.tabler.container.Row;
@@ -43,7 +44,7 @@ public abstract class Engine
      * @return true if the table was produced correctly, false if there was a problem.
      * @throws Exception - in the case of any error returned by subroutines.
      */
-    public boolean docToPrintedModelTable(IndexedHashMap<String, String> cols, String ID, String pathIn, File fileOut, String majorItemType, boolean diff, boolean profiles, boolean looks) throws Exception
+    public boolean docToPrintedModelTable(ColumnMap cols, String ID, String pathIn, File fileOut, String majorItemType, boolean diff, boolean profiles, boolean looks) throws Exception
     {
         return printModelTable(docToModelTable(cols, ID, pathIn, majorItemType), fileOut, diff, profiles, looks);
     }
@@ -70,7 +71,7 @@ public abstract class Engine
      * @return the table based on the input.
      * @throws Exception - in the case of any error returned by subroutines.
      */
-    public ModelTable docToModelTable(IndexedHashMap<String, String> cols, String ID, String pathIn, String majorItemType) throws Exception
+    public ModelTable docToModelTable(ColumnMap cols, String ID, String pathIn, String majorItemType) throws Exception
     {
         ModelTable table = null;
         TablerController controller = new TablerController(cols);
@@ -138,7 +139,7 @@ public abstract class Engine
      * @return true if the conversion worked, false if not.
      * @throws Exception - upon most any error.
      */
-    public boolean xmlToPrintedModelTable(IndexedHashMap<String, String> cols, FilePrinter printer, String ID, String pathIn, File fileOut) throws Exception
+    public boolean xmlToPrintedModelTable(ColumnMap cols, FilePrinter printer, String ID, String pathIn, File fileOut) throws Exception
     {
         return printTable((ModelTable) xmlToModelTable(cols, ID, pathIn), printer, fileOut);
     }
@@ -152,7 +153,7 @@ public abstract class Engine
      * @throws Exception - when there is a problem converting.
      * @see XTable
      */
-    private XTable xmlToModelTable(IndexedHashMap<String, String> cols, String ID, String pathIn) throws Exception
+    private XTable xmlToModelTable(ColumnMap cols, String ID, String pathIn) throws Exception
     {
         ModelTabler mTabler = new ModelTabler(cols);
         XDocumenter documenter = new XDocumenter();
@@ -188,7 +189,7 @@ public abstract class Engine
      * @return true if the conversion worked, false if not.
      * @throws Exception - upon most any error.
      */
-    public ModelTable diffTwoTables(IndexedHashMap<String, String> cols, String ID1, String pathIn1, String ID2, String pathIn2, File fileOut, String majorItemType) throws Exception
+    public ModelTable diffTwoTables(ColumnMap cols, String ID1, String pathIn1, String ID2, String pathIn2, File fileOut, String majorItemType) throws Exception
     {
         TablerController controller = new TablerController(cols);
         Doublet<String, Row> header = controller.getHeader();

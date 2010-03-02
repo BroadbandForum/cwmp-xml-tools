@@ -6,6 +6,7 @@
  */
 package trminator;
 
+import threepio.engine.UITools;
 import threepio.tabler.TablePostProcessor;
 import threepio.engine.ThreepioEngine;
 import threepio.documenter.XDocumenter;
@@ -18,11 +19,10 @@ import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.JRadioButton;
-
 import javax.swing.JTextField;
 import threepio.filehandling.FileIntake;
 import threepio.printer.HTMLPrinter;
-import threepio.tabler.container.IndexedHashMap;
+import threepio.tabler.container.ColumnMap;
 import threepio.tabler.container.ModelTable;
 
 /**
@@ -35,12 +35,35 @@ import threepio.tabler.container.ModelTable;
 public class TRminatorGUI extends javax.swing.JFrame
 {
 
+    /**
+     * input and output Fiel objects
+     */
     private File fileIn1, fileIn2, fileOut;
+
+    /**
+     * A flag that keeps the program from running if in a bad state.
+     */
     private boolean goodToGo;
+
+    /**
+     * The name of the "containing" object to make tables for.
+     */
     private String containerName;
+
+    /**
+     * lists of names of "models" in the document.
+     */
     private ArrayList<String> modelNames1, modelNames2;
+
+    /**
+     * flag for producing debug output
+     */
     private boolean debugMode = false;
-    private IndexedHashMap cols = new IndexedHashMap();
+
+    /**
+     * Columns mapped to the "attributes" of objects/parameters they list.
+     */
+    private ColumnMap cols = new ColumnMap();
 
     /**
      * Creates new TRminatorGUI form.
@@ -53,27 +76,11 @@ public class TRminatorGUI extends javax.swing.JFrame
         this.setTitle("TRminator");
         lblVersion.setText(appVersion);
         clearFields(true);
-        setupColumns();
+        UITools.setupCols(cols);
         updateFormForMode();
     }
 
-    /**
-     * Sets up the columns map, with default values.
-     */
-    void setupColumns()
-    {
-        // put entries IN ORDER for columns here.
-        // first string is friendly name, second is hard-coded name.
-        // hard-coded name is IMPORTANT to have EXACT.
-
-        cols.put("Name", "name");
-        cols.put("Type", "syntax");
-        cols.put("Write", "access");
-        cols.put("Description", "description");
-        cols.put("Default", "default");
-        cols.put("Version", "version");
-    }
-
+    
     /** This method is called from within the constructor to
      * initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is
@@ -889,7 +896,7 @@ public class TRminatorGUI extends javax.swing.JFrame
 
             default:
                 // multiple models. ask the user.
-                ListChooserPanel pnlMod = new ListChooserPanel(doccer.getModelNames(fileIn1), txtModelName1.getText(), diaOptions);
+                ListChooserPanel pnlMod = new ListChooserPanel(doccer.getMainModelNames(fileIn1), txtModelName1.getText(), diaOptions);
 
                 diaOptions.setTitle("Choose Model #" + which);
                 diaOptions.setContentPane(pnlMod);
@@ -1155,7 +1162,7 @@ public class TRminatorGUI extends javax.swing.JFrame
             {
                 try
                 {
-                    modelNames1 = doccer.getModelNames(fileIn1);
+                    modelNames1 = doccer.getMainModelNames(fileIn1);
                     changeModel(1);
 
                     missingDepends = seeThree.getMissingDepends(fileIn1.getAbsolutePath(), txtModelName1.getText());
@@ -1193,8 +1200,8 @@ public class TRminatorGUI extends javax.swing.JFrame
             {
                 try
                 {
-                    modelNames1 = doccer.getModelNames(fileIn1);
-                    modelNames2 = doccer.getModelNames(fileIn2);
+                    modelNames1 = doccer.getMainModelNames(fileIn1);
+                    modelNames2 = doccer.getMainModelNames(fileIn2);
                     changeModel(1);
                     changeModel(2);
 
@@ -1398,8 +1405,9 @@ public class TRminatorGUI extends javax.swing.JFrame
     }
 
     /**
-     * Clears the fields, with a flag whether to clear output fields.
+     * Clears the fields, with a flags for different fields.
      * @param includeOut - tells the method to include output fields or not.
+     * @param includeIn - tells the method to include input fileds or not.
      */
     private void clearFields(boolean includeOut, boolean includeIn)
     {

@@ -27,6 +27,14 @@ public abstract class TagHandler
     public abstract String getTypeHandled();
 
     /**
+     * returns the string that should be used when labeling the results of this
+     * tag parser.
+     * @return
+     */
+    public abstract String getFriendlyName();
+
+
+    /**
      * handle (XDoc) handles the document, popping the parts it parses.
      * what is left of the document is what is after the closing tag of the part
      * the handler was to parse.

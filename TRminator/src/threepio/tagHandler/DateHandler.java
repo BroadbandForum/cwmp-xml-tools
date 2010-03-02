@@ -18,4 +18,10 @@ public class DateHandler extends GeneralTagHandler {
         return "date";
     }
 
+     @Override
+    public String getFriendlyName()
+    {
+        return "Date";
+    }
+
 }
