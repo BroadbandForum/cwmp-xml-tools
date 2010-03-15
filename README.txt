@@ -17,6 +17,6 @@ TRminator: main directory for Jeff Houle's BBF XML document parser/tabler tool
 	* src: source directory
 		- threepio: source for the XML parsing/tabling framework
 		- trminator: source for the BBF-specific processors and user interfaces that run on top of threepio
-		
-ReportGUI: Grafical user interface for Report_Tool
+
+ReportGUI: Graphical user interface for Report_Tool
 	* ReportGuiSetup.exe: Windows installer including report.exe and ReportGUI
