@@ -31,7 +31,7 @@ public class TRminatorApp extends ThreepioApp
     /**
      * the version of the application
      */
-    public static final String appVersion = "TRminator RC5 (100301)";
+    public static final String appVersion = "JudgementDay (100318";
     protected static final String strUseGui = "-gui", strUseCli = "-cli";
     protected static final boolean CLIMODE = Boolean.FALSE, GUIMODE = Boolean.TRUE;
     ////// Begin new UI work ////////////
