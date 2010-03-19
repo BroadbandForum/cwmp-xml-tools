@@ -5,11 +5,8 @@
 package threepio.engine;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Scanner;
 import threepio.container.HashList;
-import threepio.documenter.XDocumenter;
 import threepio.filehandling.FileIntake;
 
 /**

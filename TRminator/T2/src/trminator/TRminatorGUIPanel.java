@@ -73,7 +73,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
     {
         initComponents();
         this.setTitle("TRminator");
-        // lblVersion.setText(appVersion);
+        //lblVersion.setText(appVersion);
         clearFields(true);
         cols = cols = TRCols.getDefaultColMap();
         updateFormForMode();
@@ -1471,7 +1471,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
             @Override
             public void run()
             {
-                new TRminatorGUIPanel(appVersion).setVisible(true);
+                new TRminatorGUIPanel().setVisible(true);
             }
         });
     }

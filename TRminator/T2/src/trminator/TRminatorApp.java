@@ -13,8 +13,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import threepio.container.HashList;
 import threepio.engine.ThreepioApp;
+import threepio.engine.ThreepioEngine;
+import threepio.filehandling.FileIntake;
 import threepio.tabler.TablePostProcessor;
 import threepio.tabler.container.ColumnMap;
+import threepio.tabler.container.ModelTable;
 
 /**
  * TRminatorApp is the main application of the TRminator.
@@ -33,10 +36,9 @@ public class TRminatorApp extends ThreepioApp
     protected static final boolean CLIMODE = Boolean.FALSE, GUIMODE = Boolean.TRUE;
     ////// Begin new UI work ////////////
     protected Boolean diff = Boolean.TRUE, diffingTwo = Boolean.FALSE, prof = Boolean.FALSE, looks = Boolean.FALSE;
-    protected String pathIn = null, pathTwo = null, pathOut = null, modelName = null, modelTwo = null, depends = new String();
+    protected String pathIn = null, pathTwo = null, pathOut = null, modelName = null, modelTwo = null;
     protected ColumnMap cols;
     protected File fIn = null, fTwo = null, fOut = null;
-    protected TablePostProcessor processor = new TablePostProcessor();
     protected int typeCol;
     protected TRminatorUI ui;
 
@@ -64,10 +66,12 @@ public class TRminatorApp extends ThreepioApp
      */
     public static void main(String args[])
     {
+        ThreepioEngine seeThree;
 
         HashList<String, String> userOpts = null;
         boolean uiMode;
         ArrayList<String> tempList;
+        String depends;
 
         TRminatorApp app = new TRminatorApp();
 
@@ -198,89 +202,77 @@ public class TRminatorApp extends ThreepioApp
             failBeforeInit("could not obtain a valid model name", ex);
         }
 
-        ////// we should have as much information as possible from this.
+        ////// we should have as much information as possible at this point.
 
+        // set up the default columns.
+        app.cols = TRCols.getDefaultColMap();
 
-//        String[] newArgs;
-//        int mode = -1;
-//
-//        switch (args.length)
-//        {
-//            case 0:
-//            {
-//                // no arguments, so open up a GUI.
-//                TRminatorGUIPanel.main(appVersion, null);
-//                break;
-//            }
-//
-//            default:
-//            {
-//                mode = getMode(args[0]);
-//                newArgs = new String[args.length - 1];
-//
-//                for (int i = 1; i < args.length; i++)
-//                {
-//                    newArgs[i - 1] = args[i];
-//                }
-//
-//                switch (mode)
-//                {
-//                    case 0:
-//                    {
-//                        // using the gui, pass arguments on, except first.
-//                        TRminatorGUIPanel.main(appVersion, newArgs);
-//                        break;
-//                    }
-//
-//                    case 1:
-//                    {
-//
-//                        if (newArgs.length < 1)
-//                        {
-//                            System.err.println("ERROR: No arguments found for CLI mode!");
-//                        } else
-//                        {
-//                            try
-//                            {
-//                                TRminatorCLI.main(newArgs);
-//
-//                            } catch (Exception ex)
-//                            {
-//                                Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "the CLI exited unexpectedly.", ex);
-//                                System.err.println("ERROR: CLI exited unhappily");
-//                            }
-//                        }
-//                        break;
-//                    }
-//                    default:
-//                    {
-//                        System.err.println("ERROR: unknown mode (Did you forget to specify it in the first argument?)\nQuitting");
-//                    }
-//                }
-//            }
-//        }
+        // check to make sure no required files are missing.
+
+        depends = new String();
+        seeThree = new ThreepioEngine();
+        try
+        {
+            depends = seeThree.getMissingDepends(app.pathIn, app.modelName);
+
+            if (app.diffingTwo)
+            {
+                depends += "\n" + seeThree.getMissingDepends(app.pathTwo, app.modelTwo);
+            }
+
+        } catch (Exception ex)
+        {
+            Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "depdencies are missing.", ex);
+            app.ui.fail("missing some files the model is dependent on", ex);
+        }
+
+        if (!depends.trim().isEmpty())
+        {
+            app.ui.fail("There are files missing:\n" + depends);
+        }
+    }
+
+    private static void makeTable(TRminatorApp app, ThreepioEngine seeThree)
+    {
+        ModelTable table;
+        TablePostProcessor processor;
+
+        // make the table
+        try
+        {
+            app.typeCol = app.cols.indexByKeyOf("Type");
+
+            if (app.typeCol < 0)
+            {
+                app.typeCol = app.cols.indexByKeyOf("type");
+            }
+
+            if (app.diffingTwo)
+            {
+                table = seeThree.diffTwoTables(app.cols, app.modelName, app.pathIn,
+                        app.modelTwo, app.pathTwo, app.fOut, "Object");
+            } else
+            {
+                table = seeThree.docToModelTable(app.cols, app.modelName, app.pathIn, "Object");
+            }
+
+            processor = new TablePostProcessor();
+
+            processor.deMarkupTable(table, new File(app.fOut.getParent() + FileIntake.fileSep + "post.err"), app.typeCol);
+            seeThree.printModelTable(table, app.fOut, app.diff, app.prof, app.looks);
+
+        } catch (Exception ex)
+        {
+            Logger.getLogger(TRminatorCLI.class.getName()).log(Level.SEVERE, "Could not make table", ex);
+            app.ui.fail("Could not make table:\n\t" + ex.getMessage(), ex);
+        }
     }
 
     /**
-     * getMode returns an int that the UI mode can be identified by.
-     * It searches the modes array for the string passed.
-     * @param str - the string for the desired mode.
-     * @return the int that corresponds with the mode, or -1 if it's not a known mode.
+     * Provides failure information in the console then quits with error code.
+     * @param msg - the message to give to the user
+     * @param ex - an Exception to include in the failure information.
      */
-    @SuppressWarnings("empty-statement")
-    private static int getMode(String str)
-    {
-        int i = 0;
-        for (i = 0; i < modes.length && modes[i].compareTo(str) != 0; i++);
-
-        if (i >= modes.length)
-        {
-            return -1;
-        }
-
-        return i;
-    }
-
     private static void failBeforeInit(String msg, Exception ex)
     {
         Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, msg, ex);
@@ -290,6 +282,10 @@ public class TRminatorApp extends ThreepioApp
         System.exit(-1);
     }
 
+    /**
+     * Provides failure information in the console then quits with error code.
+     * @param msg - the message to give to the user
+     */
     private static void failBeforeInit(String msg)
     {
         System.err.println(msg);

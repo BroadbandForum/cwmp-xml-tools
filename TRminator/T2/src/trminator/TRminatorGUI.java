@@ -5,6 +5,8 @@
 
 package trminator;
 
+import java.util.ArrayList;
+
 /**
  *
  * @author jhoule
@@ -40,6 +42,17 @@ public class TRminatorGUI extends TRminatorUI {
 
     @Override
     public boolean init()
+    {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public String promptForModel(String fileName, ArrayList<String> models)
+    {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    public void run()
     {
         throw new UnsupportedOperationException("Not supported yet.");
     }

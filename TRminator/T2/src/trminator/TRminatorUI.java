@@ -11,7 +11,7 @@ import threepio.engine.ThreepioUI;
  *
  * @author jhoule
  */
-public abstract class TRminatorUI extends ThreepioUI{
+public abstract class TRminatorUI extends ThreepioUI implements Runnable{
 
     TRminatorApp myApp;
 
