@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import threepio.documenter.XTag;
-import threepio.printer.container.StringMultiMap;
+import threepio.printer.container.StringHashList;
 import threepio.tabler.Tabler;
 import threepio.tabler.container.Row;
 import threepio.tabler.container.StringCell;
@@ -27,7 +27,7 @@ public class HTMLPrinter extends FilePrinter
     /**
      * Reference for row formatting
      */
-    private StringMultiMap refHTMLRow;
+    private StringHashList refHTMLRow;
 
     /**
      *  No-argument Constructor
@@ -53,14 +53,14 @@ public class HTMLPrinter extends FilePrinter
     }
 
     /**
-     * Sets up some variables for
+     * Sets up some variables for later conversion/printing operations
      */
     private void setUp()
     {
         // set up Reference for row modifiers.
-        refHTMLRow = new StringMultiMap();
-        refHTMLRow.add("object", "background-color:khaki");
-        refHTMLRow.add(Tabler.HEADER_ROW_NAME, "background-color:silver; font-family:Arial; font-weight:bold");
+        refHTMLRow = new StringHashList();
+        refHTMLRow.put("object", "background-color:khaki");
+        refHTMLRow.put(Tabler.HEADER_ROW_NAME, "background-color:silver; font-family:Arial; font-weight:bold");
         rowTag = "TR";
 
         colTag = "TD";
@@ -79,10 +79,10 @@ public class HTMLPrinter extends FilePrinter
         int size = table.size();
 
         Row row = null;
-        StringBuffer buff = new StringBuffer(), insertBuff; //sectionBuff;
+        StringBuffer buff = new StringBuffer(), insertBuff;
         String insert, lineBreak = "<br>", rowName;
         StringCell cell = null;
-        int lineLen = 60, left = 0, next, lbLen = lineBreak.length();
+        int lineLen = 60;
 
         buff.append(leftBrack + tableTag + " border=\"1\" cellpadding=\"5\" cellspacing=\"1\"" + rightBrack + newLine);
 
@@ -110,31 +110,6 @@ public class HTMLPrinter extends FilePrinter
                 if (looks)
                 {
                     insert = doLooks(insert, lineLen);
-
-//                    if (insert.length() > lineLen)
-//                    {
-//                        buff = new StringBuffer();
-//
-//                        buff.append(insert);
-//
-//                        left = 0;
-//                        next = buff.indexOf(".");
-//                        while (next >= 0)
-//                        {
-//
-//                            if (next - left < lineLen)
-//                            {
-//                                next = buff.indexOf(".", next + 1);
-//                            } else
-//                            {
-//                                buff.insert(next + 1, lineBreak);
-//                                left = next + lbLen;
-//                                next = buff.indexOf(".", left);
-//                            }
-//                        }
-//
-//                        insert = buff.toString();
-//                    }
                 }
 
                 buff.append(insert);
@@ -172,6 +147,7 @@ public class HTMLPrinter extends FilePrinter
     /**
      * gets the modifiers, as a string, listed on one line.
      * @param r - the row
+     * @param rowName - the name of the row that the modifiers are being made for.
      * @param diff - enables or disables the method's insertion of diff modifers.
      * @return the String.
      */
@@ -277,7 +253,7 @@ public class HTMLPrinter extends FilePrinter
             {
                 if (next - left < lineLen)
                 {
-                    next = buff.indexOf(".k", next + 1);
+                    next = buff.indexOf(".", next + 1);
                 } else
                 {
                     buff.insert(next + 1, lineBreak);

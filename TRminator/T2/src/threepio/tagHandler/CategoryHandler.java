@@ -16,16 +16,4 @@ public class CategoryHandler extends GeneralTagHandler{
     {
         super("Category", "category");
     }
-
-//    @Override
-//    public String getTypeHandled()
-//    {
-//        return "category";
-//    }
-//
-//    @Override
-//    public String getFriendlyName()
-//    {
-//        return "Category";
-//    }
 }

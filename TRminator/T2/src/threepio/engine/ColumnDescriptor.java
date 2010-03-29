@@ -1,6 +1,7 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * File: ColumnDescriptor.java
+ * Project: Threepio
+ * Author: Jeff Houle
  */
 
 package threepio.engine;
@@ -8,7 +9,9 @@ package threepio.engine;
 import threepio.container.Doublet;
 
 /**
- *
+ * A ColumnDescriptor is an Abstract Class for describing a Column.
+ * It is usually extended by fairly complex classes that are related to Columns,
+ * so that other classes know what parameter use them for.
  * @author jhoule
  */
 public abstract class ColumnDescriptor {
@@ -28,6 +31,11 @@ public abstract class ColumnDescriptor {
      */
     public abstract String getFriendlyName();
 
+    /**
+     * returns a Doublet (map entry) where the Key is the "friendly name" for
+     * the column, and the type/parameter it stores the information for.
+     * @return
+     */
     public Doublet<String, String> toColMapEntry()
     {
         return new Doublet<String, String>(getFriendlyName(), getTypeHandled());

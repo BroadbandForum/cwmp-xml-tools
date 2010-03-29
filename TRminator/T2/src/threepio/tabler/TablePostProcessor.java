@@ -8,6 +8,7 @@ package threepio.tabler;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import threepio.container.ExclusiveArrayList;
@@ -79,6 +80,7 @@ public class TablePostProcessor
     /**
      * firstPass goes through and marks stuff needed for the processors.
      * @param table - the table to modify
+     * @param toAnchor - the column to insert anchor tags in.
      * @return the table that has been modified.
      */
     private ModelTable firstPass(ModelTable table, int toAnchor)
@@ -290,13 +292,17 @@ public class TablePostProcessor
         return table;
     }
 
+
     @SuppressWarnings("empty-statement")
     private boolean statementIsAllowed(String s)
     {
         int i;
-        for (i = 0; ((i < allowed.length) && !(allowed[i].equals(s))); i++);
 
-        return (i < allowed.length);
+        Arrays.sort(allowed, String.CASE_INSENSITIVE_ORDER);
+
+        i = Arrays.binarySearch(allowed, s, String.CASE_INSENSITIVE_ORDER);
+
+        return (i >= 0);
 
     }
 
@@ -309,8 +315,6 @@ public class TablePostProcessor
     private void printString(String str, File out) throws Exception
     {
         FileWriter writer;
-
-       
 
         if (out.exists())
         {

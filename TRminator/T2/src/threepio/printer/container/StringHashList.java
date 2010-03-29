@@ -1,18 +1,19 @@
 /*
- * File: StringMultiMap.java
+ * File: StringHashList.java
  * Project: Threepio
  * Author: Jeff Houle
  */
 package threepio.printer.container;
 
 import java.util.ListIterator;
+import threepio.container.HashList;
 
 /**
- * A StringMultiMap has String keys and LinkedList<String> Values.
+ * A StringHashList has String keys and LinkedList<String> Values.
  *
  * @author jhoule
  */
-public class StringMultiMap extends MultiMap<String>
+public class StringHashList extends HashList<String, String>
 {
     /**
      * creates and returns a string containing all values associated with type t
@@ -26,7 +27,7 @@ public class StringMultiMap extends MultiMap<String>
         ListIterator<String> itVals;
         StringBuffer buff = new StringBuffer();
 
-        if (this.contains(t))
+        if (this.containsKey(t))
         {
             itVals = this.get(t).listIterator();
 

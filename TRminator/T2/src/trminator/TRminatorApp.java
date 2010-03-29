@@ -15,6 +15,7 @@ import threepio.container.HashList;
 import threepio.engine.ThreepioApp;
 import threepio.engine.ThreepioEngine;
 import threepio.filehandling.FileIntake;
+import threepio.printer.HTMLPrinter;
 import threepio.tabler.TablePostProcessor;
 import threepio.tabler.container.ColumnMap;
 import threepio.tabler.container.ModelTable;
@@ -31,16 +32,22 @@ public class TRminatorApp extends ThreepioApp
     /**
      * the version of the application
      */
-    public static final String appVersion = "JudgementDay (100318";
+    public static final String appVersion = "-=JudgementDay=-\n (100323)";
     protected static final String strUseGui = "-gui", strUseCli = "-cli";
     protected static final boolean CLIMODE = Boolean.FALSE, GUIMODE = Boolean.TRUE;
     ////// Begin new UI work ////////////
-    protected Boolean diff = Boolean.TRUE, diffingTwo = Boolean.FALSE, prof = Boolean.FALSE, looks = Boolean.FALSE;
-    protected String pathIn = null, pathTwo = null, pathOut = null, modelName = null, modelTwo = null;
+    protected Boolean diff = Boolean.TRUE, diffingTwo = Boolean.FALSE, genericTable = Boolean.FALSE, prof = Boolean.FALSE, looks = Boolean.FALSE;
+    protected String pathIn = null, pathTwo = null, pathOut = null, modelName = null, modelTwo = null, containerName = "Object";
     protected ColumnMap cols;
     protected File fIn = null, fTwo = null, fOut = null;
     protected int typeCol;
     protected TRminatorUI ui;
+    private ThreepioEngine seeThree;
+
+    public TRminatorApp()
+    {
+        seeThree = new ThreepioEngine();
+    }
 
     // the option strings that require an argument.
     final static HashMap<String, Integer> OMap()
@@ -66,12 +73,10 @@ public class TRminatorApp extends ThreepioApp
      */
     public static void main(String args[])
     {
-        ThreepioEngine seeThree;
-
         HashList<String, String> userOpts = null;
         boolean uiMode;
         ArrayList<String> tempList;
-        String depends;
+
 
         TRminatorApp app = new TRminatorApp();
 
@@ -118,15 +123,7 @@ public class TRminatorApp extends ThreepioApp
             {
                 app.pathOut = tempList.get(0);
 
-                // create File object for output file.
-                try
-                {
-                    app.fOut = app.ui.getOut(app.pathOut);
-                } catch (IOException ex)
-                {
-                    Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "error creating file", ex);
-                    failBeforeInit("could not initailize all required files", ex);
-                }
+
 
             }
 
@@ -138,14 +135,7 @@ public class TRminatorApp extends ThreepioApp
             if (tempList != null)
             {
                 app.pathIn = tempList.get(0);
-                try
-                {
-                    app.fIn = getIn(app.pathIn);
-                } catch (Exception ex)
-                {
-                    Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "cannot continue without input file", ex);
-                    failBeforeInit("error while parsing input file");
-                }
+
             }
 
             tempList = null;
@@ -155,17 +145,8 @@ public class TRminatorApp extends ThreepioApp
 
             if (tempList != null)
             {
-                if (app.diffingTwo && app.pathTwo != null)
-                {
-                    try
-                    {
-                        app.fTwo = getIn(app.pathTwo);
-                    } catch (Exception ex)
-                    {
-                        Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "cannot continue without input file #2", ex);
-                        failBeforeInit("error while parsing input file #2");
-                    }
-                }
+                app.pathTwo = tempList.get(0);
+
             }
 
 
@@ -176,95 +157,184 @@ public class TRminatorApp extends ThreepioApp
         }
 
 
-        // get the model name for the resulting table.
-        try
-        {
-            app.modelName = app.ui.getModel(app.fIn);
-
-            if (app.diffingTwo)
-            {
-                app.modelTwo = app.ui.getModel(app.fTwo);
-
-                if (app.modelTwo == null)
-                {
-                    failBeforeInit("no model name selected for input 2");
-                }
-            }
-
-            if (app.modelName == null)
-            {
-                failBeforeInit("no model name selected for input");
-            }
-
-        } catch (Exception ex)
-        {
-            Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "cannot continue without knowing model name", ex);
-            failBeforeInit("could not obtain a valid model name", ex);
-        }
-
         ////// we should have as much information as possible at this point.
 
         // set up the default columns.
         app.cols = TRCols.getDefaultColMap();
 
-        // check to make sure no required files are missing.
+        // make UI.
 
+        if (uiMode)
+        {
+            app.ui = new TRminatorCLI(app);
+        } else
+        {
+            app.ui = new TRminatorGUI(app);
+        }
+        try
+        {
+            // init ui
+            app.ui.init();
+        } catch (Exception ex)
+        {
+            Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, null, ex);
+            failBeforeInit("could not initiailize ui");
+        }
+
+        //app.ui.run();
+
+        new Thread(app.ui).start();
+    }
+
+    protected void collectFiles()
+    {
+        try
+        {
+            fIn = getIn(pathIn);
+        } catch (Exception ex)
+        {
+            Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "cannot continue without input file", ex);
+            ui.fail("error while parsing input file", ex);
+        }
+
+        if (diffingTwo)
+        {
+            try
+            {
+                fTwo = getIn(pathTwo);
+            } catch (Exception ex)
+            {
+                Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "cannot continue without input file #2", ex);
+                ui.fail("error while parsing input file #2", ex);
+            }
+        }
+
+        ui.updateStatus("files located");
+
+    }
+
+    protected boolean doChecks()
+    {
+        String depends;
+        // get the model name for the resulting table.
+        try
+        {
+            modelName = ui.getModel(fIn);
+
+            if (diffingTwo)
+            {
+                modelTwo = ui.getModel(fTwo);
+
+                if (modelTwo == null)
+                {
+                    ui.fail("no model name selected for input 2");
+                    return false;
+                }
+            }
+
+            if (modelName == null)
+            {
+                ui.fail("no model name selected for input");
+                return false;
+            }
+
+        } catch (Exception ex)
+        {
+            Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "cannot continue without knowing model name", ex);
+            ui.fail("could not obtain a valid model name", ex);
+            return false;
+        }
+
+
+        // check to make sure no required files are missing.
         depends = new String();
         seeThree = new ThreepioEngine();
         try
         {
-            depends = seeThree.getMissingDepends(app.pathIn, app.modelName);
+            depends = seeThree.getMissingDepends(pathIn, modelName);
 
-            if (app.diffingTwo)
+            if (diffingTwo)
             {
-                depends += "\n" + seeThree.getMissingDepends(app.pathTwo, app.modelTwo);
+                depends += "\n" + seeThree.getMissingDepends(pathTwo, modelTwo);
             }
 
         } catch (Exception ex)
         {
             Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "depdencies are missing.", ex);
-            app.ui.fail("missing some files the model is dependent on", ex);
+            ui.fail("missing some files the model is dependent on", ex);
+            return false;
+
         }
 
         if (!depends.trim().isEmpty())
         {
-            app.ui.fail("There are files missing:\n" + depends);
+            ui.fail("There are files missing:\n" + depends);
+            return false;
         }
+
+        ui.updateStatus("files inspected and approved");
+        return true;
     }
 
-    private static void makeTable(TRminatorApp app, ThreepioEngine seeThree)
+    protected void makeTable()
     {
         ModelTable table;
         TablePostProcessor processor;
+        HTMLPrinter printer;
+
+
+        // create File object for output file.
+        try
+        {
+            fOut = getOut(pathOut);
+        } catch (IOException ex)
+        {
+            Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "error creating file", ex);
+            ui.fail("could not initailize all required files", ex);
+        }
 
         // make the table
         try
         {
-            app.typeCol = app.cols.indexByKeyOf("Type");
-
-            if (app.typeCol < 0)
+            if (genericTable)
             {
-                app.typeCol = app.cols.indexByKeyOf("type");
-            }
+                printer = new HTMLPrinter();
+                try
+                {
+                    seeThree.xmlToPrintedModelTable(cols, printer, "", pathIn, fOut);
+                } catch (Exception ex)
+                {
+                    ui.fail("could not make generic table", ex);
+                }
 
-            if (app.diffingTwo)
-            {
-                table = seeThree.diffTwoTables(app.cols, app.modelName, app.pathIn,
-                        app.modelTwo, app.pathTwo, app.fOut, "Object");
+                ui.updateStatus("Table printed\nAvailable at: " + fOut.getAbsolutePath());
             } else
             {
-                table = seeThree.docToModelTable(app.cols, app.modelName, app.pathIn, "Object");
+
+                typeCol = getTypeCol();
+
+                if (diffingTwo)
+                {
+                    table = seeThree.diffTwoTables(cols, modelName, pathIn,
+                            modelTwo, pathTwo, fOut, "Object");
+                } else
+                {
+                    table = seeThree.docToModelTable(cols, modelName, pathIn, "Object");
+                }
+
+                ui.updateStatus("Table created");
+
+                processor = new TablePostProcessor();
+
+                processor.deMarkupTable(table, new File(fOut.getParent() + FileIntake.fileSep + "post.err"), typeCol);
+                seeThree.printModelTable(table, fOut, diff, prof, looks);
+
+                ui.updateStatus("Table printed\nAvailable at: " + fOut.getAbsolutePath());
             }
-
-            processor = new TablePostProcessor();
-
-            processor.deMarkupTable(table, new File(app.fOut.getParent() + FileIntake.fileSep + "post.err"), app.typeCol);
-            seeThree.printModelTable(table, app.fOut, app.diff, app.prof, app.looks);
-
         } catch (Exception ex)
         {
             Logger.getLogger(TRminatorCLI.class.getName()).log(Level.SEVERE, "Could not make table", ex);
-            app.ui.fail("Could not make table:\n\t" + ex.getMessage(), ex);
+            ui.fail("Could not make table:\n\t" + ex.getMessage(), ex);
         }
     }
 
@@ -291,5 +361,22 @@ public class TRminatorApp extends ThreepioApp
         System.err.println(msg);
         System.exit(-1);
     }
-}
 
+    /**
+     * returns the column index for the one that defines the type of an item.
+     * @return the index of the type column.
+     */
+    public int getTypeCol()
+    {
+        int c;
+
+        c = cols.indexByKeyOf("Type");
+
+        if (c < 0)
+        {
+            return cols.indexByKeyOf("type");
+        }
+
+        return c;
+    }
+}

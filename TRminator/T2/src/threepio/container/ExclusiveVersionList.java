@@ -6,7 +6,6 @@
 package threepio.container;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * ExclsuiveArrayList is an arraylist that doesn't accept having more than one

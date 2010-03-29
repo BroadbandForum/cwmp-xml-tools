@@ -6,13 +6,9 @@
  */
 package trminator;
 
-import threepio.tabler.TablePostProcessor;
 import threepio.engine.ThreepioEngine;
-import threepio.documenter.XDocumenter;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
@@ -20,9 +16,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JRadioButton;
 import javax.swing.JTextField;
 import threepio.filehandling.FileIntake;
-import threepio.printer.HTMLPrinter;
 import threepio.tabler.container.ColumnMap;
-import threepio.tabler.container.ModelTable;
 
 /**
  * TRminatorGUIPanel is a ThreepioEngine GUI.
@@ -35,51 +29,38 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
 {
 
     /**
-     * input and output File objects
-     */
-    private File fileIn1, fileIn2, fileOut;
-
-    /**
      * A flag that keeps the program from running if in a bad state.
      */
     private boolean goodToGo;
-
-    /**
-     * The name of the "containing" object to make tables for.
-     */
-    private String containerName;
-
-    /**
-     * lists of names of "models" in the document.
-     */
-    private ArrayList<String> modelNames1, modelNames2;
-
     /**
      * flag for producing debug output
      */
-    private boolean debugMode = false;
-
+    private boolean debugMode = true;
     /**
      * Columns mapped to the "attributes" of objects/parameters they list.
      */
-    private ColumnMap cols;
+    protected ColumnMap cols;
+    protected TRminatorGUI gui;
 
     /**
      * Creates new TRminatorGUIPanel form.
      * auto-fills the column map, which is user-editable.
      * @param appVersion - the version string to identify the underlying application.
      */
-    public TRminatorGUIPanel()
+    public TRminatorGUIPanel(TRminatorGUI aGui)
     {
+        gui = aGui;
         initComponents();
+
         this.setTitle("TRminator");
-        //lblVersion.setText(appVersion);
-        clearFields(true);
-        cols = cols = TRCols.getDefaultColMap();
-        updateFormForMode();
+        lblVersion.setText(gui.myApp.appVersion);
+
+        // lblVersion.setText(appVersion);
+        // clearFields(true);
+        // cols = gui.getCols();
+        // updateFormForMode();
     }
 
-    
     /** This method is called from within the constructor to
      * initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is
@@ -129,13 +110,14 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         lblVersion = new javax.swing.JLabel();
         btnLoad = new javax.swing.JButton();
         jScrollPane1 = new javax.swing.JScrollPane();
-        txtDone = new javax.swing.JTextArea();
+        txtStatus = new javax.swing.JTextArea();
         menuBarMain = new javax.swing.JMenuBar();
         mnuFile = new javax.swing.JMenu();
         mnuBtnChangeDir = new javax.swing.JMenuItem();
         mnuBtnExit = new javax.swing.JMenuItem();
         mnuEdit = new javax.swing.JMenu();
-        mnuCols = new javax.swing.JMenuItem();
+        munuEditCols = new javax.swing.JMenuItem();
+        munLoadCols = new javax.swing.JMenuItem();
 
         diaOptions.setAlwaysOnTop(true);
         diaOptions.setMinimumSize(new java.awt.Dimension(500, 300));
@@ -546,11 +528,11 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
             }
         });
 
-        txtDone.setBackground(javax.swing.UIManager.getDefaults().getColor("TextArea.disabledBackground"));
-        txtDone.setColumns(20);
-        txtDone.setEditable(false);
-        txtDone.setRows(2);
-        jScrollPane1.setViewportView(txtDone);
+        txtStatus.setBackground(javax.swing.UIManager.getDefaults().getColor("TextArea.disabledBackground"));
+        txtStatus.setColumns(20);
+        txtStatus.setEditable(false);
+        txtStatus.setRows(2);
+        jScrollPane1.setViewportView(txtStatus);
 
         mnuFile.setText("File");
 
@@ -569,13 +551,22 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
 
         mnuEdit.setText("Edit");
 
-        mnuCols.setText("change cols");
-        mnuCols.addActionListener(new java.awt.event.ActionListener() {
+        munuEditCols.setText("change cols");
+        munuEditCols.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mnuColsActionPerformed(evt);
+                munuEditColsActionPerformed(evt);
             }
         });
-        mnuEdit.add(mnuCols);
+        mnuEdit.add(munuEditCols);
+
+        munLoadCols.setText("load cols");
+        munLoadCols.setEnabled(false);
+        munLoadCols.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                munLoadColsActionPerformed(evt);
+            }
+        });
+        mnuEdit.add(munLoadCols);
 
         menuBarMain.add(mnuEdit);
 
@@ -647,7 +638,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
      */
     private void btnGoActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_btnGoActionPerformed
     {//GEN-HEADEREND:event_btnGoActionPerformed
-        process();
+        gui.makeTable();
     }//GEN-LAST:event_btnGoActionPerformed
 
     /**
@@ -659,6 +650,8 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
     private void btnOutBrowseActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_btnOutBrowseActionPerformed
     {//GEN-HEADEREND:event_btnOutBrowseActionPerformed
         useFileChooser(txtFileOut, false, new File(txtFileIn1.getText()).getParentFile());
+
+        gui.setOutputPath(txtFileOut.getText());
     }//GEN-LAST:event_btnOutBrowseActionPerformed
 
     /**
@@ -669,6 +662,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
     private void btnInBrowse1ActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_btnInBrowse1ActionPerformed
     {//GEN-HEADEREND:event_btnInBrowse1ActionPerformed
         useFileChooser(txtFileIn1, true, new File(txtFileIn1.getText()).getParentFile());
+        gui.setInputPathOne(txtFileIn1.getText());
     }//GEN-LAST:event_btnInBrowse1ActionPerformed
 
     /**
@@ -679,6 +673,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
     private void btnInBrowse2ActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_btnInBrowse2ActionPerformed
     {//GEN-HEADEREND:event_btnInBrowse2ActionPerformed
         useFileChooser(txtFileIn2, true, new File(txtFileIn1.getText()).getParentFile());
+        gui.setInputPathTwo(txtFileIn2.getText());
     }//GEN-LAST:event_btnInBrowse2ActionPerformed
 
     /**
@@ -688,7 +683,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
      */
     private void btnLoadActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_btnLoadActionPerformed
     {//GEN-HEADEREND:event_btnLoadActionPerformed
-        btnGo.setEnabled(goodToGo = load());
+        btnGo.setEnabled(goodToGo = gui.loadFiles());
 }//GEN-LAST:event_btnLoadActionPerformed
 
     /**
@@ -733,8 +728,8 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
      * and updates the form for that.
      * @param evt - the ActionEvent of the click
      */
-    private void mnuColsActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_mnuColsActionPerformed
-    {//GEN-HEADEREND:event_mnuColsActionPerformed
+    private void munuEditColsActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_munuEditColsActionPerformed
+    {//GEN-HEADEREND:event_munuEditColsActionPerformed
 
         IHMEditPanel pnlCol = new IHMEditPanel(cols, "Column Name", "XML Value");
 
@@ -743,7 +738,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         diaOptions.setContentPane(pnlCol);
         diaOptions.setSize(500, 300);
         diaOptions.setVisible(true);
-    }//GEN-LAST:event_mnuColsActionPerformed
+    }//GEN-LAST:event_munuEditColsActionPerformed
 
     /**
      * exits the program when the user clicks Exit on the file menu.
@@ -762,10 +757,10 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
     {//GEN-HEADEREND:event_chkDiffActionPerformed
         if (btnGo.isEnabled())
         {
-            txtDone.setText("File(s) loaded\nclick GO to reprocess with new options");
+            txtStatus.setText("File(s) loaded\nclick GO to reprocess with new options");
         } else
         {
-            txtDone.setText("New options are in effect.");
+            txtStatus.setText("New options are in effect.");
         }
     }//GEN-LAST:event_chkDiffActionPerformed
 
@@ -827,12 +822,17 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
     {//GEN-HEADEREND:event_chkProfilesActionPerformed
         if (btnGo.isEnabled())
         {
-            txtDone.setText("File(s) loaded\nclick GO to reprocess with new options");
+            txtStatus.setText("File(s) loaded\nclick GO to reprocess with new options");
         } else
         {
-            txtDone.setText("New options are in effect.");
+            txtStatus.setText("New options are in effect.");
         }
     }//GEN-LAST:event_chkProfilesActionPerformed
+
+    private void munLoadColsActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_munLoadColsActionPerformed
+    {//GEN-HEADEREND:event_munLoadColsActionPerformed
+        // TODO: implement column loader and link to this button.
+    }//GEN-LAST:event_munLoadColsActionPerformed
 
     /**
      * called when a file input field is changing, to keep the user from running
@@ -840,74 +840,8 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
      */
     private void fileChanging()
     {
-        clearFields(false, false);
+        gui.updateVariables();
         noGo();
-    }
-
-    /**
-     * Changes the model, based on what the user has input on the UI.
-     * @param which - the number of the model to change, based on the input.
-     * @return true if the change completed.
-     * @throws Exception when the Model cannot be changed due to human error.
-     */
-    private boolean changeModel(int which) throws Exception
-    {
-        XDocumenter doccer = new XDocumenter();
-
-        JTextField field = null;
-        ArrayList<String> names = new ArrayList<String>();
-
-        btnGo.setEnabled(false);
-
-        // pick the fields and names based on which model we're chagning.
-        switch (which)
-        {
-            case 1:
-                field = txtModelName1;
-                names = modelNames1;
-
-                break;
-
-            case 2:
-                field = txtModelName2;
-                names = modelNames2;
-
-                break;
-            default:
-                // shouldn't get here.
-                throw new Exception("attempting to change a model that doesn't exist!");
-        }
-
-        // check if there are models avialble, prompt user if there are multiple ones.
-        switch (names.size())
-        {
-
-            case 0:
-                // no models.
-                JOptionPane.showMessageDialog(this, "No models found", "Check Files", JOptionPane.ERROR_MESSAGE);
-
-                return (false);
-
-            case 1:
-                // only one model. no user intervention required.
-                field.setText(names.get(0));
-                break;
-
-            default:
-                // multiple models. ask the user.
-                ListChooserPanel pnlMod = new ListChooserPanel(doccer.getMainModelNames(fileIn1), txtModelName1.getText(), diaOptions);
-
-                diaOptions.setTitle("Choose Model #" + which);
-                diaOptions.setContentPane(pnlMod);
-                diaOptions.setSize(pnlMod.getSize());
-                diaOptions.setModal(true);
-                diaOptions.setVisible(true);
-
-                field.setText(pnlMod.getChosenValue());
-                break;
-        }
-
-        return true;
     }
 
     /**
@@ -944,295 +878,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         }
     }
 
-    /**
-     * Carries out the user-chosen process
-     */
-    private void process()
-    {
-        ThreepioEngine seeThree = new ThreepioEngine();
-        HTMLPrinter printer = new HTMLPrinter();
-        int mode = getMode();
-        String err = null;
-        ModelTable table;
-        TablePostProcessor processor = new TablePostProcessor();
-
-
-        if (goodToGo)
-        {
-            switch (mode)
-            {
-                case 0:
-                    // Versioned Document -> Table
-                    try
-                    {
-                        table = seeThree.docToModelTable(cols, txtModelName1.getText(), fileIn1.getAbsolutePath(), "Object");
-
-                        // using getParent() is okay here since the GUI always has full paths.
-                       processor.deMarkupTable(table, new File(fileOut.getParent() + FileIntake.fileSep + "post.err"), getTypeCol());
-
-                        seeThree.printModelTable(table, fileOut, chkDiff.isSelected(), chkProfiles.isSelected(), chkLooks.isSelected());
-
-
-                    } catch (Exception ex)
-                    {
-                        Logger.getLogger(TRminatorGUIPanel.class.getName()).log(Level.SEVERE, "could not make table", ex);
-                        err = ex.getMessage();
-
-                        if (err == null || err.isEmpty())
-                        {
-                            err = "unknown error.\nPlease contact jhoule@iol.unh.edu with stack trace.";
-                        }
-                        JOptionPane.showMessageDialog(this, err, "Error while making table", JOptionPane.ERROR_MESSAGE);
-                        goodToGo = false;
-                        checkGood();
-                    }
-
-                    break;
-
-                case 1:
-                    // XML -> Table
-                    try
-                    {
-                        seeThree.xmlToPrintedModelTable(cols, printer, containerName, fileIn1.getAbsolutePath(), fileOut);
-                    } catch (Exception ex)
-                    {
-                        JOptionPane.showMessageDialog(this, ex.getMessage(), "Error while making tables", JOptionPane.ERROR_MESSAGE);
-                        goodToGo = false;
-                        checkGood();
-                    }
-
-                    break;
-
-                case 2:
-                    // diffing two versioned documents -> table
-                    try
-                    {
-                        table = seeThree.diffTwoTables(cols, txtModelName1.getText(), fileIn1.getAbsolutePath(), txtModelName2.getText(), fileIn2.getAbsolutePath(), fileOut, "Object");
-
-                        // using getParent() is okay here since the GUI always has full paths.
-                        processor.deMarkupTable(table, new File(fileOut.getParent() + FileIntake.fileSep + "post.err"), getTypeCol());
-
-                        seeThree.printTable(table, printer, fileOut, "", "", true, chkLooks.isSelected());
-
-                    } catch (Exception ex)
-                    {
-                        err = ex.getMessage();
-
-                        if (err == null || err.isEmpty())
-                        {
-                            err = "unknown error.\nPlease contact jhoule@iol.unh.edu with stack trace.";
-                        }
-                        JOptionPane.showMessageDialog(this, err, "Error while diffing tables", JOptionPane.ERROR_MESSAGE);
-                        goodToGo = false;
-                        checkGood();
-                    }
-
-                    break;
-
-                default:
-                    JOptionPane.showMessageDialog(this, "please choose a valid mode.", "bad or uknown mode", JOptionPane.ERROR_MESSAGE);
-                    goodToGo = false;
-                    checkGood();
-                    break;
-
-            }
-
-            if (goodToGo)
-            {
-                txtDone.setText("File complete" + System.getProperty("line.separator") + "Location: " + fileOut.getAbsolutePath());
-            }
-
-
-        } else
-        {
-            JOptionPane.showMessageDialog(this, "Conditions aren't right for processing the information." +
-                    "\nDid you change something after loading files?",
-                    "Fatal Error", JOptionPane.ERROR_MESSAGE);
-
-            goodToGo = false;
-            checkGood();
-        }
-    }
-
-    /**
-     * Attempts to load all files and models required. Returns true if it could do so.
-     * returns false if not.
-     * @return true if load worked, false if not.
-     */
-    private boolean load()
-    {
-
-        txtDone.setText("");
-
-        try
-        {
-            fileOut = new File(txtFileOut.getText());
-            fileOut.delete();
-            fileOut.createNewFile();
-        } catch (Exception ex)
-        {
-            System.err.println("could not make output file!");
-            JOptionPane.showMessageDialog(this, "Output to this file is not possible. Check path.", "Cannot save here.", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-
-
-        if (!fileOut.exists())
-        {
-            System.err.println("could not make output file!");
-            JOptionPane.showMessageDialog(this, "Output to this file is not possible. Check path.", "Cannot save here.", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-
-        // first file is always loaded.
-
-        try
-        {
-            fileIn1 = new File(txtFileIn1.getText());
-
-        } catch (Exception ex)
-        {
-            System.err.println("could not open input file!");
-            JOptionPane.showMessageDialog(this, "Input file #1 not available. Please Fix!", "File Open or Not Found.", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-
-        if (fileIn1 == null || !fileIn1.exists())
-        {
-            System.err.println("could not open input file!");
-            JOptionPane.showMessageDialog(this, "Input file #1 not available. Please Fix!", "File Open or Not Found.", JOptionPane.ERROR_MESSAGE);
-
-            return false;
-        } else
-        {
-            // using getParent() is okay here since the GUI always has full paths.
-            lblDirName.setText(fileIn1.getParent());
-        }
-
-        if (getMode() == 2)
-        {
-            try
-            {
-                fileIn2 = new File(txtFileIn2.getText());
-
-            } catch (Exception ex)
-            {
-                System.err.println("could not open input file!");
-                JOptionPane.showMessageDialog(this, "Input file #2 not available. Please Fix!", "File Open or Not Found.", JOptionPane.ERROR_MESSAGE);
-                return false;
-            }
-
-            if (fileIn2 == null || !fileIn2.exists())
-            {
-                System.err.println("could not open input file!");
-                JOptionPane.showMessageDialog(this, "Input file #2 not available. Please Fix!", "File Open or Not Found.", JOptionPane.ERROR_MESSAGE);
-
-                return false;
-            }
-        }
-
-        if (theStrainer())
-        {
-            txtDone.setText("File(s) Loaded.");
-
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Scrutinizes the user's input for perfection, returning true only
-     * if the info allows the chosen process to be carried out.
-     * @return true if the user's input is valid
-     */
-    private boolean theStrainer()
-    {
-
-        ThreepioEngine seeThree = new ThreepioEngine();
-        XDocumenter doccer = new XDocumenter();
-        String missingDepends = null;
-
-        boolean go = true;
-
-        switch (getMode())
-        {
-            case 0:
-            {
-                try
-                {
-                    modelNames1 = doccer.getMainModelNames(fileIn1);
-                    changeModel(1);
-
-                    missingDepends = seeThree.getMissingDepends(fileIn1.getAbsolutePath(), txtModelName1.getText());
-
-                    if (missingDepends.isEmpty())
-                    {
-                        go = true;
-                    } else
-                    {
-                        go =
-                                (JOptionPane.showConfirmDialog(this, "The following files are missing:\n" + missingDepends + "\nAttempt To Continue?",
-                                "Missing Dependencies", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION);
-                    }
-
-                } catch (Exception ex)
-                {
-                    Logger.getLogger(TRminatorGUIPanel.class.getName()).log(Level.SEVERE, "could not find model,\nor a table is missing a table association", ex);
-                    JOptionPane.showMessageDialog(this, ex.getMessage(), "Check Files", JOptionPane.ERROR_MESSAGE);
-
-                    go = false;
-
-                }
-
-                return (go && !(txtModelName1.getText() == null || txtModelName1.getText().isEmpty()));
-            }
-
-            case 1:
-            {
-                containerName = txtContainerName.getText();
-
-                return (!(containerName == null || containerName.isEmpty()));
-            }
-
-            case 2:
-            {
-                try
-                {
-                    modelNames1 = doccer.getMainModelNames(fileIn1);
-                    modelNames2 = doccer.getMainModelNames(fileIn2);
-                    changeModel(1);
-                    changeModel(2);
-
-                    missingDepends = seeThree.getMissingDepends(fileIn1.getAbsolutePath(), txtModelName1.getText()) + seeThree.getMissingDepends(fileIn2.getAbsolutePath(), txtModelName2.getText());
-                    if (missingDepends.isEmpty())
-                    {
-                        go = true;
-                    } else
-                    {
-                        go =
-                                (JOptionPane.showConfirmDialog(this, "The following files are missing:\n" + missingDepends + "\nAttempt To Continue?",
-                                "Missing Dependencies", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION);
-                    }
-
-                } catch (Exception ex)
-                {
-                    Logger.getLogger(TRminatorGUIPanel.class.getName()).log(Level.SEVERE, "could not find model,\nor a table is missing a table association", ex);
-                    JOptionPane.showMessageDialog(this, ex.getMessage(), "Check Files", JOptionPane.ERROR_MESSAGE);
-
-                    go = false;
-
-                }
-
-                return (go && !(txtModelName1.getText() == null || txtModelName1.getText().isEmpty() ||
-                        txtModelName2.getText() == null || txtModelName2.getText().isEmpty()));
-            }
-            default:
-                // not a mode?
-                return false;
-        }
-    }
-
+    
     /**
      * makes the Go status and Go button both false.
      */
@@ -1322,7 +968,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
      */
     private void updateFormForMode()
     {
-        clearFields(false);
+        //  clearFields(false);
 
         ArrayList<JComponent> on = new ArrayList<JComponent>(), off = new ArrayList<JComponent>();
 
@@ -1403,51 +1049,6 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         }
     }
 
-    /**
-     * Clears the fields, with a flags for different fields.
-     * @param includeOut - tells the method to include output fields or not.
-     * @param includeIn - tells the method to include input fileds or not.
-     */
-    private void clearFields(boolean includeOut, boolean includeIn)
-    {
-        txtContainerName.setText("");
-
-
-        txtModelName1.setText("");
-        txtModelName2.setText("");
-        lblDirName.setText("");
-        txtDone.setText("");
-
-        fileIn1 = null;
-        fileIn2 = null;
-        txtModelName1.setEditable(false);
-        txtModelName2.setEditable(false);
-
-        if (includeIn)
-        {
-            txtFileIn1.setText("");
-            txtFileIn2.setText("");
-        }
-
-
-        if (includeOut)
-        {
-            txtFileOut.setText("");
-            fileOut = null;
-        }
-
-        goodToGo = false;
-        checkGood();
-    }
-
-    /**
-     * clears all fields, including input paths.
-     * @param includeOut
-     */
-    public void clearFields(boolean includeOut)
-    {
-        clearFields(includeOut, true);
-    }
 
     /**
      * changes the enabled state of the Go button based on if the rest of the
@@ -1458,40 +1059,133 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         btnGo.setEnabled(goodToGo);
     }
 
-    /**
-     * Runs the instance of ThreepioEngine.
-     * @param args the command line arguments
-     * @param appVersion - the application version to identify the underlying application.
-     */
-    public static void main(final String appVersion, String args[])
-    {
-        java.awt.EventQueue.invokeLater(new Runnable()
-        {
 
-            @Override
-            public void run()
-            {
-                new TRminatorGUIPanel().setVisible(true);
-            }
-        });
+    protected void popupError(String msg)
+    {
+        JOptionPane.showMessageDialog(this, msg, "Application Error", JOptionPane.ERROR_MESSAGE);
     }
 
-    /**
-     * returns the column index for the one that defines the type of an item.
-     * @return the index of the type column.
-     */
-    public int getTypeCol()
+    protected void popupError(String msg, String title)
     {
-        int typeCol;
+        JOptionPane.showMessageDialog(this, msg, title, JOptionPane.ERROR_MESSAGE);
+    }
 
-        typeCol = cols.indexByKeyOf("Type");
+    protected void setOutputPath(String path)
+    {
+        txtFileOut.setText(path);
+    }
 
-        if (typeCol < 0)
+    protected String getOutputPath()
+    {
+        return txtFileOut.getText();
+    }
+
+    protected void setInputPathOne(String path)
+    {
+        txtFileIn1.setText(path);
+    }
+
+    protected String getInputPathOne()
+    {
+        return txtFileIn1.getText();
+    }
+
+    protected void setInputPathTwo(String path)
+    {
+        txtFileIn2.setText(path);
+    }
+
+    protected String getInputPathTwo()
+    {
+        return txtFileIn2.getText();
+    }
+
+    protected void setDiffing(boolean diff)
+    {
+        chkDiff.setSelected(diff);
+    }
+
+    protected boolean getDiffing()
+    {
+        return chkDiff.isSelected();
+    }
+
+    protected void setLooks(boolean looks)
+    {
+        chkLooks.setSelected(looks);
+    }
+
+    protected boolean getLooks()
+    {
+        return chkLooks.isSelected();
+    }
+
+    protected void setDoProfiles(boolean pro)
+    {
+        chkProfiles.setSelected(pro);
+    }
+
+    protected boolean getDoProfiles()
+    {
+        return chkProfiles.isSelected();
+    }
+
+    protected void setModel(String m)
+    {
+        txtModelName1.setText(m);
+    }
+
+    protected void setModelTwo(String m)
+    {
+        txtModelName2.setText(m);
+    }
+
+    protected void setContainerName(String s)
+    {
+        txtContainerName.setText(s);
+    }
+
+    protected String getContainerName()
+    {
+        return txtContainerName.getText();
+    }
+
+    protected void setStatus(String s)
+    {
+        txtStatus.setText(s);
+    }
+
+    protected boolean setMode(int mode) throws Exception
+    {
+        int prev = getMode(), cur = mode;
+        switch (mode)
         {
-            return cols.indexByKeyOf("type");
+            case 0:
+            {
+                radVDT.setEnabled(true);
+                break;
+            }
+
+            case 1:
+            {
+                radGXT.setEnabled(true);
+                break;
+            }
+
+            case 2:
+            {
+                radNSDDT.setEnabled(true);
+                break;
+            }
+
+            default:
+                throw new Exception ("Bad mode: " + mode);
         }
 
-        return typeCol;
+        updateFormForMode();
+        return (prev != cur);
+        
+
     }
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnGo;
@@ -1519,9 +1213,10 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
     private javax.swing.JMenuBar menuBarMain;
     private javax.swing.JMenuItem mnuBtnChangeDir;
     private javax.swing.JMenuItem mnuBtnExit;
-    private javax.swing.JMenuItem mnuCols;
     private javax.swing.JMenu mnuEdit;
     private javax.swing.JMenu mnuFile;
+    private javax.swing.JMenuItem munLoadCols;
+    private javax.swing.JMenuItem munuEditCols;
     private javax.swing.JPanel pnlContainer;
     private javax.swing.JPanel pnlInput0;
     private javax.swing.JPanel pnlInput1;
@@ -1535,11 +1230,11 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
     private javax.swing.JRadioButton radNSDDT;
     private javax.swing.JRadioButton radVDT;
     private javax.swing.JTextField txtContainerName;
-    private javax.swing.JTextArea txtDone;
     private javax.swing.JTextField txtFileIn1;
     private javax.swing.JTextField txtFileIn2;
     private javax.swing.JTextField txtFileOut;
     private javax.swing.JTextField txtModelName1;
     private javax.swing.JTextField txtModelName2;
+    private javax.swing.JTextArea txtStatus;
     // End of variables declaration//GEN-END:variables
 }

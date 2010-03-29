@@ -16,15 +16,4 @@ public class OrganizationHandler extends GeneralTagHandler
       super("Org", "organization");
   }
 
-//    @Override
-//    public String getTypeHandled()
-//    {
-//        return "organization";
-//    }
-//
-//     @Override
-//    public String getFriendlyName()
-//    {
-//        return "Org";
-//    }
 }

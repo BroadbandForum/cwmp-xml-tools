@@ -5,7 +5,6 @@
  */
 package threepio.printer;
 
-import java.util.List;
 import threepio.tabler.container.XTable;
 
 /**

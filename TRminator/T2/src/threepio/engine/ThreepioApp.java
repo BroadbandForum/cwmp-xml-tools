@@ -1,16 +1,19 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * File: ThreepioApp.java
+ * Project: Threepio
+ * Author: Jeff Houle
  */
 package threepio.engine;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import threepio.container.HashList;
 import threepio.filehandling.FileIntake;
 
 /**
- *
+ * A ThreepioApp is an application class that exposes the Threepio framework
+ * to the programmer, user, or other Application.
  * @author jhoule
  */
 public abstract class ThreepioApp
@@ -89,6 +92,7 @@ public abstract class ThreepioApp
      * the program will exit if the path is incorrect, or the file is not readable.
      * @param pathIn - the path to the real file.
      * @return a File for the input.
+     * @throws Exception - when there are issues loading the file.
      */
     protected static File getIn(String pathIn) throws Exception
     {
@@ -113,5 +117,40 @@ public abstract class ThreepioApp
         }
 
         return fIn;
+    }
+
+     /**
+     * getOut returns a File for the output file chosen by the user.
+     * an existent file at given path will get deleted in the process.
+     * @param pathOut - the path for the output file, as provided by the user.
+     * @return a File for putting the output into.
+     * @throws IOException when the file management experiences an issue.
+     */
+    public File getOut(String pathOut) throws IOException
+    {
+        // make a file for output.
+        File fOut = new File(pathOut);
+
+        if (fOut.isDirectory())
+        {
+            throw new IOException("The output file is a directory!");
+        }
+
+        if (fOut.getParentFile() == null)
+        {
+            fOut = new File("." + File.separatorChar + fOut.getName());
+        }
+
+        // delete any file that exists there.
+        if (fOut.exists())
+        {
+            //System.out.println("deleting old file at " + fOut.getPath());
+            fOut.delete();
+        }
+
+        // make a new file here.
+        fOut.createNewFile();
+
+        return fOut;
     }
 }

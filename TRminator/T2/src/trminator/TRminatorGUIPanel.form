@@ -52,12 +52,21 @@
             <Property name="text" type="java.lang.String" value="Edit"/>
           </Properties>
           <SubComponents>
-            <MenuItem class="javax.swing.JMenuItem" name="mnuCols">
+            <MenuItem class="javax.swing.JMenuItem" name="munuEditCols">
               <Properties>
                 <Property name="text" type="java.lang.String" value="change cols"/>
               </Properties>
               <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="mnuColsActionPerformed"/>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="munuEditColsActionPerformed"/>
+              </Events>
+            </MenuItem>
+            <MenuItem class="javax.swing.JMenuItem" name="munLoadCols">
+              <Properties>
+                <Property name="text" type="java.lang.String" value="load cols"/>
+                <Property name="enabled" type="boolean" value="false"/>
+              </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="munLoadColsActionPerformed"/>
               </Events>
             </MenuItem>
           </SubComponents>
@@ -774,7 +783,7 @@
 
       <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
       <SubComponents>
-        <Component class="javax.swing.JTextArea" name="txtDone">
+        <Component class="javax.swing.JTextArea" name="txtStatus">
           <Properties>
             <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
               <Color blue="ed" green="e9" id="TextArea.disabledBackground" palette="3" red="eb" type="palette"/>

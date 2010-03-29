@@ -183,7 +183,7 @@
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Tahoma" size="11" style="1"/>
             </Property>
-            <Property name="text" type="java.lang.String" value="Column Name:"/>
+            <Property name="text" type="java.lang.String" value="Key:"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="lblVal">
@@ -191,7 +191,7 @@
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Tahoma" size="11" style="1"/>
             </Property>
-            <Property name="text" type="java.lang.String" value="Name in XML:"/>
+            <Property name="text" type="java.lang.String" value="Value:"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JTextField" name="txtCol">

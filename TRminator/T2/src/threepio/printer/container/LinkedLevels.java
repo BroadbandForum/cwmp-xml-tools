@@ -1,6 +1,7 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * File: LinkedLevels.java
+ * Project: Threepio
+ * Author: Jeff Houle
  */
 package threepio.printer.container;
 
@@ -9,7 +10,14 @@ import threepio.helper.XHTMLHelper;
 import threepio.tabler.Path;
 
 /**
+ * LinkexLevels is a recursively linked list of Levels.
+ * Each Level has a previous level (except the first)
+ * and each Level has a list of child levels.
+ * The result is a tree-like structure of lists.
  *
+ * LinkedLevels is intended to be used an XML/HTML builder, but it may have
+ * other uses.
+ * 
  * @param <X> - the type of object that will be in the level
  * @author jhoule
  */
@@ -177,6 +185,10 @@ public class LinkedLevels<X>
         private ArrayList<Level> children;
         private String label, trailer, id;
 
+        /**
+         * Default constructor.
+         * Inits instance variables.
+         */
         public Level()
         {
             depth = 0;
@@ -187,6 +199,10 @@ public class LinkedLevels<X>
             trailer = "";
         }
 
+        /**
+         * Constuctor with depth other than 0.
+         * @param d - the depth this level should say it is at.
+         */
         public Level(int d)
         {
             this();
@@ -194,11 +210,19 @@ public class LinkedLevels<X>
 
         }
 
+        /**
+         * Sets the ID of the Level.
+         * @param anID - the name of it.
+         */
         public void setID(String anID)
         {
             this.id = anID;
         }
 
+        /**
+         * Adds a child Level to the this level.
+         * @param l - the child to add.
+         */
         public void addChild(Level<X> l)
         {
             children.add(l);
@@ -206,6 +230,10 @@ public class LinkedLevels<X>
             l.prev = this;
         }
 
+        /**
+         * Overridden to output all Levels as 
+         * @return
+         */
         @Override
         public String toString()
         {

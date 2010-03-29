@@ -1,13 +1,16 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * File: ColumnMap.java
+ * Project: Threepio
+ * Author: Jeff Houle
  */
 
 package threepio.tabler.container;
 
 /**
- *
+ * ColumnMap is an IndexedHashMap with keys and values of type String.
+ * The index getter functions ignore case when searching.
  * @author jhoule
+ * @see IndexedHashMap
  */
 public class ColumnMap extends IndexedHashMap<String, String> {
 

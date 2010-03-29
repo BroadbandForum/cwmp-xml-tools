@@ -59,7 +59,6 @@ public class IHMEditPanel extends javax.swing.JPanel
                 lstKeys.setEnabled(true);
                 btnPwr = true;
 
-
                 break;
             default:
                 pnlAdd.setEnabled(true);
@@ -67,10 +66,15 @@ public class IHMEditPanel extends javax.swing.JPanel
                 break;
         }
 
-        for (int i = 0; i < pnlAdd.getComponents().length; i++)
-        {
-            pnlAdd.getComponents()[i].setEnabled(pnlAdd.isEnabled());
-        }
+        txtCol.setEditable(pnlAdd.isEnabled());
+        txtCol.setEnabled(true);
+        txtXML.setEditable((pnlAdd.isEnabled()));
+        txtXML.setEnabled(true);
+
+//        for (int i = 0; i < pnlAdd.getComponents().length; i++)
+//        {
+//            pnlAdd.getComponents()[i].setEnabled(pnlAdd.isEnabled());
+//        }
 
         for (int j = 0; j < btns.length; j++)
         {
@@ -98,7 +102,7 @@ public class IHMEditPanel extends javax.swing.JPanel
             case 1:
                 lstKeys.setEnabled(false);
 
-                txtCol.setEnabled(false);
+                txtCol.setEditable(false);
                 break;
         }
     }
@@ -173,11 +177,11 @@ public class IHMEditPanel extends javax.swing.JPanel
 
         pnlAdd.setEnabled(false);
 
-        lblKey.setFont(new java.awt.Font("Tahoma", 1, 11));
-        lblKey.setText("Column Name:");
+        lblKey.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
+        lblKey.setText("Key:");
 
-        lblVal.setFont(new java.awt.Font("Tahoma", 1, 11));
-        lblVal.setText("Name in XML:");
+        lblVal.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
+        lblVal.setText("Value:");
 
         txtCol.setEnabled(false);
 

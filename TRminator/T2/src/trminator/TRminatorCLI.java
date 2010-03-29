@@ -27,32 +27,34 @@ public class TRminatorCLI extends TRminatorUI
      */
     public void run()
     {  
-        System.out.println(TRminatorApp.appVersion + " is starting...\n");
-        
+        updateVariables();
+        myApp.collectFiles();
+        myApp.doChecks();
+        myApp.makeTable();
     }
 
     @Override
-    protected void updateStatus()
+    protected void updateVariables()
     {
-        throw new UnsupportedOperationException("Not supported yet.");
+        System.out.println("parameters are locked in.");
     }
 
     @Override
     public void fail(String reason)
     {
-        throw new UnsupportedOperationException("Not supported yet.");
+        cli_failOut(reason);
     }
 
     @Override
     public void fail(String reason, Exception ex)
     {
-        throw new UnsupportedOperationException("Not supported yet.");
+        cli_failOut(reason);
     }
 
     @Override
-    public boolean init()
+    public void init() throws Exception
     {
-        throw new UnsupportedOperationException("Not supported yet.");
+        System.out.println(TRminatorApp.appVersion + " is starting...\n");
     }
 
     @Override
@@ -118,5 +120,20 @@ public class TRminatorCLI extends TRminatorUI
 // never actually gets here (the list cant' have a size <0).
         return null;
 
+    }
+
+    @Override
+    protected void updateStatus(String msg)
+    {
+        StringBuffer buff = new StringBuffer();
+
+        buff.append("System Message:\n");
+        buff.append(msg);
+    }
+
+    @Override
+    protected void updateFields()
+    {
+        // do nothing fornow.
     }
 }

@@ -16,15 +16,4 @@ public class TitleHandler extends GeneralTagHandler
     {
         super("Title", "title");
     }
-//    @Override
-//    public String getTypeHandled()
-//    {
-//        return "title";
-//    }
-//
-//     @Override
-//    public String getFriendlyName()
-//    {
-//        return "Title";
-//    }
 }
