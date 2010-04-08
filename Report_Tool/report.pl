@@ -1,9 +1,41 @@
 #!/usr/bin/perl -w
 #
+# Copyright (c) 2010, 2Wire, Inc.
+# All Rights Reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:	
+# - Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# - Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# - Neither the name of 2Wire, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
 # Example data model report script.  Parses, validates and reports on TR-069
 # DM (data model definition) instance documents.
 #
-# See full documentation at the end of the file.
+# Please note that this script was developed during the same period that the
+# Broadband Forum (BBF) XML standards were evolving.  The script tracked that
+# evolution and is not well-structured, easy to understand, or maintainable.
+# "XXX" comments throughout the script indicate known restrictions,
+# inefficiencies or other issues.  Caveat emptor.
+#
+# See full usage documentation at the end of the file.
 
 # XXX want better format that can be directly imported into excel (and of
 #     course want better export from excel, but that's a separate issue)
@@ -121,8 +153,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/03/12 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#158 $};
+my $tool_vers_date = q{$Date: 2010/04/08 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#159 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -157,6 +189,7 @@ binmode STDOUT, ":utf8";
 # Command-line options
 my $autobase = 0;
 my $autodatatype = 0;
+my $bibrefsectionfirst = 0;
 my $canonical = 0;
 my $components = 0;
 my $debugpath = '';
@@ -198,6 +231,7 @@ my $warndupbibref = 0;
 my $writonly = 0;
 GetOptions('autobase' => \$autobase,
            'autodatatype' => \$autodatatype,
+           'bibrefsectionfirst' => \$bibrefsectionfirst,
            'canonical' => \$canonical,
            'components' => \$components,
            'debugpath:s' => \$debugpath,
@@ -442,9 +476,6 @@ sub expand_toplevel
 # XXX yes, in both cases should import all top-level items (dataType,
 #     component, model) into the "main" namespace, unless there is a
 #     conflict; explicitly imported symbols can be renamed locally
-# XXX importing something should add it to the current namespace and allow
-#     it to be imported from elsewhere, e.g. import Time in 143 (even though
-#     it doesn't use it) should allow Time to be imported from 143
 sub expand_import
 {
     my ($context, $pnode, $import) = @_;
@@ -2694,6 +2725,102 @@ sub has_value
     return (grep { $_ eq $search } keys %$values) ? 1 : 0;
 }
 
+# Determine whether a value is valid for a given parameter
+# XXX not complete (see XXX comments below)
+sub valid_value
+{
+    my ($node, $value, $ignore_ranges) = @_;
+
+    my $type = $node->{type};
+    my $syntax = $node->{syntax};
+    my $values = $node->{values};
+
+    # determine base data type
+    my $typeinfo = get_typeinfo($type, $syntax);
+    my ($primtype, $dataType) = ($typeinfo->{value}, $typeinfo->{dataType});
+
+    $primtype = base_type($primtype, 1) if $dataType;
+
+    #print STDERR "#### $node->{path} $primtype $value\n";
+
+    # XXX unless suppressed via $ignore_ranges (in which case the range is
+    #     the full range for the data type), would also check that numeric
+    #     values are within one of the ranges (honoring the step)
+
+    if ($primtype eq 'string') {
+        if (!has_values($values)) {
+            # XXX no check for plain string; could check length...
+            return 1;
+        } else {
+            # XXX no check for pattern matches
+            return has_value($values, $value);
+        }
+
+    } elsif ($primtype eq 'boolean') {
+        return ($value =~ /^(0|1|false|true)$/);
+
+    } elsif ($primtype eq 'int') {
+        # XXX for now no range check
+        return ($value =~ /^(-?\d+)$/);
+
+    } elsif ($primtype eq 'long') {
+        # XXX for now no range check
+        return ($value =~ /^(-?\d+)$/);
+
+    } elsif ($primtype eq 'unsignedInt') {
+        # XXX for now no range check (apart from that it's positive)
+        return ($value =~ /^(\d+)$/);
+
+    } elsif ($primtype eq 'unsignedLong') {
+        # XXX for now no range check (apart from that it's positive)
+        return ($value =~ /^(\d+)$/);
+
+    } else {
+        # XXX for other types (base64, dateTime, hexBinary) assume valid
+        return 1;
+    }    
+}
+
+# Determine whether a value is valid for a given parameter (value can be a list
+# if the parameter is list-valued)
+sub valid_values
+{
+    my ($node, $values) = @_;
+
+    my $syntax = $node->{syntax};
+
+    if (!$syntax->{list}) {
+        return valid_value($node, $values);
+    } else {
+        $values =~ s/^\s*//;
+        $values =~ s/\s*$//;
+        foreach my $value (split /\s*,\s*/, $values) {
+            return 0 unless valid_value($node, $value);
+        }
+        return 1;
+    }
+}
+
+# Determine whether ranges are valid
+sub valid_ranges
+{
+    my ($node) = @_;
+
+    my $ranges = $node->{syntax}->{ranges};
+
+    return 1 unless defined $ranges && @$ranges;
+
+    foreach my $range (@$ranges) {
+        my $minval = $range->{minInclusive};
+        my $maxval = $range->{maxInclusive};
+
+        return 0 if defined($minval) && !valid_value($node, $minval, 1);
+        return 0 if defined($maxval) && !valid_value($node, $maxval, 1);
+    }
+
+    return 1;
+}
+
 # Get formatted enumerated values
 # XXX format is currently report-dependent
 sub get_values
@@ -3126,6 +3253,7 @@ sub add_range
 }
 
 # Return 0/1 given string representation of boolean
+# XXX shouldn't really allow "t" (is there a reason for this?)
 sub boolean
 {
     my ($value, $default) = @_;
@@ -5791,7 +5919,6 @@ sub html_template_issue
 }
 
 # insert appropriate null value
-# XXX currently rather simple-minded and no support for named data types
 sub html_template_null
 {
     my ($opts, $name, $scope) = @_;
@@ -5814,10 +5941,26 @@ sub html_template_null
     }
 
     my $type = $parameters->{$path}->{type};
+    my $syntax = $parameters->{$path}->{syntax};
 
-    return '{{empty}}' if $type =~ /^(string|base64|hexBinary)/;
-    return '{{false}}' if $type eq 'boolean';
-    return '0';
+    my $typeinfo = get_typeinfo($type, $syntax);
+    my ($primtype, $dataType) = ($typeinfo->{value}, $typeinfo->{dataType});
+
+    $primtype = base_type($primtype, 1) if $dataType;
+
+    if ($primtype =~ /^(base64|hexBinary|string)$/) {
+        return qq{{{empty}}};
+    } elsif ($primtype eq 'boolean') {
+        return qq{{{false}}};
+    } elsif ($primtype eq 'dateTime') {
+        return qq{0001-01-01T00:00:00Z};
+    } elsif ($primtype =~ /^unsigned(Int|Long)$/) {
+        return qq{0};
+    } elsif ($primtype =~ /^(int|long)$/) {
+        return qq{-1};
+    } else {
+        die "html_template_null: invalid primitive type: $primtype\n";
+    }
 }
 
 # insert units string
@@ -6094,10 +6237,12 @@ sub html_template_bibref
     }
 
     $bibref = html_get_anchor($bibref, 'bibref') unless $nolinks;
-
+    
+    # XXX proposed reversion (to be confirmed)
     my $text = qq{};
-    $text .= qq{$section / } if $section;
+    $text .= qq{$section / } if $section && $bibrefsectionfirst;
     $text .= qq{[$bibref]};
+    $text .= qq{ $section} if $section && !$bibrefsectionfirst;
 
     return $text;
 }
@@ -6351,8 +6496,9 @@ sub html_template_reference
         # XXX this logic currently for pathRef only, but also applies
         #     to instanceRef (for which targetParent cannot be a list, and
         #     targetType is always "row")
-        my $targetParentReadOnly = 1;
+        my $targetParentFixed = 0;
         if ($targetParent) {
+            $targetParentFixed = 1;
             foreach my $tp (split ' ', $targetParent) {
                 my ($tpp) = relative_path($object, $tp, $targetParentScope);
 
@@ -6372,8 +6518,7 @@ sub html_template_reference
                 print STDERR "$path: targetParent doesn't exist: $tp\n"
                     unless $tpn;
 
-                $targetParentReadOnly = 0
-                    if $tpn && $tpn->{access} eq 'readWrite';
+                $targetParentFixed = 0 if $tpn && !$tpn->{fixedObject};
             }
         }
 
@@ -6415,13 +6560,10 @@ sub html_template_reference
             $targetType =~ s/row/object/;
             $targetType =~ s/single.*/object/;
             $targetType =~ s/parameter or object/item/;
-            # XXX disabling this text may have been correct in some cases, but
-            #     not always, e.g. not for interface stack LowerLayer and
-            #     HigherLayer
-            if (0 && $targetParentReadOnly) {
+            if ($targetParentFixed) {
                 $text .= $list ?
-                    qq{.} :
-                    qq{, or {{empty}}.};
+                    qq{, or {{empty}}.} :
+                    qq{.};
             } else {
                 $text .= qq{.};
                 $text .= qq{  If the referenced $targetType is deleted, the };
@@ -6473,6 +6615,10 @@ sub html_template_reference
         $text = '';
     }
 
+    # this is to avoid problems if there is no whitespace after the template
+    # reference
+    $text .= qq{  } if $text;
+
     return $text;
 }
 
@@ -6487,6 +6633,8 @@ sub relative_path
 
     $parent = '' unless $parent;
     $scope = 'normal' unless $scope;
+
+    my $name2 = $name;
 
     my $path;
 
@@ -6512,7 +6660,7 @@ sub relative_path
             # XXX need a utility for this!
             my $tparent = $parent;
             $parent =~ s/\.\{/\{/g;
-            #print STDERR "$parent $name $nlev\n";
+            #print STDERR "$parent $name $nlev\n" if $nlev;
             my @comps = split /$sepp/, $parent;
             splice @comps, -$nlev;
             $parent = join $sep, @comps;
@@ -6521,9 +6669,13 @@ sub relative_path
             print STDERR "$tparent: $name has too many $par characters\n"
                 unless $parent;
             $name =~ s/^$parp*\.?//;
-            #print STDERR "$parent $name\n";
+            # if name is empty, will use final component of parent
+            $name2 = $comps[-1];
+            $name2 =~ s/\{.*//;
+            #print STDERR "$parent $name $name2\n" if $nlev;
         }
         $path = $parent . $name;
+        $name = $name2 unless $name;
     }
 
     # XXX as experiment, remove leading separator in returned name (affects
@@ -8075,7 +8227,10 @@ sub util_is_multi_instance
 {
     my ($min, $max) = @_;
 
-    return ($max eq 'unbounded' || ($max > 1 && $max > $min));
+    my $multi = ($max eq 'unbounded' || $max > 1);
+    my $fixed = ($multi && $max eq $min);
+
+    return ($multi, $fixed);
 }
 
 # Expand all data model definition files.
@@ -8155,7 +8310,7 @@ sub sanity_node
     #     hidden
     if ($object) {
         my $ppath = $node->{pnode}->{path};
-        my $multi = util_is_multi_instance($minEntries, $maxEntries);
+        my ($multi,$fixed) = util_is_multi_instance($minEntries, $maxEntries);
 
         print STDERR "$path: object is optional; was this intended?\n"
             if $minEntries eq '0' && $maxEntries eq '1' && $pedantic > 1;
@@ -8181,8 +8336,9 @@ sub sanity_node
         my $temp = $numEntriesParameter || '';
         $numEntriesParameter = $parameters->{$ppath.$numEntriesParameter} if
             $numEntriesParameter;
-        if ($multi && (!$numEntriesParameter ||
-                       (!$hidden && $numEntriesParameter->{hidden}))) {
+        if ($multi && !$fixed &&
+            (!$numEntriesParameter ||
+             (!$hidden && $numEntriesParameter->{hidden}))) {
             print STDERR "$path: missing or invalid numEntriesParameter ".
                 "($temp)\n";
             # XXX should filter out only parameters (use grep)
@@ -8203,6 +8359,9 @@ sub sanity_node
         print STDERR "$path: writable table but no enableParameter\n"
             if $access ne 'readOnly' && $multi && @{$node->{uniqueKeys}} &&
             !$enableParameter;
+
+        print STDERR "$path: writable fixed size table\n"
+            if $access ne 'readOnly' && $multi && $fixed;
 
         # XXX could be cleverer re checking for read-only / writable unique
         #     keys
@@ -8228,15 +8387,20 @@ sub sanity_node
             $node->{pnode}->{maxEntries} eq 'unbounded' &&
             !$node->{pnode}->{fixedObject};
 
-        # XXX should also check that it's legal for the data type, e.g. a
-        #     valid integer
-	print STDERR "$path: default $udefault is not one of the enumerated " .
-	    "values\n" if $pedantic && defined $default &&
-            !($syntax->{list} && $default eq '') && has_values($values) &&
-            !has_value($values, $default);
+        # XXX doesn't complain about defaults in read-only objects or tables;
+        #     this is because they are quietly ignored (this is part of
+        #     allowing them in components that can be included in multiple
+        #     environments)
+
+	print STDERR "$path: default $udefault is invalid for data type $type\n"
+            if $pedantic && defined $default && !valid_values($node, $default);
 
 	print STDERR "$path: default $udefault is inappropriate\n"
             if $pedantic && defined($default) && $default =~ /\<Empty\>/i;
+
+        print STDERR "$path: range ".add_range($syntax)." is invalid for ".
+            "data type $type\n" if $pedantic && defined $syntax->{ranges} &&
+            !valid_ranges($node);
 
 	print STDERR "$path: string parameter has no maximum " .
 	    "length specified\n" if $pedantic > 1 &&
@@ -8248,11 +8412,11 @@ sub sanity_node
 	    maxlength_appropriate($path, $name, $type) &&
             has_values($values) && $syntax->{maxLength};
 
-        # XXX why the special case for lists?
+        # XXX why the special case for lists?  suppressed
 	print STDERR "$path: parameter within static object has " .
 		"a default value\n" if $pedantic && !$dynamic &&
-                defined($default) && $deftype eq 'object' &&
-                !($syntax->{list} && $default eq '');
+                defined($default) && $deftype eq 'object';
+        #&& !($syntax->{list} && $default eq '');
 
 	# XXX other checks to make: profiles reference valid parameters,
 	#     reference types, default is valid for type, other facets are
@@ -8385,7 +8549,7 @@ report.pl - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--autodatatype] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
+B<report.pl> [--autobase] [--autodatatype] [--bibrefsectionfirst] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
 =over
 
@@ -8416,6 +8580,10 @@ causes automatic addition of B<base> attributes when models, parameters and obje
 causes the B<{{datatype}}> template to be automatically prefixed for parameters with named data types
 
 this is deprecated because it is enabled by default
+
+=item B<--bibrefsectionfirst>
+
+causes the B<{{bibref}}> template to be expanded with the section number first (followed by a slash)
 
 =item B<--canonical>
 
@@ -8669,7 +8837,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/03/12 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#158 $
+$Date: 2010/04/08 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#159 $
 
 =cut
