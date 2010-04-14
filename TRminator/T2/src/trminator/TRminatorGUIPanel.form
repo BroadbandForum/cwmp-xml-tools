@@ -35,6 +35,7 @@
             <MenuItem class="javax.swing.JMenuItem" name="mnuBtnChangeDir">
               <Properties>
                 <Property name="text" type="java.lang.String" value="Change Working Directory"/>
+                <Property name="enabled" type="boolean" value="false"/>
               </Properties>
             </MenuItem>
             <MenuItem class="javax.swing.JMenuItem" name="mnuBtnExit">
@@ -424,6 +425,7 @@
             </Component>
             <Component class="javax.swing.JTextField" name="txtFileIn1">
               <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="txtFileIn1ActionPerformed"/>
                 <EventHandler event="propertyChange" listener="java.beans.PropertyChangeListener" parameters="java.beans.PropertyChangeEvent" handler="txtFileIn1PropertyChange"/>
                 <EventHandler event="keyTyped" listener="java.awt.event.KeyListener" parameters="java.awt.event.KeyEvent" handler="txtFileIn1KeyTyped"/>
               </Events>
@@ -642,6 +644,7 @@
         </Component>
         <Component class="javax.swing.JTextField" name="txtFileOut">
           <Events>
+            <EventHandler event="propertyChange" listener="java.beans.PropertyChangeListener" parameters="java.beans.PropertyChangeEvent" handler="txtFileOutPropertyChange"/>
             <EventHandler event="keyTyped" listener="java.awt.event.KeyListener" parameters="java.awt.event.KeyEvent" handler="txtFileOutKeyTyped"/>
           </Events>
         </Component>

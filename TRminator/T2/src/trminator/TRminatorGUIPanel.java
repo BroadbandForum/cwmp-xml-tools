@@ -6,7 +6,6 @@
  */
 package trminator;
 
-import threepio.engine.ThreepioEngine;
 import java.io.File;
 import java.util.ArrayList;
 import javax.swing.JComponent;
@@ -19,23 +18,20 @@ import threepio.filehandling.FileIntake;
 import threepio.tabler.container.ColumnMap;
 
 /**
- * TRminatorGUIPanel is a ThreepioEngine GUI.
+ * TRminatorGUIPanel is the face of the TRmiantor GUI.
  * It's where user I/O occurs.
- * It relies on ThreepioEngine for most functionality.
  * @author jhoule
- * @see ThreepioEngine
+ * @see TRminatorGUI
  */
 public class TRminatorGUIPanel extends javax.swing.JFrame
 {
 
-    /**
-     * A flag that keeps the program from running if in a bad state.
-     */
-    private boolean goodToGo;
+    protected boolean loaded;
+
     /**
      * flag for producing debug output
      */
-    private boolean debugMode = true;
+    private boolean debugMode = false;
     /**
      * Columns mapped to the "attributes" of objects/parameters they list.
      */
@@ -45,7 +41,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
     /**
      * Creates new TRminatorGUIPanel form.
      * auto-fills the column map, which is user-editable.
-     * @param appVersion - the version string to identify the underlying application.
+     * @param aGui - the GUI this panel runs on top of.
      */
     public TRminatorGUIPanel(TRminatorGUI aGui)
     {
@@ -53,7 +49,9 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         initComponents();
 
         this.setTitle("TRminator");
-        lblVersion.setText(gui.myApp.appVersion);
+        lblVersion.setText(TRminatorApp.appVersion);
+
+        loaded = false;
 
         // lblVersion.setText(appVersion);
         // clearFields(true);
@@ -245,6 +243,11 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
             }
         });
 
+        txtFileIn1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                txtFileIn1ActionPerformed(evt);
+            }
+        });
         txtFileIn1.addPropertyChangeListener(new java.beans.PropertyChangeListener() {
             public void propertyChange(java.beans.PropertyChangeEvent evt) {
                 txtFileIn1PropertyChange(evt);
@@ -418,6 +421,11 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
             }
         });
 
+        txtFileOut.addPropertyChangeListener(new java.beans.PropertyChangeListener() {
+            public void propertyChange(java.beans.PropertyChangeEvent evt) {
+                txtFileOutPropertyChange(evt);
+            }
+        });
         txtFileOut.addKeyListener(new java.awt.event.KeyAdapter() {
             public void keyTyped(java.awt.event.KeyEvent evt) {
                 txtFileOutKeyTyped(evt);
@@ -537,6 +545,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         mnuFile.setText("File");
 
         mnuBtnChangeDir.setText("Change Working Directory");
+        mnuBtnChangeDir.setEnabled(false);
         mnuFile.add(mnuBtnChangeDir);
 
         mnuBtnExit.setText("Exit");
@@ -649,7 +658,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
      */
     private void btnOutBrowseActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_btnOutBrowseActionPerformed
     {//GEN-HEADEREND:event_btnOutBrowseActionPerformed
-        useFileChooser(txtFileOut, false, new File(txtFileIn1.getText()).getParentFile());
+        useFileChooserForField(txtFileOut, false, new File(txtFileIn1.getText()).getParentFile());
 
         gui.setOutputPath(txtFileOut.getText());
     }//GEN-LAST:event_btnOutBrowseActionPerformed
@@ -661,7 +670,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
      */
     private void btnInBrowse1ActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_btnInBrowse1ActionPerformed
     {//GEN-HEADEREND:event_btnInBrowse1ActionPerformed
-        useFileChooser(txtFileIn1, true, new File(txtFileIn1.getText()).getParentFile());
+        useFileChooserForField(txtFileIn1, true, new File(txtFileIn1.getText()).getParentFile());
         gui.setInputPathOne(txtFileIn1.getText());
     }//GEN-LAST:event_btnInBrowse1ActionPerformed
 
@@ -672,7 +681,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
      */
     private void btnInBrowse2ActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_btnInBrowse2ActionPerformed
     {//GEN-HEADEREND:event_btnInBrowse2ActionPerformed
-        useFileChooser(txtFileIn2, true, new File(txtFileIn1.getText()).getParentFile());
+        useFileChooserForField(txtFileIn2, true, new File(txtFileIn1.getText()).getParentFile());
         gui.setInputPathTwo(txtFileIn2.getText());
     }//GEN-LAST:event_btnInBrowse2ActionPerformed
 
@@ -683,7 +692,8 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
      */
     private void btnLoadActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_btnLoadActionPerformed
     {//GEN-HEADEREND:event_btnLoadActionPerformed
-        btnGo.setEnabled(goodToGo = gui.loadFiles());
+        btnGo.setEnabled(gui.loadFiles() && ! txtFileOut.getText().isEmpty());
+        
 }//GEN-LAST:event_btnLoadActionPerformed
 
     /**
@@ -701,7 +711,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
      */
     private void txtContainerNameKeyTyped(java.awt.event.KeyEvent evt)//GEN-FIRST:event_txtContainerNameKeyTyped
     {//GEN-HEADEREND:event_txtContainerNameKeyTyped
-        noGo();
+        setGoButton();
     }//GEN-LAST:event_txtContainerNameKeyTyped
 
     /**
@@ -710,7 +720,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
      */
     private void txtFileOutKeyTyped(java.awt.event.KeyEvent evt)//GEN-FIRST:event_txtFileOutKeyTyped
     {//GEN-HEADEREND:event_txtFileOutKeyTyped
-        noGo();
+        setGoButton();
     }//GEN-LAST:event_txtFileOutKeyTyped
 
     /**
@@ -829,10 +839,23 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         }
     }//GEN-LAST:event_chkProfilesActionPerformed
 
+    /**
+     * loads a filechooser for the columns file.
+     * @param evt - the event of this happening.
+     */
     private void munLoadColsActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_munLoadColsActionPerformed
     {//GEN-HEADEREND:event_munLoadColsActionPerformed
-        // TODO: implement column loader and link to this button.
     }//GEN-LAST:event_munLoadColsActionPerformed
+
+    private void txtFileIn1ActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_txtFileIn1ActionPerformed
+    {//GEN-HEADEREND:event_txtFileIn1ActionPerformed
+        fileChanging();
+    }//GEN-LAST:event_txtFileIn1ActionPerformed
+
+    private void txtFileOutPropertyChange(java.beans.PropertyChangeEvent evt)//GEN-FIRST:event_txtFileOutPropertyChange
+    {//GEN-HEADEREND:event_txtFileOutPropertyChange
+        setGoButton();
+    }//GEN-LAST:event_txtFileOutPropertyChange
 
     /**
      * called when a file input field is changing, to keep the user from running
@@ -841,7 +864,8 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
     private void fileChanging()
     {
         gui.updateVariables();
-        noGo();
+        setLoadButton();
+        setGoButton();
     }
 
     /**
@@ -878,47 +902,59 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         }
     }
 
-    
     /**
-     * makes the Go status and Go button both false.
-     */
-    private void noGo()
-    {
-        btnGo.setEnabled(goodToGo = false);
-    }
-
-    /**
-     * pops up the file chooser for the user to use.
+     * pops up the file chooser for the user to use, then fills in the GUI field with the selected path.
      * @param field - the field that should be filled with the path
      * @param opening - set to true if opening, false if saving.
      * @param dir - the file or directory to start at
      */
-    private void useFileChooser(JTextField field, boolean opening, File dir)
+    private void useFileChooserForField(JTextField field, boolean opening, File dir)
     {
-        JFileChooser chooser = new JFileChooser();
-
+        String path;
         File tempFile;
 
-        noGo();
+        setGoButton();
 
         tempFile = new File(field.getText());
 
         if (tempFile != null && tempFile.exists())
         {
-            chooser.setSelectedFile(tempFile);
+            path = useFileChooser(opening, tempFile);
         } else
         {
-            if (dir == null)
-            {
-                // open the file browser in execution directory.
-                dir = FileIntake.currentDir();
-            }
+            path = useFileChooser(opening, dir);
+        }
 
-            if (dir != null && dir.exists())
-            {
-                chooser.setSelectedFile(dir);
-            }
+        if (path != null)
+        {
+            field.setText(path);
+        }
 
+        field.updateUI();
+    }
+
+    /**
+     * Pops up the file chooser for the user to use it, then returns the result.
+     * If the user picks a valid file, the path is returned (and guaranteed to be a real path to a file).
+     * Otherwise, a null pointer is returned.
+     * @param opening - set to true if the user is opening a file, false if they are saving one.
+     * @param startIn - a file or directory to start file selection from.
+     * @return the path to the chosen file, if chosen. null otherwise.
+     */
+    private String useFileChooser(boolean opening, File startIn)
+    {
+        JFileChooser chooser = new JFileChooser();
+        File f;
+
+        if (startIn == null)
+        {
+            // open the file browser in execution directory.
+            startIn = FileIntake.currentDir();
+        }
+
+        if (startIn != null && startIn.exists())
+        {
+            chooser.setSelectedFile(startIn);
         }
 
         if (opening)
@@ -927,16 +963,17 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         } else
         {
 
-
             chooser.showSaveDialog(this);
         }
 
-        if (chooser.getSelectedFile() != null && (!opening || chooser.getSelectedFile().exists()))
+        f = chooser.getSelectedFile();
+
+        if (f == null)
         {
-            field.setText(chooser.getSelectedFile().getAbsolutePath());
+            return null;
         }
 
-        field.updateUI();
+        return f.getAbsolutePath();
     }
 
     /**
@@ -961,6 +998,34 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         }
 
         return i;
+    }
+
+    protected void setLoadButton()
+    {
+        boolean file1NotEmpty = (!(txtFileIn1.getText().isEmpty()));
+        switch (getMode())
+        {
+            case 2:
+                btnLoad.setEnabled(!(file1NotEmpty
+                        || txtFileIn2.getText().isEmpty()));
+                break;
+            default:
+                btnLoad.setEnabled(file1NotEmpty);
+                break;
+        }
+
+        loaded = false;
+    }
+
+    protected void setGoButton()
+    {
+        boolean temp = loaded && ! txtFileOut.getText().isEmpty();
+        btnGo.setEnabled(temp);
+        if (temp)
+        {
+            // if we can go, then we should make sure that the app pointers are up to date.
+            gui.updateVariables();
+        }
     }
 
     /**
@@ -994,6 +1059,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
 
                 btnLoad.setText("Load File");
 
+
                 break;
 
             case 1:
@@ -1011,6 +1077,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
 
                 btnLoad.setText("Load File");
 
+
                 break;
 
             case 2:
@@ -1026,6 +1093,7 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
                 off.add(chkProfiles);
 
                 btnLoad.setText("Load Files");
+
 
 
                 break;
@@ -1047,114 +1115,206 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
         {
             on.get(j).setVisible(true);
         }
-    }
 
+        setLoadButton();
+    }
 
     /**
-     * changes the enabled state of the Go button based on if the rest of the
-     * methods have set the flag(s) that allow it.
+     * Pops up an error with the message for the user.
+     * A default title is used.
+     * @param msg - the message for the user.
      */
-    private void checkGood()
-    {
-        btnGo.setEnabled(goodToGo);
-    }
-
-
     protected void popupError(String msg)
     {
         JOptionPane.showMessageDialog(this, msg, "Application Error", JOptionPane.ERROR_MESSAGE);
     }
 
+    /**
+     * Pops up an error with the message for the user.
+     * @param msg - the message for the user.
+     * @param title - the title of the window.
+     */
     protected void popupError(String msg, String title)
     {
         JOptionPane.showMessageDialog(this, msg, title, JOptionPane.ERROR_MESSAGE);
     }
 
+    /**
+     * Sets the output path text
+     * @param path - the text to set the output path to.
+     */
     protected void setOutputPath(String path)
     {
         txtFileOut.setText(path);
     }
 
+    /**
+     * gets the output path text
+     * @return the output path text.
+     */
     protected String getOutputPath()
     {
         return txtFileOut.getText();
     }
 
+    /**
+     * sets the first input path text
+     * @param path - the string to set the first input path to.
+     */
     protected void setInputPathOne(String path)
     {
         txtFileIn1.setText(path);
     }
 
+    /**
+     * gets the first input path text.
+     * @return the first input path
+     */
     protected String getInputPathOne()
     {
         return txtFileIn1.getText();
     }
 
+    /**
+     * sets the second input path text
+     * @param path - the string to set the second input path to.
+     */
     protected void setInputPathTwo(String path)
     {
         txtFileIn2.setText(path);
     }
 
+    /**
+     * gets the second input path text.
+     * @return the second input path
+     */
     protected String getInputPathTwo()
     {
         return txtFileIn2.getText();
     }
 
+    /**
+     * sets the checkbox for diffing.
+     * @param diff - if true, box is checked. unchecked otherwise.
+     */
     protected void setDiffing(boolean diff)
     {
         chkDiff.setSelected(diff);
     }
 
+    /**
+     * gets the state of the checkbox for diffing.
+     * @return true iff the box is checked, false otherwise.
+     */
     protected boolean getDiffing()
     {
         return chkDiff.isSelected();
     }
 
+    /**
+     * sets the checkbox for looks.
+     * @param looks - if true, box is checked. unchecked otherwise.
+     */
     protected void setLooks(boolean looks)
     {
         chkLooks.setSelected(looks);
     }
 
+    /**
+     * gets the state of the checkbox for looks.
+     * @return true iff the box is checked, false otherwise.
+     */
     protected boolean getLooks()
     {
         return chkLooks.isSelected();
     }
 
+    /**
+     * sets the checkbox for profiles.
+     * @param pro - if true, box is checked. unchecked otherwise.
+     */
     protected void setDoProfiles(boolean pro)
     {
         chkProfiles.setSelected(pro);
     }
 
+    /**
+     * gets the state of the checkbox for profiles.
+     * @return true iff the box is checked, false otherwise.
+     */
     protected boolean getDoProfiles()
     {
         return chkProfiles.isSelected();
     }
 
+    /**
+     * Sets the text for the first model box.
+     * @param m - the string to put in the box.
+     */
     protected void setModel(String m)
     {
         txtModelName1.setText(m);
     }
 
+    /**
+     * Sets the text for the second model box.
+     * @param m - the string to put in the box.
+     */
     protected void setModelTwo(String m)
     {
         txtModelName2.setText(m);
     }
 
+    /**
+     * Sets the text for the container name box
+     * @param s - the string to put in the box.
+     */
     protected void setContainerName(String s)
     {
         txtContainerName.setText(s);
     }
 
+    /**
+     * gets the text in the container name box
+     * @return the text in the box
+     */
     protected String getContainerName()
     {
         return txtContainerName.getText();
     }
 
+    /**
+     * sets the text in the status box
+     * @param s - the string to set the box text to.
+     */
     protected void setStatus(String s)
     {
         txtStatus.setText(s);
     }
+    
+    protected String chooseFromList(String title, String msg, ArrayList<String> list)
+    {
+        int choice;
+   
+        choice = JOptionPane.showOptionDialog(this, msg , title, JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, list.toArray(), 0);
 
+        if (choice == JOptionPane.CLOSED_OPTION)
+        {
+            return null;
+        }        
+
+        return list.get(choice);
+    }
+
+    /**
+     * Sets the mode:
+     *      + 0 = Versioned document to table
+     *      + 1 = General XML to table
+     *      + 2 = nonsequential documents to diffed table
+     * @param mode - the mode as defined in description.
+     * @return true iff the mode changed, false iff not.
+     * @throws Exception if the mode code is unrecognized.
+     */
     protected boolean setMode(int mode) throws Exception
     {
         int prev = getMode(), cur = mode;
@@ -1179,12 +1339,12 @@ public class TRminatorGUIPanel extends javax.swing.JFrame
             }
 
             default:
-                throw new Exception ("Bad mode: " + mode);
+                throw new Exception("Bad mode: " + mode);
         }
 
         updateFormForMode();
         return (prev != cur);
-        
+
 
     }
     // Variables declaration - do not modify//GEN-BEGIN:variables

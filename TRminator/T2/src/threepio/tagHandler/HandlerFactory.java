@@ -95,4 +95,23 @@ public class HandlerFactory
 
         return h;
     }
+
+    /**
+     * returns a handler that is made to handle the tag passed.
+     * @param type - the tag type
+     * @return the handler
+     * @throws Exception - when a handler cannot be found.
+     * @see XTag
+     */
+    public TagHandler getHandler(String type) throws Exception
+    {
+        TagHandler h = (handlerMap.get(type));
+
+        if (h == null)
+        {
+            throw new Exception("No handler for tag type " + type);
+        }
+
+        return h;
+    }
 }

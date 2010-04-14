@@ -101,16 +101,18 @@ public class XTag
         {
             closer = false;
 
-            if (type.endsWith("/"))
-            {
-                selfCloser = true;
-            }
+            
 
             // find the first space in the tag
             space = raw.indexOf(" ");
 
             // find where the tag ends.
             rbracket = raw.indexOf(">");
+
+            if (raw.charAt(rbracket - 1) == '/')
+            {
+                selfCloser = true;
+            }
 
             // if there are no spaces, there must just be a type.
             if (space < 0)
@@ -213,6 +215,12 @@ public class XTag
 
         // open tag
         buff.append("<");
+
+        if (isCloser())
+        {
+            buff.append('/');
+        }
+
         buff.append(getType());
 
         // put parameters in 
@@ -239,6 +247,12 @@ public class XTag
         }
 
         // close tag
+
+        if (isSelfCloser())
+        {
+            buff.append('/');
+        }
+
         buff.append(">");
 
         return buff.toString();

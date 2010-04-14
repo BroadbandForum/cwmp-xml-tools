@@ -94,7 +94,7 @@ public class ModelTabler extends Tabler
         String curRowName = null, prevRowName = null, prevMajor = "", majorItemName = "", dmr = null;
         boolean inside = false;
         Object x;
-        
+
         String sepStr = Path.delim;
         version = doc.getVersion();
 
@@ -373,29 +373,33 @@ public class ModelTabler extends Tabler
         }
 
         XTag t = ((XTag) x);
-        String k, v;
-        Entry<String, String> ent;
+        String k;
+        ArrayList<String> vals;
+        Entry<String, ArrayList<String>> ent;
 
-        Iterator<Entry<String, String>> it = substitutes.entrySet().iterator();
+        Iterator<Entry<String, ArrayList<String>>> it = substitutes.entrySet().iterator();
         while (it.hasNext())
         {
             ent = it.next();
 
-            k =  ent.getKey();
-            v =  ent.getValue();
+            k = ent.getKey();
+            vals = ent.getValue();
 
             // if the key doesn't exist, copy the componentTag's value for the key (which is the VALUE defined in this file).
 
-            // example: if there is:
-            // key: "name" value: "base" IN SUBSTITUTES
-            // then check for the key "name" IN THE TAG'S PARAMETERS.
-            if (!t.getParams().containsKey(k) && t.getParams().containsKey(v))
+            for (String v : vals)
             {
-                // if the key ("name") didn't exist IN TAG,
-                // get the value for "name" IN SUBSITUTES ("base").
-                // and get the value IN THE TAG, for that substituted key.
-                // IN THE TAG, copy value for "base" to value for "name."
-                t.getParams().put(k, t.getParams().get(v));
+                // example: if there is:
+                // key: "name" value: "base" IN SUBSTITUTES
+                // then check for the key "name" IN THE TAG'S PARAMETERS.
+                if (!t.getParams().containsKey(k) && t.getParams().containsKey(v))
+                {
+                    // if the key ("name") didn't exist IN TAG,
+                    // get the value for "name" IN SUBSITUTES ("base").
+                    // and get the value IN THE TAG, for that substituted key.
+                    // IN THE TAG, copy value for "base" to value for "name."
+                    t.getParams().put(k, t.getParams().get(v));
+                }
             }
         }
 

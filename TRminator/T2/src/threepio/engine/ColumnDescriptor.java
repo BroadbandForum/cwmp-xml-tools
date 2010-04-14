@@ -34,7 +34,8 @@ public abstract class ColumnDescriptor {
     /**
      * returns a Doublet (map entry) where the Key is the "friendly name" for
      * the column, and the type/parameter it stores the information for.
-     * @return
+     * @return this descriptor as a Doublet.
+     * @see Doublet
      */
     public Doublet<String, String> toColMapEntry()
     {

@@ -167,8 +167,15 @@ public class SyntaxHandler extends TagHandler
 
                     if (type.equalsIgnoreCase("enumeration"))
                     {
-                        row.addToBucket(new BBFEnum(t));
+                        row.addToBucket("enums", new BBFEnum(t));
                     }
+
+                    if (type.equalsIgnoreCase("units"))
+                    {
+                        row.addToBucket("units", t.getParams().get("value"));
+                    }
+
+
                 }
             }
         }

@@ -32,7 +32,7 @@ public class TRminatorApp extends ThreepioApp
     /**
      * the version of the application
      */
-    public static final String appVersion = "-=JudgementDay=-\n (100323)";
+    public static final String appVersion = "-=JudgementDay=-\n (100329)";
     protected static final String strUseGui = "-gui", strUseCli = "-cli";
     protected static final boolean CLIMODE = Boolean.FALSE, GUIMODE = Boolean.TRUE;
     ////// Begin new UI work ////////////
@@ -57,6 +57,7 @@ public class TRminatorApp extends ThreepioApp
         map.put("-i", 1);
         map.put("-ii", 1);
         map.put("-o", 1);
+        map.put("-cols", 1);
 
         return map;
     }
@@ -159,8 +160,23 @@ public class TRminatorApp extends ThreepioApp
 
         ////// we should have as much information as possible at this point.
 
-        // set up the default columns.
-        app.cols = TRCols.getDefaultColMap();
+        if (userOpts.containsKey("-cols"))
+        {
+            try
+            {
+                File f = new File(userOpts.get("-cols").get(0));
+                app.cols = TRCols.loadFromFile(f);
+            } catch (Exception ex)
+            {
+                failBeforeInit("issue loading custom cols", ex);
+            }
+        } else
+        {
+            // set up the default columns.
+            app.cols = TRCols.getDefaultColMap();
+        }
+
+
 
         // make UI.
 
@@ -188,6 +204,8 @@ public class TRminatorApp extends ThreepioApp
 
     protected void collectFiles()
     {
+        boolean okay = true;
+
         try
         {
             fIn = getIn(pathIn);
@@ -195,7 +213,10 @@ public class TRminatorApp extends ThreepioApp
         {
             Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "cannot continue without input file", ex);
             ui.fail("error while parsing input file", ex);
+            okay = false;
         }
+
+        pathIn = fIn.getPath();
 
         if (diffingTwo)
         {
@@ -206,10 +227,21 @@ public class TRminatorApp extends ThreepioApp
             {
                 Logger.getLogger(TRminatorApp.class.getName()).log(Level.SEVERE, "cannot continue without input file #2", ex);
                 ui.fail("error while parsing input file #2", ex);
+                okay = false;
             }
+
+            pathTwo = fTwo.getPath();
         }
 
-        ui.updateStatus("files located");
+
+        if (okay)
+        {
+            ui.updateFields("files located");
+        } else
+        {
+            ui.updateFields("could not load files.\ncorrect errors and try again.");
+        }
+
 
     }
 
@@ -220,6 +252,7 @@ public class TRminatorApp extends ThreepioApp
         try
         {
             modelName = ui.getModel(fIn);
+            
 
             if (diffingTwo)
             {
@@ -234,7 +267,7 @@ public class TRminatorApp extends ThreepioApp
 
             if (modelName == null)
             {
-                ui.fail("no model name selected for input");
+                ui.fail("no model name selected for input\nIt is possible that there are none.");
                 return false;
             }
 
@@ -245,6 +278,7 @@ public class TRminatorApp extends ThreepioApp
             return false;
         }
 
+        
 
         // check to make sure no required files are missing.
         depends = new String();
@@ -272,7 +306,7 @@ public class TRminatorApp extends ThreepioApp
             return false;
         }
 
-        ui.updateStatus("files inspected and approved");
+        ui.updateStatusMsg("files inspected and approved");
         return true;
     }
 
@@ -307,7 +341,7 @@ public class TRminatorApp extends ThreepioApp
                     ui.fail("could not make generic table", ex);
                 }
 
-                ui.updateStatus("Table printed\nAvailable at: " + fOut.getAbsolutePath());
+                ui.updateStatusMsg("Table printed\nAvailable at: " + fOut.getAbsolutePath());
             } else
             {
 
@@ -322,14 +356,14 @@ public class TRminatorApp extends ThreepioApp
                     table = seeThree.docToModelTable(cols, modelName, pathIn, "Object");
                 }
 
-                ui.updateStatus("Table created");
+                ui.updateStatusMsg("Table created");
 
                 processor = new TablePostProcessor();
 
                 processor.deMarkupTable(table, new File(fOut.getParent() + FileIntake.fileSep + "post.err"), typeCol);
                 seeThree.printModelTable(table, fOut, diff, prof, looks);
 
-                ui.updateStatus("Table printed\nAvailable at: " + fOut.getAbsolutePath());
+                ui.updateStatusMsg("Table printed\nAvailable at: " + fOut.getAbsolutePath());
             }
         } catch (Exception ex)
         {

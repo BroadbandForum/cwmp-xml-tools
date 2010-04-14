@@ -1,8 +1,9 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * File: TRminatorUI.java
+ * Project: TRminator
+ * Author: Jeff Houle
+ *
  */
-
 package trminator;
 
 import threepio.engine.ThreepioUI;
@@ -55,10 +56,16 @@ public abstract class TRminatorUI extends ThreepioUI implements Runnable{
      */
     protected abstract void updateFields();
 
+    protected void updateFields(String msg)
+    {
+        updateStatusMsg(msg);
+        updateFields();
+    }
+
     /**
      * Displays the message to the user in whatever way the UI decides to do so.
      * @param msg - the message to give to the user.
      */
-    protected abstract void updateStatus(String msg);
+    protected abstract void updateStatusMsg(String msg);
 
 }

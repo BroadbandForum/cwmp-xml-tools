@@ -1,7 +1,10 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * File: TRminatorGUI.java
+ * Project: TRminator
+ * Author: Jeff Houle
+ *
  */
+
 package trminator;
 
 import java.util.ArrayList;
@@ -10,14 +13,24 @@ import java.util.logging.Logger;
 import threepio.tabler.container.ColumnMap;
 
 /**
- *
+ * TRminatorGUI drives a TRminatorGUIPanel and interacts with a TRminatorAPP
+ * to complete user-defined tasks using TRminator methods.
  * @author jhoule
+ * @see TRminatorGUIPanel
+ * @see TRminatorApp
  */
 public class TRminatorGUI extends TRminatorUI
 {
 
+    /**
+     * the Panel to interact with the user.
+     */
     private TRminatorGUIPanel panel;
 
+    /**
+     * Default constructor.
+     * @param app - the application the GUI runs on top of.
+     */
     public TRminatorGUI(TRminatorApp app)
     {
         super(app);
@@ -25,11 +38,19 @@ public class TRminatorGUI extends TRminatorUI
         panel = new TRminatorGUIPanel(this);
     }
 
+    /**
+     * exposes the makeTable() functionality of the underlying TRminatorApp.
+     * @see TRminatorApp#makeTable() 
+     */
     protected void makeTable()
     {
         myApp.makeTable();
     }
 
+    /**
+     * Loads the user-selected files and checks for existence and depenencies.
+     * @return true iff the files are loaded and seem to be okay, false otherwise.
+     */
     protected boolean loadFiles()
     {
         boolean temp;
@@ -46,15 +67,26 @@ public class TRminatorGUI extends TRminatorUI
         temp = myApp.doChecks();
         updateFields();
 
+        panel.loaded = true;
+
         return temp;
     }
 
+    /**
+     * pops up the error defined by the TRminatorApp.
+     * @param reason - the reason for the error.
+     */
     @Override
     public void fail(String reason)
     {
         panel.popupError(reason);
     }
 
+    /**
+     * pops up the error defined by the TRminatorApp.
+     * @param reason - the reason for the error.
+     * @param ex - the Exception associated with the error.
+     */
     @Override
     public void fail(String reason, Exception ex)
     {
@@ -83,6 +115,10 @@ public class TRminatorGUI extends TRminatorUI
         }
     }
 
+    /**
+     * updates the fields of the TRminatorGUIPanel to reflect the TRminatorApp.
+     * @throws Exception when there is a conflict in setting values.
+     */
     @Override
     public void init() throws Exception
     {
@@ -92,40 +128,68 @@ public class TRminatorGUI extends TRminatorUI
     @Override
     public String promptForModel(String fileName, ArrayList<String> models)
     {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return panel.chooseFromList("choose a model from " + fileName, 
+                "Please click the name of the desired model:" , models);
     }
 
+    /**
+     * Makes the Panel show, so the user can begin interacting with it.
+     */
     public void run()
     {
         panel.setVisible(true);
     }
 
     @Override
-    protected void updateStatus(String msg)
+    protected void updateStatusMsg(String msg)
     {
         panel.setStatus(msg);
     }
 
+    /**
+     * returns the map of columns that the program and/or user has created.
+     * @return the map of columns.
+     */
     protected ColumnMap getCols()
     {
         return myApp.cols;
     }
 
+    /**
+     * Sets the underlying application's output path instance variable.
+     * @param path - the string to set the path to.
+     * @see TRminatorApp#pathOut
+     */
     protected void setOutputPath(String path)
     {
         myApp.pathOut = path;
     }
 
+    /**
+     * Sets the underlying application's first input path instance variable.
+     * @param path - the string to set the path to.
+     * @see TRminatorApp#pathIn
+     */
     protected void setInputPathOne(String path)
     {
         myApp.pathIn = path;
     }
 
+    /**
+     * Sets the underlying application's second input path instance variable.
+     * @param path - the string to set the path to.
+     * @see TRminatorApp#pathTwo
+     */
     protected void setInputPathTwo(String path)
     {
         myApp.pathTwo = path;
     }
 
+    /**
+     * Checks to make sure options and modes are allowed to be used at the same time,
+     * Then sets the mode based on the user options.
+     * @return true iff the mode coudl be set or changed, false otherwise.
+     */
     protected boolean changeModes()
     {
         if (myApp.genericTable)
@@ -184,7 +248,7 @@ public class TRminatorGUI extends TRminatorUI
 
         if (changeModes())
         {
-            updateStatus("mode changed");
+            updateStatusMsg("mode changed");
         }
 
         panel.cols = myApp.cols;
@@ -197,6 +261,7 @@ public class TRminatorGUI extends TRminatorUI
         panel.setModel(myApp.modelName);
         panel.setModelTwo(myApp.modelTwo);
         panel.setContainerName(myApp.containerName);
+
 
     }
 }

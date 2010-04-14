@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import threepio.container.ExclusiveArrayList;
+import threepio.documenter.XTag;
 import threepio.tabler.container.IndexedHashMap;
 import threepio.tabler.container.ModelTable;
 import threepio.tabler.container.Row;
@@ -151,7 +152,7 @@ public class TablePostProcessor
 
                         start = buff.indexOf("{{pattern", end);
                     }
-                    r.getBucket().add(patterns);
+                    r.getBucket().putList("patterns", patterns);
                     r.silentSet(j, buff.toString());
                 }
 
@@ -291,7 +292,6 @@ public class TablePostProcessor
 
         return table;
     }
-
 
     @SuppressWarnings("empty-statement")
     private boolean statementIsAllowed(String s)
@@ -552,7 +552,7 @@ public class TablePostProcessor
                                 searchItem = parts[1];
 
                                 index = -1;
-                                
+
 
                                 if (mark.equalsIgnoreCase("object"))
                                 {
@@ -700,7 +700,10 @@ public class TablePostProcessor
     {
 
         @Override
-        @SuppressWarnings("empty-statement")
+        @SuppressWarnings(
+        {
+            "empty-statement", "unchecked"
+        })
         void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames)
         {
             ArrayList<BBFEnum> nums;
@@ -721,19 +724,18 @@ public class TablePostProcessor
                     buff = new StringBuffer();
                     numBuff = new StringBuffer();
                     buff.append(input);
-                    nums = new ArrayList<BBFEnum>();
+                    Object o;
+                    nums = null;
 
-                    buck = r.getBucket();
+                    o = r.getBucket().get("enums");
 
-                    for (int i = 0; i < buck.size(); i++)
+                    if (o != null)
                     {
-                        if (buck.get(i) instanceof BBFEnum)
-                        {
-                            nums.add((BBFEnum) buck.get(i));
-                        }
+                        nums = (ArrayList<BBFEnum>) o;
                     }
 
-                    if (nums.size() > 0)
+
+                    if (nums != null && nums.size() > 0)
                     {
                         numBuff.append("<pre>");
                         for (int j = 0; j < nums.size(); j++)
@@ -802,29 +804,31 @@ public class TablePostProcessor
                                 loc = t.indexOfClosestMatch(vName, rowName);
                                 vName = t.get(loc).getKey().replace(".", "_");
 
+                                // check if enum with eName is there.
 
+                                o = t.get(loc).getValue().getBucket().get("enums");
 
-                                // fill nums with other var's enums
-                                buck = t.get(loc).getValue().getBucket();
-                                nums = new ArrayList<BBFEnum>();
-
-                                for (int i = 0; i < buck.size(); i++)
+                                if (o == null)
                                 {
-                                    if (buck.get(i) instanceof BBFEnum)
-                                    {
-                                        nums.add((BBFEnum) buck.get(i));
-                                    }
+                                    // okay? not sure.
+                                } else
+                                {
+                                    nums = (ArrayList<BBFEnum>) o;
                                 }
 
-                                // check if enum with eName is there.
+                                if (nums.size() < 1)
+                                {
+                                   errList.add("\n" + t.get(loc).getKey() + " DOES NOT list any enums." + eName
+                                            + ".\n   It MUST list " + eName +" for description for " + rowName + ".");
+                                }
 
                                 numIndex = -1;
                                 for (numIndex = 0; numIndex < nums.size() && nums.get(numIndex).getValue().equals(eName); numIndex++);
 
                                 if (numIndex < 0 || numIndex >= nums.size())
                                 {
-                                    errList.add("\n" + t.get(loc).getKey() + " DOES NOT list enum: " + eName +
-                                            ".\n   It MUST, for description for " + rowName + ".");
+                                    errList.add("\n" + t.get(loc).getKey() + " DOES NOT list enum: " + eName
+                                            + ".\n   It MUST, for description for " + rowName + ".");
                                     buff.replace(start, end, "<i>" + eName + "</i> (from " + t.get(loc).getKey() + ")");
                                 } else
                                 {
@@ -1054,15 +1058,19 @@ public class TablePostProcessor
         // second replaces 0-argument patterns with anchored patterns:
         // "Possible patterns: p0, p1," and 1-argument patterns with links to them.
         @Override
-        @SuppressWarnings({"empty-statement", "unchecked"})
+        @SuppressWarnings(
+        {
+            "empty-statement", "unchecked"
+        })
         void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames)
         {
             StringBuffer buff, patBuff;
             int start, end, index;
             String[] parts;
             String temp, searchItem, otherName, tagName;
-            ExclusiveArrayList<String> patterns;
-            ArrayList<Object> buck;
+            ExclusiveArrayList<String> patterns = null;
+            Object o;
+
             Row otherRow;
 
             result = input;
@@ -1070,13 +1078,17 @@ public class TablePostProcessor
             if (input.contains("{{pattern") && !input.contains("{{nopattern"))
             {
 
-                // get patterns from FirstPass
-                buck = r.getBucket();
 
-                index = -1;
-                for (index = 0; index < buck.size() && !(buck.get(index) instanceof ExclusiveArrayList && ((ExclusiveArrayList<String>) buck.get(index)).getName().equals(patternListName)); index++);
+                o = r.getBucket().get("patterns");
 
-                patterns = (ExclusiveArrayList<String>) buck.get(index);
+
+                if (o != null && o instanceof ExclusiveArrayList)
+                {
+                    patterns = (ExclusiveArrayList<String>) o;
+                } else
+                {
+                    // TODO: error
+                }
 
                 // PASS 2: replacing text
 
@@ -1150,8 +1162,8 @@ public class TablePostProcessor
                                 } else
                                 {
                                     buff.replace(start, end, "<i>" + parts[1] + "</i>");
-                                    errList.add("\n" + rowName + " DOES NOT list pattern:" + parts[1] +
-                                            "\n   It MUST, for its own description");
+                                    errList.add("\n" + rowName + " DOES NOT list pattern:" + parts[1]
+                                            + "\n   It MUST, for its own description");
                                 }
 
                             }
@@ -1192,12 +1204,15 @@ public class TablePostProcessor
                                 if (otherRow.getParams().containsKey(hasPatterns))
                                 {
 
-                                    buck = otherRow.getBucket();
+                                    o = r.getBucket().get("patterns");
 
-
-                                    for (index = 0; index < buck.size() && !(buck.get(index) instanceof ExclusiveArrayList && ((ExclusiveArrayList<String>) buck.get(index)).getName().equals(patternListName)); index++);
-
-                                    patterns = (ExclusiveArrayList<String>) buck.get(index);
+                                    if (o != null && o instanceof ExclusiveArrayList)
+                                    {
+                                        patterns = (ExclusiveArrayList<String>) o;
+                                    } else
+                                    {
+                                        // TODO: error
+                                    }
 
                                     if (patterns.contains(parts[1]))
                                     {
@@ -1215,8 +1230,8 @@ public class TablePostProcessor
                                         buff.replace(start, end, patBuff.toString());
                                     } else
                                     {
-                                        errList.add("\n" + otherName + " DOES NOT list pattern: " + parts[1] +
-                                                ".\n   It MUST, for description for " + rowName + ".");
+                                        errList.add("\n" + otherName + " DOES NOT list pattern: " + parts[1]
+                                                + ".\n   It MUST, for description for " + rowName + ".");
                                         buff.replace(start, end, "<i>" + parts[1] + "</i> (from " + otherName + ")");
                                     }
 
@@ -1259,7 +1274,42 @@ public class TablePostProcessor
         void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames)
         {
             // TODO: implement this
-            bypass(input);
+
+            // TODO: test a lot after making "bucket" a hashList of type <String, Object>
+
+            // check bucket for "units" tag.
+
+            String units = null;
+            String unitsMarker = null;
+            ArrayList l;
+            int loc = -1;
+            l = r.getBucket().get("units");
+            if (l == null)
+            {
+                // no units defined.
+            } else
+            {
+                if (l.size() > 0)
+                {
+                    units = (String) l.get(0);
+                }
+            }
+
+            // check if need to replace units string (location of it)
+
+            if (loc >= 0)
+            {
+                // need to replace
+                if (units == null)
+                {
+                    // TODO: error
+                }
+
+                result = input.replace(unitsMarker, units);
+            } else
+            {
+                bypass(input);
+            }
         }
     }
 

@@ -98,6 +98,28 @@ public class XDocumenter implements Documenter
         return TagExtractor.extractTypedTags(fileContents, type, false);
     }
 
+    public ArrayList<String> getSecondaryModelNames(File f) throws Exception
+    {
+         setUp(f);
+        int afterImp = 0;
+        Matcher m = XTag.typedMatcher(fileContents, "import", true);
+
+        String[] possibles = {"base", "ref"};
+        ArrayList<String> names = new ArrayList<String>();
+
+        while (m.find())
+        {
+            afterImp = m.end();
+        }
+
+        for (String s: possibles)
+        {
+            names.addAll(getPropertyOfType(fileContents.substring(afterImp), s, "model"));
+        }
+
+        return names;
+    }
+
     /**
      * returns the top-level models' names, in a list of strings.
      * @param f - the file to search.
@@ -109,13 +131,21 @@ public class XDocumenter implements Documenter
         setUp(f);
         int afterImp = 0;
         Matcher m = XTag.typedMatcher(fileContents, "import", true);
-        
+
+        String[] possibles = {"name"};
+        ArrayList<String> names = new ArrayList<String>();
+
         while (m.find())
         {
             afterImp = m.end();
         }
 
-        return getPropertyOfType(fileContents.substring(afterImp), "name", "model");
+        for (String s: possibles)
+        {
+            names.addAll(getPropertyOfType(fileContents.substring(afterImp), s, "model"));
+        }
+
+        return names;
     }
 
     /**
@@ -169,10 +199,15 @@ public class XDocumenter implements Documenter
     {
         ArrayList<XTag> tags = TagExtractor.extractTypedTags(s, type, false);
         ArrayList<String> vals = new ArrayList<String>();
+        String tmp;
 
         for (int i = 0; i < tags.size(); i++)
         {
-            vals.add(tags.get(i).getParams().get(property));
+            tmp = tags.get(i).getParams().get(property);
+            if (tmp != null)
+            {
+                vals.add(tmp);
+            }
         }
 
         return vals;

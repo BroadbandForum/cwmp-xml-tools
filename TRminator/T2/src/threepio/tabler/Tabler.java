@@ -11,6 +11,7 @@ import threepio.documenter.XTag;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import threepio.container.HashList;
 import threepio.tabler.container.ColumnMap;
 import threepio.tabler.container.IndexedHashMap;
 import threepio.tabler.container.Row;
@@ -37,7 +38,7 @@ public abstract class Tabler
      * a table of things to mirror, in case a column is missing for one, and they are similar.
      * currently only used for names and bases.
      */
-    HashMap<String, String> substitutes;
+    HashList<String, String> substitutes;
     /**
      * the heading of the column to put versions into.
      */
@@ -59,7 +60,7 @@ public abstract class Tabler
      */
     public Tabler()
     {
-        substitutes = new HashMap<String, String>();
+        substitutes = new HashList<String, String>();
         setupSubstitutes();
         columns = new ColumnMap();
     }

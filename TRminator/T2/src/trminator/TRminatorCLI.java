@@ -26,7 +26,7 @@ public class TRminatorCLI extends TRminatorUI
      * the BBF.
      */
     public void run()
-    {  
+    {
         updateVariables();
         myApp.collectFiles();
         myApp.doChecks();
@@ -105,25 +105,33 @@ public class TRminatorCLI extends TRminatorUI
 
                     default:
                     {
-                        // not exiting
-                        if (choice <= models.size())
+                        // invalid numerical choice
+                        if (choice < 1)
                         {
-                            // the user has a valid choice.
-                            done = true;
-                            return models.get(choice - 1);
+                            System.out.println("answer must be >= 1. please try again.");
+
+                        } else
+                        {
+                            if (choice <= models.size())
+                            {
+                                // the user has a valid choice.
+                                done = true;
+                                return models.get(choice - 1);
+                            }
+
+                            System.out.println("answer must be <= " + models.size() + ". please try again.");
+
                         }
                     }
                 }
             }
         }
-
-// never actually gets here (the list cant' have a size <0).
         return null;
 
     }
 
     @Override
-    protected void updateStatus(String msg)
+    protected void updateStatusMsg(String msg)
     {
         StringBuffer buff = new StringBuffer();
 

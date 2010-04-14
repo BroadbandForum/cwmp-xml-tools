@@ -16,16 +16,36 @@ import threepio.documenter.XDocumenter;
 public abstract class ThreepioUI
 {
 
+    /**
+     * Procede based on the fact that the last operation failed.
+     * @param reason - the reason to log or give to a user.
+     */
     public abstract void fail(String reason);
 
+    /**
+     * Procede based on the fact that the last operation failed.
+     * @param reason - the reason to log or give to a user.
+     * @param ex - the Exception related to the issue.
+     */
     public abstract void fail(String reason, Exception ex);
 
+    /**
+     * Procede based on the fact that the last operation failed,
+     * then quit the program.
+     * @param reason - the reason to log or give to a user.
+     */
     public void failOut(String reason)
     {
         fail(reason);
         System.exit (-1);
     }
 
+    /**
+     * Procede based on the fact that the last operation failed,
+     * then quit the program.
+     * @param reason - the reason to log or give to a user.
+     * @param ex - the Exception related to the issue.
+     */
     public void failOut(String reason, Exception ex)
     {
         fail(reason, ex);
@@ -100,10 +120,20 @@ public abstract class ThreepioUI
         }
     }
 
-   
-
+   /**
+    * Asks the user to provide a model name from a list of available models,
+    * however the specific UI's programmer sees fit.
+    * @param fileName - the name of the file that the models are in.
+    * @param models - the list of models to choose from.
+    * @return the name of the Model that the user has chosen, null if they did not choose.
+    */
     public abstract String promptForModel(String fileName, ArrayList<String> models);
 
+    /**
+     * Initializes the UI, doing whatever the programmer deems needed prior
+     * to calling the main/run functions of the UI.
+     * @throws Exception
+     */
     public abstract void init() throws Exception;
 
 }

@@ -14,9 +14,21 @@ package threepio.tabler.container;
  */
 public class ColumnMap extends IndexedHashMap<String, String> {
 
+    String name;
+
     public ColumnMap()
     {
         super();
+    }
+
+    public String getName()
+    {
+        return name;
+    }
+
+    public void setName(String n)
+    {
+        name = n;
     }
 
     @Override
