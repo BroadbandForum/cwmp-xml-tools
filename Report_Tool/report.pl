@@ -91,8 +91,8 @@
 # XXX some report formats are somewhat broken at the moment, with the move to
 #     centralised report_node traversal
 
-# XXX need to re-think the report_node concept (the price of simplicity is
-#     (in some cases) additional complexity
+# XXX need to re-think the report_node concept (the price of simplicity is -
+#     in some cases - additional complexity)
 
 # XXX have to parse dataType specifications, so can output them in XML
 #     reports (an issue only for TR-106 currently); ditto component
@@ -153,8 +153,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/04/08 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#159 $};
+my $tool_vers_date = q{$Date: 2010/04/15 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#160 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -189,7 +189,7 @@ binmode STDOUT, ":utf8";
 # Command-line options
 my $autobase = 0;
 my $autodatatype = 0;
-my $bibrefsectionfirst = 0;
+my $bibrefdocfirst = 0;
 my $canonical = 0;
 my $components = 0;
 my $debugpath = '';
@@ -231,7 +231,7 @@ my $warndupbibref = 0;
 my $writonly = 0;
 GetOptions('autobase' => \$autobase,
            'autodatatype' => \$autodatatype,
-           'bibrefsectionfirst' => \$bibrefsectionfirst,
+           'bibrefdocfirst' => \$bibrefdocfirst,
            'canonical' => \$canonical,
            'components' => \$components,
            'debugpath:s' => \$debugpath,
@@ -6101,6 +6101,20 @@ sub html_template_keys
 
     my $text = qq{{{mark|keys}}};
 
+    # XXX experimental: warn is there is a unique key parameter that's a
+    #     strong reference (this is a candidate for additional auto-text)
+    my $anystrong = 0;
+    foreach my $uniqueKey (@$uniqueKeys) {
+        my $keyparams = $uniqueKey->{keyparams};
+        foreach my $parameter (@$keyparams) {
+            my $path = $object . $parameter;
+            my $refType = $parameters->{$path}->{syntax}->{refType};
+            $anystrong = 1 if defined($refType) && $refType eq 'strong';
+        }
+    }
+    print STDERR "$object: has a unique key parameter that is a strong ".
+        "reference ($access)\n" if $anystrong && $verbose;
+
     # for tables with enable parameters, need to generate separate text for
     # non-functional (not affected by enable) and functional keys (affected
     # by enable)
@@ -6238,11 +6252,10 @@ sub html_template_bibref
 
     $bibref = html_get_anchor($bibref, 'bibref') unless $nolinks;
     
-    # XXX proposed reversion (to be confirmed)
     my $text = qq{};
-    $text .= qq{$section / } if $section && $bibrefsectionfirst;
+    $text .= qq{$section/} if $section && !$bibrefdocfirst;
     $text .= qq{[$bibref]};
-    $text .= qq{ $section} if $section && !$bibrefsectionfirst;
+    $text .= qq{ $section} if $section && $bibrefdocfirst;
 
     return $text;
 }
@@ -8549,7 +8562,7 @@ report.pl - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--autodatatype] [--bibrefsectionfirst] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
+B<report.pl> [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
 =over
 
@@ -8581,9 +8594,9 @@ causes the B<{{datatype}}> template to be automatically prefixed for parameters 
 
 this is deprecated because it is enabled by default
 
-=item B<--bibrefsectionfirst>
+=item B<--bibrefdocfirst>
 
-causes the B<{{bibref}}> template to be expanded with the section number first (followed by a slash)
+causes the B<{{bibref}}> template to be expanded with the document first, i.e. B<[DOC] Section n> rather than the default of B<Section n/[DOC]>
 
 =item B<--canonical>
 
@@ -8837,7 +8850,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/04/08 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#159 $
+$Date: 2010/04/15 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#160 $
 
 =cut

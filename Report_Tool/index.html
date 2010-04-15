@@ -30,7 +30,7 @@
 <p>
 </p>
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p><strong>report.pl</strong> [--autobase] [--autodatatype] [--bibrefsectionfirst] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
+<p><strong>report.pl</strong> [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
 <ul>
 <li><strong><a name="cannot_specify_both_report_and_special" class="item">cannot specify both --report and --special</a></strong>
 
@@ -60,10 +60,10 @@
 <p>causes the <strong>{{datatype}}</strong> template to be automatically prefixed for parameters with named data types</p>
 <p>this is deprecated because it is enabled by default</p>
 </dd>
-<dt><strong><a name="bibrefsectionfirst" class="item"><strong>--bibrefsectionfirst</strong></a></strong></dt>
+<dt><strong><a name="bibrefdocfirst" class="item"><strong>--bibrefdocfirst</strong></a></strong></dt>
 
 <dd>
-<p>causes the <strong>{{bibref}}</strong> template to be expanded with the section number first (followed by a slash)</p>
+<p>causes the <strong>{{bibref}}</strong> template to be expanded with the document first, i.e. <strong>[DOC] Section n</strong> rather than the default of <strong>Section n/[DOC]</strong></p>
 </dd>
 <dt><strong><a name="canonical" class="item"><strong>--canonical</strong></a></strong></dt>
 
@@ -353,8 +353,8 @@
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:wlupton@2wire.com">wlupton@2wire.com</a>&gt;</p>
-<p>$Date: 2010/04/08 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#159 $</p>
+<p>$Date: 2010/04/15 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#160 $</p>
 
 </body>
 

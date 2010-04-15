@@ -1,11 +1,11 @@
 Usage:
-    report.pl [--autobase] [--autodatatype] [--bibrefsectionfirst]
-    [--canonical] [--components] [--debugpath=pattern("")]
-    [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help]
-    [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]...
-    [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments]
-    [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters]
-    [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref]
+    report.pl [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical]
+    [--components] [--debugpath=pattern("")] [--deletedeprecated]
+    [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")]
+    [--importsuffix=string("")] [--include=d]... [--info] [--lastonly]
+    [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate]
+    [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
+    [--notemplates] [--nowarnredef] [--nowarnprofbadref]
     [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet]
     [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec]
     [--showsyntax]
@@ -27,9 +27,10 @@ Options:
 
         this is deprecated because it is enabled by default
 
-    --bibrefsectionfirst
-        causes the {{bibref}} template to be expanded with the section
-        number first (followed by a slash)
+    --bibrefdocfirst
+        causes the {{bibref}} template to be expanded with the document
+        first, i.e. [DOC] Section n rather than the default of Section
+        n/[DOC]
 
     --canonical
         affects only the xml2 report; causes descriptions to be processed
