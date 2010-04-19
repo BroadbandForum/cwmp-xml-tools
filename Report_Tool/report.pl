@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #
-# Copyright (c) 2010, 2Wire, Inc.
+# Copyright (c) 2010  2Wire,Inc.
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -153,8 +153,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/04/15 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#160 $};
+my $tool_vers_date = q{$Date: 2010/04/19 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#161 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -8850,7 +8850,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/04/15 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#160 $
+$Date: 2010/04/19 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#161 $
 
 =cut
