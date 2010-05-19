@@ -153,8 +153,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/04/19 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#161 $};
+my $tool_vers_date = q{$Date: 2010/05/18 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#163 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -187,6 +187,7 @@ my $dtloc = qq{cwmp-devicetype-${dtver}.xsd};
 binmode STDOUT, ":utf8";
 
 # Command-line options
+my $allbibrefs = 0;
 my $autobase = 0;
 my $autodatatype = 0;
 my $bibrefdocfirst = 0;
@@ -229,7 +230,8 @@ my $verbose = undef;
 my $warnbibref = undef;
 my $warndupbibref = 0;
 my $writonly = 0;
-GetOptions('autobase' => \$autobase,
+GetOptions('allbibrefs' => \$allbibrefs,
+           'autobase' => \$autobase,
            'autodatatype' => \$autodatatype,
            'bibrefdocfirst' => \$bibrefdocfirst,
            'canonical' => \$canonical,
@@ -1594,7 +1596,14 @@ sub expand_model_profile
         # determine where to insert the new node; after base profile first;
         # then after extends profiles; after previous node otherwise
         my $index = @{$mnode->{nodes}};
-        if ($base) {
+        if ($previous) {
+            for (0..$index-1) {
+                if (@{$mnode->{nodes}}[$_]->{name} eq $previous) {
+                    $index = $_+1;
+                    last;
+                }
+            }
+       } elsif ($base) {
             for (0..$index-1) {
                 if (@{$mnode->{nodes}}[$_]->{name} eq $base) {
                     $index = $_+1;
@@ -1602,6 +1611,9 @@ sub expand_model_profile
                 }
             }
         } elsif ($extends) {
+            # XXX this always puts the profile right after the profile that
+            #     it extends, so if more than one profile extends another,
+            #     they end up in reverse order
             EXTEND: foreach my $extend (split /\s+/, $extends) {
                 for (0..$index-1) {
                     if (@{$mnode->{nodes}}[$_]->{name} eq $extend) {
@@ -1612,13 +1624,6 @@ sub expand_model_profile
             }
         } elsif (defined $previous && $previous eq '') {
             $index = 0;
-        } elsif ($previous) {
-            for (0..$index-1) {
-                if (@{$mnode->{nodes}}[$_]->{name} eq $previous) {
-                    $index = $_+1;
-                    last;
-                }
-            }
         }
         splice @{$mnode->{nodes}}, $index, 0, $nnode;
 
@@ -1688,7 +1693,8 @@ sub expand_model_profile_object
     my $baseobj;
     if ($baseprof) {
         ($baseobj) = grep {$_->{name} eq $name} @{$baseprof->{nodes}};
-        if ($baseobj && $poa->{$access} <= $poa->{$baseobj->{access}}) {
+        if ($baseobj && $poa->{$access} <= $poa->{$baseobj->{access}} &&
+            $status eq $baseobj->{status}) {
             $can_ignore = 1;
             print STDERR "profile $Pnode->{name} can ignore object $name\n" if
                 $verbose;
@@ -1783,7 +1789,8 @@ sub expand_model_profile_parameter
     my $baseobj = $pnode->{baseobj};
     if ($baseobj) {
         my ($basepar) = grep {$_->{name} eq $name} @{$baseobj->{nodes}};
-        if ($basepar && $ppa->{$access} <= $ppa->{$basepar->{access}}) {
+        if ($basepar && $ppa->{$access} <= $ppa->{$basepar->{access}} &&
+            $status eq $basepar->{status}) {
             print STDERR "profile $Pnode->{name} ignoring parameter $path\n" if
                 $verbose;
             return;
@@ -3065,7 +3072,7 @@ sub base_type
     print STDERR "$name: no base or primitive data type; invalid XML?\n"
         if !$base  && !$prim;
 
-    return $base ? ($recurse ? base_type($base) : $base) : $prim;
+    return $base ? ($recurse ? base_type($base, 1) : $base) : $prim;
 }
 
 # Form a "type", "string(maxLength)" or "int[minInclusive:maxInclusive]" syntax
@@ -4807,6 +4814,7 @@ sub html_node
     # styles
     my $table = qq{text-align: left;};
     my $row = qq{vertical-align: top;};
+    my $strikeout = qq{text-decoration: line-through;};
     my $center = qq{text-align: center;};
 
     # font
@@ -4918,6 +4926,10 @@ sub html_node
       td, td.p { $row $font }
       td.oc { $row $font $object_bg $center }
       td.pc { $row $font $center }
+      td.os { $row $font $object_bg $strikeout }
+      td.ps { $row $font $strikeout }
+      td.osc { $row $font $object_bg $strikeout $center }
+      td.psc { $row $font $strikeout $center }
     </style>
   </head>
   <body>
@@ -5017,7 +5029,7 @@ END
             my $references = $bibliography->{references};
             foreach my $reference (sort bibid_cmp @$references) {
                 my $id = $reference->{id};
-                next unless $bibrefs->{$id};
+                next unless $allbibrefs || $bibrefs->{$id};
                 # XXX this works for lastonly but doesn't work when hiding
                 #     sub-trees (would like hide_subtree and unhide_subtree
                 #     to auto-hide and show relevant references)
@@ -5060,14 +5072,6 @@ END
         if ($upnpdm && !$object && $node->{pnode}->{type} &&
             $node->{pnode}->{type} eq 'model') {
             print STDERR "$path: ignoring top-level parameter\n" if $verbose;
-            return;
-        }
-
-        # XXX want an option to show them in strikeout
-        # XXX this is inefficient; should do to the tree after parsing all
-        #     files and before generating the report (c.f. hide_subtree)
-        if (util_is_deleted($node)) {
-            print STDERR "$path: ignoring because deleted\n" if $verbose;
             return;
         }
 
@@ -5120,6 +5124,7 @@ END
         }
 
 	my $class = ($model | $object | $profile) ? 'o' : 'p';
+        $class .= 's' if util_is_deleted($node);
 
         if ($model) {
             my $title = qq{$name Data Model};
@@ -5463,7 +5468,7 @@ sub html_notice
     return '' unless $comment;
 
     # the comment MUST include a "Notice:" line; text before it is discarded
-    # and text is then taken until the next "\w+:" line
+    # and text is then taken until the next "[\w\s]+:" line
     # (process line by line so can format paragraphs)
     my $text = '';
     my $in_list = 0;
@@ -5486,7 +5491,7 @@ sub html_notice
 
         # look for end of text to be used
         elsif (!$seen_terminator) {
-            $seen_terminator = ($line =~ /^\w+:$/);
+            $seen_terminator = ($line =~ /^[\w\s]+:$/);
             if (!$seen_terminator) {
 
                 # using this text; look for list item
@@ -5808,8 +5813,6 @@ sub html_template
          {name => 'issue',
           text1 => \&html_template_issue}
          ];
-
-    # XXX expand {{XXX}} expansion to track open issues
 
     # XXX need some protection against infinite loops here...
     # XXX do we want to allow template references to span newlines?
@@ -6253,9 +6256,11 @@ sub html_template_bibref
     $bibref = html_get_anchor($bibref, 'bibref') unless $nolinks;
     
     my $text = qq{};
+    $text .= qq{[};
     $text .= qq{$section/} if $section && !$bibrefdocfirst;
-    $text .= qq{[$bibref]};
+    $text .= qq{$bibref};
     $text .= qq{ $section} if $section && $bibrefdocfirst;
+    $text .= qq{]};
 
     return $text;
 }
@@ -8449,7 +8454,7 @@ sub sanity_node
     }    
 }
 
-if ($root->{bibliography}) {
+if (!$allbibrefs && $root->{bibliography}) {
     foreach my $reference (sort bibid_cmp
                            @{$root->{bibliography}->{references}}) {
         my $id = $reference->{id};
@@ -8562,7 +8567,7 @@ report.pl - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
+B<report.pl> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
 =over
 
@@ -8583,6 +8588,10 @@ There are a large number of options but in practice only a few need to be used. 
 =head1 OPTIONS
 
 =over
+
+=item B<--allbibrefs>
+
+usually only bibliographic references that are referenced from within the data model definition are listed in the report; this isn't much help when generating a list of bibliographic references without a data model! that's what this option is for; currently it affects only B<html> reports
 
 =item B<--autobase>
 
@@ -8850,7 +8859,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/04/19 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#161 $
+$Date: 2010/05/18 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#163 $
 
 =cut

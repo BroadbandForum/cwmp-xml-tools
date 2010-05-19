@@ -30,7 +30,7 @@
 <p>
 </p>
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p><strong>report.pl</strong> [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
+<p><strong>report.pl</strong> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
 <ul>
 <li><strong><a name="cannot_specify_both_report_and_special" class="item">cannot specify both --report and --special</a></strong>
 
@@ -49,6 +49,11 @@
 <hr />
 <h1><a name="options">OPTIONS</a></h1>
 <dl>
+<dt><strong><a name="allbibrefs" class="item"><strong>--allbibrefs</strong></a></strong></dt>
+
+<dd>
+<p>usually only bibliographic references that are referenced from within the data model definition are listed in the report; this isn't much help when generating a list of bibliographic references without a data model! that's what this option is for; currently it affects only <strong>html</strong> reports</p>
+</dd>
 <dt><strong><a name="autobase" class="item"><strong>--autobase</strong></a></strong></dt>
 
 <dd>
@@ -353,8 +358,8 @@
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:wlupton@2wire.com">wlupton@2wire.com</a>&gt;</p>
-<p>$Date: 2010/04/19 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#161 $</p>
+<p>$Date: 2010/05/18 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#163 $</p>
 
 </body>
 

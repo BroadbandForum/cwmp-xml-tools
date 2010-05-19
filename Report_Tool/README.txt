@@ -1,7 +1,8 @@
 Usage:
-    report.pl [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical]
-    [--components] [--debugpath=pattern("")] [--deletedeprecated]
-    [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")]
+    report.pl [--allbibrefs] [--autobase] [--autodatatype]
+    [--bibrefdocfirst] [--canonical] [--components]
+    [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]...
+    [--dtspec[=s]] [--help] [--ignore=pattern("")]
     [--importsuffix=string("")] [--include=d]... [--info] [--lastonly]
     [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate]
     [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
@@ -16,6 +17,13 @@ Usage:
     *   cannot specify both --report and --special
 
 Options:
+    --allbibrefs
+        usually only bibliographic references that are referenced from
+        within the data model definition are listed in the report; this
+        isn't much help when generating a list of bibliographic references
+        without a data model! that's what this option is for; currently it
+        affects only html reports
+
     --autobase
         causes automatic addition of base attributes when models, parameters
         and objects are re-defined, and suppression of redefinition warnings
