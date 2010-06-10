@@ -68,6 +68,7 @@ public class TablerController
         ColumnMap cols = new ColumnMap();
         XTable temp;
         XTable res = new XTable();
+        StringBuffer buff;
 
         NameHandler nh = new NameHandler();
         TitleHandler th = new TitleHandler();
@@ -92,7 +93,13 @@ public class TablerController
 
         for (int i = 0; i < temp.size(); i++)
         {
-            StringBuffer buff = new StringBuffer();
+
+//            if (temp.get(i).getKey().contains("OUI"))
+//            {
+//                System.err.println();
+//            }
+
+            buff = new StringBuffer();
             buff.append("<a name=\"" + temp.get(i).getKey() + "\">");
             buff.append(temp.get(i).getValue().get(0).getData());
             buff.append("</a>");

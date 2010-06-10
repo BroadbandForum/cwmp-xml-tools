@@ -69,7 +69,7 @@ public class BBFEnum
      */
     public BBFEnum(XTag t)
     {
-        this(t.getParams().get("value"), t.getParams().get("description"), t.getParams().get("access"));
+        this(t.getAttributes().get("value"), t.getAttributes().get("description"), t.getAttributes().get("access"));
     }
 
     /**

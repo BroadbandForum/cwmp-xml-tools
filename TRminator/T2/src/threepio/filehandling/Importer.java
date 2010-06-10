@@ -97,7 +97,7 @@ public class Importer
                 x = doc.peek();
             } else
             {
-                fName = imTag.getParams().get("file");
+                fName = imTag.getAttributes().get("file");
                 if (fName.contains("biblio"))
                 {
                     biblio = fName;
@@ -112,7 +112,7 @@ public class Importer
                     {
                         modelTag = (XTag) x;
 
-                        nameFound = modelTag.getParams().get("name");
+                        nameFound = modelTag.getAttributes().get("name");
 
                         // put an entry on the map, so that it can be
                         // processed as well.
@@ -138,7 +138,7 @@ public class Importer
             {
                 temp = (XTag) x;
 
-                if (temp.getType().equalsIgnoreCase("model") && temp.getParams().containsKey("name") && temp.getParams().get("name").equalsIgnoreCase(modelName))
+                if (temp.getType().equalsIgnoreCase("model") && temp.getAttributes().containsKey("name") && temp.getAttributes().get("name").equalsIgnoreCase(modelName))
                 {
                     go = false;
                     break;
@@ -157,9 +157,9 @@ public class Importer
         } else
         {
             modelTag = ((XTag) x);
-            if (modelTag.getParams().containsKey("base"))
+            if (modelTag.getAttributes().containsKey("base"))
             {
-                basesNeeded.add(modelTag.getParams().get("base"));
+                basesNeeded.add(modelTag.getAttributes().get("base"));
             }
         }
 

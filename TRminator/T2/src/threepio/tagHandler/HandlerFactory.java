@@ -25,8 +25,10 @@ public class HandlerFactory
      */
     private Class[] handlers =
     {
-        DescriptionHandler.class,
+        // SYNTAX MUST HAPPEN FIRST. OTHERS DEPEND ON IT.
         SyntaxHandler.class,
+
+        DescriptionHandler.class,
         TitleHandler.class,
         NameHandler.class,
         DateHandler.class,

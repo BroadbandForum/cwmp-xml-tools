@@ -8,10 +8,7 @@ package threepio.tabler;
 import threepio.container.Doublet;
 import threepio.documenter.Doc;
 import threepio.documenter.XTag;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import threepio.container.HashList;
+import threepio.container.HashedLists;
 import threepio.tabler.container.ColumnMap;
 import threepio.tabler.container.IndexedHashMap;
 import threepio.tabler.container.Row;
@@ -38,13 +35,12 @@ public abstract class Tabler
      * a table of things to mirror, in case a column is missing for one, and they are similar.
      * currently only used for names and bases.
      */
-    HashList<String, String> substitutes;
+    HashedLists<String, String> substitutes;
     /**
-     * the heading of the column to put versions into.
+     * the heading of the column to putOnList versions into.
      */
     static String VER_COL_NAME = "VERSION";
 
-    List<String> nonStandards;
 
     /**
      * The standard labels to use to label a row.
@@ -60,7 +56,7 @@ public abstract class Tabler
      */
     public Tabler()
     {
-        substitutes = new HashList<String, String>();
+        substitutes = new HashedLists<String, String>();
         setupSubstitutes();
         columns = new ColumnMap();
     }
@@ -73,20 +69,20 @@ public abstract class Tabler
     {
         this();
         columns = cols;
-        nonStandards = new ArrayList<String>();
+        //nonStandards = new ArrayList<String>();
     }
 
-     /**
-     * constructor that takes in an IHM for column settings, List of specials.
-     * @param specials - a list of special values made by the programmer to use when Tabling.
-     * @param cols
-     */
-    public Tabler(ColumnMap cols, List<String> specials)
-    {
-        this();
-        columns = cols;
-        nonStandards = specials;
-    }
+//     /**
+//     * constructor that takes in an IHM for column settings, List of specials.
+//     * @param specials - a list of special values made by the programmer to use when Tabling.
+//     * @param cols
+//     */
+//    public Tabler(ColumnMap cols, List<String> specials)
+//    {
+//        this();
+//        columns = cols;
+//        nonStandards = specials;
+//    }
 
     /**
      * returns an abbreviated version string for BBF documents,

@@ -7,8 +7,8 @@ package threepio.tabler.container;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import threepio.container.Bucket;
-import threepio.container.HashList;
+import threepio.container.HashedLists;
+import threepio.container.NamedLists;
 
 /**
  * Row is a row in a table.
@@ -26,7 +26,7 @@ public class Row extends ArrayList<StringCell>
     /**
      * any extra objects that the programmer sees fit to add to the row.
      */
-    private Bucket<String> bucket;
+    private NamedLists<Object> bucket;
 
     /**
      * The real size of the row, regardless of what happens to the underlying
@@ -53,7 +53,7 @@ public class Row extends ArrayList<StringCell>
         capacity = size;
         empty = true;
         attributes = new HashMap<String, String>();
-        bucket = new Bucket<String>();
+        bucket = new NamedLists<Object>();
 
         for (int i = 0; i < size; i++)
         {
@@ -90,7 +90,7 @@ public class Row extends ArrayList<StringCell>
     /**
      * Adds a new StringCell with the string inside it. Only should be used
      * by the constructor.
-     * @param e - the String to put in the new Cell.
+     * @param e - the String to putOnList in the new Cell.
      * @return true if the adding was allowed, false if not, or if there was another problem
      * when adding in the superclass.
      */
@@ -137,9 +137,9 @@ public class Row extends ArrayList<StringCell>
 
     /**
      * Setting a location to a String, Overridden so that the empty flag is flipped.
-     * @param index - where to put it
-     * @param element - what to put there
-     * @return true if the thing was put there, false if not.
+     * @param index - where to putOnList it
+     * @param element - what to putOnList there
+     * @return true if the thing was putOnList there, false if not.
      */
     public String set(int index, String element)
     {
@@ -149,8 +149,8 @@ public class Row extends ArrayList<StringCell>
     /**
      * Sets the cell's data to the passed string, at the location passed, and sets that cell's flag.
      * @param index - where the cell is
-     * @param element - the string to set the data to.
-     * @param flag - the flag to set the cell's special flag to.
+     * @param element - the string to setList the data to.
+     * @param flag - the flag to setList the cell's special flag to.
      * @return the old data from the cell.
      */
     public String set(int index, String element, boolean flag)
@@ -186,8 +186,8 @@ public class Row extends ArrayList<StringCell>
      * if no differences are found, the row is left completely alone.
      * The result of the merge is returned as a new row.
      *
-     * @param overLap - the "newer" table to compare this to, and replace information with.
-     * @param verCol - the index of the column where a version is set for the row.
+     * @param overLap - the "newer" table to compare this to, and setList information with.
+     * @param verCol - the index of the column where a version is setList for the row.
      * @return a new row that is the product of the merge.
      * @throws java.lang.Exception - when the rows are not compatible
      */
@@ -215,13 +215,13 @@ public class Row extends ArrayList<StringCell>
 
                 } else
                 {
-                    // replace the cell's data with that of the new table.
+                    // setList the cell's data with that of the new table.
                     data = overLap.get(i).getData();
                 }
 
                 theRow.get(i).set(data);
                 theRow.get(i).changed = true;
-                // replace the version cell's data with the new version.
+                // setList the version cell's data with the new version.
                 //    changeVer = true;
             }
         }
@@ -286,7 +286,7 @@ public class Row extends ArrayList<StringCell>
      * returns the parameters hashmap.
      * @return the parameters map.
      */
-    public HashMap<String, String> getParams()
+    public HashMap<String, String> getAttributes()
     {
         return attributes;
     }
@@ -340,14 +340,14 @@ public class Row extends ArrayList<StringCell>
      */
     public void addToBucket(String name, Object o)
     {
-        bucket.put(name, o);
+        bucket.putOnList(name, o);
     }
 
     /**
      * returns the "bucket" of objects the programmer may use.
      * @return the "bucket."
      */
-    public Bucket<String> getBucket()
+    public NamedLists<Object> getBucket()
     {
         return bucket;
     }

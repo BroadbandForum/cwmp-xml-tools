@@ -11,7 +11,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map.Entry;
+import threepio.container.CIExclusiveStringList;
 import threepio.container.ExclusiveArrayList;
+import threepio.container.Item;
 import threepio.documenter.XTag;
 import threepio.tabler.container.IndexedHashMap;
 import threepio.tabler.container.ModelTable;
@@ -23,6 +25,7 @@ import threepio.tabler.container.XTable;
 /**
  * The TablePostProcessor performs operations on Tables that are best left until
  * The table has been completely constructed.
+ * if "tabling" is a first pass, the Post Process is a second pass.
  * @author jhoule
  */
 public class TablePostProcessor
@@ -33,12 +36,12 @@ public class TablePostProcessor
     {
         "bibref", "section", "param", "object",
         "list", "nolist", "reference", "noreference", "enum", "noenum", "pattern", "nopattern",
-        "hidden", "nohidden", "keys", "nokeys", "units", "false", "true", "empty", "null"
+        "hidden", "nohidden", "keys", "nokeys", "units", "false", "true", "empty", "null", "uniquekey"
     };
 
     /**
      * makes and returns a hashmap with keys of row names and values of the value in leftmost column of the row.
-     * essentially, aStatement returns the table chopped down to the leftmost column.
+     * essentially,  returns the table chopped down to the leftmost column.
      * @param t - the table
      * @return the map of the row names and values in 0th column.
      */
@@ -48,7 +51,7 @@ public class TablePostProcessor
 
         Entry<String, Row> temp;
         String name;
-        int l;
+        int s, e;
 
         if (t == null)
         {
@@ -64,11 +67,15 @@ public class TablePostProcessor
 
             if (!temp.getKey().equalsIgnoreCase("HEADER"))
             {
-                l = name.indexOf("<a");
-                if (l >= 0)
+                // get the insides of the anchor tag.
+                s = name.indexOf("<a");
+                if (s >= 0)
                 {
-                    l = name.indexOf("a>", l) + 2;
-                    name = name.substring(l);
+                    s = name.indexOf(">", s) + 1;
+
+                    e = name.indexOf("<", s);
+
+                    name = name.substring(s, e);
                 }
             }
 
@@ -89,7 +96,7 @@ public class TablePostProcessor
         String data, temp, rowName;
         Row r;
         StringBuffer buff;
-        ExclusiveArrayList<String> patterns;
+        CIExclusiveStringList patterns;
         int start, end;
         String[] parts;
         int firstRow;
@@ -126,7 +133,7 @@ public class TablePostProcessor
 
                     // PASS 1: collecting patterns
 
-                    patterns = new ExclusiveArrayList<String>();
+                    patterns = new CIExclusiveStringList();
                     patterns.setName(patternListName);
                     buff = new StringBuffer();
                     buff.append(data);
@@ -144,7 +151,7 @@ public class TablePostProcessor
 
                         if (parts.length == 2)
                         {
-                            r.getParams().put(hasPatterns, "true");
+                            r.getAttributes().put(hasPatterns, "true");
 
                             patterns.add(parts[1].trim());
                         }
@@ -152,7 +159,7 @@ public class TablePostProcessor
 
                         start = buff.indexOf("{{pattern", end);
                     }
-                    r.getBucket().putList("patterns", patterns);
+                    r.getBucket().setList("patterns", patterns);
                     r.silentSet(j, buff.toString());
                 }
 
@@ -193,14 +200,14 @@ public class TablePostProcessor
             new BibrefProcessor(),
             new MiscProcessor(),
             new EnumProcessor(),
-            new HiddenProcessor(),
             new KeyProcessor(),
             new ListProcessor(),
             new PaoProcessor(),
             new PatternProcessor(),
             new ReferenceProcessor(),
             new SectionProcessor(),
-            new UnitsProcessor()
+            new UnitsProcessor(),
+            new NumentriesProcessor()
         };
 
         firstPass(table, 0);
@@ -275,7 +282,7 @@ public class TablePostProcessor
                         errors.add(procs[m].getErrs());
                     }
 
-                    // set the cell data to processed data.
+                    // setList the cell data to processed data.
                     row.silentSet(j, data);
                 }
             }
@@ -404,7 +411,7 @@ public class TablePostProcessor
         void deMarkup(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames) throws Exception
         {
             processMarkups(input, t, rowName, r, typeCol, refNames);
-            // set flag, saying process has been run.
+            // setList flag, saying process has been run.
             proc = true;
         }
 
@@ -472,6 +479,38 @@ public class TablePostProcessor
 //        data = data.replace("{{True}}", "<b>true</b>");
 //        data = data.replace("{{False}}", "<b>false</b>");
 
+
+        }
+    }
+
+    private class NumentriesProcessor extends MarkupProcessor
+    {
+
+        String ne = "{{numentries}}";
+        String par = null;
+        Object o = null;
+
+        @Override
+        void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames)
+        {
+            result = input;
+
+            if (result.contains(ne))
+            {
+                o = r.getBucket().get("numentries").get(0);
+
+                if (o == null)
+                {
+                    errList.add("The description for " + rowName + " signifies that it is a number of entries parameter,"
+                            + " but it is not known what variable it stores the number for.");
+                } else
+                {
+                    par = (String) o;
+
+                    result.replace(ne, "This parameter is the number of entries for " + par + ".");
+                }
+
+            }
 
         }
     }
@@ -726,6 +765,7 @@ public class TablePostProcessor
                     buff.append(input);
                     Object o;
                     nums = null;
+                    String name;
 
                     o = r.getBucket().get("enums");
 
@@ -740,14 +780,20 @@ public class TablePostProcessor
                         numBuff.append("<pre>");
                         for (int j = 0; j < nums.size(); j++)
                         {
+                            name = nums.get(j).getValue();
+
+                            if (name.equalsIgnoreCase("Interleaved"))
+                            {
+                                System.err.println();
+                            }
 
                             numBuff.append("\n\t");
                             numBuff.append("<a name=\"");
                             numBuff.append(rowName.replace(".", "_"));
                             numBuff.append("_e:");
-                            numBuff.append(nums.get(j).getValue());
+                            numBuff.append(name);
                             numBuff.append("\">");
-                            numBuff.append(nums.get(j).getValue());
+                            numBuff.append(name);
                             numBuff.append("</a>");
                         }
                         numBuff.append("</pre>");
@@ -818,8 +864,8 @@ public class TablePostProcessor
 
                                 if (nums.size() < 1)
                                 {
-                                   errList.add("\n" + t.get(loc).getKey() + " DOES NOT list any enums." + eName
-                                            + ".\n   It MUST list " + eName +" for description for " + rowName + ".");
+                                    errList.add("\n" + t.get(loc).getKey() + " DOES NOT list any enums." + eName
+                                            + ".\n   It MUST list " + eName + " for description for " + rowName + ".");
                                 }
 
                                 numIndex = -1;
@@ -860,21 +906,23 @@ public class TablePostProcessor
         }
     }
 
-    /**
-     * HiddenProcessor is a MarkupProcessor for BBF markup that denotes hidden values:
-     * either starting with "hidden" or containing only "nohidden".
-     */
-    private class HiddenProcessor extends MarkupProcessor
-    {
-
-        @Override
-        void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames)
-        {
-            // TODO: implement this
-            bypass(input);
-        }
-    }
-
+    // Hidden is handled in the threepio.tagHandler.DescriptionHandler class.
+//    /**
+//     * HiddenProcessor is a MarkupProcessor for BBF markup that denotes hidden values:
+//     * either starting with "hidden" or containing only "nohidden".
+//     */
+//    private class HiddenProcessor extends MarkupProcessor
+//    {
+//
+//        @Override
+//        void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames)
+//        {
+//
+//           // hidden flag is handled in
+//
+//            bypass(input);
+//        }
+//    }
     /**
      * KeyProcessor is a MarkupProcessor for BBF markup that denotes key values:
      * either starting with "key" or containing only "nokeys".
@@ -885,8 +933,75 @@ public class TablePostProcessor
         @Override
         void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames)
         {
-            // TODO: implement this
-            result = input.replace("{{nokeys}}", "");
+
+            Item item;
+            String label;
+            Object obj;
+
+            ArrayList uks;
+            StringBuffer resultBuff = new StringBuffer(input);
+
+
+            if (!input.contains("{{nokeys}}"))
+            {
+
+                if (r.getBucket().containsKey("uniqueKeys"))
+                {
+                    uks = r.getBucket().get("uniqueKeys");
+
+
+                    // put in introduction for list.
+
+                    resultBuff.append("At most, one entry in this table can exist with a given value for");
+
+                    // put in the first item
+
+                    obj = uks.get(0);
+                    item = ((Item) obj);
+                    label = item.getLabel();
+
+                    resultBuff.append(makeLink(rowName, label));
+
+                    // the keys will always be in the parent Object, which is the row we're looking at.
+
+
+                    // add the rest of them.
+                    for (int i = 1; i < uks.size(); i++)
+                    {
+                        obj =
+                                item = ((Item) obj);
+
+                        label = item.getLabel();
+
+                        resultBuff.append(", or with a given value for ");
+
+                        resultBuff.append(makeLink(rowName, label));
+
+                    }
+
+                    resultBuff.append(".");
+                }
+
+            }
+
+            result = resultBuff.toString();
+
+            result = result.replace("{{nokeys}}", "");
+        }
+
+        private String makeLink(String rowName, String label)
+        {
+            StringBuffer resultBuff = new StringBuffer();
+
+            resultBuff.append("<a href=\"#");
+            resultBuff.append(rowName.replace(".", "_"));
+            resultBuff.append("_");
+            resultBuff.append(label);
+            resultBuff.append("\">");
+            resultBuff.append(label);
+            resultBuff.append("</a>");
+
+            return resultBuff.toString();
         }
     }
 
@@ -906,7 +1021,7 @@ public class TablePostProcessor
 
             map.put("int", "0");
             map.put("long", "0.0");
-            map.put("string", "<Empty>");
+            map.put("string", "an empty string");
             map.put("boolean", "false");
             map.put("object", "null");
             map.put("list", "an empty list");
@@ -914,6 +1029,15 @@ public class TablePostProcessor
             map.put("base64", "null");
             map.put("datatype", "null");
 
+            return map;
+        }
+
+        private IndexedHashMap<String, String> theEmpties()
+        {
+            IndexedHashMap<String, String> map = new IndexedHashMap<String, String>();
+
+            map.put("string", "an empty string");
+            map.put("list", "an empty list");
             return map;
         }
 
@@ -939,20 +1063,45 @@ public class TablePostProcessor
             return null;
         }
 
+        /**
+         * getTheEmpty returns a string representation of the empty value for the data type passed, null if none known.
+         * @param str - the data type
+         * @return a string representation of the empty value for the data type, or null if none is found.
+         */
+        private String getTheEmpty(String str)
+        {
+            IndexedHashMap<String, String> map = theEmpties();
+
+            String lower = str.toLowerCase();
+
+            for (int i = 0; i < map.size(); i++)
+            {
+                if (lower.startsWith(map.get(i).getKey()) || lower.contains(map.get(i).getKey()))
+                {
+                    return map.get(i).getValue();
+                }
+            }
+
+            return null;
+        }
+
         @Override
         void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames)
         {
+
+
             String empty = null, theNull = "null", type = r.get(typeCol).getData();
+
 
             if (type != null)
             {
 
-                if (type.contains("string)"))
+                if (type.contains("string"))
                 {
                     empty = "an empty string";
                 } else
                 {
-                    empty = "<Empty>";
+                    empty = "empty";
                 }
 
                 if (type.equalsIgnoreCase("&nbsp"))
@@ -1087,7 +1236,8 @@ public class TablePostProcessor
                     patterns = (ExclusiveArrayList<String>) o;
                 } else
                 {
-                    // TODO: error
+                    errList.add("\n" + rowName + " DOES NOT list any patterns"
+                            + "\n   It MUST list some for its own description.");
                 }
 
                 // PASS 2: replacing text
@@ -1141,7 +1291,7 @@ public class TablePostProcessor
 
                         case 2:
                         {
-                            if (r.getParams().containsKey(hasPatterns))
+                            if (r.getAttributes().containsKey(hasPatterns))
                             {
 
                                 if (patterns.contains(parts[1]))
@@ -1163,7 +1313,7 @@ public class TablePostProcessor
                                 {
                                     buff.replace(start, end, "<i>" + parts[1] + "</i>");
                                     errList.add("\n" + rowName + " DOES NOT list pattern:" + parts[1]
-                                            + "\n   It MUST, for its own description");
+                                            + "\n   It MUST, for its own description.");
                                 }
 
                             }
@@ -1201,17 +1351,18 @@ public class TablePostProcessor
                                 otherName = t.get(index).getKey();
                                 tagName = otherName.replace(".", "_");
 
-                                if (otherRow.getParams().containsKey(hasPatterns))
+                                if (otherRow.getAttributes().containsKey(hasPatterns))
                                 {
 
                                     o = r.getBucket().get("patterns");
 
-                                    if (o != null && o instanceof ExclusiveArrayList)
+                                    if (o != null && o instanceof CIExclusiveStringList)
                                     {
-                                        patterns = (ExclusiveArrayList<String>) o;
+                                        patterns = (CIExclusiveStringList) o;
                                     } else
                                     {
-                                        // TODO: error
+                                        errList.add("\n" + rowName + " DOES NOT list any patterns"
+                                                + "\n   It MUST list some for its own description.");
                                     }
 
                                     if (patterns.contains(parts[1]))
@@ -1273,9 +1424,6 @@ public class TablePostProcessor
         @Override
         void processMarkups(String input, Table t, String rowName, Row r, int typeCol, HashMap<String, String> refNames)
         {
-            // TODO: implement this
-
-            // TODO: test a lot after making "bucket" a hashList of type <String, Object>
 
             // check bucket for "units" tag.
 
@@ -1302,7 +1450,8 @@ public class TablePostProcessor
                 // need to replace
                 if (units == null)
                 {
-                    // TODO: error
+                    errList.add("\n" + rowName + " DOES NOT have a units specification in SYNTAX."
+                            + "\n   It MUST list some for its own description.");
                 }
 
                 result = input.replace(unitsMarker, units);
@@ -1356,8 +1505,14 @@ public class TablePostProcessor
                     {
                         case 2:
                         {
-                            // has a document argument, like aStatement should. This is the markup name for the referenced documents.
+                            // has a document argument, like a Statement should. This is the markup name for the referenced documents.
                             markupName = parts[1].trim();
+
+                            if (markupName.contains("OUI"))
+                            {
+                                System.err.println();
+                            }
+
                             // lookup the document's real name.
                             realName = refNames.get(markupName);
                             // make a link of this, with text of the document's real name.
@@ -1370,8 +1525,14 @@ public class TablePostProcessor
 
                         case 3:
                         {
-                            // has a document argument, like aStatement should. This is the markup name for the referenced documents.
+                            // has a document argument, like a Statement should. This is the markup name for the referenced documents.
                             markupName = parts[1].trim();
+
+                              if (markupName.contains("OUI"))
+                            {
+                                System.err.println();
+                            }
+
                             // lookup the document's real name.
                             realName = refNames.get(markupName);
                             // make a link of this, with text of the document's real name.

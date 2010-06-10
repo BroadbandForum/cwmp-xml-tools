@@ -19,13 +19,60 @@ import threepio.tabler.container.Row;
  */
 public class DescriptionHandler extends TagHandler
 {
+
+    private IndexedHashMap<String, String> theHiddens()
+        {
+            IndexedHashMap<String, String> map = new IndexedHashMap<String, String>();
+
+           
+            map.put("string", "an empty string");
+            map.put("boolean", "false");
+            map.put("list", "an empty list");
+            
+
+            return map;
+        }
+
     @Override
     public void handle(Doc doc, Doc before, XTag tag, IndexedHashMap columns, Row row, int where)
     {
-        String s;
-        boolean append = false;
+        String s, t ;
+        Object o;
+        Boolean append = false, hid = false;
 
         s = handle(doc, tag, append);
+
+        o = row.getBucket().get("hidden");
+
+        if (o != null)
+        {
+
+            hid = (Boolean) o;
+
+            if (hid)
+            {
+                s += ("\n\nThis value is HIDDEN and will ALWAYS return <i>");
+
+                o = row.getBucket().get("type");
+
+                if (o == null)
+                {
+                    t = "nothing";
+                }
+                else
+                {
+                    t = theHiddens().get((String)o);
+
+                    if (t == null)
+                    {
+                        t = "nothing";
+                    }
+                }
+
+                s += t + "</i> when read, regardless of the actual value.";
+            }
+        }
+
 
         row.set(where, s, append);
     }
@@ -45,7 +92,7 @@ public class DescriptionHandler extends TagHandler
         StringBuffer buff = new StringBuffer();
         Object o;
 
-        String action = t.getParams().get("action");
+        String action = t.getAttributes().get("action");
 
         if (action != null)
         {
@@ -59,13 +106,15 @@ public class DescriptionHandler extends TagHandler
 
         buff.append((String) o);
         o = doc.poll();
-        while (!( o instanceof XTag) || (o instanceof  XTag && !(((XTag)o ).getType().equalsIgnoreCase("description"))))
+        while (!(o instanceof XTag) || (o instanceof XTag && !(((XTag) o).getType().equalsIgnoreCase("description"))))
         {
-           s = o.toString();
+            s = o.toString();
 
-           buff.append(s);
-           o = doc.poll();
+            buff.append(s);
+            o = doc.poll();
         }
+
+
 
         return buff.toString();
     }
@@ -76,7 +125,7 @@ public class DescriptionHandler extends TagHandler
         return "description";
     }
 
-     @Override
+    @Override
     public String getFriendlyName()
     {
         return "Description";

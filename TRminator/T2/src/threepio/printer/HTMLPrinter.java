@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import threepio.documenter.XTag;
-import threepio.printer.container.StringHashList;
+import threepio.container.NamedStringLists;
 import threepio.tabler.Tabler;
 import threepio.tabler.container.Row;
 import threepio.tabler.container.StringCell;
@@ -27,7 +27,7 @@ public class HTMLPrinter extends FilePrinter
     /**
      * Reference for row formatting
      */
-    private StringHashList refHTMLRow;
+    private NamedStringLists refHTMLRow;
 
     /**
      *  No-argument Constructor
@@ -57,10 +57,10 @@ public class HTMLPrinter extends FilePrinter
      */
     private void setUp()
     {
-        // set up Reference for row modifiers.
-        refHTMLRow = new StringHashList();
-        refHTMLRow.put("object", "background-color:khaki");
-        refHTMLRow.put(Tabler.HEADER_ROW_NAME, "background-color:silver; font-family:Arial; font-weight:bold");
+        // setList up Reference for row modifiers.
+        refHTMLRow = new NamedStringLists();
+        refHTMLRow.putOnList("object", "background-color:khaki");
+        refHTMLRow.putOnList(Tabler.HEADER_ROW_NAME, "background-color:silver; font-family:Arial; font-weight:bold");
         rowTag = "TR";
 
         colTag = "TD";
@@ -223,6 +223,8 @@ public class HTMLPrinter extends FilePrinter
      */
     protected String doLooks(String body, int lineLen)
     {
+        // TODO: break up long Name fields correctly
+
         // storage for removed snippets
         ArrayList<String> tags = new ArrayList<String>();
 
@@ -236,9 +238,8 @@ public class HTMLPrinter extends FilePrinter
         StringBuffer buff = new StringBuffer();
         int left, next;
         int lbLen = lineBreak.length();
-        RegexHelper rghlp = new RegexHelper();
 
-        // replace the tags and collect them.
+        // set the tags and collect them.
         result = RegexHelper.changeAll(matcher, body, placeHold, tags);
 
         // format visible text (with placeholders there);

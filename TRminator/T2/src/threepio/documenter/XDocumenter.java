@@ -26,8 +26,10 @@ import java.util.regex.Matcher;
  */
 public class XDocumenter implements Documenter
 {
+
     XDoc doc;
     String fileContents;
+    boolean init;
 
     /**
      * Sets up the Documenter, using the input file supplied to the method.
@@ -57,7 +59,9 @@ public class XDocumenter implements Documenter
     @Override
     public XDoc convertFile(Entry<String, String> info) throws Exception
     {
-        File inFile = FileIntake.resolveFile(new File(info.getValue()), true);
+        File inFile;
+
+        inFile = FileIntake.resolveFile(new File(info.getValue()), true);
 
         if (inFile == null)
         {
@@ -98,13 +102,22 @@ public class XDocumenter implements Documenter
         return TagExtractor.extractTypedTags(fileContents, type, false);
     }
 
+    /**
+     *
+     * @param f
+     * @return
+     * @throws Exception
+     */
     public ArrayList<String> getSecondaryModelNames(File f) throws Exception
     {
-         setUp(f);
+        setUp(f);
         int afterImp = 0;
         Matcher m = XTag.typedMatcher(fileContents, "import", true);
 
-        String[] possibles = {"base", "ref"};
+        String[] possibles =
+        {
+            "base", "ref"
+        };
         ArrayList<String> names = new ArrayList<String>();
 
         while (m.find())
@@ -112,7 +125,7 @@ public class XDocumenter implements Documenter
             afterImp = m.end();
         }
 
-        for (String s: possibles)
+        for (String s : possibles)
         {
             names.addAll(getPropertyOfType(fileContents.substring(afterImp), s, "model"));
         }
@@ -132,7 +145,10 @@ public class XDocumenter implements Documenter
         int afterImp = 0;
         Matcher m = XTag.typedMatcher(fileContents, "import", true);
 
-        String[] possibles = {"name"};
+        String[] possibles =
+        {
+            "name"
+        };
         ArrayList<String> names = new ArrayList<String>();
 
         while (m.find())
@@ -140,7 +156,7 @@ public class XDocumenter implements Documenter
             afterImp = m.end();
         }
 
-        for (String s: possibles)
+        for (String s : possibles)
         {
             names.addAll(getPropertyOfType(fileContents.substring(afterImp), s, "model"));
         }
@@ -159,8 +175,6 @@ public class XDocumenter implements Documenter
      */
     public ArrayList<String> getAllModelNames(File f) throws Exception
     {
-
-
         return getPropertyOfType(f, "name", "model");
     }
 
@@ -180,7 +194,7 @@ public class XDocumenter implements Documenter
 
         for (int i = 0; i < tags.size(); i++)
         {
-            vals.add(tags.get(i).getParams().get(property));
+            vals.add(tags.get(i).getAttributes().get(property));
         }
 
         return vals;
@@ -203,7 +217,7 @@ public class XDocumenter implements Documenter
 
         for (int i = 0; i < tags.size(); i++)
         {
-            tmp = tags.get(i).getParams().get(property);
+            tmp = tags.get(i).getAttributes().get(property);
             if (tmp != null)
             {
                 vals.add(tmp);

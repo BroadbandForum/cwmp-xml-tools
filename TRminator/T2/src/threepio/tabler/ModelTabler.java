@@ -14,6 +14,8 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import threepio.container.CIExclusiveStringList;
+import threepio.container.HashedLists;
 import threepio.tabler.container.ColumnMap;
 import threepio.tabler.container.IndexedHashMap;
 import threepio.tabler.container.Row;
@@ -34,10 +36,19 @@ import threepio.tagHandler.TagHandler;
 public class ModelTabler extends Tabler
 {
 
+    // TODO: use hashlist to make the tabler collect desired info into Rows' Bucket lists: keys/nokeys/uniquekey.
     /**
-     * the column number for looking up and storing versions.
+     * the version of the document being tabled.
      */
     String version;
+
+    /**
+     * storage of keys
+     *  Top level String: label/name
+     *  Lower level String: label/name of property
+     *  Object: value of property.
+     */
+    HashedLists<String, HashMap<String, Object>> uniqueKeys;
 
     /**
      * ModelTabler is a tabler for BBF models
@@ -46,6 +57,8 @@ public class ModelTabler extends Tabler
     public ModelTabler(ColumnMap cols)
     {
         super(cols);
+
+        uniqueKeys = new HashedLists<String, HashMap<String, Object>>();
     }
 
     /**
@@ -56,11 +69,11 @@ public class ModelTabler extends Tabler
     @Override
     void setupSubstitutes()
     {
-        // put entries in where:
+        // putOnList entries in where:
         // key = key needed for table
         // value = name of key that should exist
 
-        this.substitutes.put("name", "base");
+        this.substitutes.putOnList("name", "base");
     }
 
     /**
@@ -80,8 +93,7 @@ public class ModelTabler extends Tabler
     {
         // make a copy of this one, to protect the original from modification.
         XDoc d = new XDoc(doc);
-        // grab the version from this document.
-        HashMap<String, String> parameters = null;
+        HashMap<String, String> attributes = null;
         XTable table = new ModelTable(doc);
         Row row = null;
         String v = null;
@@ -91,9 +103,11 @@ public class ModelTabler extends Tabler
         XDoc before = new XDoc(), after = new XDoc();
         TagHandler h = null;
         HandlerFactory f = new HandlerFactory();
-        String curRowName = null, prevRowName = null, prevMajor = "", majorItemName = "", dmr = null;
+        String curRowName = null, prevRowName = null, majorItemName = "", dmr = null;
         boolean inside = false;
         Object x;
+        FirstPassShovel fps = new FirstPassShovel();
+
 
         String sepStr = Path.delim;
         version = doc.getVersion();
@@ -113,7 +127,7 @@ public class ModelTabler extends Tabler
 
                 t = importTag(x);
 
-                if (t.getParams().get(param) != null && t.getParams().get(param).equalsIgnoreCase(paramValue))
+                if (t.getAttributes().get(param) != null && t.getAttributes().get(param).equalsIgnoreCase(paramValue))
                 {
                     inside = true;
                     containerType = t.getType();
@@ -129,7 +143,7 @@ public class ModelTabler extends Tabler
             }
         }
 
-        // put that collected info before the actual table.
+        // putOnList that collected info before the actual table.
         table.setInfoBefore(before);
         row = new Row(columns.size());
 
@@ -163,16 +177,18 @@ public class ModelTabler extends Tabler
 
                 if (dmr != null && dmr.trim().isEmpty())
                 {
-                    // This isn't working correctly.
-                    // "Services" shoots to the top. Is it an issue in the XML?
                     dmr = majorItemName;
                 }
 
-                prevMajor = majorItemName;
                 curRowName = null;
                 for (int i = 0; (i < orderedLabels.length && curRowName == null); i++)
                 {
-                    curRowName = t.getParams().get(orderedLabels[i]);
+                    curRowName = t.getAttributes().get(orderedLabels[i]);
+
+//                    if (curRowName.contains("OUIs"))
+//                    {
+//                        System.err.println();
+//                    }
 
                 }
 
@@ -194,10 +210,8 @@ public class ModelTabler extends Tabler
 
                         curRowName = majorItemName + curRowName;
 
-
                     }
                 }
-
 
             }
             // closer tags mean the row is done.
@@ -214,13 +228,12 @@ public class ModelTabler extends Tabler
                         System.err.println("a row exists without a name");
                     }
 
-
                     // System.out.println("placing row: " + prevRowName);
                     table.put(prevRowName, row);
 
                     if (dmr != null)
                     {
-                        // add information as to where to put this table later.
+                        // add information as to where to putOnList this table later.
                         table.addDmr(prevRowName, dmr);
                     }
 
@@ -258,6 +271,12 @@ public class ModelTabler extends Tabler
                     }
                 } else
                 {
+
+                    if (fps.canDig(t))
+                    {
+                        fps.fill(row.getBucket(), doc);
+                    }
+
                     // this is something new, add last row if it isn't empty.
 
                     if (!row.isEmpty() && row.hasFirstColFilled())
@@ -267,14 +286,14 @@ public class ModelTabler extends Tabler
 
                         if (dmr != null)
                         {
-                            // add information as to where to put this table later.
+                            // add information as to where to putOnList this table later.
                             table.addDmr(prevRowName, dmr);
                         }
 
                         row = new Row(columns.size());
                     }
 
-                    // if there's a type column, set it to the componentTag's getType.
+                    // if there's a type column, setList it to the componentTag's getType.
                     int j = -1;
                     for (j = 0; (j < columns.size() && !columns.get(j).getKey().equalsIgnoreCase("type")); j++);
 
@@ -283,18 +302,22 @@ public class ModelTabler extends Tabler
                         row.set(j, t.getType());
                     }
 
-                    // parse attributes from componentTag into row
-                    parameters = t.getParams();
 
-                    // only put in the info needed for each column.
+                    // parse getAttributes from componentTag into row
+                    attributes = t.getAttributes();
+
+                    // grab what we'll need later
+                    AttributeStrainer.strain(t, table, curRowName);
+
+                    // only putOnList in the info needed for each column.
                     for (int i = 0; i < columns.size(); i++)
                     {
                         v = columns.get(i).getValue();
 
-                        if (parameters.containsKey(v))
+                        if (attributes.containsKey(v))
                         {
-                            // componentTag parameters containsInCell this.
-                            row.set(i, parameters.get(v));
+                            // componentTag getAttributes containsInCell this.
+                            row.set(i, attributes.get(v));
 
                         }
                     }
@@ -330,7 +353,7 @@ public class ModelTabler extends Tabler
             table.setComponents(getComponents(doc.copyOf(), paramValue, majorItemType, orderedLabels, refTable));
         }
 
-        // put versions on the table
+        // putOnList versions on the table
 
         table.setVersion(version);
 
@@ -346,7 +369,7 @@ public class ModelTabler extends Tabler
         {
             after.add(d.poll());
         }
-        // put that collected info after the actual table.
+        // putOnList that collected info after the actual table.
         table.setInfoAfter(after);
 
         table.setDoc(doc);
@@ -392,13 +415,13 @@ public class ModelTabler extends Tabler
                 // example: if there is:
                 // key: "name" value: "base" IN SUBSTITUTES
                 // then check for the key "name" IN THE TAG'S PARAMETERS.
-                if (!t.getParams().containsKey(k) && t.getParams().containsKey(v))
+                if (!t.getAttributes().containsKey(k) && t.getAttributes().containsKey(v))
                 {
                     // if the key ("name") didn't exist IN TAG,
                     // get the value for "name" IN SUBSITUTES ("base").
                     // and get the value IN THE TAG, for that substituted key.
                     // IN THE TAG, copy value for "base" to value for "name."
-                    t.getParams().put(k, t.getParams().get(v));
+                    t.getAttributes().put(k, t.getAttributes().get(v));
                 }
             }
         }
@@ -443,7 +466,7 @@ public class ModelTabler extends Tabler
 
             o = tempDoc.poll();
 
-            while (!((o == null) || (o instanceof XTag && ((XTag) o).getParams().containsValue(model) && !((XTag) o).isCloser() && ((XTag) o).getType().equalsIgnoreCase("model"))))
+            while (!((o == null) || (o instanceof XTag && ((XTag) o).getAttributes().containsValue(model) && !((XTag) o).isCloser() && ((XTag) o).getType().equalsIgnoreCase("model"))))
             {
                 o = tempDoc.poll();
             }
@@ -452,7 +475,7 @@ public class ModelTabler extends Tabler
 
             if (!doc.isEmpty())
             {
-                while (!((o == null) || (o instanceof XTag && ((XTag) o).getParams().containsValue(model) && ((XTag) o).isCloser() && ((XTag) o).getType().equalsIgnoreCase("model"))))
+                while (!((o == null) || (o instanceof XTag && ((XTag) o).getAttributes().containsValue(model) && ((XTag) o).isCloser() && ((XTag) o).getType().equalsIgnoreCase("model"))))
                 {
 
                     if ((o instanceof XTag) && (!((XTag) o).isCloser()))
@@ -480,13 +503,13 @@ public class ModelTabler extends Tabler
             // while there is a component
             while (componentTag != null)
             {
-                // make use the attributes to make a string as to where it goes,
+                // make use the getAttributes to make a string as to where it goes,
                 // use ModelTable.SEPARATOR.
 
                 refTag = null;
                 for (int i = 0; i < refs.size() && refTag == null; i++)
                 {
-                    if (refs.get(i).getParams().get("ref").equalsIgnoreCase(componentTag.getParams().get("name")))
+                    if (refs.get(i).getAttributes().get("ref").equalsIgnoreCase(componentTag.getAttributes().get("name")))
                     {
                         refTag = refs.get(i);
                     }
@@ -503,7 +526,7 @@ public class ModelTabler extends Tabler
 
                     if (tempTag != null && descrHandler.getTypeHandled().equalsIgnoreCase(tempTag.getType()))
                     {
-                        descriptions.put(refTag.getParams().get("ref"), descrHandler.handle(doc, tempTag, b));
+                        descriptions.put(refTag.getAttributes().get("ref"), descrHandler.handle(doc, tempTag, b));
                         o = doc.poll();
                     }
 
@@ -543,16 +566,14 @@ public class ModelTabler extends Tabler
         for (int i = 0; i < docs.size(); i++)
         {
             ent = docs.get(i);
-            path = ent.getKey().getParams().get("path");
+            path = ent.getKey().getAttributes().get("path");
             tempDoc = ent.getValue();
             tableThree = new XTable();
 
-            otherTable = parseContainer(docs.get(i).getValue(), "name", docs.get(i).getKey().getParams().get("ref"), majorItemType, orderedLabels, refTable, false);
+            otherTable = parseContainer(docs.get(i).getValue(), "name", docs.get(i).getKey().getAttributes().get("ref"), majorItemType, orderedLabels, refTable, false);
 
             for (int k = 0; k < otherTable.size(); k++)
             {
-
-
                 tmp = otherTable.get(k).getKey();
                 row = otherTable.get(k).getValue();
 
@@ -568,7 +589,7 @@ public class ModelTabler extends Tabler
             }
 
             comp = new TRComponent(tableThree);
-            comp.importParams(ent.getKey().getParams());
+            comp.importParams(ent.getKey().getAttributes());
 
             comp.setDescription(descriptions.get(comp.getParams().get("ref")));
 
@@ -607,17 +628,17 @@ public class ModelTabler extends Tabler
 
         String dmr = null;
 
-        dmr = t.getParams().get("dmr:previousParameter");
+        dmr = t.getAttributes().get("dmr:previousParameter");
 
         if (dmr == null)
         {
 
-            dmr = t.getParams().get("dmr:previousObject");
+            dmr = t.getAttributes().get("dmr:previousObject");
         }
 
         if (dmr == null)
         {
-            dmr = t.getParams().get("dmr:previousProfile");
+            dmr = t.getAttributes().get("dmr:previousProfile");
         }
 
         return dmr;

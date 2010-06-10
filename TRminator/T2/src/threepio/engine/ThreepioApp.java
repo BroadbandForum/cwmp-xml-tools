@@ -8,7 +8,7 @@ package threepio.engine;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import threepio.container.HashList;
+import threepio.container.HashedLists;
 import threepio.filehandling.FileIntake;
 
 /**
@@ -22,7 +22,7 @@ public abstract class ThreepioApp
     /**
      * makeOptMap parses a String array into a HashMap.
      * If an option requires an argument, the argument is the value to a key with that option.
-     * if the option does not require an argument, the key gets put on the map, with "true" as it's value.
+     * if the option does not require an argument, the key gets putOnList on the map, with "true" as it's value.
      * these "true" values are not currently in use.
      *
      * Options MUST start with a '-' character.
@@ -33,9 +33,9 @@ public abstract class ThreepioApp
      * @return a HashMap of the user's selections.
      * @throws Exception when an error in user input is found.
      */
-    public static HashList<String, String> makeOptMap(String[] opts, HashMap<String, Integer> owa) throws Exception
+    public static HashedLists<String, String> makeOptMap(String[] opts, HashMap<String, Integer> owa) throws Exception
     {
-        HashList<String, String> map = new HashList<String, String>();
+        HashedLists<String, String> map = new HashedLists<String, String>();
         String key, val;
         int sz = opts.length, difference, numArgs;
 
@@ -71,15 +71,15 @@ public abstract class ThreepioApp
                         throw new Exception("not enough arguments for option" + key);
                     }
 
-                    map.put(key, val);
+                    map.putOnList(key, val);
                 }
 
             } else
             {
                 // this option doesn't need an argument.
                 // it's presence as a key on the map will be used in the program,
-                // not it's value, but we put on a value of "true" just in case.
-                map.put(key, "true");
+                // not it's value, but we putOnList on a value of "true" just in case.
+                map.putOnList(key, "true");
 
             }
         }

@@ -161,7 +161,7 @@ public class TRCols
             throw new IllegalStateException("The first element is not a ColumnMap container");
         }
 
-        name = tmp.getParams().get("name");
+        name = tmp.getAttributes().get("name");
         cols.setName(name);
 
 
@@ -194,7 +194,7 @@ public class TRCols
                 throw new IllegalStateException("A column tag does not self-terminate.");
             }
 
-            params = tmp.getParams();
+            params = tmp.getAttributes();
             constructString = params.get("construct");
             title = params.get("title");
             handles = params.get("handles");

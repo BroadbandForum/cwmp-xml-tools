@@ -3,7 +3,7 @@
  * Project: Threepio
  * Author: Jeff Houle
  */
-package threepio.printer.container;
+package threepio.container;
 
 import java.util.ArrayList;
 import threepio.helper.XHTMLHelper;

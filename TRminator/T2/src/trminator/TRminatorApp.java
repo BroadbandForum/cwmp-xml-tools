@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import threepio.container.HashList;
+import threepio.container.HashedLists;
 import threepio.engine.ThreepioApp;
 import threepio.engine.ThreepioEngine;
 import threepio.filehandling.FileIntake;
@@ -44,12 +44,19 @@ public class TRminatorApp extends ThreepioApp
     protected TRminatorUI ui;
     private ThreepioEngine seeThree;
 
+    /**
+     * default constructor.
+     * initiates the ThreepioEngine
+     */
     public TRminatorApp()
     {
         seeThree = new ThreepioEngine();
     }
 
-    // the option strings that require an argument.
+    /**
+     * the option strings that require an argument.
+     * @return
+     */
     final static HashMap<String, Integer> OMap()
     {
         HashMap<String, Integer> map = new HashMap<String, Integer>();
@@ -74,7 +81,7 @@ public class TRminatorApp extends ThreepioApp
      */
     public static void main(String args[])
     {
-        HashList<String, String> userOpts = null;
+        HashedLists<String, String> userOpts = null;
         boolean uiMode;
         ArrayList<String> tempList;
 

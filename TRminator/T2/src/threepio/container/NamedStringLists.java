@@ -1,19 +1,18 @@
 /*
- * File: StringHashList.java
+ * File: NamedStringLists.java
  * Project: Threepio
  * Author: Jeff Houle
  */
-package threepio.printer.container;
+package threepio.container;
 
 import java.util.ListIterator;
-import threepio.container.HashList;
 
 /**
- * A StringHashList has String keys and LinkedList<String> Values.
+ * A NamedStringLists has String keys and LinkedList Values.
  *
  * @author jhoule
  */
-public class StringHashList extends HashList<String, String>
+public class NamedStringLists extends NamedLists<String>
 {
     /**
      * creates and returns a string containing all values associated with type t

@@ -60,7 +60,14 @@ public class SyntaxHandler extends TagHandler
         value = value.trim();
 
         temp = (XTag) doc.peek();
-        params = temp.getParams();
+        params = temp.getAttributes();
+
+        x = params.get("hidden");
+
+        if (x != null)
+        {
+            row.getBucket().putOnList("hidden", Boolean.parseBoolean((String) x));
+        }
 
         if (value.equals("string") && temp != null)
         {
@@ -107,8 +114,11 @@ public class SyntaxHandler extends TagHandler
             value = Table.BLANK_CELL_TEXT;
         }
 
-        // so put that in the row for this.
+        // so putOnList that in the row for this.
         row.set(where, value);
+
+        // save this in the Row's "bucket" so we know it later.
+        row.addToBucket("type", value);
 
         // check for a need to find default.
         where = columns.indexByValOf("DEFAULT");
@@ -127,7 +137,7 @@ public class SyntaxHandler extends TagHandler
             if (x instanceof XTag)
             {
                 t = ((XTag) x);
-                params = t.getParams();
+                params = t.getAttributes();
                 type = t.getType();
                 value = "";
 
@@ -165,15 +175,31 @@ public class SyntaxHandler extends TagHandler
 
                     }
 
+
+
                     if (type.equalsIgnoreCase("enumeration"))
                     {
+                        String s = t.getAttributes().get("value");
+                        
+                        
+                        if (s != null && s.equals("Interleaved"))
+                        {
+                            System.err.println();
+                        }
+                        else
+                        {
+                            System.err.println(s);
+                        }
                         row.addToBucket("enums", new BBFEnum(t));
                     }
 
+                    // TODO: figure out why "None" of DataPath goes missing, after being added here:
+
                     if (type.equalsIgnoreCase("units"))
                     {
-                        row.addToBucket("units", t.getParams().get("value"));
+                        row.addToBucket("units", t.getAttributes().get("value"));
                     }
+
 
 
                 }

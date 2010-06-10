@@ -38,20 +38,20 @@ public class XTag
      * The rest of the contents of the strings, separated into keys and values,
      * entered into a HashMap.
      */
-    private HashMap<String, String> parameters;
+    private HashMap<String, String> attributes;
     /**
-     * A CSV list of the artificially inserted parameters.
+     * A CSV list of the artificially inserted attributes.
      * Keeps them from showing up when spitting tag back out.
      */
     private String artificial = "type,";
 
     /**
      * no-argument constructor.
-     * sets up parameters as a new HashMap.
+     * sets up attributes as a new HashMap.
      */
     public XTag()
     {
-        parameters = new HashMap<String, String>();
+        attributes = new HashMap<String, String>();
     }
 
     /**
@@ -128,10 +128,10 @@ public class XTag
                 throw new Exception("Tag formating error.");
             }
 
-            // get parameters. here, keys becomes both keys and values, separated
+            // get attributes. here, keys becomes both keys and values, separated
             toProcess = raw.substring(space, rbracket).split("=");
 
-            // clean up the parameters, putting them on a list.
+            // clean up the attributes, putting them on a list.
             // ends up that if a key is at i, it's value is at i+1.
             for (int j = 0; j < toProcess.length; j++)
             {
@@ -157,11 +157,11 @@ public class XTag
             {
                 key = cleanedKeysAndValues.get(i);
                 value = cleanedKeysAndValues.get(i + 1);
-                parameters.put(key, value);
+                attributes.put(key, value);
             }
 
             //add the artificial parameter type.
-            parameters.put("type", type);
+            attributes.put("type", type);
         }
     }
 
@@ -193,17 +193,17 @@ public class XTag
     }
 
     /**
-     * returns the map of parameters
+     * returns the map of attributes
      * @return the map
      */
-    public HashMap<String, String> getParams()
+    public HashMap<String, String> getAttributes()
     {
-        return parameters;
+        return attributes;
     }
 
     /**
      * returns the string representation of this XTag.
-     * parameters are NOT guaranteed to be in original order.
+     * attributes are NOT guaranteed to be in original order.
      * artificially created tags for other purposes are NOT included.
      * @return the Tag as a string.
      */
@@ -223,11 +223,11 @@ public class XTag
 
         buff.append(getType());
 
-        // put parameters in 
-        Iterator<Entry<String, String>> it = parameters.entrySet().iterator();
+        // put attributes in
+        Iterator<Entry<String, String>> it = attributes.entrySet().iterator();
         Entry<String, String> ent = null;
 
-        // parse through parameters.
+        // parse through attributes.
         while (it.hasNext())
         {
             ent = it.next();
@@ -336,7 +336,7 @@ public class XTag
         // add tag type
         buff.append(type);
 
-        // add the optional parameters pattern
+        // add the optional attributes pattern
         buff.append("[^>]*");
 
         if (allowWhiteSpaces)
