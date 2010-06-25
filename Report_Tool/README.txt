@@ -14,7 +14,7 @@ Usage:
     [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
     [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
-    *   cannot specify both --report and --special
+    * cannot specify both --report and --special
 
 Options:
     --allbibrefs
@@ -167,8 +167,8 @@ Options:
         matches all objects)
 
     --pedantic=[i(1)]
-        enables output of warnings to *stderr* when logical inconsistencies
-        in the XML are detected; if the option is specified without a value,
+        enables output of warnings to stderr when logical inconsistencies in
+        the XML are detected; if the option is specified without a value,
         the value defaults to 1
 
     --quiet
@@ -181,7 +181,7 @@ Options:
             HTML document; see also --nolinks and --notemplates
 
         null
-            no output; errors go to *stdout* rather than *stderr* (default)
+            no output; errors go to stdout rather than stderr (default)
 
         tab tab-separated list, one object or parameter per line
 
