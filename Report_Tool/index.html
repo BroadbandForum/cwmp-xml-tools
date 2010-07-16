@@ -30,7 +30,7 @@
 <p>
 </p>
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p><strong>report.pl</strong> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
+<p><strong>report.pl</strong> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--compare] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
 <ul>
 <li><strong><a name="cannot_specify_both_report_and_special" class="item">cannot specify both --report and --special</a></strong>
 
@@ -58,6 +58,7 @@
 
 <dd>
 <p>causes automatic addition of <strong>base</strong> attributes when models, parameters and objects are re-defined, and suppression of redefinition warnings (useful when processing auto-generated data model definitions)</p>
+<p>is implied by <strong>--compare</strong></p>
 </dd>
 <dt><strong><a name="autodatatype" class="item"><strong>--autodatatype</strong></a></strong></dt>
 
@@ -74,6 +75,12 @@
 
 <dd>
 <p>affects only the <strong>xml2</strong> report; causes descriptions to be processed into a canonical form that eases comparison with the original Microsoft Word descriptions</p>
+</dd>
+<dt><strong><a name="compare" class="item"><strong>--compare</strong></a></strong></dt>
+
+<dd>
+<p>compares the two files that were specified on the command line, showing the changes made by the second one</p>
+<p>note that this is identical to setting <strong>--autobase</strong> and <strong>--showdiffs</strong></p>
 </dd>
 <dt><strong><a name="components" class="item"><strong>--components</strong></a></strong></dt>
 
@@ -130,7 +137,7 @@
 
 <dd>
 <p>reports only on items that were defined or modified in the last file that was specified on the command line</p>
-<p>note that the <strong>xml</strong> report always does something similar but might not work properly if this option is specified</p>
+<p>note that the <strong>xml</strong> report always does something similar but might not work properly if this option is also specified</p>
 </dd>
 <dt><strong><a name="marktemplates" class="item"><strong>--marktemplates</strong></a></strong></dt>
 
@@ -261,11 +268,16 @@
 </dd>
 </dl>
 </dd>
+<dt><strong><a name="showdiffs" class="item"><strong>--showdiffs</strong></a></strong></dt>
+
+<dd>
+<p>currently affects only the <strong>text</strong> and <strong>html</strong> reports; visually indicates the differences resulting from the last file on the command line</p>
+<p>is implied by <strong>--compare</strong></p>
+</dd>
 <dt><strong><a name="showspec" class="item"><strong>--showspec</strong></a></strong></dt>
 
 <dd>
 <p>currently affects only the <strong>html</strong> report; generates a <strong>Spec</strong> rather than a <strong>Version</strong> column</p>
-<p>note that if an object or parameter is modified, the spec for it's parent, and so on up to the root object, is updated (this is not what would intuitively be expected)</p>
 </dd>
 <dt><strong><a name="showsyntax" class="item"><strong>--showsyntax</strong></a></strong></dt>
 
@@ -358,8 +370,8 @@
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:wlupton@2wire.com">wlupton@2wire.com</a>&gt;</p>
-<p>$Date: 2010/05/18 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#163 $</p>
+<p>$Date: 2010/07/16 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#164 $</p>
 
 </body>
 

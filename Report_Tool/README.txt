@@ -1,6 +1,6 @@
 Usage:
     report.pl [--allbibrefs] [--autobase] [--autodatatype]
-    [--bibrefdocfirst] [--canonical] [--components]
+    [--bibrefdocfirst] [--canonical] [--compare] [--components]
     [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]...
     [--dtspec[=s]] [--help] [--ignore=pattern("")]
     [--importsuffix=string("")] [--include=d]... [--info] [--lastonly]
@@ -8,8 +8,8 @@ Usage:
     [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
     [--notemplates] [--nowarnredef] [--nowarnprofbadref]
     [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet]
-    [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec]
-    [--showsyntax]
+    [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs]
+    [--showspec] [--showsyntax]
     [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc]
     [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
     [--warnbibref[=i(1)]] [--writonly] DM-instance...
@@ -29,6 +29,8 @@ Options:
         and objects are re-defined, and suppression of redefinition warnings
         (useful when processing auto-generated data model definitions)
 
+        is implied by --compare
+
     --autodatatype
         causes the {{datatype}} template to be automatically prefixed for
         parameters with named data types
@@ -44,6 +46,12 @@ Options:
         affects only the xml2 report; causes descriptions to be processed
         into a canonical form that eases comparison with the original
         Microsoft Word descriptions
+
+    --compare
+        compares the two files that were specified on the command line,
+        showing the changes made by the second one
+
+        note that this is identical to setting --autobase and --showdiffs
 
     --components
         affects only the xml2 report; generates a component for each object;
@@ -96,7 +104,7 @@ Options:
         that was specified on the command line
 
         note that the xml report always does something similar but might not
-        work properly if this option is specified
+        work properly if this option is also specified
 
     --marktemplates
         mark selected template expansions with &&&& followed by
@@ -207,13 +215,15 @@ Options:
 
         xsd W3C schema
 
+    --showdiffs
+        currently affects only the text and html reports; visually indicates
+        the differences resulting from the last file on the command line
+
+        is implied by --compare
+
     --showspec
         currently affects only the html report; generates a Spec rather than
         a Version column
-
-        note that if an object or parameter is modified, the spec for it's
-        parent, and so on up to the root object, is updated (this is not
-        what would intuitively be expected)
 
     --showsyntax
         adds an extra column containing a summary of the parameter syntax;

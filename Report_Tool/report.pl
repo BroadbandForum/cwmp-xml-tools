@@ -142,6 +142,9 @@
 use strict;
 no strict "refs";
 
+# XXX can enable this as an aid to finding auto-vivification problems
+#no autovivification qw{fetch exists delete warn};
+
 use Algorithm::Diff;
 use Clone qw{clone};
 use Data::Dumper;
@@ -153,8 +156,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/05/18 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#163 $};
+my $tool_vers_date = q{$Date: 2010/07/16 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#164 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -186,12 +189,18 @@ my $dtloc = qq{cwmp-devicetype-${dtver}.xsd};
 #     them properly (see tr2dm.pl, which now does a better job)
 binmode STDOUT, ":utf8";
 
+# XXX experimental (if no downsides of always using file, OK to hard code)
+# XXX partly based on false premise that --showdiffs implies --lastonly
+# XXX need complete review of use of spec versus file
+my $lastonlyusesfile = 1;
+
 # Command-line options
 my $allbibrefs = 0;
 my $autobase = 0;
 my $autodatatype = 0;
 my $bibrefdocfirst = 0;
 my $canonical = 0;
+my $compare = 0;
 my $components = 0;
 my $debugpath = '';
 my $deletedeprecated = 0;
@@ -219,6 +228,7 @@ my $objpat = '';
 my $pedantic = undef;
 my $quiet = 0;
 my $report = '';
+my $showdiffs = 0;
 my $showspec = 0;
 my $showsyntax = 0;
 my $special = '';
@@ -235,6 +245,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'autodatatype' => \$autodatatype,
            'bibrefdocfirst' => \$bibrefdocfirst,
            'canonical' => \$canonical,
+           'compare' => \$compare,
            'components' => \$components,
            'debugpath:s' => \$debugpath,
            'deletedeprecated' => \$deletedeprecated,
@@ -262,6 +273,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
 	   'pedantic:i' => \$pedantic,
 	   'quiet' => \$quiet,
 	   'report:s' => \$report,
+           'showdiffs' => \$showdiffs,
            'showspec' => \$showspec,
            'showsyntax' => \$showsyntax,
            'special:s' => \$special,
@@ -327,6 +339,15 @@ if ($nowarnprofbadref) {
     print STDERR "--nowarnprofbadref is deprecated; it's no longer necessary\n";
 }
 
+if ($compare) {
+    if (@ARGV != 2) {
+        print STDERR "--compare requires exactly two input files\n";
+        pod2usage(2);
+    }
+    $autobase = 1;
+    $showdiffs = 1;
+}
+
 *STDERR = *STDOUT if $report eq 'null';
 
 $marktemplates = '&&&&' if defined($marktemplates);
@@ -351,18 +372,20 @@ my $allfiles = [];
 my $specs = [];
 # XXX for DT, lfile and lspec should be last processed DM file
 #     (current workaround is to use same spec for DT and this DM)
+# XXX now should be addressed if $lastonlyusesfile is true?
 my $lfile = ''; # last command-line-specified file
 my $lspec = ''; # spec from last command-line-specified file
 my $files = {};
 my $imports = {}; # XXX not a good name, because it includes main file defns
 my $imports_i = 0;
 my $bibrefs = {};
+# XXX need to change $objects to use util_is_defined()
 my $objects = {};
 my $parameters = {};
 my $profiles = {};
 my $anchors = {};
-my $root = {spec => '', path => '', name => '', type => '',
-            status => 'current', dynamic => 0};
+my $root = {file => '', spec => '', lspec => '', path => '', name => '',
+            type => '', status => 'current', dynamic => 0};
 my $highestMajor = 0;
 my $highestMinor = 0;
 my $previouspath = '';
@@ -433,7 +456,12 @@ sub expand_toplevel
     # expand nested items (context is a stack of nested component context)
     # XXX should be: description, import, dataType, bibliography, component,
     #     model
-    my $context = [{file => $file, spec => $spec, path => '', name => ''}];
+    my $context = [{file => $file, spec => $spec,
+                    lfile => $file, lspec => $spec,
+                    path => '', name => ''}];
+
+    #print STDERR "XXXX init in $file; $file\n";
+
     foreach my $item
 	($toplevel->findnodes('import|dataType|bibliography|model')) {
 	my $element = $item->findvalue('local-name()');
@@ -536,7 +564,11 @@ sub expand_import
                        $item);
     }
 
-    unshift @$context, {file => $file, spec => $fspec, path => '', name => ''};
+    unshift @$context, {file => $file, spec => $fspec,
+                        lfile => $file, lspec => $fspec,
+                        path => '', name => ''};
+
+    #print STDERR "XXXX impt in $file; $file\n";
 
     # expand imports in the imported file
     foreach my $item ($toplevel->findnodes('import')) {
@@ -623,12 +655,15 @@ sub expand_dataType
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
 
     my $name = $dataType->findvalue('@name');
     my $base = $dataType->findvalue('@base');
     my $status = $dataType->findvalue('@status');
     my $description = $dataType->findvalue('description');
     my $descact = $dataType->findvalue('description/@action');
+    my $descdef = $dataType->findnodes('description')->size();
     my $minLength = $dataType->findvalue('string/size/@minLength');
     my $maxLength = $dataType->findvalue('string/size/@maxLength');
     my $patterns = $dataType->findnodes('string/pattern');
@@ -645,24 +680,27 @@ sub expand_dataType
     }
 
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $spec);
+    update_bibrefs($description, $file, $spec);
 
     print STDERR "expand_dataType name=$name base=$base\n" if $verbose > 1;
 
     my $node = {name => $name, base => $base, prim => $prim, spec => $spec,
                 status => $status, description => $description,
-                descact => $descact, minLength => $minLength,
-                maxLength => $maxLength, patterns => []};
+                descact => $descact, descdef => $descdef,
+                minLength => $minLength, maxLength => $maxLength,
+                patterns => []};
 
     foreach my $pattern (@$patterns) {
         my $value = $pattern->findvalue('@value');
         my $description = $pattern->findvalue('description');
         my $descact = $pattern->findvalue('description/@action');
+        my $descdef = $pattern->findnodes('description')->size();
 
-        update_bibrefs($description, $spec);
+        update_bibrefs($description, $file, $spec);
 
         push @{$node->{patterns}}, {value => $value, description =>
-                                        $description, descact => $descact};
+                                        $description, descact => $descact,
+                                        descdef => $descdef};
     }
 
     push @{$pnode->{dataTypes}}, $node;
@@ -675,14 +713,17 @@ sub expand_bibliography
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
 
     # will report if $verbose > $vlevel
     my $vlevel = 1;
 
     my $description = $bibliography->findvalue('description');
     my $descact = $bibliography->findvalue('description/@action');
+    my $descdef = $bibliography->findnodes('description')->size();
 
-    update_bibrefs($description, $spec);
+    update_bibrefs($description, $file, $spec);
 
     print STDERR "expand_bibliography\n" if $verbose > $vlevel;
 
@@ -691,9 +732,11 @@ sub expand_bibliography
         #     now, just replace it quietly.
         $pnode->{bibliography}->{description} = $description;
         $pnode->{bibliography}->{descact} = $descact;
+        $pnode->{bibliography}->{descdef} = $descdef;
     } else {
         $pnode->{bibliography} = {description => $description,
-                                  descact => $descact, references => []};
+                                  descact => $descact, descdef => $descdef,
+                                  references => []};
     }
 
     # XXX this should really be in a separate routine
@@ -820,7 +863,10 @@ sub expand_model
 {
     my ($context, $pnode, $model) = @_;
 
+    my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
 
     my $name = $model->findvalue('@name');
     my $ref = $model->findvalue('@ref');
@@ -829,12 +875,13 @@ sub expand_model
     my $isService = boolean($model->findvalue('@isService'));
     my $description = $model->findvalue('description');
     my $descact = $model->findvalue('description/@action');
+    my $descdef = $model->findnodes('description')->size();
 
     # XXX fudge it if in a DT instance (ref but no name or base)
     $name = $ref if $ref && !$name;
 
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $spec);
+    update_bibrefs($description, $file, $spec);
 
     print STDERR "expand_model name=$name ref=$ref\n" if $verbose > 1;
 
@@ -873,7 +920,7 @@ sub expand_model
     }
 
     my $nnode = add_model($context, $pnode, $name, $ref, $isService, $status,
-                          $description, $descact, $majorVersion,
+                          $description, $descact, $descdef, $majorVersion,
                           $minorVersion);
 
     # expand nested components, objects, parameters and profiles
@@ -891,7 +938,8 @@ sub expand_model
     #     nodes for all nodes in the final report)
     if (!$any_profiles) {
         push @{$nnode->{nodes}}, {type => 'profile', name => '',
-                                  spec => $spec};
+                                  spec => $spec, file => $file,
+                                  lspec => $Lspec, lfile => $Lfile};
     }
 }
 
@@ -902,6 +950,8 @@ sub expand_model_component
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
     my $Path = $context->[0]->{path};
 
     my $path = $component->findvalue('@path');
@@ -961,11 +1011,14 @@ sub expand_model_component
     ($pnode, $path) = add_path($context, $mnode, $pnode, $path, 0);
 
     # pass information from caller to the new component context
-    unshift @$context, {file => $file, spec => $spec, path => $Path,
-                        name => $name,
+    unshift @$context, {file => $file, spec => $spec, 
+                        lfile => $Lfile, lspec => $Lspec,
+                        path => $Path, name => $name,
                         previousParameter => $hash->{previousParameter},
                         previousObject => $hash->{previousObject},
                         previousProfile => $hash->{previousProfile}};
+
+    #print STDERR "XXXX comp $name in $file; $Lfile\n";
 
     # expand component's nested components, parameters, objects and profiles
     foreach my $item ($component->findnodes('component|parameter|object|'.
@@ -983,7 +1036,10 @@ sub expand_model_object
 {
     my ($context, $mnode, $pnode, $object) = @_;
 
+    my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
 
     my $name = $object->findvalue('@name');
     my $ref = $object->findvalue('@ref');
@@ -996,9 +1052,10 @@ sub expand_model_object
     my $status = $object->findvalue('@status');
     my $description = $object->findvalue('description');
     my $descact = $object->findvalue('description/@action');
+    my $descdef = $object->findnodes('description')->size();
 
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $spec);
+    update_bibrefs($description, $file, $spec);
 
     $minEntries = 1 unless defined $minEntries && $minEntries ne '';
     $maxEntries = 1 unless defined $maxEntries && $maxEntries ne '';
@@ -1084,8 +1141,8 @@ sub expand_model_object
 
     # create the new object
     my $nnode = add_object($context, $mnode, $pnode, $name, $ref, 0, $access,
-			   $status, $description, $descact, $majorVersion,
-			   $minorVersion, $previous);
+			   $status, $description, $descact, $descdef,
+                           $majorVersion, $minorVersion, $previous);
 
     # XXX add some other stuff (really should be handled by add_object)
     # XXX should detect attempt to change (need to use routine for this)
@@ -1246,7 +1303,10 @@ sub expand_model_parameter
 {
     my ($context, $mnode, $pnode, $parameter) = @_;
 
+    my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
 
     my $name = $parameter->findvalue('@name');
     my $ref = $parameter->findvalue('@ref');
@@ -1267,6 +1327,7 @@ sub expand_model_parameter
     my $units = $parameter->findvalue('syntax/*/units/@value');
     my $description = $parameter->findvalue('description');
     my $descact = $parameter->findvalue('description/@action');
+    my $descdef = $parameter->findnodes('description')->size();
     my $default = $parameter->findvalue('syntax/default/@type') ?
         $parameter->findvalue('syntax/default/@value') : undef;
     my $deftype = $parameter->findvalue('syntax/default/@type');
@@ -1278,7 +1339,7 @@ sub expand_model_parameter
     my ($majorVersion, $minorVersion) = dmr_version($parameter);
 
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $spec);
+    update_bibrefs($description, $file, $spec);
 
     # XXX I have a feeling that I need to be more rigorous re the distinction
     #     between nodes being absent and nodes having blank values (see the
@@ -1366,8 +1427,10 @@ sub expand_model_parameter
     $syntax->{hidden} = defined(($parameter->findnodes('syntax/@hidden'))[0]);
     $syntax->{list} = defined(($parameter->findnodes('syntax/list'))[0]);
     if ($syntax->{list}) {
+        my $status = $parameter->findvalue('syntax/list/@status');
         my $minItems = $parameter->findvalue('syntax/list/@minItems');
         my $maxItems = $parameter->findvalue('syntax/list/@maxItems');
+        $syntax->{liststatus} = $status;
         $minItems = undef if $minItems eq '';
         $maxItems = undef if $maxItems eq '';
         if (defined $minItems || defined $maxItems) {
@@ -1407,7 +1470,7 @@ sub expand_model_parameter
         $value = $value->findvalue('@value');
         
         $status = util_maybe_deleted($status);
-        update_bibrefs($description, $spec);
+        update_bibrefs($description, $file, $spec);
 
         # XXX where should such defaults be applied? here is better
         $access = 'readOnly' unless $access;
@@ -1466,8 +1529,8 @@ sub expand_model_parameter
     }
 
     add_parameter($context, $mnode, $pnode, $name, $ref, $type, $syntax,
-                  $access, $status, $description, $descact, $values, $default,
-                  $deftype, $defstat, $majorVersion, $minorVersion,
+                  $access, $status, $description, $descact, $descdef, $values,
+                  $default, $deftype, $defstat, $majorVersion, $minorVersion,
                   $activeNotify, $forcedInform, $units, $previous);
 }
 
@@ -1478,6 +1541,8 @@ sub expand_model_profile
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
 
     my $name = $profile->findvalue('@name');
     my $base = $profile->findvalue('@base');
@@ -1489,7 +1554,7 @@ sub expand_model_profile
     # XXX descact too
 
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $spec);
+    update_bibrefs($description, $file, $spec);
 
     $name = $base unless $name;
 
@@ -1586,10 +1651,11 @@ sub expand_model_profile
             ($mnode->{name} =~ /([^:]*):(\d+)\.(\d+)/);
 
         $nnode = {pnode => $mnode, path => $name, name => $name, base => $base,
-                  extends => $extends, spec => $spec, type => 'profile',
+                  extends => $extends, file => $file, lfile => $Lfile,
+                  spec => $spec, lspec => $Lspec, type => 'profile',
                   access => '', status => $status, description => $description,
-                  model => $model, nodes => [],
-                  baseprof => $baseprof, extendsprofs => $extendsprofs,
+                  model => $model, nodes => [], baseprof => $baseprof,
+                  extendsprofs => $extendsprofs,
                   majorVersion => $mversion_major,
                   minorVersion => $mversion_minor,
                   errors => {}};
@@ -1650,19 +1716,23 @@ sub expand_model_profile_object
 {
     my ($context, $Pnode, $pnode, $object) = @_;
 
+    my $file = $context->[0]->{file};
+    my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
     # this is the path attribute from component reference
     my $Path = $context->[0]->{path};
-    my $spec = $context->[0]->{spec};
 
     my $name = $object->findvalue('@ref');
     my $access = $object->findvalue('@requirement');
     my $status = $object->findvalue('@status');
     my $description = $object->findvalue('description');
     my $descact = $object->findvalue('description/@action');
+    my $descdef = $object->findnodes('description')->size();
 
     $status = 'current' unless $status;
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $spec);
+    update_bibrefs($description, $file, $spec);
 
     print STDERR "expand_model_profile_object path=$Path ref=$name\n" if
         $verbose > 1;
@@ -1714,7 +1784,7 @@ sub expand_model_profile_object
 	$nnode = {pnode => $pnode, path => $name, name => $name,
                   type => 'objectRef', access => $access, status => $status,
                   description => $description, descact => $descact,
-                  nodes => [], baseobj => $baseobj};
+                  descdef => $descdef, nodes => [], baseobj => $baseobj};
         $push_deferred = 1;
     }
 
@@ -1744,19 +1814,23 @@ sub expand_model_profile_parameter
 {
     my ($context, $Pnode, $pnode, $parameter) = @_;
 
+    my $file = $context->[0]->{file};
+    my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
     # this is the path attribute from component reference
     my $Path = $context->[0]->{path};
-    my $spec = $context->[0]->{spec};
 
     my $name = $parameter->findvalue('@ref');
     my $access = $parameter->findvalue('@requirement');
     my $status = $parameter->findvalue('@status');
     my $description = $parameter->findvalue('description');
     my $descact = $parameter->findvalue('description/@action');
+    my $descdef = $parameter->findnodes('description')->size();
 
     $status = 'current' unless $status;
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $spec);
+    update_bibrefs($description, $file, $spec);
 
     print STDERR "expand_model_profile_parameter path=$Path ref=$name\n" if
         $verbose > 1;
@@ -1766,7 +1840,7 @@ sub expand_model_profile_parameter
     $path = $Path . $path if $Path && $Pnode == $pnode;
 
     # these errors are reported by sanity_node
-    unless ($parameters->{$path} && %{$parameters->{$path}}) {
+    unless (util_is_defined($parameters, $path)) {
         if ($noprofiles) {
         } elsif (!defined $Pnode->{errors}->{$path}) {
             $Pnode->{errors}->{$path} = {status => $status};
@@ -1819,7 +1893,7 @@ sub expand_model_profile_parameter
         $nnode = {pnode => $pnode, path => $path, name => $name,
                   type => 'parameterRef', access => $access, status => $status,
                   description => $description, descact => $descact,
-                  nodes => []};
+                  descdef => $descdef, nodes => []};
 
         # if previous is defined, it's a hint to insert this node after the
         # node of this name, if it exists
@@ -1844,10 +1918,12 @@ sub expand_model_profile_parameter
 sub add_model
 {
     my ($context, $pnode, $name, $ref, $isService, $status, $description,
-        $descact, $majorVersion, $minorVersion) = @_;
+        $descact, $descdef, $majorVersion, $minorVersion) = @_;
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
 
     $ref = '' unless $ref;
     $isService = 0 unless $isService;
@@ -1924,9 +2000,15 @@ sub add_model
 	$nnode->{spec} = $spec;
 
         # XXX need cleverer comparison
-        if ($description && $description ne $nnode->{description}) {
-            print STDERR "$name: description: changed\n" if $verbose;
-            $nnode->{description} = $description;
+        if ($description) {
+            if ($description ne $nnode->{description}) {
+                print STDERR "$name: description: changed\n" if $verbose;
+                $nnode->{description} = $description;
+            }
+            my $tdescact = util_default($descact);
+            print STDERR "$name: invalid description action: $tdescact\n"
+                if $pedantic && !$autobase &&
+                (!$descact || $descact eq 'create');
         }
         # XXX need cleverer comparison
         if ($descact && $descact ne $nnode->{descact}) {
@@ -1948,6 +2030,8 @@ sub add_model
         unshift @{$nnode->{history}}, $cnode;
     } else {
         print STDERR "unnamed model (after $previouspath)\n" unless $name;
+        print STDERR "$name: invalid description action: $descact\n"
+            if $pedantic && !$autobase && $descact && $descact ne 'create';
         my $dynamic = $pnode->{dynamic};
         # XXX experimental; may break stuff? YEP!
         #my $path = $isService ? '.' : '';
@@ -1956,7 +2040,7 @@ sub add_model
                   type => 'model', access => '',
                   isService => $isService, status => $status,
                   description => $description, descact => $descact,
-                  default => undef, dynamic => $dynamic,
+                  descdef => $descdef, default => undef, dynamic => $dynamic,
                   majorVersion => $majorVersion, minorVersion => $minorVersion,
                   nodes => [], history => undef};
         push @{$pnode->{nodes}}, $nnode;
@@ -1987,8 +2071,12 @@ sub load_model
         my $file = $model->{file};
         my $spec = $model->{spec};
         my $item = $model->{item};
-        unshift @$context, {file => $file, spec => $spec, path => '',
-                            name => ''};
+        unshift @$context, {file => $file, spec => $spec,
+                            lfile => $file, lspec => $spec,
+                            path => '', name => ''};
+
+        #print STDERR "XXXX modl $ref in $file; $file\n";
+
         expand_model($context, $root, $item);
         shift @$context;
     }
@@ -2068,10 +2156,13 @@ sub add_path
 sub add_object
 {
     my ($context, $mnode, $pnode, $name, $ref, $auto, $access, $status,
-        $description, $descact, $majorVersion, $minorVersion, $previous) = @_;
+        $description, $descact, $descdef, $majorVersion, $minorVersion,
+        $previous) = @_;
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
 
     # if the context contains "previousObject", it's from a component
     # reference, and applies only to the first object
@@ -2181,7 +2272,7 @@ sub add_object
         if ($description) {
             if ($description eq $nnode->{description}) {
                 print STDERR "$path: description: same as previous\n"
-                    unless $autobase;
+                    if $pedantic && !$autobase;
             } else {
                 # XXX not if descact is append?
                 my $diffs = util_diffs($nnode->{description}, $description);
@@ -2190,6 +2281,10 @@ sub add_object
                 $nnode->{description} = $description;
                 $changed->{description} = $diffs;
             }
+            my $tdescact = util_default($descact);
+            print STDERR "$path: invalid description action: $tdescact\n"
+                if $pedantic && !$autobase &&
+                (!$descact || $descact eq 'create');
         }
         # XXX need cleverer comparison
         if ($descact && $descact ne $nnode->{descact}) {
@@ -2214,9 +2309,10 @@ sub add_object
         if (keys %$changed) {
             unshift @{$nnode->{history}}, $cnode;
             $nnode->{changed} = $changed;
-            $nnode->{lspec} = $spec;
+            $nnode->{lfile} = $Lfile;
+            $nnode->{lspec} = $Lspec;
             $nnode->{mspec} = $spec;
-            mark_changed($pnode, $spec);
+            mark_changed($pnode, $Lfile, $Lspec);
             # XXX experimental (absent description is like appending nothing)
             if (!$description) {
                 $nnode->{description} = '';
@@ -2225,6 +2321,8 @@ sub add_object
         }
     } else {
         print STDERR "unnamed object (after $previouspath)\n" unless $name;
+        print STDERR "$name: invalid description action: $descact\n"
+            if $pedantic && !$autobase && $descact && $descact ne 'create';
 
         # XXX this is still how we're handling the version number...
 	$majorVersion = $mnode->{majorVersion} unless defined $majorVersion;
@@ -2233,15 +2331,16 @@ sub add_object
         print STDERR "$path: added\n" if
             $verbose && $mnode->{history} && @{$mnode->{history}} && !$auto;
 
-        mark_changed($pnode, $spec);
+        mark_changed($pnode, $Lfile, $Lspec);
         
         my $dynamic = $pnode->{dynamic} || $access ne 'readOnly';
 
 	$nnode = {pnode => $pnode, name => $name, path => $path, file => $file,
-                  spec => $spec, lspec => $spec, mspec => $spec,
-                  type => 'object', auto => $auto, access => $access,
-                  status => $status, description => $description,
-                  descact => $descact, default => undef, dynamic => $dynamic,
+                  lfile => $Lfile, spec => $spec, lspec => $Lspec,
+                  mspec => $spec, type => 'object', auto => $auto,
+                  access => $access, status => $status,
+                  description => $description, descact => $descact,
+                  descdef => $descdef, default => undef, dynamic => $dynamic,
                   majorVersion => $majorVersion, minorVersion => $minorVersion,
                   nodes => [], history => undef};
         $previouspath = $path;
@@ -2280,13 +2379,13 @@ sub add_object
 }
 
 # Helper to mark a node's ancestors as having been changed
-# (this changes lspec, but not mspec; this is the only difference between them)
 sub mark_changed
 {
-    my ($node, $spec) = @_;
+    my ($node, $Lfile, $Lspec) = @_;
 
     while ($node && $node->{type} eq 'object') {
-        $node->{lspec} = $spec;
+        $node->{lfile} = $Lfile;
+        $node->{lspec} = $Lspec;
         $node = $node->{pnode};
     }
 }
@@ -2296,13 +2395,15 @@ sub mark_changed
 sub add_parameter
 {
     my ($context, $mnode, $pnode, $name, $ref, $type, $syntax, $access,
-        $status, $description, $descact, $values, $default, $deftype, $defstat,
-        $majorVersion, $minorVersion, $activeNotify, $forcedInform, $units,
-        $previous)
+        $status, $description, $descact, $descdef, $values, $default, $deftype,
+        $defstat, $majorVersion, $minorVersion, $activeNotify, $forcedInform,
+        $units, $previous)
         = @_;
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
 
     # if the context contains "previousParameter", it's from a component
     # reference, and applies only to the first parameter
@@ -2423,7 +2524,7 @@ sub add_parameter
         if ($description) {
             if ($description eq $nnode->{description}) {
                 print STDERR "$path: description: same as previous\n"
-                    unless $autobase;
+                    if $pedantic && !$autobase;
             } else {
                 # XXX not if descact is append?
                 my $diffs = util_diffs($nnode->{description}, $description);
@@ -2432,6 +2533,10 @@ sub add_parameter
                 $nnode->{description} = $description;
                 $changed->{description} = $diffs;
             }
+            my $tdescact = util_default($descact);
+            print STDERR "$path: invalid description action: $tdescact\n"
+                if $pedantic && !$autobase &&
+                (!$descact || $descact eq 'create');
         }
         # XXX need cleverer comparison
         if ($descact && $descact ne $nnode->{descact}) {
@@ -2463,71 +2568,75 @@ sub add_parameter
             $nnode->{type} = $type;
             $changed->{type} = 1;
         }
+        # XXX need the more sophisticated logic that is used for parameters
+        #     here (this comment might no longer apply)
         my $cvalues = $nnode->{values};
-        my $i = -1;
-        foreach my $value (keys %$cvalues) {
-            $i = $cvalues->{$value}->{i} if $cvalues->{$value}->{i} > $i;
-        }
-        $i++;
+        my $visited = {};
         foreach my $value (sort {$values->{$a}->{i} <=>
                                      $values->{$b}->{i}} keys %$values) {
+            $visited->{$value} = 1;
+
             my $cvalue = $cvalues->{$value};
             my $nvalue = $values->{$value};
 
             if (!defined $cvalue) {
-                print STDERR "$path: $value added\n" if $verbose;
-                $cvalues->{$value} = $nvalue;
-                $cvalues->{$value}->{i} = $i++;
+                print STDERR "$path.$value: added\n" if $verbose;
                 $changed->{values}->{$value} = 1;
                 next;
             }
 
-            # XXX need the more sophisticated logic that is used for
-            #     parameters here
-            # XXX need to take the order from the latest definition (currently
-            #     are appending new values, and losing the order)
-            # XXX also, not detecting deleted enumerations (relevant for DT)
-            unshift @{$cvalues->{$value}->{history}}, util_copy($cvalue,
-                                                                ['history']);
+            unshift @{$cvalue->{history}}, util_copy($cvalue, ['history']);
+            $value->{history} = $cvalue->{history};
             
             if ($nvalue->{access} ne $cvalue->{access}) {
-                print STDERR "$path: $value access: $cvalue->{access} -> ".
+                print STDERR "$path.$value: access: $cvalue->{access} -> ".
                     "$nvalue->{access}\n" if $verbose;
-                $cvalues->{$value}->{access} = $nvalue->{access};
                 $changed->{values}->{$value}->{access} = 1;
             }
             if ($nvalue->{status} ne $cvalue->{status}) {
-                print STDERR "$path: $value status: $cvalue->{status} -> ".
+                print STDERR "$path.$value: status: $cvalue->{status} -> ".
                     "$nvalue->{status}\n" if $verbose;
-                $cvalues->{$value}->{status} = $nvalue->{status};
                 $changed->{values}->{$value}->{status} = 1;
             }
             if (boolean($nvalue->{optional}) ne boolean($cvalue->{optional})) {
-                print STDERR "$path: $value optional: $cvalue->{optional} -> ".
+                print STDERR "$path.$value: optional: $cvalue->{optional} -> ".
                     "$nvalue->{optional}\n" if $verbose;
-                $cvalues->{$value}->{optional} = $nvalue->{optional};
                 $changed->{values}->{$value}->{optional} = 1;
             }
-            # XXX should check for present and identical (see parameter
-            #     description handling)
-            if ($nvalue->{description} ne $cvalue->{description}) {
-                # XXX for now, change only if new one is defined; want to
-                #     handle this properly via get_description
-                if ($nvalue->{descdef}) {
-                    print STDERR "$path: $value description: ".
-                        "$cvalue->{description} -> $nvalue->{description}\n"
+            if (!$nvalue->{descdef}) {
+                $nvalue->{description} = $cvalue->{description};
+            } else {
+                if ($nvalue->{description} eq $cvalue->{description}) {
+                    print STDERR "$path.$value: description: same as ".
+                        "previous\n" if $pedantic && !$autobase;
+                } else {
+                    # XXX not if descact is append?
+                    my $diffs = util_diffs($cvalue->{description},
+                                           $nvalue->{description});
+                    print STDERR "$path.$value: description: changed\n"
                         if $verbose;
-                    $cvalues->{$value}->{description} = $nvalue->{description};
-                    $changed->{values}->{$value}->{description} = 1;
+                    print STDERR $diffs if $verbose > 1;
+                    $changed->{values}->{$value}->{description} = $diffs;
                 }
+                my $tdescact = util_default($nvalue->{descact});
+                print STDERR "$path.$value: invalid description action: ".
+                    "$tdescact\n" if $pedantic && !$autobase &&
+                    (!$nvalue->{descact} || $nvalue->{descact} eq 'create');
             }
-            if ($nvalue->{descact} &&
-                $nvalue->{descact} ne $cvalue->{descact}) {
-                print STDERR "$path: $value descact: $cvalue->{descact} -> ".
-                    "$nvalue->{descact}\n" if $verbose;
-                $cvalues->{$value}->{descact} = $nvalue->{descact};
-                $changed->{values}->{$value}->{descact} = 1;
+            # XXX need cleverer comparison
+            if ($nvalue->{descact} && $nvalue->{descact} ne $cvalue->{descact}){
+                print STDERR "$path.$value: descact: $cvalue->{descact} -> ".
+                    "$nvalue->{descact}\n" if $verbose > 1;
             }
+        }
+        if (%$values) {
+            foreach my $value (sort {$cvalues->{$a}->{i} <=>
+                                         $cvalues->{$b}->{i}} keys %$cvalues) {
+                print STDERR "$path.$value: omitted; should instead mark as ".
+                    "deprecated/obsoleted/deleted\n"
+                    if $pedantic && !$visited->{$value};
+            }
+            $nnode->{values} = $values;
         }
         #print STDERR Dumper($nnode->{values});
         # XXX this isn't perfect; some things are getting defined as '' when
@@ -2535,10 +2644,12 @@ sub add_parameter
         # XXX for now, don't allow re-definition with empty string...
         # XXX stop press: empty string means "undefine" for some attributes
         #     (have to be careful, e.g. not mentioning <list/> doesn't mean
-        #     it isn't a list
+        #     it isn't a list)
 	while (my ($key, $value) = each %$syntax) {
             my $old = defined $nnode->{syntax}->{$key} ?
                 $nnode->{syntax}->{$key} : '<none>';
+            # XXX for now we can't handle references (e.g. ranges and sizes)
+            next if ref $value;
             if ($value && (!defined $nnode->{syntax}->{$key} ||
                            $value ne $nnode->{syntax}->{$key})) {
                 print STDERR "$path: $key: $old -> $value\n" if $verbose;
@@ -2547,13 +2658,21 @@ sub add_parameter
             }
             # XXX this won't work now multiple sizes are supported; also
             #     ranges presumably weren't working before and still aren't
-            if ($key =~ /(minLength|maxLength)/ && !$value &&
-                defined $nnode->{syntax}->{$key}) {
-                print STDERR "$path: $key: $old -> <deleted>\n" if $verbose;
-                undef $nnode->{syntax}->{$key};
-                $changed->{syntax}->{$key} = 1;                
-            }
+            #if ($key =~ /(minLength|maxLength)/ && !$value &&
+            #    defined $nnode->{syntax}->{$key}) {
+            #    print STDERR "$path: $key: $old -> <deleted>\n" if $verbose;
+            #    undef $nnode->{syntax}->{$key};
+            #    $changed->{syntax}->{$key} = 1;                
+            #}
 	}
+        # XXX this is a special case for deleting list facets
+        if ($nnode->{syntax}->{list} &&
+            $nnode->{syntax}->{liststatus} eq 'deleted') {
+            print STDERR "$path: list: $nnode->{syntax}->{list} -> " .
+            "<deleted>\n" if $verbose;
+            undef $nnode->{syntax}->{list};
+            $changed->{syntax}->{list} = 1;
+        }
         if (defined $default &&
             (!defined $nnode->{default} || $default ne $nnode->{default})) {
             my $old = defined $nnode->{default} ? $nnode->{default} : '<none>';
@@ -2589,9 +2708,10 @@ sub add_parameter
         if (keys %$changed) {
             unshift @{$nnode->{history}}, $cnode;
             $nnode->{changed} = $changed;
-            $nnode->{lspec} = $spec;
+            $nnode->{lfile} = $Lfile;
+            $nnode->{lspec} = $Lspec;
             $nnode->{mspec} = $spec;
-            mark_changed($pnode, $spec);
+            mark_changed($pnode, $Lfile, $Lspec);
             # XXX experimental (absent description is like appending nothing)
             if (!$description) {
                 $nnode->{description} = '';
@@ -2601,6 +2721,8 @@ sub add_parameter
     } else {
         print STDERR "$path: unnamed parameter\n" unless $name;
         print STDERR "$path: untyped parameter\n" unless $type;
+        print STDERR "$path: invalid description action: $descact\n"
+            if $pedantic && !$autobase && $descact && $descact ne 'create';
 
         # XXX this is still how we're handling the version number...
 	$majorVersion = $mnode->{majorVersion} unless defined $majorVersion;
@@ -2611,7 +2733,7 @@ sub add_parameter
 
         my $dynamic = $pnode->{dynamic};
 
-        mark_changed($pnode, $spec);
+        mark_changed($pnode, $Lfile, $Lspec);
 
         # XXX I think this is to with components and auto-removing defaults
         #     from them if they are used in a static environment
@@ -2626,14 +2748,16 @@ sub add_parameter
         }
 
 	$nnode = {pnode => $pnode, name => $name, path => $path, file => $file,
-		  spec => $spec, lspec => $spec, mspec => $spec, type => $type,
-                  syntax => $syntax, access => $access, status => $status,
-		  description => $description, descact => $descact,
-                  values => $values, default => $default, deftype => $deftype,
-                  defstat => $defstat, dynamic => $dynamic,
-                  majorVersion => $majorVersion, minorVersion => $minorVersion,
-                  activeNotify => $activeNotify, forcedInform => $forcedInform,
-                  units => $units, nodes => [], history => undef};
+		  lfile => $Lfile, spec => $spec, lspec => $Lspec,
+                  mspec => $spec, type => $type, syntax => $syntax,
+                  access => $access, status => $status,
+                  description => $description, descact => $descact,
+                  descdef => $descdef, values => $values, default => $default,
+                  deftype => $deftype, defstat => $defstat,
+                  dynamic => $dynamic, majorVersion => $majorVersion,
+                  minorVersion => $minorVersion, activeNotify => $activeNotify,
+                  forcedInform => $forcedInform, units => $units, nodes => [],
+                  history => undef};
         # if previous is defined, it's a hint to insert this node after the
         # node of this name, if it exists
         my $index = @{$pnode->{nodes}};
@@ -2648,7 +2772,8 @@ sub add_parameter
             }
         }
         splice @{$pnode->{nodes}}, $index, 0, $nnode;
-        $pnode->{lspec} = $spec;
+        $pnode->{lfile} = $Lfile;
+        $pnode->{lspec} = $Lspec;
 	$parameters->{$path} = $nnode;
     }
 
@@ -2660,13 +2785,16 @@ sub add_parameter
 # specs that use the bibref)
 sub update_bibrefs
 {
-    my ($value, $spec) = @_;
+    my ($value, $file, $spec) = @_;
+
+    my $fileorspec = $lastonlyusesfile ? $file : $spec;
 
     my @ids = ($value =~ /\{\{bibref\|([^\|\}]+)/g);
     foreach my $id (@ids) {
-        print STDERR "marking bibref $id used (spec=$spec)\n" if $verbose > 1;
-        push @{$bibrefs->{$id}}, $spec unless
-            grep {$_ eq $spec} @{$bibrefs->{$id}};
+        print STDERR "marking bibref $id used (file=$file, spec=$spec)\n"
+            if $verbose > 1;
+        push @{$bibrefs->{$id}}, $fileorspec unless
+            grep {$_ eq $fileorspec} @{$bibrefs->{$id}};
     }
 }
 
@@ -2832,8 +2960,9 @@ sub valid_ranges
 # XXX format is currently report-dependent
 sub get_values
 {
-    my ($values, $anchor) = @_;
+    my ($node, $anchor) = @_;
 
+    my $values = $node->{values};
     return '' unless $values;
 
     my $list = '';
@@ -2847,12 +2976,14 @@ sub get_values
 	my $obsoleted = $cvalue->{status} eq 'obsoleted';
 	my $deleted = $cvalue->{status} eq 'deleted';
 
-        next if $deleted;
+        my $changed = util_node_is_modified($node) &&
+            $node->{changed}->{values}->{$value};
+
+        next if $deleted && !$showdiffs;
 
         # don't mark optional if deprecated or obsoleted
         $optional = 0 if $deprecated || $obsoleted;
 
-	#my $quote = $report ne 'xls' && $value !~ /^</;
 	my $quote = $cvalue !~ /^</;
 
         # XXX this assumes HTML really
@@ -2874,9 +3005,8 @@ sub get_values
 
 	my $any = $description || $optional || $deprecated || $obsoleted;
 
-	#$list .= '* ' unless $report eq 'xls';
 	$list .= '* ';
-	#$list .= '"' if $quote;
+        $list .= ($deleted ? '---' : '+++') if $showdiffs && $changed;
 	$list .= "''";
         if (!$anchor) {
             $list .= $value;
@@ -2887,7 +3017,6 @@ sub get_values
 
             $list .= qq{%%$value%%$tvalue%%};
         }
-	#$list .= '"' if $quote;
 	$list .= "''";
 	$list .= ' (' if $any;
 	$list .= $description . ', ' if $description;
@@ -2897,6 +3026,7 @@ sub get_values
 	chop $list if $any;
 	chop $list if $any;
 	$list .= ')' if $any;
+        $list .= ($deleted ? '---' : '+++') if $showdiffs && $changed;
 	$list .= "\n";
     }
     chop $list;
@@ -2909,7 +3039,7 @@ sub get_values
 # the description from the previous version.
 sub get_description
 {
-    my ($new, $descact, $history, $resolve) = @_;
+    my ($new, $descact, $changed, $history, $resolve) = @_;
 
     # XXX there are still problems with "resolve"; can get duplicate
     #     descriptions :(
@@ -2946,16 +3076,19 @@ sub get_description
     if ($descact eq 'replace') {
         $new = '' if $new eq $old && !$resolve;
     } elsif ($descact eq 'append') {
-        # XXX fudge: if new begins with template, no newline (allows templates
-        #     such as {{enum}} where preceding newline is significant to work
-        # XXX the above fails for (e.g.) {{param}}!
-        my $sep = $new =~ /^[ \t]*\{\{/ ? "  " : "\n";
+        # XXX fudge: if new begins with {{enum}} or {{pattern}} template, no
+        #     newline (for these, preceding newline is significant)
+        my $sep = $new =~ /^[ \t]*\{\{(enum|pattern)/ ? "  " : "\n";
         # XXX I don't trust this logic; need to make more transparently correct
         # XXX need to check whether has changed in latest version; if not, can
         #     end up with appending twice
         $new = $old . (($old ne '' && $new ne '') ? $sep : "") . $new
             if $resolve;
     }
+
+    # if requested, mark insertions and deletions
+    $new = util_diffs_markup($old, $new) if $showdiffs && $resolve && $changed;
+
     return ($new, $descact);
 }
 
@@ -2977,7 +3110,7 @@ sub get_old_description
         my $new = $item->{description};
         if ($descact eq 'append') {
             # XXX same fudge as in get_description
-            my $sep = $new =~ /^[ \t]*\{\{/ ? "  " : "\n";
+            my $sep = $new =~ /^[ \t]*\{\{(enum|pattern)/ ? "  " : "\n";
             $old .= (($old ne '' && $new ne '') ? $sep : "") . $new;
         } else {
             $old = $new;
@@ -3442,16 +3575,20 @@ sub text_node
     if (!$indent) {
         print "$node->{spec}\n";
     } else {
-        my $type = type_string($node->{type}, $node->{syntax});
+        my $name = $node->{name} ? $node->{name} : '';
         my $base = $node->{history}->[0]->{name};
-        print "  "x$indent . "$type $node->{name}" .
-            ($base && $base ne $node->{name} ? ('(' . $base . ')') : '') .
-            ($node->{access} ne 'readOnly' ? ' (W)' : '') .
+        my $type = type_string($node->{type}, $node->{syntax});
+        print "  "x$indent . "$type $name" .
+            ($base && $base ne $name ? ('(' . $base . ')') : '') .
+            ($node->{access} && $node->{access} ne 'readOnly' ? ' (W)' : '') .
             ((defined $node->{default}) ? (' [' . $node->{default} . ']'):'') .
             ($node->{model} ? (' ' . $node->{model}) : '') .
-            (($node->{status} ne 'current') ? (' ' . $node->{status}) : '') .
+            (($node->{status} && $node->{status} ne 'current') ?
+             (' ' . $node->{status}) : '') .
             ($node->{changed} ?
              (' #changed: ' . xml_changed($node->{changed})) : '') . "\n";
+        print $node->{changed}->{description} if
+            $showdiffs && $node->{changed}->{description};
     }
 }
 
@@ -3529,8 +3666,9 @@ sub xml_node
 
     my $schanged = xml_changed($changed);
 
+    my $dchanged = util_node_is_modified($node) && $changed->{description};
     ($description, $descact) = get_description($description, $descact,
-                                               $history);
+                                               $dchanged, $history);
     $description = xml_escape($description);
 
     $status = $status ne 'current' ? qq{ status="$status"} : qq{};
@@ -3539,10 +3677,6 @@ sub xml_node
     # use node to maintain state (assumes that there will be only a single
     # XML report of a given node)
     $node->{xml} = {action => 'close', element => $type};
-
-    # lspec is the spec from the last command-line-specified file
-    # XXX temporarily suppress spec test... need to re-evaluate...
-    #return unless $node->{spec} eq $lspec;
 
     my $i = "  " x $indent;
 
@@ -3880,12 +4014,14 @@ $i             spec="$lspec">
                 my $access = $cvalue->{access};
                 my $status = $cvalue->{status};
                 my $optional = boolean($cvalue->{optional});
+
                 my $description = $cvalue->{description};
                 my $descact = $cvalue->{descact};
-
-                # XXX have no history on values (values should be nodes?)
+                my $dchanged = util_node_is_modified($node) &&
+                    $changed->{values}->{$value}->{description};
                 ($description, $descact) = get_description($description,
-                                                           $descact, $history);
+                                                           $descact, $dchanged,
+                                                           $history);
                 $description = xml_escape($description);
 
                 $optional = $optional ? qq{ optional="true"} : qq{};
@@ -4054,11 +4190,13 @@ sub xml2_node
         my $schemaLocation = $node->{schemaLocation};
         my $specattr = 'spec';
 
+        my $changed = $node->{changed};
         my $history = $node->{history};
         my $description = $node->{description};
         my $descact = $node->{descact};
+        my $dchanged = util_node_is_modified($node) && $changed->{description};
         ($description, $descact) = get_description($description, $descact,
-                                                   $history, 1);
+                                                   $dchanged, $history, 1);
         $description = clean_description($description, $node->{name})
             if $canonical;
         $description = xml_escape($description);        
@@ -4085,9 +4223,10 @@ $i             xmlns:xsi="$xsi"
 $i             xsi:schemaLocation="$schemaLocation"
 $i             $specattr="$dmspec">
 };
-        print qq{$i  <description>$description</description>\n} if $description;
         # XXX for now hard-code bibliography and data type imports for DM
         if (!@$dtprofiles) {
+            print qq{$i  <description>$description</description>\n} if
+                $description;
             print qq{$i  <import file="tr-069-biblio.xml" spec="urn:broadband-forum-org:tr-069-biblio"/>
 $i  <import file="tr-106-1-0-types.xml" spec="urn:broadband-forum-org:tr-106-1-0">
 $i    <dataType name="IPAddress"/>
@@ -4120,6 +4259,7 @@ $i  </import>
     }
 
     if ($indent) {
+        my $changed = $node->{changed};
         my $history = $node->{history};
         my $path = $node->{path};
         my $name = $type eq 'object' ? $path : $node->{name};
@@ -4239,8 +4379,9 @@ $i  </import>
 
         $version = $version ? qq{ dmr:version="$version"} : qq{};
 
+        my $dchanged = util_node_is_modified($node) && $changed->{description};
         ($description, $descact) = get_description($description, $descact,
-                                                   $history, 1);
+                                                   $dchanged, $history, 1);
         $description = clean_description($description, $node->{name})
             if $canonical;
         $description = xml_escape($description);
@@ -4375,9 +4516,11 @@ $i  </import>
                 my $description = $cvalue->{description};
                 my $descact = $cvalue->{descact};
 
-                # XXX have no history on values (values should be nodes?)
+                my $dchanged = util_node_is_modified($node) &&
+                    $changed->{values}->{$value}->{description};
                 ($description, $descact) =
-                    get_description($description, $descact, $history, 1);
+                    get_description($description, $descact, $dchanged, $history,
+                                    1);
                 $description = clean_description($description, $node->{name})
                     if $canonical;
                 $description = xml_escape($description);
@@ -4704,9 +4847,7 @@ sub html_create_anchor
     $adef .= qq{>$label</a>} if $label;
     $adef .= qq{/>} if !$label;
 
-    # XXX (experimental) if $lastonly, always create the anchor, but don't
-    #     reference it if it won't be in the report
-    my $dontref = $lastonly && $node->{lspec} && $node->{lspec} ne $lspec;
+    my $dontref = util_is_omitted($node);
 
     # form the anchor reference (as a service to the caller)
     my $aref = html_anchor_reference_text($aname, $label, $dontref);
@@ -4776,13 +4917,15 @@ sub html_get_anchor
     #     worst thing that can happen is that there is a link to nowhere)
     if ($type eq 'path') {
         my $node = $objects->{$name};
-        $node = $parameters->{$name} unless $node;
-        $dontref = $lastonly && $node->{lspec} && $node->{lspec} ne $lspec;
+        $node = $parameters->{$name} if
+            !$node && util_is_defined($parameters, $name);
+        $dontref = util_is_omitted($node);
     } elsif ($type eq 'value') {
         my $pname = $name;
         $pname =~ s/\.[^\.]*$//;
-        my $node = $parameters->{$pname};
-        $dontref = $lastonly && $node->{lspec} && $node->{lspec} ne $lspec;
+        my $node = $parameters->{$pname} if
+            util_is_defined($parameters, $pname);
+        $dontref = util_is_omitted($node);
     } elsif ($type eq 'profile') {
         # XXX this isn't quite right, but no-one will notice!
         $dontref = 1;
@@ -4814,7 +4957,7 @@ sub html_node
     # styles
     my $table = qq{text-align: left;};
     my $row = qq{vertical-align: top;};
-    my $strikeout = qq{text-decoration: line-through;};
+    my $strike = qq{text-decoration: line-through;};
     my $center = qq{text-align: center;};
 
     # font
@@ -4822,6 +4965,8 @@ sub html_node
     my $h2font = qq{font-family: helvetica,arial,sans-serif; font-size: 12pt;};
     my $h3font = qq{font-family: helvetica,arial,sans-serif; font-size: 10pt;};
     my $font = qq{font-family: helvetica,arial,sans-serif; font-size: 8pt;};
+    my $fontnew = qq{color: blue;};
+    my $fontdel = qq{color: red;};
 
     # others
     my $object_bg = qq{background-color: rgb(255, 255, 153);};
@@ -4842,12 +4987,14 @@ sub html_node
     my $profile = ($node->{type} =~ /profile/);
     my $parameter = $node->{syntax}; # pretty safe? not profile params...
 
+    my $changed = $node->{changed};
     my $history = $node->{history};
     my $description = $node->{description};
     my $origdesc = $description;
     my $descact = $node->{descact};
+    my $dchanged = util_node_is_modified($node) && $changed->{description};
     ($description, $descact) = get_description($description, $descact,
-                                               $history, 1);
+                                               $dchanged, $history, 1);
 
     # XXX pass these through html_escape so as get UPnP DM translations
     my $path = html_escape($node->{path}, {empty => ''});
@@ -4887,24 +5034,38 @@ sub html_node
     if (!$indent) {
         my $bbfhome = qq{http://www.broadband-forum.org/};
         my $doctype = qq{&nbsp;&nbsp;&nbsp;&nbsp;DATA MODEL DEFINITION};
-        # XXX rather than the node spec, use the name of the first file,
-        #     because this is more likely to include revision information
-        #     for WTs (which can use the final TR in the spec)
-        my $filename = $allfiles->[0]->{name};
-        $filename =~ s/\.xml$//;
-        #my $docname = util_doc_name($node->{spec}, {verbose => 1});
-        my $docname = util_doc_name($filename, {verbose => 1});
-        my $doclink = $docname =~ /^TR-/ ?
-            ($bbfhome . util_doc_link($docname)) : qq{};
+        my $filename1 = $allfiles->[0]->{name};
+        my $filename2 = $allfiles->[1]->{name};
+        $filename1 =~ s/\.xml$//;
+        $filename2 =~ s/\.xml$// if $filename2;
+        my $docname1 = util_doc_name($filename1, {verbose => 1});
+        my $docname2 = $filename2 ? util_doc_name($filename2, {verbose => 1})
+            : qq{};
+        my $doclink1 = $docname1 =~ /^TR-/ ?
+            ($bbfhome . util_doc_link($docname1)) : qq{};
+        my $doclink2 = $docname2 && $docname2 =~ /^TR-/ ?
+            ($bbfhome . util_doc_link($docname2)) : qq{};
+        $doclink1 = $doclink1 ? qq{<a href="$doclink1">$docname1</a>} :
+            $docname1;
+        $doclink2 = $doclink2 ? qq{<a href="$doclink2">$docname2</a>} :
+            $docname2;
         my $title = qq{%%%%};
-	$title .= qq{ ($objpat)} if $objpat ne '';
-        $title .= qq{ (changes)} if $lastonly;
+        my $any = $objpat || $lastonly || $showdiffs;
+        $title .= qq{ (} if $any;
+	$title .= qq{$objpat, } if $objpat;
+        $title .= qq{delta, } if $lastonly;
+        $title .= qq{diffs, } if $showdiffs;
+        chop $title if $any;
+        chop $title if $any;
+        $title.= qq{)} if $any;
+        my $sep = $docname2 ? qq{ -> } : qq{};
         my $title_link = $title;
-        $title =~ s/%%%%/$docname/;
-        $title_link =~ s/%%%%/$docname/ if !$doclink;
-        $title_link =~ s/%%%%/<a href="$doclink">$docname<\/a>/ if $doclink;
+        $title =~ s/%%%%/$docname1$sep$docname2/;
+        $title_link =~ s/%%%%/$doclink1$sep$doclink2/;
         my $logo = qq{<a href="${bbfhome}"><img src="${bbfhome}images/logo-broadband-forum.gif" alt="Broadband Forum" style="border:0px;"/></a>};
         my $notice = html_notice($first_comment);
+        # XXX in the styles below, should use inheritance to avoid duplication
+        # XXX the td.s (strike) styles should use a tr style 
 	print <<END;
 <!-- DO NOT EDIT; generated by Broadband Forum $tool_id_only ($tool_vers_date_only version) on $tool_run_date at $tool_run_time.
      See $tool_url. -->
@@ -4917,19 +5078,25 @@ sub html_node
       h1 { $h1font }
       h2 { $h2font }
       h3 { $h3font }
+      span, span.o { $font }
+      span.n { $font $fontnew }
+      span.i { $font $fontnew }
+      span.d { $font $fontdel $strike }
       table { $table }
       th { $row $font }
       th.c { $row $font $center }
       th.g { $row $font $theader_bg }
       th.gc { $row $font $theader_bg $center }
+      tr, tr.o { $row $font }
+      tr.n { $row $font $fontnew }
       td.o { $row $font $object_bg }
       td, td.p { $row $font }
       td.oc { $row $font $object_bg $center }
       td.pc { $row $font $center }
-      td.os { $row $font $object_bg $strikeout }
-      td.ps { $row $font $strikeout }
-      td.osc { $row $font $object_bg $strikeout $center }
-      td.psc { $row $font $strikeout $center }
+      td.os { $row $font $object_bg $fontdel $strike }
+      td.ps { $row $font $fontdel $strike }
+      td.osc { $row $font $object_bg $fontdel $strike $center }
+      td.psc { $row $font $fontdel $strike $center }
     </style>
   </head>
   <body>
@@ -4965,7 +5132,7 @@ END
             my $preamble = <<END;
 The parameters defined in this specification make use of a limited subset of the default SOAP data types {{bibref|SOAP1.1}}.  The complete set of data types, along with the notation used to represent these types, is listed in {{bibref|$tr106|Section 3.2}}.  The following named data types are used by this specification.
 END
-            update_bibrefs($preamble, $node->{spec});
+            update_bibrefs($preamble, $node->{file}, $node->{spec});
             # XXX sanity_node only detects invalid bibrefs in node and value
             #     descriptions...
             my $ibr = invalid_bibrefs($preamble);
@@ -5033,7 +5200,9 @@ END
                 # XXX this works for lastonly but doesn't work when hiding
                 #     sub-trees (would like hide_subtree and unhide_subtree
                 #     to auto-hide and show relevant references)
-                next if $lastonly && !grep {$_ eq $lspec} @{$bibrefs->{$id}};
+                my $fileorspec = $lastonlyusesfile ? $lfile : $lspec;
+                next if $lastonly &&
+                    !grep {$_ eq $fileorspec} @{$bibrefs->{$id}};
                 
                 my $name = xml_escape($reference->{name});
                 my $title = xml_escape($reference->{title});
@@ -5123,8 +5292,12 @@ END
             $specs .= util_doc_name($mspec) if defined $mspec;
         }
 
-	my $class = ($model | $object | $profile) ? 'o' : 'p';
-        $class .= 's' if util_is_deleted($node);
+        # XXX treated differently from $tdclass only to minimise output diffs
+        my $trclass = ($showdiffs && util_node_is_new($node)) ? 'n' : '';
+        $trclass = $trclass ? qq{ class="$trclass"} : qq{};
+
+	my $tdclass = ($model | $object | $profile) ? 'o' : 'p';
+        $tdclass .= 's' if util_is_deleted($node);
 
         if ($model) {
             my $title = qq{$name Data Model};
@@ -5262,9 +5435,11 @@ END
             print <<END;
           <li>$anchor->{ref}</li>
 END
+            my $span1 = $trclass ? qq{<span$trclass>} : qq{};
+            my $span2 = $span1 ? qq{</span>} : qq{};
             $html_buffer .= <<END;
-    <h3>$panchor->{def}$anchor->{def}</h3>
-    $description<p>
+    <h3>$span1$panchor->{def}$anchor->{def}$span2</h3>
+    $span1$description$span2<p>
     <table width="60%" $tabopts> <!-- $anchor->{label} -->
       <tbody>
         <tr>
@@ -5283,15 +5458,15 @@ END
           <li>$anchor->{ref}</li>
 END
             $html_buffer .= <<END;
-        <tr>
-          <td class="${class}">$name</td>
-          <td class="${class}">$type</td>
-          $synt_oc<td class="${class}">$syntax</td>$synt_cc
-          <td class="${class}c">$write</td>
-          <td class="${class}">$description</td>
-          <td class="${class}c">$default</td>
-          $vers_oc<td class="${class}c">$version</td>$vers_cc
-          $spec_oc<td class="${class}c">$specs</td>$spec_cc
+        <tr$trclass>
+          <td class="${tdclass}">$name</td>
+          <td class="${tdclass}">$type</td>
+          $synt_oc<td class="${tdclass}">$syntax</td>$synt_cc
+          <td class="${tdclass}c">$write</td>
+          <td class="${tdclass}">$description</td>
+          <td class="${tdclass}c">$default</td>
+          $vers_oc<td class="${tdclass}c">$version</td>$vers_cc
+          $spec_oc<td class="${tdclass}c">$specs</td>$spec_cc
 	</tr>
 END
         } else {
@@ -5314,8 +5489,8 @@ END
             }
             $html_buffer .= <<END;
         <tr>
-          <td class="${class}">$name</td>
-          <td class="${class}c">$write$footnote</td>
+          <td class="${tdclass}">$name</td>
+          <td class="${tdclass}c">$write$footnote</td>
 	</tr>
 END
         }
@@ -5933,8 +6108,7 @@ sub html_template_null
     $name = $param unless $name;
 
     (my $path, $name) = relative_path($object, $name, $scope);
-
-    if (!$parameters->{$path} || !%{$parameters->{$path}}) {
+    if (!util_is_defined($parameters, $path)) {
         # XXX don't warn if this item has been deleted
         if (!util_is_deleted($opts->{node})) {
             print STDERR "$object$param: reference to invalid parameter ".
@@ -6111,7 +6285,8 @@ sub html_template_keys
         my $keyparams = $uniqueKey->{keyparams};
         foreach my $parameter (@$keyparams) {
             my $path = $object . $parameter;
-            my $refType = $parameters->{$path}->{syntax}->{refType};
+            my $refType = util_is_defined($parameters, $path) ? 
+                $parameters->{$path}->{syntax}->{refType} : undef;
             $anystrong = 1 if defined($refType) && $refType eq 'strong';
         }
     }
@@ -6185,7 +6360,8 @@ sub html_template_keys
                 my $keyparams = $uniqueKey->{keyparams};
                 foreach my $parameter (@$keyparams) {
                     my $path = $object . $parameter;
-                    my $defaulted = defined $parameters->{$path}->{default} &&
+                    my $defaulted =
+                        util_is_defined($parameters, $path, 'default') &&
                         $parameters->{$path}->{deftype} eq 'object' &&
                         $parameters->{$path}->{defstat} ne 'deleted';
                     push @$params, $parameter unless $defaulted;
@@ -6221,7 +6397,7 @@ sub html_template_enum
     # XXX not using atstart (was "atstart or newline")
     my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
         "Each list item is an enumeration of:\n" : "Enumeration of:\n";
-    return $pref . xml_escape(get_values($opts->{values}, !$nolinks));
+    return $pref . xml_escape(get_values($opts->{node}, !$nolinks));
 }
 
 sub html_template_pattern
@@ -6231,7 +6407,7 @@ sub html_template_pattern
     my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
         "Each list item matches one of:\n" :
         "Possible patterns:\n";
-    return $pref . xml_escape(get_values($opts->{values}, !$nolinks));
+    return $pref . xml_escape(get_values($opts->{node}, !$nolinks));
 }
 
 
@@ -6285,8 +6461,7 @@ sub html_template_paramref
         "referring to current parameter\n" if $pedantic && $name eq $param;
 
     (my $path, $name) = relative_path($object, $name, $scope);
-
-    my $invalid = ($parameters->{$path} && %{$parameters->{$path}}) ? '' : '?';
+    my $invalid = util_is_defined($parameters, $path) ? '' : '?';
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
     # XXX don't warn further if this item has been deleted
@@ -6386,7 +6561,7 @@ sub html_template_valueref
 
     my $invalid = '';
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
-    if (!$parameters->{$path} || !%{$parameters->{$path}}) {
+    if (!util_is_defined($parameters, $path)) {
         $invalid = '?';
         $invalid = '' if $upnpdm;
         # XXX don't warn further if this item has been deleted
@@ -6411,8 +6586,7 @@ sub html_template_valueref
             my $targetParamScope = $syntax->{targetParamScope};
             my ($targetPath) = relative_path($node->{pnode}->{path},
                                              $targetParam, $targetParamScope);
-            if (!$parameters->{$targetPath} ||
-                !%{$parameters->{$targetPath}}) {
+            if (!util_is_defined($parameters, $targetPath)) {
                 print STDERR "$path: enumerationRef references non-existent ".
                     "parameter $targetPath: ignored\n";
             } else {
@@ -6845,6 +7019,13 @@ sub html_font
     $inval =~ s|'''(.*?)'''|<b>$1</b>|g;
     $inval =~ s|''(.*?)''|<i>$1</i>|g;
 
+    # XXX experimental ---text--- to indicate deletion and +++text+++ insertion
+    # XXX <span> doesn't work well if there are embedded newlines; would be
+    #     better to catch such cases and use <div>; this applies (for example)
+    #     to the {{issue}} template, which inserts a newline
+    $inval =~ s|\-\-\-(.*?)\-\-\-|<span class="d">$1</span>|gs;
+    $inval =~ s|\+\+\+(.*?)\+\+\+|<span class="i">$1</span>|gs;
+
     # XXX "%%" anchor expansion should be elsewhere (hyperlink?)
     # XXX need to escape special characters out of anchors and references
     # XXX would prefer not to have to know link format
@@ -6868,7 +7049,8 @@ sub html_paragraph
     my $outval = '';
     my @lines = split /\n/, $inval;
     foreach my $line (@lines) {
-        $line =~ s/$/<p>/ if $line =~ /^<[b|i]>/ || $line !~ /^(\s|\s*<)/;
+        $line =~ s/$/<p>/ if
+            $line =~ /^(<b>|<i>|<span)/ || $line !~ /^(\s|\s*<)/;
 
         $outval .= "$line\n";
     }
@@ -7657,9 +7839,8 @@ END
 	my $type = xls_escape(type_string($node->{type}, $node->{syntax}));
 	my $write = xls_escape($node->{access} ne 'readOnly' ? 'W' : '-');
         # is escaped later
-	my $description = add_values($node->{description},
-                                     get_values($node->{values}));
-	my $values = ''; #xls_escape(get_values($node->{values}));
+	my $description = add_values($node->{description}, get_values($node));
+	my $values = ''; #xls_escape(get_values($node));
 	my $default =  xls_escape($node->{default});
 	my $version =
 	    xls_escape(version($node->{majorVersion}, $node->{minorVersion}));
@@ -7758,8 +7939,7 @@ sub xsd_node
     my $documentation = xsd_escape(type_string($node->{type}, $node->{syntax}) .
 				   ' (' . ($node->{access} ne 'readOnly' ? 'W' : 'R') . ')' .
 				   "\n" .
-				   add_values($description,
-					      get_values($node->{values})));
+				   add_values($description, get_values($node)));
 
     # XXX taken from xls_escape; should do more generically
     $documentation =~ s/^\n[ \t]*//;
@@ -8120,7 +8300,7 @@ sub util_diffs
     my $diff = Algorithm::Diff->new(\@old, \@new);
     my $diffs = '';
     while($diff->Next()) {
-        next if  $diff->Same();
+        next if $diff->Same();
         my $sep = '';
         if (!$diff->Items(2)  ) {
             $diffs .=
@@ -8140,6 +8320,61 @@ sub util_diffs
         $diffs .= "+ $_\n" for $diff->Items(2);
     }
     return $diffs;
+}
+
+# Version of the above that inserts '!' and '!!' markup
+# XXX not working tht well; have tried to avoid bad matches by splitting
+#     on word boundaries but loses line breaks so need a better solution
+#     (and / / doesn't work)
+sub util_diffs_markup
+{
+    my ($old, $new) = @_;
+
+    my $ins = qq{+++};
+    my $del = qq{---};
+
+    my $spp = qr{\n};
+    my $sep = qq{\n};
+
+    my $pfx = qr{[*#:\s]*};
+
+    my @old = split /$spp/, $old;
+    my @new = split /$spp/, $new;
+    my $diff = Algorithm::Diff->new(\@old, \@new);
+
+    my $out = qq{};
+    while ($diff->Next()) {
+        my @same = $diff->Same();
+        if (@same) {
+            $out .= join $sep, @same;
+            $out .= $sep;
+            next;
+        }
+
+        my @from_old = $diff->Items(1);
+        if (@from_old) {
+            for my $item (@from_old) {
+                my ($pre, $rst) = $item =~ /^($pfx)(.*)$/;
+                $out .= qq{$pre$del$rst$del$sep};
+            }
+            # leave the separator, so as to put deleted and inserted text
+            # on separate lines
+        }
+
+        my @from_new = $diff->Items(2);
+        if (@from_new) {
+            for my $item (@from_new) {
+                my ($pre, $rst) = $item =~ /^($pfx)(.*)$/;
+                $out .= qq{$pre$ins$rst$ins$sep};
+            }
+            chomp $out if @from_new;
+        }
+
+        $out .= $sep;
+    }
+
+    chomp $out;
+    return $out;
 }
 
 # Convert spec to document name
@@ -8251,6 +8486,99 @@ sub util_is_multi_instance
     return ($multi, $fixed);
 }
 
+# from http://www.sysarch.com/Perl/autoviv.txt (where it's called deep_defined)
+# XXX would be better to change logic to render this unnecessary
+sub util_is_defined {
+    my ($ref, @keys) = @_;
+    
+    unless (@keys) {
+        return ref $ref ? 1 : 0;
+    }
+
+    foreach my $key (@keys) {
+        if (ref $ref eq 'HASH') {
+            # fail when the key doesn't exist at this level
+            return 0 unless defined($ref->{$key});
+
+            $ref = $ref->{$key};
+            next;
+        }
+        
+        if (ref $ref eq 'ARRAY') {
+            # fail when the index is out of range or is not defined
+            return 0 unless 0 <= $key && $key < @{$ref};
+            return 0 unless defined($ref->[$key]);
+            
+            $ref = $ref->[$key];
+            next;
+        }
+        
+        # fail when the current level is not a hash or array ref
+        return 0;
+    }
+    
+    return 1;
+}
+
+# Indicate whether a node is (to be) omitted from the report
+sub util_is_omitted
+{
+    my ($node) = @_;
+
+    return 1 if $node->{hidden};
+
+    return 0 unless $lastonly;
+
+    my $type = $node->{type};
+    # XXX not sure why this is needed
+    return 0 unless $type;
+
+    # XXX never omit models (is this correct? it's because models are always
+    #     marked changed)
+    return 0 if $type eq 'model';
+
+    # never omit parameterRef or objectRef because if the profile is included
+    # then its children are always included
+    return 0 if $type =~ /Ref$/;
+
+    # XXX this test can give unexpected results if imported definitions
+    #     are added to the data model AFTER the local definitions have
+    #     been defined, because this can propagate lspec up the tree,
+    #     marking lspec on the root object node (this is not believed
+    #     to cause problems in real cases)
+    return 1 unless util_node_is_modified($node);
+
+    return 0;
+}
+
+# Determine if node was modified in the last spec or file
+sub util_node_is_modified
+{
+    my ($node) = @_;
+
+    return 1
+        if !$lastonlyusesfile && $node->{lspec} && $node->{lspec} eq $lspec;
+
+    return 1
+        if $lastonlyusesfile && $node->{lfile} && $node->{lfile} eq $lfile;
+
+    return 0;
+}
+
+# Determine if a node was new in the last spec or file
+sub util_node_is_new
+{
+    my ($node) = @_;
+
+    return 1
+        if !$lastonlyusesfile && $node->{spec} && $node->{spec} eq $lspec;
+
+    return 1
+        if $lastonlyusesfile && $node->{file} && $node->{file} eq $lfile;
+
+    return 0;
+}
+
 # Expand all data model definition files.
 foreach my $file (@ARGV) {
     expand_toplevel($file);
@@ -8313,13 +8641,15 @@ sub sanity_node
         my $ibr = invalid_bibrefs($description);
         print STDERR "$path: invalid bibrefs: " . join(', ', @$ibr) . "\n" if
             @$ibr;
-        foreach my $value (keys %$values) {
-            my $cvalue = $values->{$value};
-
-            my $description = $cvalue->{description};
-            my $ibr = invalid_bibrefs($description);
-            print STDERR "$path: invalid bibrefs: " . join(', ', @$ibr) .
-                "\n" if @$ibr;
+        if (util_is_defined($values)) {
+            foreach my $value (keys %$values) {
+                my $cvalue = $values->{$value};
+                
+                my $description = $cvalue->{description};
+                my $ibr = invalid_bibrefs($description);
+                print STDERR "$path: invalid bibrefs: " . join(', ', @$ibr) .
+                    "\n" if @$ibr;
+            }
         }
     }
 
@@ -8482,18 +8812,7 @@ report_node($root);
 sub report_node
 {    
     my $node = shift;
-    return if $node->{hidden};
-
-    if ($lastonly) {
-        return if $node->{type} =~ 'model|profile' && $node->{spec} ne $lspec;
-        # XXX this test can give unexpected results if imported definitions
-        #     are added to the data model AFTER the local definitions have
-        #     been defined, because this can propagate lspec up the tree,
-        #     marking lspec on the root object node (this is not believed
-        #     to cause problems in real cases)
-        return if $node->{type} !~ 'model|profile' && $node->{lspec} &&
-            $node->{lspec} ne $lspec;
-    }
+    return if util_is_omitted($node);
 
     my $indent = shift;
     $indent = 0 unless $indent;
@@ -8567,7 +8886,7 @@ report.pl - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
+B<report.pl> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--compare] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
 =over
 
@@ -8597,6 +8916,8 @@ usually only bibliographic references that are referenced from within the data m
 
 causes automatic addition of B<base> attributes when models, parameters and objects are re-defined, and suppression of redefinition warnings (useful when processing auto-generated data model definitions)
 
+is implied by B<--compare>
+
 =item B<--autodatatype>
 
 causes the B<{{datatype}}> template to be automatically prefixed for parameters with named data types
@@ -8610,6 +8931,12 @@ causes the B<{{bibref}}> template to be expanded with the document first, i.e. B
 =item B<--canonical>
 
 affects only the B<xml2> report; causes descriptions to be processed into a canonical form that eases comparison with the original Microsoft Word descriptions
+
+=item B<--compare>
+
+compares the two files that were specified on the command line, showing the changes made by the second one
+
+note that this is identical to setting B<--autobase> and B<--showdiffs>
 
 =item B<--components>
 
@@ -8657,7 +8984,7 @@ output details of author, date, version etc
 
 reports only on items that were defined or modified in the last file that was specified on the command line
 
-note that the B<xml> report always does something similar but might not work properly if this option is specified
+note that the B<xml> report always does something similar but might not work properly if this option is also specified
 
 =item B<--marktemplates>
 
@@ -8773,11 +9100,15 @@ W3C schema
 
 =back
 
+=item B<--showdiffs>
+
+currently affects only the B<text> and B<html> reports; visually indicates the differences resulting from the last file on the command line
+
+is implied by B<--compare>
+
 =item B<--showspec>
 
 currently affects only the B<html> report; generates a B<Spec> rather than a B<Version> column
-
-note that if an object or parameter is modified, the spec for it's parent, and so on up to the root object, is updated (this is not what would intuitively be expected)
 
 =item B<--showsyntax>
 
@@ -8859,7 +9190,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/05/18 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#163 $
+$Date: 2010/07/16 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#164 $
 
 =cut
