@@ -157,7 +157,7 @@ use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2010/07/16 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#164 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#165 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -2666,7 +2666,7 @@ sub add_parameter
             #}
 	}
         # XXX this is a special case for deleting list facets
-        if ($nnode->{syntax}->{list} &&
+        if ($nnode->{syntax}->{list} && $nnode->{syntax}->{liststatus} &&
             $nnode->{syntax}->{liststatus} eq 'deleted') {
             print STDERR "$path: list: $nnode->{syntax}->{list} -> " .
             "<deleted>\n" if $verbose;
@@ -5053,7 +5053,7 @@ sub html_node
         my $any = $objpat || $lastonly || $showdiffs;
         $title .= qq{ (} if $any;
 	$title .= qq{$objpat, } if $objpat;
-        $title .= qq{delta, } if $lastonly;
+        $title .= qq{changes, } if $lastonly;
         $title .= qq{diffs, } if $showdiffs;
         chop $title if $any;
         chop $title if $any;
@@ -7389,7 +7389,7 @@ END
     }
     my $nsuffices = [];
     foreach my $suffix (@$suffices) {
-        push @$nsuffices, qq{$suffix-last} unless $newmaj;
+        push @$nsuffices, qq{$suffix-last-diffs} unless $newmaj;
     }
     push @$suffices, @$nsuffices;
     $comment .= qq{<ul>} if @$suffices;
@@ -7639,7 +7639,7 @@ END
         my $update_type = $version_update eq 'Initial' ? '-' :
             $version_update eq 'Major' ? 'Replacement' : 'Incremental';
         my $update_type_entry = $update_type eq '-' ? '-' :
-            qq{<a href="cwmp/$row->{file}$htmlsuff-last.html">$update_type</a>};
+            qq{<a href="cwmp/$row->{file}$htmlsuff-last-diffs.html">$update_type</a>};
 
         $text .= <<END;
         <tr>
@@ -9191,6 +9191,6 @@ This script is only for illustration of concepts and has many shortcomings.
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
 $Date: 2010/07/16 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#164 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#165 $
 
 =cut
