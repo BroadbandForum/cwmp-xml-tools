@@ -156,8 +156,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/07/16 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#165 $};
+my $tool_vers_date = q{$Date: 2010/07/19 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#166 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -189,11 +189,6 @@ my $dtloc = qq{cwmp-devicetype-${dtver}.xsd};
 #     them properly (see tr2dm.pl, which now does a better job)
 binmode STDOUT, ":utf8";
 
-# XXX experimental (if no downsides of always using file, OK to hard code)
-# XXX partly based on false premise that --showdiffs implies --lastonly
-# XXX need complete review of use of spec versus file
-my $lastonlyusesfile = 1;
-
 # Command-line options
 my $allbibrefs = 0;
 my $autobase = 0;
@@ -213,6 +208,7 @@ my $importsuffix = '';
 my $includes = [];
 my $info = 0;
 my $lastonly = 0;
+my $lastonlyusesspec = 0;
 my $marktemplates = undef;
 my $noautomodel = 0;
 my $nocomments = 0;
@@ -257,6 +253,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'include:s@' => \$includes,
 	   'info' => \$info,
            'lastonly' => \$lastonly,
+           'lastonlyusesspec' => \$lastonlyusesspec,
 	   'marktemplates' => \$marktemplates,
 	   'noautomodel' => \$noautomodel,
 	   'nocomments' => \$nocomments,
@@ -372,7 +369,6 @@ my $allfiles = [];
 my $specs = [];
 # XXX for DT, lfile and lspec should be last processed DM file
 #     (current workaround is to use same spec for DT and this DM)
-# XXX now should be addressed if $lastonlyusesfile is true?
 my $lfile = ''; # last command-line-specified file
 my $lspec = ''; # spec from last command-line-specified file
 my $files = {};
@@ -749,9 +745,10 @@ sub expand_bibliography
         if ($dupref) {
             if ($dupref->{spec} eq $spec) {
                 # this isn't necessarily a problem; it can happen if two files
-                # with the same spec are processed
+                # with the same spec are processed (which definitely isn't an
+                # error if $autobase is set)
                 print STDERR "$id: duplicate bibref: {$file}$name\n"
-                    if $verbose || $warnbibref;
+                    if !$autobase && ($verbose || $warnbibref);
             } elsif ($dupref->{name} ne $name) {
                 print STDERR "$id: ambiguous bibref: ".
                     "{$dupref->{file}}$dupref->{name}, {$file}$name\n";
@@ -2787,14 +2784,12 @@ sub update_bibrefs
 {
     my ($value, $file, $spec) = @_;
 
-    my $fileorspec = $lastonlyusesfile ? $file : $spec;
-
     my @ids = ($value =~ /\{\{bibref\|([^\|\}]+)/g);
     foreach my $id (@ids) {
         print STDERR "marking bibref $id used (file=$file, spec=$spec)\n"
             if $verbose > 1;
-        push @{$bibrefs->{$id}}, $fileorspec unless
-            grep {$_ eq $fileorspec} @{$bibrefs->{$id}};
+        push @{$bibrefs->{$id}}, $spec unless
+            grep {$_ eq $spec} @{$bibrefs->{$id}};
     }
 }
 
@@ -5078,10 +5073,10 @@ sub html_node
       h1 { $h1font }
       h2 { $h2font }
       h3 { $h3font }
-      span, span.o { $font }
-      span.n { $font $fontnew }
-      span.i { $font $fontnew }
-      span.d { $font $fontdel $strike }
+      span, span.o, div, div.o { $font }
+      span.n, div.n { $font $fontnew }
+      span.i, div.i { $font $fontnew }
+      span.d, div.d { $font $fontdel $strike }
       table { $table }
       th { $row $font }
       th.c { $row $font $center }
@@ -5093,10 +5088,14 @@ sub html_node
       td, td.p { $row $font }
       td.oc { $row $font $object_bg $center }
       td.pc { $row $font $center }
-      td.os { $row $font $object_bg $fontdel $strike }
-      td.ps { $row $font $fontdel $strike }
-      td.osc { $row $font $object_bg $fontdel $strike $center }
-      td.psc { $row $font $fontdel $strike $center }
+      td.on { $row $font $object_bg $fontnew }
+      td.od { $row $font $object_bg $fontdel $strike }
+      td.pn { $row $font $fontnew }
+      td.pd { $row $font $fontdel $strike }
+      td.onc { $row $font $object_bg $fontnew $center }
+      td.odc { $row $font $object_bg $fontdel $strike $center }
+      td.pnc { $row $font $fontnew $center }
+      td.pdc { $row $font $fontdel $strike $center }
     </style>
   </head>
   <body>
@@ -5197,12 +5196,11 @@ END
             foreach my $reference (sort bibid_cmp @$references) {
                 my $id = $reference->{id};
                 next unless $allbibrefs || $bibrefs->{$id};
-                # XXX this works for lastonly but doesn't work when hiding
-                #     sub-trees (would like hide_subtree and unhide_subtree
-                #     to auto-hide and show relevant references)
-                my $fileorspec = $lastonlyusesfile ? $lfile : $lspec;
+                # XXX this doesn't work when hiding sub-trees (would like
+                #     hide_subtree and unhide_subtree to auto-hide and show
+                #     relevant references)
                 next if $lastonly &&
-                    !grep {$_ eq $fileorspec} @{$bibrefs->{$id}};
+                    !grep {$_ eq $lspec} @{$bibrefs->{$id}};
                 
                 my $name = xml_escape($reference->{name});
                 my $title = xml_escape($reference->{title});
@@ -5292,12 +5290,27 @@ END
             $specs .= util_doc_name($mspec) if defined $mspec;
         }
 
-        # XXX treated differently from $tdclass only to minimise output diffs
+        # XXX $trclass is treated differently from $tdclass only to minimise
+        #     diffs with HTML produced by earlier tool versions
         my $trclass = ($showdiffs && util_node_is_new($node)) ? 'n' : '';
         $trclass = $trclass ? qq{ class="$trclass"} : qq{};
 
 	my $tdclass = ($model | $object | $profile) ? 'o' : 'p';
-        $tdclass .= 's' if util_is_deleted($node);
+        $tdclass .= 'd' if util_is_deleted($node);
+
+        my $tdclasswrt = $tdclass;
+        if (util_node_is_modified($node) && $changed->{access}) {
+            $tdclasswrt .= 'n';
+        }
+
+        my $tdclassdef = $tdclass;
+        if (util_node_is_modified($node) && $changed->{default}) {
+            if ($node->{defstat} eq 'deleted') {
+                $tdclassdef .= 'd' unless $tdclassdef =~ /d/;
+            } else {
+                $tdclassdef .= 'n';
+            }
+        }
 
         if ($model) {
             my $title = qq{$name Data Model};
@@ -5462,9 +5475,9 @@ END
           <td class="${tdclass}">$name</td>
           <td class="${tdclass}">$type</td>
           $synt_oc<td class="${tdclass}">$syntax</td>$synt_cc
-          <td class="${tdclass}c">$write</td>
+          <td class="${tdclasswrt}c">$write</td>
           <td class="${tdclass}">$description</td>
-          <td class="${tdclass}c">$default</td>
+          <td class="${tdclassdef}c">$default</td>
           $vers_oc<td class="${tdclass}c">$version</td>$vers_cc
           $spec_oc<td class="${tdclass}c">$specs</td>$spec_cc
 	</tr>
@@ -5991,8 +6004,8 @@ sub html_template
 
     # XXX need some protection against infinite loops here...
     # XXX do we want to allow template references to span newlines?
-    while (my ($newline, $period, $temp) =
-           $inval =~ /(\n?)[ \t]*([\.\?\!]?)[ \t]*(\{\{.*)/) {
+    while (my ($newline, $period, $insdel, $temp) =
+           $inval =~ /(\n?)[ \t]*([\.\?\!]?)[ \t]*([\-\+]*)[ \t]*(\{\{.*)/) {
         # pattern returns rest of string in temp (owing to difficulty of
         # handling nested braces), so match braces to find end
         my $tref = extract_bracketed($temp, '{}');
@@ -6013,6 +6026,7 @@ sub html_template
         $p->{atstart} = $atstart;
         $p->{newline} = $newline;
         $p->{period} = $period;
+        $p->{insdel} = $insdel;
         #my @a = split /\|/, $args;
         my @a = ();
         if (defined $args) {
@@ -6092,8 +6106,11 @@ sub html_template_issue
 {
     my ($opts, $arg) = @_;
 
-    $issue_counter++;
-    return qq{\n'''XXX $issue_counter: $arg'''};
+    # if preceded by "---" is deleted, so no counter increment
+    my $counter = ($opts->{insdel} && $opts->{insdel} eq '---') ?
+        qq{''n''} : $issue_counter++;
+
+    return qq{\n'''XXX $counter: $arg'''};
 }
 
 # insert appropriate null value
@@ -7020,11 +7037,11 @@ sub html_font
     $inval =~ s|''(.*?)''|<i>$1</i>|g;
 
     # XXX experimental ---text--- to indicate deletion and +++text+++ insertion
-    # XXX <span> doesn't work well if there are embedded newlines; would be
-    #     better to catch such cases and use <div>; this applies (for example)
-    #     to the {{issue}} template, which inserts a newline
-    $inval =~ s|\-\-\-(.*?)\-\-\-|<span class="d">$1</span>|gs;
-    $inval =~ s|\+\+\+(.*?)\+\+\+|<span class="i">$1</span>|gs;
+    $inval =~ s|\-\-\-([^\n]*?)\-\-\-|<span class="d">$1</span>|gs;
+    $inval =~ s|\+\+\+([^\n]*?)\+\+\+|<span class="i">$1</span>|gs;
+
+    $inval =~ s|\-\-\-(.*?)\-\-\-|<div class="d">$1</div>|gs;
+    $inval =~ s|\+\+\+(.*?)\+\+\+|<div class="i">$1</div>|gs;
 
     # XXX "%%" anchor expansion should be elsewhere (hyperlink?)
     # XXX need to escape special characters out of anchors and references
@@ -8444,7 +8461,7 @@ sub util_doc_link
     my ($name) = @_;
 
     my $link = qq{technical/download/${name}.pdf};
-    $link =~ s/ (Issue|Amendment|Corrigendum)/_$1/;
+    $link =~ s/ (Issue|Amendment|Corrigendum)/_$1/g;
     $link =~ s/ /-/g;
 
     return $link;
@@ -8557,10 +8574,10 @@ sub util_node_is_modified
     my ($node) = @_;
 
     return 1
-        if !$lastonlyusesfile && $node->{lspec} && $node->{lspec} eq $lspec;
+        if $lastonlyusesspec && $node->{lspec} && $node->{lspec} eq $lspec;
 
     return 1
-        if $lastonlyusesfile && $node->{lfile} && $node->{lfile} eq $lfile;
+        if !$lastonlyusesspec && $node->{lfile} && $node->{lfile} eq $lfile;
 
     return 0;
 }
@@ -8570,11 +8587,15 @@ sub util_node_is_new
 {
     my ($node) = @_;
 
-    return 1
-        if !$lastonlyusesfile && $node->{spec} && $node->{spec} eq $lspec;
+    # XXX experimental; always use file for this decision
+    return 1 if $node->{file} && $node->{file} eq $lfile;
+    return 0;
 
-    return 1
-        if $lastonlyusesfile && $node->{file} && $node->{file} eq $lfile;
+    #return 1
+    #    if $lastonlyusesspec && $node->{spec} && $node->{spec} eq $lspec;
+    #
+    #return 1
+    #    if !$lastonlyusesspec && $node->{file} && $node->{file} eq $lfile;
 
     return 0;
 }
@@ -9190,7 +9211,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/07/16 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#165 $
+$Date: 2010/07/19 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#166 $
 
 =cut
