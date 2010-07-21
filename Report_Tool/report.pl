@@ -156,8 +156,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/07/19 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#166 $};
+my $tool_vers_date = q{$Date: 2010/07/21 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#167 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -2646,7 +2646,13 @@ sub add_parameter
             my $old = defined $nnode->{syntax}->{$key} ?
                 $nnode->{syntax}->{$key} : '<none>';
             # XXX for now we can't handle references (e.g. ranges and sizes)
-            next if ref $value;
+            #     so just copy them
+            if (ref $value) {
+                print STDERR "$path: $key: changed\n" if $verbose;
+                $nnode->{syntax}->{$key} = $value;
+                $changed->{syntax}->{$key} = 1;
+                next;
+            }
             if ($value && (!defined $nnode->{syntax}->{$key} ||
                            $value ne $nnode->{syntax}->{$key})) {
                 print STDERR "$path: $key: $old -> $value\n" if $verbose;
@@ -2738,11 +2744,12 @@ sub add_parameter
         #     only to components but to imported models :( (need a more direct
         #     test)
         # XXX why should it break anything; restore with debug message...
+        # XXX it breaks detection of inappropriate defaults; disable it again!
         #$default = undef if !$dynamic && @$context > 1;
-        if (defined $default && $deftype eq 'object' && !$dynamic) {
-            $default = undef;
-            print STDERR "$path: removing default value\n" if $verbose;
-        }
+        #if (defined $default && $deftype eq 'object' && !$dynamic) {
+        #    $default = undef;
+        #    print STDERR "$path: removing default value\n" if $verbose;
+        #}
 
 	$nnode = {pnode => $pnode, name => $name, path => $path, file => $file,
 		  lfile => $Lfile, spec => $spec, lspec => $Lspec,
@@ -5298,6 +5305,12 @@ END
 	my $tdclass = ($model | $object | $profile) ? 'o' : 'p';
         $tdclass .= 'd' if util_is_deleted($node);
 
+        my $tdclasstyp = $tdclass;
+        if (util_node_is_modified($node) &&
+            ($changed->{type} || $changed->{syntax})) {
+            $tdclasstyp .= 'n';
+        }
+
         my $tdclasswrt = $tdclass;
         if (util_node_is_modified($node) && $changed->{access}) {
             $tdclasswrt .= 'n';
@@ -5473,8 +5486,8 @@ END
             $html_buffer .= <<END;
         <tr$trclass>
           <td class="${tdclass}">$name</td>
-          <td class="${tdclass}">$type</td>
-          $synt_oc<td class="${tdclass}">$syntax</td>$synt_cc
+          <td class="${tdclasstyp}">$type</td>
+          $synt_oc<td class="${tdclasstyp}">$syntax</td>$synt_cc
           <td class="${tdclasswrt}c">$write</td>
           <td class="${tdclass}">$description</td>
           <td class="${tdclassdef}c">$default</td>
@@ -9211,7 +9224,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/07/19 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#166 $
+$Date: 2010/07/21 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#167 $
 
 =cut
