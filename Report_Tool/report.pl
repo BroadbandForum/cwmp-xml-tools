@@ -147,6 +147,7 @@ no strict "refs";
 
 use Algorithm::Diff;
 use Clone qw{clone};
+use Data::Compare;
 use Data::Dumper;
 use File::Spec;
 use Getopt::Long;
@@ -157,7 +158,7 @@ use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2010/07/21 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#167 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#168 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -2645,28 +2646,19 @@ sub add_parameter
 	while (my ($key, $value) = each %$syntax) {
             my $old = defined $nnode->{syntax}->{$key} ?
                 $nnode->{syntax}->{$key} : '<none>';
-            # XXX for now we can't handle references (e.g. ranges and sizes)
-            #     so just copy them
             if (ref $value) {
-                print STDERR "$path: $key: changed\n" if $verbose;
-                $nnode->{syntax}->{$key} = $value;
-                $changed->{syntax}->{$key} = 1;
-                next;
-            }
-            if ($value && (!defined $nnode->{syntax}->{$key} ||
-                           $value ne $nnode->{syntax}->{$key})) {
+                if (!defined $nnode->{syntax}->{$key} ||
+                               !Compare($value, $nnode->{syntax}->{$key})) {
+                    print STDERR "$path: $key: changed\n" if $verbose;
+                    $nnode->{syntax}->{$key} = $value;
+                    $changed->{syntax}->{$key} = 1;
+                }
+            } elsif ($value && (!defined $nnode->{syntax}->{$key} ||
+                                $value ne $nnode->{syntax}->{$key})) {
                 print STDERR "$path: $key: $old -> $value\n" if $verbose;
                 $nnode->{syntax}->{$key} = $value;
                 $changed->{syntax}->{$key} = 1;
             }
-            # XXX this won't work now multiple sizes are supported; also
-            #     ranges presumably weren't working before and still aren't
-            #if ($key =~ /(minLength|maxLength)/ && !$value &&
-            #    defined $nnode->{syntax}->{$key}) {
-            #    print STDERR "$path: $key: $old -> <deleted>\n" if $verbose;
-            #    undef $nnode->{syntax}->{$key};
-            #    $changed->{syntax}->{$key} = 1;                
-            #}
 	}
         # XXX this is a special case for deleting list facets
         if ($nnode->{syntax}->{list} && $nnode->{syntax}->{liststatus} &&
@@ -2698,6 +2690,12 @@ sub add_parameter
                 if $verbose;
             $nnode->{defstat} = $defstat;
             # note that this marks default, not defstat, as changed
+            $changed->{default} = 1;
+        }
+        # or, if $autobase (so not $ref), it was present and is no longer
+        if (!$ref && defined $nnode->{default} && !defined $default) {
+            print STDERR "$path: default: deleted\n" if $verbose;
+            $nnode->{defstat} = 'deleted';
             $changed->{default} = 1;
         }
         if ($pnode->{dynamic} != $nnode->{dynamic}) {
@@ -5269,10 +5267,10 @@ END
             $access eq 'createDelete' ? 'C' : '-';
 
         my $default = $node->{default};
-        undef $default
-            if defined $node->{deftype} && $node->{deftype} ne 'object';
-        undef $default
-            if defined $node->{defstat} && $node->{defstat} eq 'deleted';
+        undef $default if defined $node->{deftype} &&
+            $node->{deftype} ne 'object';
+        undef $default if defined $node->{defstat} &&
+            $node->{defstat} eq 'deleted' && !$showdiffs;
 	$default = html_escape($default,
                                {quote => scalar($type =~ /^string/),
                                 hyphenate => 1});
@@ -9225,6 +9223,6 @@ This script is only for illustration of concepts and has many shortcomings.
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
 $Date: 2010/07/21 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#167 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#168 $
 
 =cut
