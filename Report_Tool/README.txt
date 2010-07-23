@@ -9,7 +9,7 @@ Usage:
     [--notemplates] [--nowarnredef] [--nowarnprofbadref]
     [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet]
     [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs]
-    [--showspec] [--showsyntax]
+    [--showreadonly] [--showspec] [--showsyntax]
     [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc]
     [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
     [--warnbibref[=i(1)]] [--writonly] DM-instance...
@@ -219,7 +219,17 @@ Options:
         currently affects only the text and html reports; visually indicates
         the differences resulting from the last file on the command line
 
+        for the html report, insertions are shown in blue and deletions are
+        shown in read strikeout; in order to enhance readability, hyperlinks
+        are not shown in a special color (but are still underlined); note
+        that this hyperlink behavior uses color=inherit, which apparently
+        isn't supported by Internet Explorer
+
         is implied by --compare
+
+    --showreadonly
+        shows read-only enumeration and pattern values as READONLY
+        (experimental)
 
     --showspec
         currently affects only the html report; generates a Spec rather than

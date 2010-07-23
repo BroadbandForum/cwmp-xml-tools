@@ -30,7 +30,7 @@
 <p>
 </p>
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p><strong>report.pl</strong> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--compare] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
+<p><strong>report.pl</strong> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--compare] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
 <ul>
 <li><strong><a name="cannot_specify_both_report_and_special" class="item">cannot specify both --report and --special</a></strong>
 
@@ -272,7 +272,13 @@
 
 <dd>
 <p>currently affects only the <strong>text</strong> and <strong>html</strong> reports; visually indicates the differences resulting from the last file on the command line</p>
+<p>for the <strong>html</strong> report, insertions are shown in blue and deletions are shown in read strikeout; in order to enhance readability, hyperlinks are not shown in a special color (but are still underlined); note that this hyperlink behavior uses <strong>color=inherit</strong>, which apparently isn't supported by Internet Explorer</p>
 <p>is implied by <strong>--compare</strong></p>
+</dd>
+<dt><strong><a name="showreadonly" class="item"><strong>--showreadonly</strong></a></strong></dt>
+
+<dd>
+<p>shows read-only enumeration and pattern values as <strong>READONLY</strong> (experimental)</p>
 </dd>
 <dt><strong><a name="showspec" class="item"><strong>--showspec</strong></a></strong></dt>
 
@@ -370,8 +376,8 @@
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:wlupton@2wire.com">wlupton@2wire.com</a>&gt;</p>
-<p>$Date: 2010/07/22 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#169 $</p>
+<p>$Date: 2010/07/23 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#170 $</p>
 
 </body>
 
