@@ -157,8 +157,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/07/21 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#168 $};
+my $tool_vers_date = q{$Date: 2010/07/22 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#169 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -1471,7 +1471,7 @@ sub expand_model_parameter
         update_bibrefs($description, $file, $spec);
 
         # XXX where should such defaults be applied? here is better
-        $access = 'readOnly' unless $access;
+        $access = 'readWrite' unless $access;
         $status = 'current' unless $status;
         # don't default descact, so can tell whether it was specified
         
@@ -1753,7 +1753,7 @@ sub expand_model_profile_object
     # XXX should check that access matches the referenced object's access
 
     # if requirement is not greater than that of the base profile or one of
-    # the extends profiles, reduce it to 'notSpecified'
+    # the extends profiles, reduce it to 'notSpecified' (but never if descr)
     my $can_ignore = 0;
     my $poa = {notSpecified => 0, present => 1, create => 2, delete => 3,
                createDelete => 4};
@@ -1762,7 +1762,7 @@ sub expand_model_profile_object
     if ($baseprof) {
         ($baseobj) = grep {$_->{name} eq $name} @{$baseprof->{nodes}};
         if ($baseobj && $poa->{$access} <= $poa->{$baseobj->{access}} &&
-            $status eq $baseobj->{status}) {
+            $status eq $baseobj->{status} && !$descdef) {
             $can_ignore = 1;
             print STDERR "profile $Pnode->{name} can ignore object $name\n" if
                 $verbose;
@@ -1856,13 +1856,13 @@ sub expand_model_profile_parameter
     # XXX need bad hyperlink to be visually apparent
 
     # if requirement is not greater than that of the base profile, reduce
-    # it to 'notSpecified'
+    # it to 'notSpecified' (but not if descr)
     my $ppa = {readOnly => 0, readWrite => 1};
     my $baseobj = $pnode->{baseobj};
     if ($baseobj) {
         my ($basepar) = grep {$_->{name} eq $name} @{$baseobj->{nodes}};
         if ($basepar && $ppa->{$access} <= $ppa->{$basepar->{access}} &&
-            $status eq $basepar->{status}) {
+            $status eq $basepar->{status} && !$descdef) {
             print STDERR "profile $Pnode->{name} ignoring parameter $path\n" if
                 $verbose;
             return;
@@ -2579,12 +2579,12 @@ sub add_parameter
 
             if (!defined $cvalue) {
                 print STDERR "$path.$value: added\n" if $verbose;
-                $changed->{values}->{$value} = 1;
+                $changed->{values}->{$value}->{added} = 1;
                 next;
             }
 
             unshift @{$cvalue->{history}}, util_copy($cvalue, ['history']);
-            $value->{history} = $cvalue->{history};
+            $values->{$value}->{history} = $cvalue->{history};
             
             if ($nvalue->{access} ne $cvalue->{access}) {
                 print STDERR "$path.$value: access: $cvalue->{access} -> ".
@@ -2958,6 +2958,7 @@ sub valid_ranges
 
 # Get formatted enumerated values
 # XXX format is currently report-dependent
+# XXX no indication of access (didn't we used to show this?)
 sub get_values
 {
     my ($node, $anchor) = @_;
@@ -2970,16 +2971,24 @@ sub get_values
                                  $values->{$b}->{i}} keys %$values) {
         my $cvalue = $values->{$value};
 
+        my $history = $cvalue->{history};
 	my $description = $cvalue->{description};
+	my $descact = $cvalue->{descact};
 	my $optional = boolean($cvalue->{optional});
 	my $deprecated = $cvalue->{status} eq 'deprecated';
 	my $obsoleted = $cvalue->{status} eq 'obsoleted';
 	my $deleted = $cvalue->{status} eq 'deleted';
 
-        my $changed = util_node_is_modified($node) &&
-            $node->{changed}->{values}->{$value};
-
         next if $deleted && !$showdiffs;
+
+        my $changed = util_node_is_modified($node) &&
+            ($node->{changed}->{values}->{$value}->{added} ||
+             $node->{changed}->{values}->{$value}->{status});
+        my $dchanged = util_node_is_modified($node) &&
+            ($changed || $node->{changed}->{values}->{$value}->{description});
+
+        ($description, $descact) = get_description($description, $descact,
+                                                   $dchanged, $history, 1);
 
         # don't mark optional if deprecated or obsoleted
         $optional = 0 if $deprecated || $obsoleted;
@@ -2992,16 +3001,18 @@ sub get_values
             $description = '{{empty}}' unless $description;
         }
 
-        # remove any leading or trailing whitespace
+        # remove any leading or trailing whitespace and replace newlines with
+        # spaces
         $description =~ s/^\s*//;
+        $description =~ s/\n/ /g;
         $description =~ s/\s*$//;
 
         # avoid leading upper-case in value description unless an acronym
         # XXX better than it was (it was unconditional) but is it OK?
-        $description = lcfirst $description
-            if ($description =~ /^[A-Z][a-z]/ &&
-                $description !~ /^\S+\s+[A-Z]/);
-        $description =~ s/\.$//;
+        #$description = lcfirst $description
+        #    if ($description =~ /^[A-Z][a-z]/ &&
+        #        $description !~ /^\S+\s+[A-Z]/);
+        $description =~ s/\.([\+\-]*)$/$1/;
 
 	my $any = $description || $optional || $deprecated || $obsoleted;
 
@@ -3018,15 +3029,18 @@ sub get_values
             $list .= qq{%%$value%%$tvalue%%};
         }
 	$list .= "''";
+        $list .= ($deleted ? '---' : '+++') if $showdiffs && $changed;
 	$list .= ' (' if $any;
-	$list .= $description . ', ' if $description;
+	$list .= $description if $description;
+        $list .= ($deleted ? '---' : '+++') if $showdiffs && $changed;
+	$list .= ', ' if $description;
 	$list .= 'OPTIONAL, ' if $optional;
 	$list .= 'DEPRECATED, ' if $deprecated;
 	$list .= 'OBSOLETED, ' if $obsoleted;
 	chop $list if $any;
 	chop $list if $any;
-	$list .= ')' if $any;
         $list .= ($deleted ? '---' : '+++') if $showdiffs && $changed;
+	$list .= ')' if $any;
 	$list .= "\n";
     }
     chop $list;
@@ -4025,7 +4039,7 @@ $i             spec="$lspec">
                 $description = xml_escape($description);
 
                 $optional = $optional ? qq{ optional="true"} : qq{};
-                $access = $access ne 'readOnly' ? qq{ access="$access"} : qq{};
+                $access = $access ne 'readWrite' ? qq{ access="$access"} : qq{};
                 $status = $status ne 'current' ? qq{ status="$status"} : qq{};
                 $descact = $descact ne 'create' ? qq{ action="$descact"} : qq{};
                 my $ended = $description ? '' : '/';
@@ -4526,7 +4540,7 @@ $i  </import>
                 $description = xml_escape($description);
 
                 $optional = $optional ? qq{ optional="true"} : qq{};
-                $access = $access ne 'readOnly' ? qq{ access="$access"} : qq{};
+                $access = $access ne 'readWrite' ? qq{ access="$access"} : qq{};
                 $status = $status ne 'current' ? qq{ status="$status"} : qq{};
                 my $ended = $description ? '' : '/';
 
@@ -5247,6 +5261,8 @@ END
             return;
         }
 
+        return if !$showdiffs && util_is_deleted($node);
+
         # XXX there's some double escaping going on here...
 	my $name = html_escape($object ? $path : $node->{name},
                                {empty => '', fudge => 1});
@@ -5301,21 +5317,21 @@ END
         $trclass = $trclass ? qq{ class="$trclass"} : qq{};
 
 	my $tdclass = ($model | $object | $profile) ? 'o' : 'p';
-        $tdclass .= 'd' if util_is_deleted($node);
+        $tdclass .= 'd' if $showdiffs && util_is_deleted($node);
 
         my $tdclasstyp = $tdclass;
-        if (util_node_is_modified($node) &&
+        if ($showdiffs && util_node_is_modified($node) &&
             ($changed->{type} || $changed->{syntax})) {
             $tdclasstyp .= 'n';
         }
 
         my $tdclasswrt = $tdclass;
-        if (util_node_is_modified($node) && $changed->{access}) {
+        if ($showdiffs && util_node_is_modified($node) && $changed->{access}) {
             $tdclasswrt .= 'n';
         }
 
         my $tdclassdef = $tdclass;
-        if (util_node_is_modified($node) && $changed->{default}) {
+        if ($showdiffs && util_node_is_modified($node) && $changed->{default}) {
             if ($node->{defstat} eq 'deleted') {
                 $tdclassdef .= 'd' unless $tdclassdef =~ /d/;
             } else {
@@ -9222,7 +9238,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/07/21 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#168 $
+$Date: 2010/07/22 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#169 $
 
 =cut
