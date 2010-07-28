@@ -100,11 +100,9 @@ Options:
         output details of author, date, version etc
 
     --lastonly
-        reports only on items that were defined or modified in the last file
-        that was specified on the command line
-
-        note that the xml report always does something similar but might not
-        work properly if this option is also specified
+        reports only on items that were defined or last modified in the
+        specification corresponding to the last file on the command line (as
+        determined by this last file's spec attribute)
 
     --marktemplates
         mark selected template expansions with &&&& followed by
