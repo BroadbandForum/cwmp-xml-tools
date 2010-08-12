@@ -157,8 +157,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/07/28 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#171 $};
+my $tool_vers_date = q{$Date: 2010/08/12 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#172 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -6041,7 +6041,8 @@ sub html_template
          {name => 'mark',
           text1 => \&html_template_mark},
          {name => 'issue',
-          text1 => \&html_template_issue}
+          text1 => \&html_template_issue,
+          text2 => \&html_template_issue}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -6141,18 +6142,29 @@ sub html_template_mark
 }
 
 # used by the {{issue}} template
-my $issue_counter = 0;
+my $issue_counter = {};
 
 # report and track an issue
 sub html_template_issue
 {
-    my ($opts, $arg) = @_;
+    my ($opts, $arg1, $arg2) = @_;
+
+    # if called with one arg, the prefix is "XXX" and the argument is the
+    # comment; if called with two args, they are the prefix and the comment
+    my ($prefix, $comment);
+    if (defined $arg2) {
+        $prefix = $arg1;
+        $comment = $arg2;
+    } else {
+        $prefix = 'XXX';
+        $comment = $arg1;
+    }
 
     # if preceded by "---" is deleted, so no counter increment
     my $counter = ($opts->{insdel} && $opts->{insdel} eq '---') ?
-        qq{''n''} : $issue_counter++;
+        qq{''n''} : $issue_counter->{$prefix}++;
 
-    return qq{\n'''XXX $counter: $arg'''};
+    return qq{\n'''$prefix $counter: $comment'''};
 }
 
 # insert appropriate null value
@@ -7438,8 +7450,8 @@ END
 
     # add the HTML hyperlinks
     my $suffices = [];
-    if ($schema || $support || $name !~ /\.xml$/) {
-        # no HTML for schema or support files
+    if ($schema || $name !~ /\.xml$/) {
+        # no HTML for schema files
     } elsif ($name =~ /^tr-(143|157)/) {
         push @$suffices, '-dev';
         push @$suffices, '-igd';
@@ -7584,8 +7596,26 @@ sub html148_model
         push @$profs, {name => $name, spec => $spec};
     }
 
-    push @$html148, {name => $name, file => $file, spec => $spec,
-                     isService => $isService, profs => $profs};    
+    # because of strange way in which model dependencies are handled, this
+    # can push things out of order, 
+    my $index = @$html148;
+    my ($nam, $maj, $min) = ($name =~ /([^:]*):(\d+)\.(\d+)/);
+    if (defined $nam && defined $maj && defined $min) {
+        for (0..$index-1) {
+            my $tname = $html148->[$_]->{name};
+            my ($tnam, $tmaj, $tmin) = ($tname =~ /([^:]*):(\d+)\.(\d+)/);
+            if (defined $tnam && defined $tmaj && defined $tmin) {
+                if ($tnam eq $nam && ($tmaj > $maj ||
+                                      ($tmaj == $maj && $tmin > $min))) {
+                    $index = $_;
+                    last;
+                }
+            }
+        }
+    }
+
+    splice @$html148, $index, 0, {name => $name, file => $file, spec => $spec,
+                                  isService => $isService, profs => $profs};
 }
 
 sub html148_end
@@ -7631,21 +7661,22 @@ END
         my $spec = $model->{spec};
         my $rootserv = $model->{isService} ? 'Service' : 'Root'; 
 
-        my ($name_only, $version) = ($name =~ /([^:]*):(.*)/);
+        my ($name_only, $major, $minor) = ($name =~ /([^:]*):(\d*)\.(\d*)/);
         my $tr_name = util_doc_name($spec, {verbose => 1});
         my $dependencies = 'dependencies';
 
         my $nrow = {name => $name_only,
+                    name_major => qq{$name_only:$major},
                     file => $file,
                     type => $rootserv,
-                    version => $version,
+                    version => qq{$major.$minor},
                     tr_name => $tr_name,
                     dependencies => $dependencies,
                     mrowspan => 0};
 
         # mrow is the first row for this data model
         my $mrow = $mrows->{$nrow->{name}};
-        $mrow = $nrow if !$mrow || $nrow->{name} ne $mrow->{name};
+        $mrow = $nrow if !$mrow || $nrow->{name_major} ne $mrow->{name_major};
         $nrow->{mrow} = $mrow;
         $mrow->{mrowspan}++;
         $mrows->{$nrow->{name}} = $mrow;
@@ -7664,7 +7695,7 @@ END
 
         if ($row == $row->{mrow}) {
             print <<END;
-        <li><a href="#D:$row->{name}">$row->{name}</a></li>
+        <li><a href="#D:$row->{name_major}">$row->{name_major}</a></li>
 END
 
             # XXX hacked separator row
@@ -7690,6 +7721,8 @@ END
 
         my $version_update = $version eq '1.0' ? 'Initial' :
             $version =~ /^\d+\.0$/ ? 'Major' : 'Minor';
+        # XXX change so never use Major (major versions are all replacements)
+        $version_update =$version =~ /^\d+\.0$/ ? 'Initial' : 'Minor';
         my $version_update_entry =
             qq{<a href="cwmp/$row->{file}$htmlsuff.html">$version_update</a>};
 
@@ -7702,7 +7735,7 @@ END
 
         $text .= <<END;
         <tr>
-          $moc<td rowspan="$mrowspan"><a name="D:$row->{name}">$row->{name}</a></td>$mcc
+          $moc<td rowspan="$mrowspan"><a name="D:$row->{name_major}">$row->{name}</a></td>$mcc
           $moc<td rowspan="$mrowspan">$row->{type}</td>$mcc
           <td>$version_entry</td>
           <td>$version_update_entry</td>
@@ -9257,7 +9290,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/07/28 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#171 $
+$Date: 2010/08/12 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#172 $
 
 =cut
