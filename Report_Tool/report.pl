@@ -157,8 +157,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/08/12 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#172 $};
+my $tool_vers_date = q{$Date: 2010/08/27 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#173 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -6150,21 +6150,31 @@ sub html_template_issue
     my ($opts, $arg1, $arg2) = @_;
 
     # if called with one arg, the prefix is "XXX" and the argument is the
-    # comment; if called with two args, they are the prefix and the comment
-    my ($prefix, $comment);
+    # comment; if called with two args, they are prefix,status and the
+    # comment (prefix,status can be thought of as a list of name=value pairs
+    # with a defined positional order, so it is extensible) 
+    my ($prefix, $status, $comment);
     if (defined $arg2) {
-        $prefix = $arg1;
+        ($prefix, $status) = ($arg1 =~ /([^,]*),?([^,]*)/);
         $comment = $arg2;
     } else {
         $prefix = 'XXX';
+        $status = '';
         $comment = $arg1;
     }
 
-    # if preceded by "---" is deleted, so no counter increment
-    my $counter = ($opts->{insdel} && $opts->{insdel} eq '---') ?
-        qq{''n''} : $issue_counter->{$prefix}++;
+    # XXX for now any non-blank status means that the issue has been addressed
 
-    return qq{\n'''$prefix $counter: $comment'''};
+    # is it already marked as deleted?
+    my $deleted = ($opts->{insdel} && $opts->{insdel} eq '---');
+
+    # if preceded by "---" is deleted, so no counter increment
+    my $counter = $deleted ? qq{''n''} : $issue_counter->{$prefix}++;
+
+    # if not already deleted and issue has been addressed, mark accordingly
+    my $mark = (!$deleted && $status) ? '---' : '';
+
+    return qq{\n'''$mark$prefix $counter: $comment$mark'''};
 }
 
 # insert appropriate null value
@@ -9290,7 +9300,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/08/12 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#172 $
+$Date: 2010/08/27 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#173 $
 
 =cut
