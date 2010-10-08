@@ -157,8 +157,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/08/27 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#173 $};
+my $tool_vers_date = q{$Date: 2010/10/08 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#174 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -1426,6 +1426,7 @@ sub expand_model_parameter
         }
     }
     $syntax->{hidden} = defined(($parameter->findnodes('syntax/@hidden'))[0]);
+    $syntax->{command} = defined(($parameter->findnodes('syntax/@command'))[0]);
     $syntax->{list} = defined(($parameter->findnodes('syntax/list'))[0]);
     if ($syntax->{list}) {
         my $status = $parameter->findvalue('syntax/list/@status');
@@ -3984,6 +3985,7 @@ $i             spec="$lspec">
         if ($syntax && ($basename eq 'name' || $changed->{syntax} ||
                         $changed->{values} || $changed->{default})) {
             my $hidden = $syntax->{hidden};
+            my $command = $syntax->{command};
             my $base = $syntax->{base};
             my $ref = $syntax->{ref};
             my $list = $syntax->{list};
@@ -4002,6 +4004,7 @@ $i             spec="$lspec">
             $base = $base ? qq{ base="$base"} : qq{};
             $ref = $ref ? qq{ ref="$ref"} : qq{};
             $hidden = $hidden ? qq{ hidden="true"} : qq{};
+            $command = $command ? qq{ command="true"} : qq{};
             $minLength = defined $minLength && $minLength ne '' ?
                 qq{ minLength="$minLength"} : qq{};
             $maxLength = defined $maxLength && $maxLength ne '' ?
@@ -4013,7 +4016,7 @@ $i             spec="$lspec">
             $step = defined $step && $step ne '' ? qq{ step="$step"} : qq{};
             $defstat = $defstat ne 'current' ? qq{ status="$defstat"} : qq{};
 
-            print qq{$i  <syntax$hidden>\n};
+            print qq{$i  <syntax$hidden$command>\n};
             if ($list) {
                 my $ended = ($minLength || $maxLength) ? '' : '/';
                 print qq{$i    <list$ended>\n};
@@ -4432,6 +4435,7 @@ $i  </import>
         # XXX this is almost verbatim from xml_node
         if ($syntax) {
             my $hidden = $syntax->{hidden};
+            my $command = $syntax->{command};
             my $base = $syntax->{base};
             my $ref = $syntax->{ref};
             my $list = $syntax->{list};
@@ -4458,6 +4462,7 @@ $i  </import>
             $base = $base ? qq{ base="$base"} : qq{};
             $ref = $ref ? qq{ ref="$ref"} : qq{};
             $hidden = $hidden ? qq{ hidden="true"} : qq{};
+            $command = $command ? qq{ command="true"} : qq{};
             $minListLength = defined $minListLength && $minListLength ne '' ?
                 qq{ minLength="$minListLength"} : qq{};
             $maxListLength = defined $maxListLength && $maxListLength ne '' ?
@@ -4508,7 +4513,7 @@ $i  </import>
             $nullValue = defined $nullValue ?
                 qq{ nullValue="$nullValue"} : qq{};
 
-            print qq{$i  <syntax$hidden>\n};
+            print qq{$i  <syntax$hidden$command>\n};
             if ($list) {
                 my $ended = ($minListLength || $maxListLength ||
                              $minListItems || $maxListItems) ? '' : '/';
@@ -5024,8 +5029,8 @@ sub html_node
     my $name = html_escape($node->{name}, {empty => ''});
     my $ppath = html_escape($node->{pnode}->{path}, {empty => ''});
     my $pname = html_escape($node->{pnode}->{name}, {empty => ''});
-    # XXX don't need to pass hidden, list, reference etc (are in syntax)
-    #     but does no harm (now passing node too!) :(
+    # XXX don't need to pass hidden, command, list, reference etc (are in
+    #     syntax) but does no harm (now passing node too!) :(
     # XXX should work harder to define profile, object and parameter within
     #     profiles (so could use templates in descriptions)
     my $factory = ($node->{deftype} && $node->{deftype} eq 'factory') ?
@@ -5041,10 +5046,13 @@ sub html_node
                      table => $node->{table},
                      profile => $profile ? $name : '',
                      access => $node->{access},
+                     minEntries => $node->{minEntries},
+                     maxEntries => $node->{maxEntries},
                      type => $node->{type},
                      syntax => $node->{syntax},
                      list => $node->{syntax}->{list},
                      hidden => $node->{syntax}->{hidden},
+                     command => $node->{syntax}->{command},
                      factory => $factory,
                      reference => $node->{syntax}->{reference},
                      uniqueKeys => $node->{uniqueKeys},
@@ -5514,7 +5522,7 @@ END
 END
             $html_buffer .= <<END;
         <tr$trclass>
-          <td class="${tdclass}">$name</td>
+          <td class="${tdclass}" title="$path">$name</td>
           <td class="${tdclasstyp}">$type</td>
           $synt_oc<td class="${tdclasstyp}">$syntax</td>$synt_cc
           <td class="${tdclasswrt}c">$write</td>
@@ -5944,17 +5952,27 @@ sub html_template
             $inval !~ /\{\{pattern\}\}/ && $inval !~ /\{\{nopattern\}\}/;
     }
 
-    # similarly auto-append {{hidden}}, {{factory}} and {{keys}} if
-    # appropriate
+    # similarly auto-append {{hidden}}, {{command}}, {{factory}}, {{entries}}
+    # and {{keys}} if appropriate
     if ($p->{hidden} && $inval !~ /\{\{hidden/ &&
         $inval !~ /\{\{nohidden\}\}/) {
         my $sep = !$inval ? "" : "\n";
         $inval .= $sep . "{{hidden}}";
     }
+    if ($p->{command} && $inval !~ /\{\{command/ &&
+        $inval !~ /\{\{nocommand\}\}/) {
+        my $sep = !$inval ? "" : "\n";
+        $inval .= $sep . "{{command}}";
+    }
     if ($p->{factory} && $inval !~ /\{\{factory/ &&
         $inval !~ /\{\{nofactory\}\}/) {
         my $sep = !$inval ? "" : "\n";
         $inval .= $sep . "{{factory}}";
+    }
+    my ($multi) = util_is_multi_instance($p->{minEntries}, $p->{maxEntries});
+    if ($multi && $inval !~ /\{\{entries/ && $inval !~ /\{\{noentries\}\}/) {
+        my $sep = !$inval ? "" : "\n";
+        $inval .= $sep . "{{entries}}";
     }
     if ($p->{uniqueKeys} && @{$p->{uniqueKeys}}&&
         $inval !~ /\{\{keys/ && $inval !~ /\{\{nokeys\}\}/) {
@@ -5985,6 +6003,10 @@ sub html_template
           text0 => \&html_template_keys},
          {name => 'nokeys',
           text0 => q{}},
+         {name => 'entries',
+          text0 => \&html_template_entries},
+         {name => 'noentries',
+          text0 => q{}},
          {name => 'list',
           text0 => \&html_template_list,
           text1 => \&html_template_list},
@@ -6005,6 +6027,10 @@ sub html_template
           text0 => q{{{mark|hidden}}When read, this parameter returns {{null}}, regardless of the actual value.},
           text1 => q{{{mark|hidden}}When read, this parameter returns ''$a[0]'', regardless of the actual value.}},
          {name => 'nohidden',
+          text0 => q{}},
+         {name => 'command',
+          text0 => q{{{mark|command}}The value of this parameter is not part of the device configuration and is always {{null}} when read.}},
+         {name => 'nocommand',
           text0 => q{}},
          {name => 'factory',
           text0 => q{{{mark|factory}}The factory default value MUST be ''$p->{factory}''.}},
@@ -6348,6 +6374,33 @@ sub html_template_profdesc
     return $text;
 }
 
+sub html_template_entries
+{
+    my ($opts) = @_;
+
+    my $min = $opts->{minEntries};
+    my $max = $opts->{maxEntries};
+
+    my ($multi, $fixed) = util_is_multi_instance($min, $max);
+
+    return qq{} unless $multi;
+    
+    return qq{} if $min == 0 && $max eq 'unbounded';
+
+    # XXX should say something here but I don't know what is best
+    return qq{} if $min == 0 && $max == 1;
+
+    my $minEntries = ($min > 1) ? 'entries' : 'entry';
+    return qq{This table MUST contain exactly $min $minEntries.} if $fixed;
+
+    return qq{This table MUST contain at least $min $minEntries.} if
+        $max eq 'unbounded';
+
+    my $maxEntries = ($max > 1) ? 'entries' : 'entry'; 
+    return qq{This table MUST contain at least $min and }.
+        qq{at most $max $maxEntries.};
+}
+
 sub html_template_keys
 {
     my ($opts) = @_;
@@ -6604,6 +6657,10 @@ sub html_template_objectref
     $path = $path1 if $objects->{$path1} && %{$objects->{$path1}};
     $path = $path2 if $objects->{$path2} && %{$objects->{$path2}};
 
+    # XXX if path starts ".Services." this is a reference to another data
+    #     model, so no checks and no link
+    return qq{''$name''} if $path =~ /^\.Services\./;
+
     my $invalid = ($objects->{$path} && %{$objects->{$path}}) ? '' : '?';
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
@@ -6619,7 +6676,7 @@ sub html_template_objectref
             $invalid = '!';
         }
     }
-   
+
     $name = qq{''$name$invalid''};
     $name = html_get_anchor($path, 'path', $name) unless $nolinks;
 
@@ -6899,7 +6956,8 @@ sub html_template_reference
 # 
 # XXX note that DM instances can't really make use of the proposed "^" syntax
 #     because it implies a reference to a different data model, so it is not
-#     yet supported
+#     yet supported (as a partial alternative, a path starting ".Services" is
+#     left unchanged)
 sub relative_path
 {
     my ($parent, $name, $scope) = @_;
@@ -6922,10 +6980,14 @@ sub relative_path
     if ($scope eq 'normal' && $name =~ /^(Device|InternetGatewayDevice)\./) {
         $path = $name;
     } elsif (($scope eq 'normal' && $name =~ /^$sepp/) || $scope eq 'model') {
-        my ($root, $next) = split /$sepp/, $parent;
-        $next = ($next =~ /^$instp/) ? ($sep . $next) : '';
-        my $sep = ($name =~ /^$sepp/) ? '' : $sep;
-        $path = $root . $next . $sep . $name;
+        if ($name =~ /^${sepp}Services${sepp}/) {
+            $path = $name;
+        } else {
+            my ($root, $next) = split /$sepp/, $parent;
+            $next = ($next =~ /^$instp/) ? ($sep . $next) : '';
+            my $sep = ($name =~ /^$sepp/) ? '' : $sep;
+            $path = $root . $next . $sep . $name;
+        }
     } else {
         if ($scope eq 'normal' && $name =~ /^$parp/) {
             my ($nlev) = ($name =~ /^($parp*)/);
@@ -6953,7 +7015,8 @@ sub relative_path
 
     # XXX as experiment, remove leading separator in returned name (affects
     #     display only; means that ".DeviceInfo" is displayed as "DeviceInfo")
-    $name =~ s/^$sepp//;
+    $name =~ s/^${sepp}Services//;
+    $name =~ s/^${sepp}//;
 
     return ($path, $name);
 }
@@ -8582,7 +8645,7 @@ sub util_is_multi_instance
 {
     my ($min, $max) = @_;
 
-    my $multi = ($max eq 'unbounded' || $max > 1);
+    my $multi = defined($max) && ($max eq 'unbounded' || $max > 1);
     my $fixed = ($multi && $max eq $min);
 
     return ($multi, $fixed);
@@ -8702,7 +8765,7 @@ sub sanity_node
     my $path = $node->{path};
     my $name = $node->{name};
     my $type = $node->{type};
-    my $hidden = $node->{hidden};
+    my $hidden = $node->{hidden}; # XXX this is hidden node, not value! 
     my $access = $node->{access};
     my $status = $node->{status};
     my $syntax = $node->{syntax};
@@ -8764,7 +8827,7 @@ sub sanity_node
     #     hidden
     if ($object) {
         my $ppath = $node->{pnode}->{path};
-        my ($multi,$fixed) = util_is_multi_instance($minEntries, $maxEntries);
+        my ($multi, $fixed) = util_is_multi_instance($minEntries, $maxEntries);
 
         print STDERR "$path: object is optional; was this intended?\n"
             if $minEntries eq '0' && $maxEntries eq '1' && $pedantic > 1;
@@ -8840,6 +8903,9 @@ sub sanity_node
             defined $node->{pnode}->{maxEntries} &&
             $node->{pnode}->{maxEntries} eq 'unbounded' &&
             !$node->{pnode}->{fixedObject};
+
+        print STDERR "$path: read-only command parameter\n"
+            if $syntax->{command} && $access eq 'readOnly';
 
         # XXX doesn't complain about defaults in read-only objects or tables;
         #     this is because they are quietly ignored (this is part of
@@ -9300,7 +9366,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/08/27 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#173 $
+$Date: 2010/10/08 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#174 $
 
 =cut
