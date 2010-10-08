@@ -7,3 +7,10 @@ The windows installer includes the frontend and the report.exe tool. For install
 follow the instructions. The tool runs under Windows (XP, Vista, 7(?))
 
 For questions and comments please contact klaus.wich@nsn.com
+
+
+
+
+Historie
+--------
+10/08/2010 new version of report.exe (report.pl#174) included in intaller. Please uninstall old version first.
