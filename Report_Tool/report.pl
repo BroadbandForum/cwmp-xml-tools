@@ -157,8 +157,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/10/08 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#174 $};
+my $tool_vers_date = q{$Date: 2010/10/11 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#175 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -6846,7 +6846,7 @@ sub html_template_reference
 
                 my $tpn = $objects->{$tpp};
                 print STDERR "$path: targetParent doesn't exist: $tp\n"
-                    unless $tpn;
+                    unless $tpn || $tpp =~ /^\.Services\./;
 
                 $targetParentFixed = 0 if $tpn && !$tpn->{fixedObject};
             }
@@ -6956,7 +6956,7 @@ sub html_template_reference
 # 
 # XXX note that DM instances can't really make use of the proposed "^" syntax
 #     because it implies a reference to a different data model, so it is not
-#     yet supported (as a partial alternative, a path starting ".Services" is
+#     yet supported (as a partial alternative, a path starting ".Services." is
 #     left unchanged)
 sub relative_path
 {
@@ -9366,7 +9366,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/10/08 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#174 $
+$Date: 2010/10/11 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#175 $
 
 =cut
