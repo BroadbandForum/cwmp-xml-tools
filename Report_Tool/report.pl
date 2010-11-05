@@ -157,8 +157,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/10/11 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#175 $};
+my $tool_vers_date = q{$Date: 2010/11/05 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#176 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -1888,6 +1888,8 @@ sub expand_model_profile_parameter
     my @match = grep {$_->{name} eq $name} @{$pnode->{nodes}};
     my $nnode;
     if (@match) {
+        # XXX could / should check for changed requirements here (but
+        #     should be used only for errata)
 	$nnode = $match[0];
     } else {
         # XXX recently added path; there is code elsewhere that creates it
@@ -2664,6 +2666,17 @@ sub add_parameter
                 $changed->{syntax}->{$key} = 1;
             }
 	}
+        # XXX the above doesn't catch units, which aren't stored in syntax
+        #     (why not? maybe because they are data type specific?)
+        # XXX this is exactly the same logic as the above general syntax
+        #     syntax logic...
+        if ($units && (!defined $nnode->{units} || $units ne $nnode->{units})) {
+            my $old = defined $nnode->{units} ? $nnode->{units} : '<none>';
+            print STDERR "$path: units: $old -> $units\n"
+                if $verbose;
+            $nnode->{units} = $units;
+            $changed->{units} = 1;
+        }
         # XXX this is a special case for deleting list facets
         if ($nnode->{syntax}->{list} && $nnode->{syntax}->{liststatus} &&
             $nnode->{syntax}->{liststatus} eq 'deleted') {
@@ -9366,7 +9379,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/10/11 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#175 $
+$Date: 2010/11/05 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#176 $
 
 =cut
