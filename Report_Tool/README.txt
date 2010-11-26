@@ -102,7 +102,12 @@ Options:
     --lastonly
         reports only on items that were defined or last modified in the
         specification corresponding to the last file on the command line (as
-        determined by this last file's spec attribute)
+        determined by the last file's spec attribute)
+
+        if --compare is also specified, the "last only" criterion uses the
+        file name rather than the spec (so the changes shown will always be
+        those from the second file on the command line even if both files
+        have the same spec)
 
     --marktemplates
         mark selected template expansions with &&&& followed by
