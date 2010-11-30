@@ -11,8 +11,15 @@ For questions and comments please contact klaus.wich@nsn.com
 
 
 
-Historie
+History
 --------
-10/14/2010 new version of report.exe (report.pl#175) included in intaller. Installer will now override report.exe
-           during reinstall if it includes newer version.
-10/08/2010 new version of report.exe (report.pl#174) included in intaller. Please uninstall old version first.
+11/20/2010 ReportGuiSetup 1.0.3, ReportGui 1.0.1
+	new version of report.exe (report.pl#177) included in installer. 
+	
+10/14/2010 ReportGuiSetup 1.0.2, ReportGui 1.0.1
+	new version of report.exe (report.pl#175) included in installer. 
+	Installer will now override report.exe during reinstall if it includes newer version.
+	
+10/08/2010 ReportGuiSetup 1.0.1, ReportGui 1.0.1 
+	new version of report.exe (report.pl#174) included in installer. 
+  Please uninstall old version first.
