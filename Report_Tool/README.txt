@@ -51,7 +51,8 @@ Options:
         compares the two files that were specified on the command line,
         showing the changes made by the second one
 
-        note that this is identical to setting --autobase and --showdiffs
+        note that this is identical to setting --autobase and --showdiffs;
+        it also affects the behavior of --lastonly
 
     --components
         affects only the xml2 report; generates a component for each object;
@@ -101,8 +102,8 @@ Options:
 
     --lastonly
         reports only on items that were defined or last modified in the
-        specification corresponding to the last file on the command line (as
-        determined by the last file's spec attribute)
+        specification corresponding to the last XML file on the command line
+        (as determined by the last XML file's spec attribute)
 
         if --compare is also specified, the "last only" criterion uses the
         file name rather than the spec (so the changes shown will always be
@@ -220,10 +221,10 @@ Options:
 
     --showdiffs
         currently affects only the text and html reports; visually indicates
-        the differences resulting from the last file on the command line
+        the differences resulting from the last XML file on the command line
 
         for the html report, insertions are shown in blue and deletions are
-        shown in read strikeout; in order to enhance readability, hyperlinks
+        shown in red strikeout; in order to enhance readability, hyperlinks
         are not shown in a special color (but are still underlined); note
         that this hyperlink behavior uses color=inherit, which apparently
         isn't supported by Internet Explorer

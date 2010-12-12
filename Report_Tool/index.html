@@ -80,7 +80,7 @@
 
 <dd>
 <p>compares the two files that were specified on the command line, showing the changes made by the second one</p>
-<p>note that this is identical to setting <strong>--autobase</strong> and <strong>--showdiffs</strong></p>
+<p>note that this is identical to setting <strong>--autobase</strong> and <strong>--showdiffs</strong>; it also affects the behavior of <strong>--lastonly</strong></p>
 </dd>
 <dt><strong><a name="components" class="item"><strong>--components</strong></a></strong></dt>
 
@@ -136,7 +136,7 @@
 <dt><strong><a name="lastonly" class="item"><strong>--lastonly</strong></a></strong></dt>
 
 <dd>
-<p>reports only on items that were defined or last modified in the specification corresponding to the last file on the command line (as determined by the last file's <strong>spec</strong> attribute)</p>
+<p>reports only on items that were defined or last modified in the specification corresponding to the last XML file on the command line (as determined by the last XML file's <strong>spec</strong> attribute)</p>
 <p>if <strong>--compare</strong> is also specified, the &quot;last only&quot; criterion uses the file name rather than the spec (so the changes shown will always be those from the second file on the command line even if both files have the same spec)</p>
 </dd>
 <dt><strong><a name="marktemplates" class="item"><strong>--marktemplates</strong></a></strong></dt>
@@ -271,8 +271,8 @@
 <dt><strong><a name="showdiffs" class="item"><strong>--showdiffs</strong></a></strong></dt>
 
 <dd>
-<p>currently affects only the <strong>text</strong> and <strong>html</strong> reports; visually indicates the differences resulting from the last file on the command line</p>
-<p>for the <strong>html</strong> report, insertions are shown in blue and deletions are shown in read strikeout; in order to enhance readability, hyperlinks are not shown in a special color (but are still underlined); note that this hyperlink behavior uses <strong>color=inherit</strong>, which apparently isn't supported by Internet Explorer</p>
+<p>currently affects only the <strong>text</strong> and <strong>html</strong> reports; visually indicates the differences resulting from the last XML file on the command line</p>
+<p>for the <strong>html</strong> report, insertions are shown in blue and deletions are shown in red strikeout; in order to enhance readability, hyperlinks are not shown in a special color (but are still underlined); note that this hyperlink behavior uses <strong>color=inherit</strong>, which apparently isn't supported by Internet Explorer</p>
 <p>is implied by <strong>--compare</strong></p>
 </dd>
 <dt><strong><a name="showreadonly" class="item"><strong>--showreadonly</strong></a></strong></dt>
@@ -376,8 +376,8 @@
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:wlupton@2wire.com">wlupton@2wire.com</a>&gt;</p>
-<p>$Date: 2010/11/26 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#177 $</p>
+<p>$Date: 2010/12/10 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#178 $</p>
 
 </body>
 
