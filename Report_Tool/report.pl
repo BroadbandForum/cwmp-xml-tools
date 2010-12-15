@@ -157,8 +157,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/12/10 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#178 $};
+my $tool_vers_date = q{$Date: 2010/12/15 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#179 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -3414,7 +3414,7 @@ sub add_range
                 $value .= $minval if defined $minval;
                 $value .= ':';
                 $value .= $maxval if defined $maxval;
-                $value .= ':' . $step if $step != 1;
+                $value .= ' step ' . $step if $step != 1;
             }
         } else {
             my $add_step = 0;
@@ -9432,7 +9432,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/12/10 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#178 $
+$Date: 2010/12/15 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#179 $
 
 =cut
