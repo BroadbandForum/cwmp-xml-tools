@@ -157,8 +157,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2010/12/15 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#179 $};
+my $tool_vers_date = q{$Date: 2011/01/06 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#180 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -851,10 +851,11 @@ sub expand_bibliography
         if ($dupref) {
             my $changed = 0;
             foreach my $key (keys %$hash) {
-                # XXX note, only replace if new value is non-blank
-                if ($hash->{$key} && $hash->{$key} ne $dupref->{$key}) {
-                    print STDERR "$id: $key: $dupref->{$key} -> ".
-                        "$hash->{$key}\n" if $verbose;
+                # XXX note, only replace if old value is blank and new value
+		#     is non-blank (allows entries in tr-069-biblio.xml to
+		#     have precedence)
+                if (!$dupref->{$key} && $hash->{$key}) {
+                    print STDERR "$id: $key -> $hash->{$key}\n" if $verbose;
                     $dupref->{$key} = $hash->{$key};
                     $changed = 1;
                 }
@@ -9432,7 +9433,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2010/12/15 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#179 $
+$Date: 2011/01/06 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#180 $
 
 =cut
