@@ -157,8 +157,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/01/06 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#180 $};
+my $tool_vers_date = q{$Date: 2011/01/19 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#181 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -6656,7 +6656,7 @@ sub html_template_paramref
         if (!$invalid && $parameters->{$path}->{status} &&
             $parameters->{$path}->{status} eq 'deleted') {
             print STDERR "$object$param: reference to deleted parameter ".
-                "$path\n" if $pedantic;
+                "$path\n" if !$showdiffs && $pedantic;
             $invalid = '!';
         }
     }
@@ -6722,7 +6722,7 @@ sub html_template_objectref
         if (!$invalid && $objects->{$path}->{status} &&
             $objects->{$path}->{status} eq 'deleted') {
             print STDERR "$object$param: reference to deleted object $path\n"
-                if $pedantic;
+                if !$showdiffs && $pedantic;
             $invalid = '!';
         }
     }
@@ -6761,7 +6761,7 @@ sub html_template_valueref
             if (!$invalid && $parameters->{$path}->{status} &&
                 $parameters->{$path}->{status} eq 'deleted') {
                 print STDERR "$object$param: reference to deleted parameter ".
-                    "$path\n" if $pedantic;
+                    "$path\n" if !$showdiffs && $pedantic;
                 $invalid = '!';
             }
         }
@@ -6792,7 +6792,7 @@ sub html_template_valueref
                 if $invalid;
             if (!$invalid && $values->{$value}->{status} eq 'deleted') {
                 print STDERR "$object$param: reference to deleted value ".
-                    "$value\n" if $pedantic;
+                    "$value\n" if !$showdiffs && $pedantic;
                 $invalid = '!';
             }
         }
@@ -8938,8 +8938,13 @@ sub sanity_node
         #    $parameters->{$path.$enableParameter} if $enableParameter;
         #(!$enableParameter || (!$hidden && $enableParameter->{hidden}))
 
+        my $any_functional = 0;
+        foreach my $uniqueKey (@{$node->{uniqueKeys}}) {
+            $any_functional = 1 if $uniqueKey->{functional};
+        }
+
         print STDERR "$path: writable table but no enableParameter\n"
-            if $access ne 'readOnly' && $multi && @{$node->{uniqueKeys}} &&
+            if $access ne 'readOnly' && $multi && $any_functional &&
             !$enableParameter;
 
         print STDERR "$path: writable fixed size table\n"
@@ -9433,7 +9438,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2011/01/06 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#180 $
+$Date: 2011/01/19 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#181 $
 
 =cut
