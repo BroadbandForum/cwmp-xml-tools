@@ -4,15 +4,17 @@ ReportGUI:
 This utility provides a graphical frontend for the "report.exe" tool to generate reports from CWMP xml datafiles.
 
 The windows installer includes the frontend and the report.exe tool. For installation please execute the ReportGuiSetup and
-follow the instructions. The tool runs under Windows (XP, Vista, 7(?))
+follow the instructions. The tool runs under Windows (XP, Vista, 7)
 
 For questions and comments please contact klaus.wich@nsn.com
 
 
-
-
 History
 --------
+01/25/20101 ReportGuiSetup 1.0.4, ReportGui 1.0.2
+	new version of report.exe (report.pl#181) included in installer. 
+	Error correction in ReportGUI: Include directories and filenames with spaces are now correctly processed
+	
 11/20/2010 ReportGuiSetup 1.0.3, ReportGui 1.0.1
 	new version of report.exe (report.pl#177) included in installer. 
 	
