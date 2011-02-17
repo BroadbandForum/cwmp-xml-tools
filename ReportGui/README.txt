@@ -11,7 +11,13 @@ For questions and comments please contact klaus.wich@nsn.com
 
 History
 --------
-01/25/20101 ReportGuiSetup 1.0.4, ReportGui 1.0.2
+02/11/2011 ReportGuiSetup 1.0.5, ReportGui 1.1, report.exe (report.pl#181) 
+	Update ReportGUI 1.1 :
+  - New standard report options to compare two files
+	-	Improved handling of include directories, possible to sort list. 
+	- prevent overwrite of source xml for xml targets in expert handling
+  
+01/25/2011 ReportGuiSetup 1.0.4, ReportGui 1.0.2
 	new version of report.exe (report.pl#181) included in installer. 
 	Error correction in ReportGUI: Include directories and filenames with spaces are now correctly processed
 	
