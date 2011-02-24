@@ -11,6 +11,9 @@ For questions and comments please contact klaus.wich@nsn.com
 
 History
 --------
+02/24/2011 ReportGuiSetup 1.0.6, ReportGui 1.1, report.exe (report.pl#182)
+	new version of report.exe (report.pl#182) included in installer.
+
 02/11/2011 ReportGuiSetup 1.0.5, ReportGui 1.1, report.exe (report.pl#181) 
 	Update ReportGUI 1.1 :
   - New standard report options to compare two files
