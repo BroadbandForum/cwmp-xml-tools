@@ -157,8 +157,8 @@ use URI::Escape;
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/01/19 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#181 $};
+my $tool_vers_date = q{$Date: 2011/02/24 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#182 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -216,6 +216,7 @@ my $includes = [];
 my $info = 0;
 my $lastonly = 0;
 my $marktemplates = undef;
+my $newparser = 0;
 my $noautomodel = 0;
 my $nocomments = 0;
 my $nolinks = 0;
@@ -261,6 +262,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
 	   'info' => \$info,
            'lastonly' => \$lastonly,
 	   'marktemplates' => \$marktemplates,
+           'newparser' => \$newparser,
 	   'noautomodel' => \$noautomodel,
 	   'nocomments' => \$nocomments,
 	   'nohyphenate' => \$nohyphenate,
@@ -587,7 +589,11 @@ sub expand_import
     # expand data types in the imported file
     # XXX this is experimental (it's so reports can include data types)
     foreach my $item ($toplevel->findnodes('dataType')) {
-	expand_dataType($context, $root, $item);
+        if ($newparser) {
+            expand_dataType_new($context, $root, $item);
+        } else {
+            expand_dataType($context, $root, $item);
+        }
     }
 
     # expand bibliogaphy in the imported file
@@ -697,7 +703,7 @@ sub expand_dataType
                 status => $status, description => $description,
                 descact => $descact, descdef => $descdef,
                 minLength => $minLength, maxLength => $maxLength,
-                patterns => []};
+                patterns => [], specs => []};
 
     foreach my $pattern (@$patterns) {
         my $value = $pattern->findvalue('@value');
@@ -713,6 +719,65 @@ sub expand_dataType
     }
 
     push @{$pnode->{dataTypes}}, $node;
+}
+
+# Alternative datatype expansion enabled by --newparser.  Is driven more
+# directly by the DM Schema structure.  Will eventually move over to using
+# these routines elsewhere.
+#
+# XXX Would like to make this more data-driven, e.g. pass a description of
+#     attributes to fetch, and elements to parse, and how to represent them
+#     as a Perl data structure, but such information would just duplicate what
+#     is in the schema, so it would be nice to parse the schema itself and use
+#     that to drive how the parsed information is represented natively, e.g.
+#     $param->{syntax}->{int}->{range}->[0]->{minInclusive} would be the naive
+#     representation but might want to skip the {syntax} level and to store the
+#     {int} level as an attribute, so would also want some configuration to
+#     indicate such things.  Maybe this is too ambitious but it would be nice!
+sub expand_dataType_new
+{
+    my ($context, $pnode, $dataType) = @_;
+
+    my $file = $context->[0]->{file};
+    my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
+
+    # attributes
+    my $name = $dataType->findvalue('@name');
+    my $base = $dataType->findvalue('@base');
+    my $status = $dataType->findvalue('@status');
+
+    # description
+    my $description = expand_description($dataType);
+
+    # all facets (only permitted if this is a derived type)
+    my $facets = expand_facets($dataType);
+
+    # builtin data types
+    my $builtin = expand_builtin_data_type($dataType);
+}
+
+sub expand_description
+{
+    my ($context, $node, $dataType) = @_;
+
+}
+
+# Update list of data types that are actually used (the specs attribute is an
+# array of the specs that use the data type)
+sub update_datatypes
+{
+    my ($name, $file, $spec) = @_;
+
+    my ($dataType) = grep {$_->{name} eq $name} @{$root->{dataTypes}};
+    return unless $dataType;
+
+    print STDERR "#### marking $name used (file=$file, spec=$spec)\n" if
+        $verbose > 1;
+
+    push @{$dataType->{specs}}, $spec unless
+        grep {$_ eq $spec} @{$dataType->{specs}};
 }
 
 # Expand a bibliography definition.
@@ -2017,6 +2082,8 @@ sub add_model
 	$nnode->{spec} = $spec;
 
         # XXX need cleverer comparison
+        # XXX need same deferred reporting logic that have for objects and
+        #     parameters
         if ($description) {
             if ($description ne $nnode->{description}) {
                 print STDERR "$name: description: changed\n" if $verbose;
@@ -2288,9 +2355,9 @@ sub add_object
         }
         if ($description) {
             if ($description eq $nnode->{description}) {
-                print STDERR "$path: description: same as previous\n"
-                    if $pedantic && !$autobase;
+                $nnode->{errors}->{samedesc} = $descact if !$autobase;
             } else {
+                $nnode->{errors}->{samedesc} = undef;
                 # XXX not if descact is append?
                 my $diffs = util_diffs($nnode->{description}, $description);
                 print STDERR "$path: description: changed\n" if $verbose;
@@ -2298,10 +2365,9 @@ sub add_object
                 $nnode->{description} = $description;
                 $changed->{description} = $diffs;
             }
-            my $tdescact = util_default($descact);
-            print STDERR "$path: invalid description action: $tdescact\n"
-                if $pedantic && !$autobase &&
-                (!$descact || $descact eq 'create');
+            $nnode->{errors}->{baddescact} =
+                (!$autobase && (!$descact || $descact eq 'create')) ?
+                $descact : undef;
         }
         # XXX need cleverer comparison
         if ($descact && $descact ne $nnode->{descact}) {
@@ -2361,7 +2427,7 @@ sub add_object
                   description => $description, descact => $descact,
                   descdef => $descdef, default => undef, dynamic => $dynamic,
                   majorVersion => $majorVersion, minorVersion => $minorVersion,
-                  nodes => [], history => undef};
+                  nodes => [], history => undef, errors => {}};
         $previouspath = $path;
         # XXX ensure minEntries and maxEntries are defined (will be overridden
         #     by the caller if necessary; all this logic should be here)
@@ -2542,9 +2608,9 @@ sub add_parameter
         }
         if ($description) {
             if ($description eq $nnode->{description}) {
-                print STDERR "$path: description: same as previous\n"
-                    if $pedantic && !$autobase;
+                $nnode->{errors}->{samedesc} = $descact if !$autobase;
             } else {
+                $nnode->{errors}->{samedesc} = undef;
                 # XXX not if descact is append?
                 my $diffs = util_diffs($nnode->{description}, $description);
                 print STDERR "$path: description: changed\n" if $verbose;
@@ -2552,10 +2618,9 @@ sub add_parameter
                 $nnode->{description} = $description;
                 $changed->{description} = $diffs;
             }
-            my $tdescact = util_default($descact);
-            print STDERR "$path: invalid description action: $tdescact\n"
-                if $pedantic && !$autobase &&
-                (!$descact || $descact eq 'create');
+            $nnode->{errors}->{baddescact} = 
+                (!$autobase && (!$descact || $descact eq 'create')) ?
+                $descact : undef;
         }
         # XXX need cleverer comparison
         if ($descact && $descact ne $nnode->{descact}) {
@@ -2626,9 +2691,10 @@ sub add_parameter
                 $nvalue->{description} = $cvalue->{description};
             } else {
                 if ($nvalue->{description} eq $cvalue->{description}) {
-                    print STDERR "$path.$value: description: same as ".
-                        "previous\n" if $pedantic && !$autobase;
+                    $nvalue->{errors}->{samedesc} = $nvalue->{descact}
+                    if !$autobase;
                 } else {
+                    $nvalue->{errors}->{samedesc} = undef;
                     # XXX not if descact is append?
                     my $diffs = util_diffs($cvalue->{description},
                                            $nvalue->{description});
@@ -2637,10 +2703,10 @@ sub add_parameter
                     print STDERR $diffs if $verbose > 1;
                     $changed->{values}->{$value}->{description} = $diffs;
                 }
-                my $tdescact = util_default($nvalue->{descact});
-                print STDERR "$path.$value: invalid description action: ".
-                    "$tdescact\n" if $pedantic && !$autobase &&
-                    (!$nvalue->{descact} || $nvalue->{descact} eq 'create');
+                $nvalue->{errors}->{baddescact} =
+                    (!$autobase &&
+                    (!$nvalue->{descact} || $nvalue->{descact} eq 'create')) ?
+                    $nvalue->{descact} : undef;
             }
             # XXX need cleverer comparison
             if ($nvalue->{descact} && $nvalue->{descact} ne $cvalue->{descact}){
@@ -2793,7 +2859,7 @@ sub add_parameter
                   dynamic => $dynamic, majorVersion => $majorVersion,
                   minorVersion => $minorVersion, activeNotify => $activeNotify,
                   forcedInform => $forcedInform, units => $units, nodes => [],
-                  history => undef};
+                  history => undef, errors => {}};
         # if previous is defined, it's a hint to insert this node after the
         # node of this name, if it exists
         my $index = @{$pnode->{nodes}};
@@ -2812,6 +2878,8 @@ sub add_parameter
         $pnode->{lspec} = $Lspec;
 	$parameters->{$path} = $nnode;
     }
+
+    update_datatypes($syntax->{ref}, $file, $spec) if $type eq 'dataType';
 
     print STDERR Dumper(util_copy($nnode, ['pnode', 'nodes'])) if
         $debugpath && $path =~ /$debugpath/;
@@ -5228,6 +5296,9 @@ END
             # XXX this is still very basic; no ranges, lengths etc;
             foreach my $datatype (sort {$a->{name} cmp $b->{name}}
                                   @$datatypes) {
+                next if $lastonly &&
+                    !grep {$_ eq $lspec} @{$datatype->{specs}};
+
                 my $name = $datatype->{name};
                 my $base = base_type($name, 0);
                 my $description = $datatype->{description};
@@ -6108,7 +6179,9 @@ sub html_template
           text1 => \&html_template_mark},
          {name => 'issue',
           text1 => \&html_template_issue,
-          text2 => \&html_template_issue}
+          text2 => \&html_template_issue},
+         {name => 'ignore',
+          text => q{}}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -6363,6 +6436,9 @@ sub html_template_datatype
         my ($dtdef) = grep {$_->{name} eq $dtname} @{$root->{dataTypes}};
         # XXX not sure why need to call html_whitespace() here...
         $text = html_whitespace($dtdef->{description});
+        # XXX we remove any {{issue}} templates so they will occur only in
+        # the data type table and not whenever the data type is expanded
+        $text = util_ignore_template('issue', $text);
     }
 
     # otherwise, just return "[datatype] " (as a hyperlink), unless
@@ -8473,6 +8549,18 @@ sub util_list
     return $text;
 }
 
+# Ignore all instances of the named template in a string
+# (relies on the {{ignore}} template, which allows arbitrary arguments and
+# expands to an empty string)
+sub util_ignore_template
+{
+    my ($name, $text) = @_;
+
+    $text =~ s/(\{\{)($name)/$1ignore|$2/g;
+
+    return $text;
+}
+
 # Return all the historical values of a node's specified attribute
 sub util_history_values
 {
@@ -8885,6 +8973,27 @@ sub sanity_node
                     "\n" if @$ibr;
             }
         }
+
+        # errors that were deferred because they might have been cleared by
+        # a later version
+        print STDERR "$path: description: same as previous\n"
+            if $pedantic && defined $node->{errors}->{samedesc} &&
+            (!$node->{errors}->{samedesc} || $verbose);
+        print STDERR "$path: invalid description action: " .
+            util_default($node->{errors}->{baddescact}) . "\n" if
+            defined $node->{errors}->{baddescact};
+        if (util_is_defined($values)) {
+            foreach my $value (keys %$values) {
+                my $cvalue = $values->{$value};
+                
+                print STDERR "$path.$value: description: same as previous\n"
+                    if $pedantic && defined $cvalue->{errors}->{samedesc} &&
+                    (!$cvalue->{errors}->{samedesc} || $verbose);
+                print STDERR "$path.$value: invalid description action: " .
+                    util_default($cvalue->{errors}->{baddescact}) . "\n" if
+                    defined $cvalue->{errors}->{baddescact};
+            }
+        }
     }
 
     # object sanity checks
@@ -9007,6 +9116,10 @@ sub sanity_node
 		"a default value\n" if $pedantic && !$dynamic &&
                 defined($default) && $deftype eq 'object';
         #&& !($syntax->{list} && $default eq '');
+
+        print STDERR "$path: weak reference parameter is not writable\n" if
+            $syntax->{refType} && $syntax->{refType} eq 'weak' && 
+            $access eq 'readOnly';
 
 	# XXX other checks to make: profiles reference valid parameters,
 	#     reference types, default is valid for type, other facets are
@@ -9438,7 +9551,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2011/01/19 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#181 $
+$Date: 2011/02/24 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#182 $
 
 =cut
