@@ -1,20 +1,23 @@
 Usage:
     report.pl [--allbibrefs] [--autobase] [--autodatatype]
-    [--bibrefdocfirst] [--canonical] [--compare] [--components]
-    [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]...
-    [--dtspec[=s]] [--help] [--ignore=pattern("")]
+    [--bibrefdocfirst] [--canonical] [--catalog=c]... [--compare]
+    [--components] [--debugpath=pattern("")] [--deletedeprecated]
+    [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")]
     [--importsuffix=string("")] [--include=d]... [--info] [--lastonly]
     [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate]
     [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
     [--notemplates] [--nowarnredef] [--nowarnprofbadref]
     [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet]
     [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs]
-    [--showreadonly] [--showspec] [--showsyntax]
-    [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc]
+    [--showreadonly] [--showspec] [--showsyntax] [--special=<option>]
     [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
     [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
-    * cannot specify both --report and --special
+    *   the most common options are --include, --pedantic and --report=html
+
+    *   use --compare to compare files and --showdiffs to show differences
+
+    *   cannot specify both --report and --special
 
 Options:
     --allbibrefs
@@ -46,6 +49,16 @@ Options:
         affects only the xml2 report; causes descriptions to be processed
         into a canonical form that eases comparison with the original
         Microsoft Word descriptions
+
+    --catalog=s...
+        can be specified multiple times; XML catalogs
+        (http://en.wikipedia.org/wiki/XML_Catalog); the current directory
+        and any directories specified via --include are searched when
+        locating XML catalogs
+
+        XML catalogs are used only when validating DM instances as described
+        under --pedantic; it is not necessary to use XML catalogs in order
+        to validate DM instances
 
     --compare
         compares the two files that were specified on the command line,
@@ -179,9 +192,23 @@ Options:
         matches all objects)
 
     --pedantic=[i(1)]
-        enables output of warnings to stderr when logical inconsistencies in
-        the XML are detected; if the option is specified without a value,
+        enables output of warnings to *stderr* when logical inconsistencies
+        in the XML are detected; if the option is specified without a value,
         the value defaults to 1
+
+        also enables XML schema validation of DM instances; XML schemas are
+        located using the schemaLocation attribute:
+
+        *   if it specifies an absolute path, no search is performed
+
+        *   if it specifies a relative path, the directories specified via
+            --include are searched
+
+        *   URLs are treated specially: if no XML catalogs were supplied via
+            --catalog, the directory part is ignored and the schema is
+            located as for a relative path (above); if XML catalogs were
+            supplied via --catalog, the catalogs govern how (and whether)
+            the URLs are processed
 
     --quiet
         suppresses informational messages
@@ -193,7 +220,7 @@ Options:
             HTML document; see also --nolinks and --notemplates
 
         null
-            no output; errors go to stdout rather than stderr (default)
+            no output; errors go to *stdout* rather than *stderr* (default)
 
         tab tab-separated list, one object or parameter per line
 
@@ -244,7 +271,8 @@ Options:
         is like the Type column for simple types, but includes additional
         details for lists
 
-    --special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc
+    --special=deprecated|key|nonascii|normative|notify|obsoleted|profile|ref
+    |rfc
         performs special checks, most of which assume that several versions
         of the same data model have been supplied on the command line, and
         many of which operate only on the highest version of the data model
@@ -252,6 +280,9 @@ Options:
         deprecated, obsoleted
             for each profile item (object or parameter) report if it is
             deprecated or obsoleted
+
+        key for each table with a functional key, report access, path and
+            the key
 
         nonascii
             check which model, object, parameter or profile descriptions
@@ -283,6 +314,9 @@ Options:
             path names of all such items, together with the offending
             descriptions with the normative words surrounded by pairs of
             asterisks
+
+        ref for each reference parameter, report access, reference type and
+            path
 
     --thisonly
         outputs only definitions defined in the files on the command line,

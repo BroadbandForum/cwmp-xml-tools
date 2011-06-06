@@ -153,12 +153,12 @@ use File::Spec;
 use Getopt::Long;
 use Pod::Usage;
 use Text::Balanced qw{extract_bracketed};
-use URI::Escape;
+use URI::Split qw(uri_split);
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/02/24 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#182 $};
+my $tool_vers_date = q{$Date: 2011/06/06 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#183 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -202,6 +202,7 @@ my $autobase = 0;
 my $autodatatype = 0;
 my $bibrefdocfirst = 0;
 my $canonical = 0;
+my $catalogs = [];
 my $compare = 0;
 my $components = 0;
 my $debugpath = '';
@@ -249,6 +250,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'autodatatype' => \$autodatatype,
            'bibrefdocfirst' => \$bibrefdocfirst,
            'canonical' => \$canonical,
+           'catalog:s@' => \$catalogs,
            'compare' => \$compare,
            'components' => \$components,
            'debugpath:s' => \$debugpath,
@@ -372,6 +374,24 @@ $nocomments = 0 if $verbose;
 
 # XXX upnpdm profiles are broken...
 $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
+
+# XXX load_catalog() works but there is no error checking?
+{
+    my $parser = XML::LibXML->new();
+    foreach my $catalog (@$catalogs) {
+        my ($dir, $file) = find_file($catalog);
+        if (!$dir) {
+            print STDERR "parse_file: XML catalog $file not found\n";
+        } else {
+            my $tfile = $dir ? File::Spec->catfile($dir, $file) : $file;
+            print STDERR "loading XML catalog $tfile\n" if $verbose;
+            eval { $parser->load_catalog($tfile) };
+            if ($@) {
+                warn $@;
+            }
+        }
+    }
+}
 
 # Globals.
 my $first_comment = undef;
@@ -3574,8 +3594,9 @@ sub parse_file
     # XXX should parse it properly, but for now just check that we keep the
     #     one that defines the dmr location (it will define the dm location
     #     too)
-    $root->{schemaLocation} = $toplevel->findvalue("\@$xsi:schemaLocation")
-        unless $root->{schemaLocation} &&
+    my $schemaLocation = $toplevel->findvalue("\@$xsi:schemaLocation");
+    $root->{schemaLocation} = $schemaLocation unless
+        $root->{schemaLocation} &&
         $root->{schemaLocation} =~ /cwmp:datamodel-report-/;
     $root->{schemaLocation} =~ s/\s+/ /g;
 
@@ -3588,6 +3609,49 @@ sub parse_file
     foreach my $comment (@$comments) {
         my $text = $comment->findvalue('.');
         $first_comment = $text unless $first_comment;
+    }
+
+    # validate file if requested
+    return $toplevel unless $pedantic;
+
+    # use schemaLocation to build schema referencing the same schemas that
+    # the file references
+    my $schemas =
+        qq{<?xml version="1.0" encoding="UTF-8"?>\n} .
+        qq{<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">\n};
+
+    my %nsmap = split /\s+/, $schemaLocation;
+    foreach my $ns (keys %nsmap) {
+        my $path = $nsmap{$ns};
+
+        # if there are no XML catalogs and path is an http(s) URL, retain only
+        # the filename part (so can search for it)
+        if (!@$catalogs) {
+            my ($scheme) = uri_split($path);
+            $path =~ s/.*\/// if $scheme && $scheme =~ /^https?$/i;
+        }
+
+        # search for file; don't report failure (schema validation will do this)
+        my ($dir, $file) = find_file($path);
+        $path = File::Spec->catfile($dir, $file) if $dir;
+        $schemas .= qq{<xs:import namespace="$ns" schemaLocation="$path"/>\n};
+    }
+
+    $schemas .= qq{</xs:schema>\n};
+
+    my $schema;
+    eval { $schema = XML::LibXML::Schema->new(string => $schemas) };
+    if ($@) {
+        print STDERR "invalid auto-generated XML schema for $tfile:\n";
+        warn $@;
+    } else {
+        eval { $schema->validate($tree) };
+        if ($@) {
+            print STDERR "failed to validate $tfile:\n" if $verbose;
+            warn $@;
+        } else {
+            print STDERR "validated $tfile\n" if $verbose;
+        }
     }
 
     return $toplevel;
@@ -6423,17 +6487,24 @@ sub html_template_datatype
 {
     my ($opts, $arg) = @_;
 
+    my $path = $opts->{path};
     my $type = $opts->{type};
     my $syntax = $opts->{syntax};
 
     my $typeinfo = get_typeinfo($type, $syntax);
     my $dtname = $typeinfo->{value};
 
+    my ($dtdef) = grep {$_->{name} eq $dtname} @{$root->{dataTypes}};
+    if (!$dtdef) {
+        print STDERR "$path: invalid use of {{datatype}}; parameter is ".
+            "not of a valid named data type\n";
+        return qq{};
+    }
+
     # if argument is supplied and is "expand", return the data type description
     my $text;
     if ($arg && $arg eq 'expand') {
         # XXX should check for valid data type? (should always be)
-        my ($dtdef) = grep {$_->{name} eq $dtname} @{$root->{dataTypes}};
         # XXX not sure why need to call html_whitespace() here...
         $text = html_whitespace($dtdef->{description});
         # XXX we remove any {{issue}} templates so they will occur only in
@@ -8487,6 +8558,41 @@ sub special_end
         print join(",", sort(keys %$rfcs)) . "\n";
     }
 
+    # ref: for each reference, report access, refType and path
+    elsif ($special eq 'ref') {
+        foreach my $item (@$special_items) {
+            my $path = $item->{path};
+            next unless $path; # profile items have no path
+            my $syntax = $item->{syntax};
+            next unless $syntax; # only parameters have syntax
+            my $refType = $syntax->{refType};
+            next unless $refType; # only interested in references
+            my $access = $item->{access};
+            print "$access\t$refType\t$path\n";
+        }
+    }
+
+    # key: for each table with a functional key, report access, path and the key
+    elsif ($special eq 'key') {
+        foreach my $item (@$special_items) {
+            my $path = $item->{path};
+            next unless $path; # profile items have no path
+            my $uniqueKeys = $item->{uniqueKeys};
+            next unless $uniqueKeys && @$uniqueKeys; # only tables with keys
+            my ($alias) = grep { $_->{name} eq 'Alias' } @{$item->{nodes}};
+            next unless $alias; # only tables with aliases
+            my $keys = '';
+            foreach my $uniqueKey (@$uniqueKeys) {
+                next unless $uniqueKey->{functional};
+                $keys .= '; ' if $keys;
+                $keys .= util_list($uniqueKey->{keyparams});
+            }
+            next unless $keys; # only interested in functional keys
+            my $access = $item->{access};
+            print "$access\t$path\t$keys\n";
+        }
+    }
+
     # invalid
     else {
         print STDERR "$special: invalid special option\n";
@@ -9241,9 +9347,13 @@ report.pl - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--compare] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
+B<report.pl> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--catalog=c]... [--compare] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--special=<option>] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
 =over
+
+=item * the most common options are --include, --pedantic and --report=html
+
+=item * use --compare to compare files and --showdiffs to show differences
 
 =item * cannot specify both --report and --special
 
@@ -9286,6 +9396,12 @@ causes the B<{{bibref}}> template to be expanded with the document first, i.e. B
 =item B<--canonical>
 
 affects only the B<xml2> report; causes descriptions to be processed into a canonical form that eases comparison with the original Microsoft Word descriptions
+
+=item B<--catalog=s>...
+
+can be specified multiple times; XML catalogs (http://en.wikipedia.org/wiki/XML_Catalog); the current directory and any directories specified via B<--include> are searched when locating XML catalogs
+
+XML catalogs are used only when validating DM instances as described under B<--pedantic>; it is not necessary to use XML catalogs in order to validate DM instances
 
 =item B<--compare>
 
@@ -9409,6 +9525,18 @@ specifies an object name pattern (a regular expression); objects that do not mat
 
 enables output of warnings to I<stderr> when logical inconsistencies in the XML are detected; if the option is specified without a value, the value defaults to 1
 
+also enables XML schema validation of DM instances; XML schemas are located using the B<schemaLocation> attribute:
+
+=over
+
+=item * if it specifies an absolute path, no search is performed
+
+=item * if it specifies a relative path, the directories specified via B<--include> are searched
+
+=item * URLs are treated specially: if no XML catalogs were supplied via B<--catalog>, the directory part is ignored and the schema is located as for a relative path (above); if XML catalogs were supplied via B<--catalog>, the catalogs govern how (and whether) the URLs are processed
+
+=back
+
 =item B<--quiet>
 
 suppresses informational messages
@@ -9475,7 +9603,7 @@ currently affects only the B<html> report; generates a B<Spec> rather than a B<V
 
 adds an extra column containing a summary of the parameter syntax; is like the Type column for simple types, but includes additional details for lists
 
-=item B<--special=deprecated|nonascii|normative|notify|obsoleted|profile|rfc>
+=item B<--special=deprecated|key|nonascii|normative|notify|obsoleted|profile|ref|rfc>
 
 performs special checks, most of which assume that several versions of the same data model have been supplied on the command line, and many of which operate only on the highest version of the data model
 
@@ -9484,6 +9612,10 @@ performs special checks, most of which assume that several versions of the same 
 =item B<deprecated>, B<obsoleted>
 
 for each profile item (object or parameter) report if it is deprecated or obsoleted
+
+=item B<key>
+
+for each table with a functional key, report access, path and the key
 
 =item B<nonascii>
 
@@ -9504,6 +9636,10 @@ check which parameters defined in the highest version of the data model are not 
 =item B<rfc>
 
 check which model, object, parameter or profile descriptions mention RFCs without giving references; the output is the full path names of all such items, together with the offending descriptions with the normative words surrounded by pairs of asterisks
+
+=item B<ref>
+
+for each reference parameter, report access, reference type and path
 
 =back
 
@@ -9551,7 +9687,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2011/02/24 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#182 $
+$Date: 2011/06/06 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#183 $
 
 =cut
