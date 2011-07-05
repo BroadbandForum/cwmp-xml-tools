@@ -157,8 +157,8 @@ use URI::Split qw(uri_split);
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/06/06 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#183 $};
+my $tool_vers_date = q{$Date: 2011/07/05 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#184 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -179,7 +179,8 @@ my $tool_run_time;
     $tool_run_time = sprintf "%02d:%02d:%02d", $hour, $min, $sec;
 }
 
-my $tool_cmd_line = $0 . ' ' . join(' ', @ARGV) . ' ...';
+my $tool_cmd_line = $0 . ' ' . join(' ', @ARGV);
+$tool_cmd_line = util_clean_cmd_line($tool_cmd_line);
 
 # XXX these have to match the current version of the DT schema
 my $dtver = qq{1-0};
@@ -229,6 +230,7 @@ my $notemplates = 0;
 my $nowarnredef = 0;
 my $nowarnprofbadref = 0;
 my $objpat = '';
+my $outfile = undef;
 my $pedantic = undef;
 my $quiet = 0;
 my $report = '';
@@ -277,6 +279,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'nowarnredef' => \$nowarnredef,
            'nowarnprofbadref' => \$nowarnprofbadref,
 	   'objpat:s' => \$objpat,
+           'outfile:s' => \$outfile,
 	   'pedantic:i' => \$pedantic,
 	   'quiet' => \$quiet,
 	   'report:s' => \$report,
@@ -355,6 +358,14 @@ if ($compare) {
     $autobase = 1;
     $showdiffs = 1;
     $modifiedusesspec = 0 if $lastonly;
+}
+
+if ($outfile) {
+    if (!open(STDOUT, ">", $outfile)) {
+        die "can't create --outfile $outfile: $!";
+    }
+} else {
+    $tool_cmd_line .= ' ...';
 }
 
 *STDERR = *STDOUT if $report eq 'null';
@@ -719,26 +730,34 @@ sub expand_dataType
 
     print STDERR "expand_dataType name=$name base=$base\n" if $verbose > 1;
 
-    my $node = {name => $name, base => $base, prim => $prim, spec => $spec,
-                status => $status, description => $description,
-                descact => $descact, descdef => $descdef,
-                minLength => $minLength, maxLength => $maxLength,
-                patterns => [], specs => []};
+    # XXX for now only replace description if data type is redefined
+    my ($node) = grep {$_->{name} eq $name} @{$root->{dataTypes}};
+    if ($node) {
+        print STDERR "data type $name redefined (description replaced)\n";
+        $node->{description} = $description;
 
-    foreach my $pattern (@$patterns) {
-        my $value = $pattern->findvalue('@value');
-        my $description = $pattern->findvalue('description');
-        my $descact = $pattern->findvalue('description/@action');
-        my $descdef = $pattern->findnodes('description')->size();
+    } else {
+        $node = {name => $name, base => $base, prim => $prim, spec => $spec,
+                 status => $status, description => $description,
+                 descact => $descact, descdef => $descdef,
+                 minLength => $minLength, maxLength => $maxLength,
+                 patterns => [], specs => []};
 
-        update_bibrefs($description, $file, $spec);
+        foreach my $pattern (@$patterns) {
+            my $value = $pattern->findvalue('@value');
+            my $description = $pattern->findvalue('description');
+            my $descact = $pattern->findvalue('description/@action');
+            my $descdef = $pattern->findnodes('description')->size();
+            
+            update_bibrefs($description, $file, $spec);
 
-        push @{$node->{patterns}}, {value => $value, description =>
-                                        $description, descact => $descact,
-                                        descdef => $descdef};
+            push @{$node->{patterns}}, {value => $value, description =>
+                                            $description, descact => $descact,
+                                            descdef => $descdef};
+        }
+
+        push @{$pnode->{dataTypes}}, $node;
     }
-
-    push @{$pnode->{dataTypes}}, $node;
 }
 
 # Alternative datatype expansion enabled by --newparser.  Is driven more
@@ -8599,6 +8618,39 @@ sub special_end
     }
 }
 
+# 
+sub util_clean_cmd_line
+{
+    my ($cmd) = @_;
+
+    my @in = split /\s+/, $cmd;
+    my @out = ();
+
+    for my $f (@in) {
+        my ($a, $b) = split '=', $f;
+
+        # we operate on the value, i.e. "a" if no "=" or "b" otherwise
+        my ($n, $v);
+        if (defined $b) {
+            $n = $a;
+            $v = $b;
+        } else {
+            $n = undef;
+            $v = $a;
+        }
+
+        # for now there is no context, so just treat the value as a file system
+        # path and discard all but the filename part (final component)
+        (my $ign1, my $ign2, $v) = File::Spec->splitpath($v);
+
+        $v = qq{''} if $v eq '';
+
+        push @out, defined($n) ? qq{$n=$v} : qq{$v};
+    }
+
+    return join ' ', @out;
+}
+
 # Heuristic insertion of blank lines
 sub util_lines
 {
@@ -9347,7 +9399,7 @@ report.pl - generate report on TR-069 DM instances (data model definitions)
 
 =head1 SYNOPSIS
 
-B<report.pl> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--catalog=c]... [--compare] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--special=<option>] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
+B<report.pl> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--catalog=c]... [--compare] [--components] [--debugpath=pattern("")] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")] [--importsuffix=string("")] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern("")] [--outfile=s] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--special=<option>] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
 =over
 
@@ -9521,6 +9573,14 @@ this is deprecated because it is no longer needed (use status="deleted" as appro
 
 specifies an object name pattern (a regular expression); objects that do not match this pattern will be ignored (the default of "" matches all objects)
 
+=item B<--outfile=s>
+
+specifies the output file; if not specified, output will be sent to I<stdout>
+
+if the file already exists, it will be quietly overwritten
+
+the only reason to use this option (rather than using shell output redirection) is that it allows the tool to know the name of the output file and therefore to include it in the report
+
 =item B<--pedantic=[i(1)]>
 
 enables output of warnings to I<stderr> when logical inconsistencies in the XML are detected; if the option is specified without a value, the value defaults to 1
@@ -9687,7 +9747,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2011/06/06 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#183 $
+$Date: 2011/07/05 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#184 $
 
 =cut

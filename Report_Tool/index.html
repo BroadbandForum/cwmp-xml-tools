@@ -30,7 +30,7 @@
 <p>
 </p>
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p><strong>report.pl</strong> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--catalog=c]... [--compare] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--special=&lt;option&gt;] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
+<p><strong>report.pl</strong> [--allbibrefs] [--autobase] [--autodatatype] [--bibrefdocfirst] [--canonical] [--catalog=c]... [--compare] [--components] [--debugpath=pattern(&quot;&quot;)] [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern(&quot;&quot;)] [--importsuffix=string(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate] [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnprofbadref] [--objpat=pattern(&quot;&quot;)] [--outfile=s] [--pedantic[=i(1)]] [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--special=&lt;option&gt;] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
 <ul>
 <li><strong><a name="the_most_common_options_are_include_pedantic_and_report_html" class="item">the most common options are --include, --pedantic and --report=html</a></strong>
 
@@ -222,6 +222,13 @@
 <dd>
 <p>specifies an object name pattern (a regular expression); objects that do not match this pattern will be ignored (the default of &quot;&quot; matches all objects)</p>
 </dd>
+<dt><strong><a name="outfile_s" class="item"><strong>--outfile=s</strong></a></strong></dt>
+
+<dd>
+<p>specifies the output file; if not specified, output will be sent to <em>stdout</em></p>
+<p>if the file already exists, it will be quietly overwritten</p>
+<p>the only reason to use this option (rather than using shell output redirection) is that it allows the tool to know the name of the output file and therefore to include it in the report</p>
+</dd>
 <dt><strong><a name="i" class="item"><strong>--pedantic=[i(1)]</strong></a></strong></dt>
 
 <dd>
@@ -410,8 +417,8 @@
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:wlupton@2wire.com">wlupton@2wire.com</a>&gt;</p>
-<p>$Date: 2011/06/06 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#183 $</p>
+<p>$Date: 2011/07/05 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#184 $</p>
 
 </body>
 

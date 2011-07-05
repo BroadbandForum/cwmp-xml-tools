@@ -7,7 +7,7 @@ Usage:
     [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate]
     [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
     [--notemplates] [--nowarnredef] [--nowarnprofbadref]
-    [--objpat=pattern("")] [--pedantic[=i(1)]] [--quiet]
+    [--objpat=pattern("")] [--outfile=s] [--pedantic[=i(1)]] [--quiet]
     [--report=html|(null)|tab|text|xls|xml|xml2|xsd] [--showdiffs]
     [--showreadonly] [--showspec] [--showsyntax] [--special=<option>]
     [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
@@ -190,6 +190,16 @@ Options:
         specifies an object name pattern (a regular expression); objects
         that do not match this pattern will be ignored (the default of ""
         matches all objects)
+
+    --outfile=s
+        specifies the output file; if not specified, output will be sent to
+        *stdout*
+
+        if the file already exists, it will be quietly overwritten
+
+        the only reason to use this option (rather than using shell output
+        redirection) is that it allows the tool to know the name of the
+        output file and therefore to include it in the report
 
     --pedantic=[i(1)]
         enables output of warnings to *stderr* when logical inconsistencies
