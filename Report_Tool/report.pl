@@ -157,8 +157,8 @@ use URI::Split qw(uri_split);
 use XML::LibXML;
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/07/05 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#184 $};
+my $tool_vers_date = q{$Date: 2011/07/22 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#185 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -1769,10 +1769,11 @@ sub expand_model_profile
         my ($mname_only, $mversion_major, $mversion_minor) =
             ($mnode->{name} =~ /([^:]*):(\d+)\.(\d+)/);
 
-        $nnode = {pnode => $mnode, path => $name, name => $name, base => $base,
-                  extends => $extends, file => $file, lfile => $Lfile,
-                  spec => $spec, lspec => $Lspec, type => 'profile',
-                  access => '', status => $status, description => $description,
+        $nnode = {mnode => $mnode, pnode => $mnode, path => $name,
+                  name => $name, base => $base, extends => $extends,
+                  file => $file, lfile => $Lfile, spec => $spec,
+                  lspec => $Lspec, type => 'profile', access => '',
+                  status => $status, description => $description,
                   model => $model, nodes => [], baseprof => $baseprof,
                   extendsprofs => $extendsprofs,
                   majorVersion => $mversion_major,
@@ -2095,7 +2096,7 @@ sub add_model
 
     if ($nnode) {
         # cache current node contents
-        my $cnode = util_copy($nnode, ['history', 'nodes']);
+        my $cnode = util_copy($nnode, ['history', 'nodes', 'mnode']);
 
         # indicate that model was previously known (report might need to
         # use this info)
@@ -2344,7 +2345,7 @@ sub add_object
         $nnode->{changed} = undef;
 
         # cache current node contents
-        my $cnode = util_copy($nnode, ['history', 'nodes', 'pnode']);
+        my $cnode = util_copy($nnode, ['history', 'nodes', 'pnode', 'mnode']);
 
         # indicate that object was previously known (report might need to
         # use this info)
@@ -2459,10 +2460,11 @@ sub add_object
         
         my $dynamic = $pnode->{dynamic} || $access ne 'readOnly';
 
-	$nnode = {pnode => $pnode, name => $name, path => $path, file => $file,
-                  lfile => $Lfile, sfile => $Lfile, spec => $spec,
-                  lspec => $Lspec, mspec => $spec, type => 'object',
-                  auto => $auto, access => $access, status => $status,
+	$nnode = {mnode => $mnode, pnode => $pnode, name => $name,
+                  path => $path, file => $file, lfile => $Lfile,
+                  sfile => $Lfile, spec => $spec, lspec => $Lspec,
+                  mspec => $spec, type => 'object', auto => $auto,
+                  access => $access, status => $status,
                   description => $description, descact => $descact,
                   descdef => $descdef, default => undef, dynamic => $dynamic,
                   majorVersion => $majorVersion, minorVersion => $minorVersion,
@@ -2496,7 +2498,7 @@ sub add_object
 	$objects->{$path} = $nnode;
     }
 
-    print STDERR Dumper(util_copy($nnode, ['pnode', 'nodes'])) if
+    print STDERR Dumper(util_copy($nnode, ['nodes', 'pnode', 'mnode'])) if
         $debugpath && $path =~ /$debugpath/;
 
     return $nnode;
@@ -2592,7 +2594,7 @@ sub add_parameter
         $nnode->{changed} = undef;
 
         # cache current node contents
-        my $cnode = util_copy($nnode, ['history', 'pnode', 'nodes']);
+        my $cnode = util_copy($nnode, ['history', 'nodes', 'pnode', 'mnode']);
 
         # indicate that parameter was previously known (report might need to
         # use this info)
@@ -2888,10 +2890,11 @@ sub add_parameter
         #    print STDERR "$path: removing default value\n" if $verbose;
         #}
 
-	$nnode = {pnode => $pnode, name => $name, path => $path, file => $file,
-		  lfile => $Lfile, sfile => $Lfile, spec => $spec,
-                  lspec => $Lspec, mspec => $spec, type => $type,
-                  syntax => $syntax, access => $access, status => $status,
+	$nnode = {mnode => $mnode, pnode => $pnode, name => $name,
+                  path => $path, file => $file, lfile => $Lfile,
+                  sfile => $Lfile, spec => $spec, lspec => $Lspec,
+                  mspec => $spec, type => $type, syntax => $syntax,
+                  access => $access, status => $status,
                   description => $description, descact => $descact,
                   descdef => $descdef, values => $values, default => $default,
                   deftype => $deftype, defstat => $defstat,
@@ -2920,7 +2923,7 @@ sub add_parameter
 
     update_datatypes($syntax->{ref}, $file, $spec) if $type eq 'dataType';
 
-    print STDERR Dumper(util_copy($nnode, ['pnode', 'nodes'])) if
+    print STDERR Dumper(util_copy($nnode, ['nodes', 'pnode', 'mnode'])) if
         $debugpath && $path =~ /$debugpath/;
 }
 
@@ -5510,7 +5513,7 @@ END
         # XXX the above is addressed by $showspec and the use of a cleaned-up
         #     version of the spec
         # XXX doing this for every item is inefficient...
-        print STDERR Dumper(util_copy($node, ['pnode', 'nodes'])) if
+        print STDERR Dumper(util_copy($node, ['nodes', 'pnode', 'mnode'])) if
             $debugpath && $path =~ /$debugpath/;
 
         my $mspecs = util_history_values($node, 'mspec');
@@ -8746,7 +8749,9 @@ sub util_copy
 
     my $out = {};
     foreach my $key (keys %$in) {
-        $out->{$key} = clone($in->{$key}) unless grep {$_ eq $key} @$not;
+        unless (grep {$_ eq $key} @$not) {
+            $out->{$key} = clone($in->{$key});
+        }
     }
 
     return $out;
@@ -9036,7 +9041,18 @@ sub util_node_is_new
     my ($node) = @_;
 
     # XXX experimental; always use file for this decision
-    return $node->{file} && $node->{file} eq $lfile;
+    #return $node->{file} && $node->{file} eq $lfile;
+    
+    # assume not new if there is no model node (so this node isn't an object,
+    # parameter or profile node)
+    my $mnode = $node->{mnode};
+    return 0 unless $mnode;
+
+    # otherwise new if the node version is the model version
+    # XXX there probably a more direct way of doing this but this method has
+    #     the advantage of being easy to understand!
+    return ($node->{majorVersion} == $mnode->{majorVersion} &&
+            $node->{minorVersion} == $mnode->{minorVersion});
 }
 
 # Expand all data model definition files.
@@ -9206,13 +9222,21 @@ sub sanity_node
         #(!$enableParameter || (!$hidden && $enableParameter->{hidden}))
 
         my $any_functional = 0;
+        my $any_writable = 0;
         foreach my $uniqueKey (@{$node->{uniqueKeys}}) {
             $any_functional = 1 if $uniqueKey->{functional};
+            my $keyparams = $uniqueKey->{keyparams};
+            foreach my $parameter (@$keyparams) {
+                my $ppath = $path . $parameter;
+                my $paccess = util_is_defined($parameters, $ppath) ?
+                    $parameters->{$ppath}->{access} : undef;
+                $any_writable = 1 if $paccess && $paccess ne 'readOnly';
+            }
         }
 
         print STDERR "$path: writable table but no enableParameter\n"
             if $access ne 'readOnly' && $multi && $any_functional &&
-            !$enableParameter;
+            $any_writable && !$enableParameter;
 
         print STDERR "$path: writable fixed size table\n"
             if $access ne 'readOnly' && $multi && $fixed;
@@ -9747,7 +9771,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>wlupton@2wire.comE<gt>
 
-$Date: 2011/07/05 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#184 $
+$Date: 2011/07/22 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#185 $
 
 =cut
