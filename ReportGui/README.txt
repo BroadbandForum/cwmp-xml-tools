@@ -11,26 +11,46 @@ For questions and comments please contact klaus.wich@nsn.com
 
 History
 --------
+08/15/2011 ReportGuiSetup 2.0, ReportGui 2.0, report.exe#186 (report.pl#186)
+	new version of report.exe (report.pl#186) included in installer
+	new ReportGui version 2.0:
+	- Changed functions:
+	  * ReportGui now runs with user rights under Windows 7, Ini file was moved into %USER/appdata directory
+	  * Deprecarted 'noautomodel' option replaced with new option 'automodel'
+	  * 'ShowDiffs' option added to expert mode and as option to standard html reports
+	  * Report.exe output separated for errors and statistics
+	  * New setting to show or hide statistic display
+	  * Publish option also generates flattened xml file
+	
+	- Neu functions:
+	  * New option to download all released xml and schema files from BBF website into default include directory
+	  * New upgrade option to check for new versions
+	  * "Publish all files" option to generate files to be published for a whole directory
+	  * New feedback option
+	  
+	- Fixed Error(s): 
+		* Error checking crashed program, due to variable error
+
 02/24/2011 ReportGuiSetup 1.0.6, ReportGui 1.1, report.exe (report.pl#182)
 	new version of report.exe (report.pl#182) included in installer.
 
 02/11/2011 ReportGuiSetup 1.0.5, ReportGui 1.1, report.exe (report.pl#181) 
 	Update ReportGUI 1.1 :
-  - New standard report options to compare two files
-	-	Improved handling of include directories, possible to sort list. 
+	- New standard report options to compare two files
+	- Improved handling of include directories, possible to sort list. 
 	- prevent overwrite of source xml for xml targets in expert handling
-  
+
 01/25/2011 ReportGuiSetup 1.0.4, ReportGui 1.0.2
 	new version of report.exe (report.pl#181) included in installer. 
 	Error correction in ReportGUI: Include directories and filenames with spaces are now correctly processed
-	
+
 11/20/2010 ReportGuiSetup 1.0.3, ReportGui 1.0.1
 	new version of report.exe (report.pl#177) included in installer. 
 	
 10/14/2010 ReportGuiSetup 1.0.2, ReportGui 1.0.1
 	new version of report.exe (report.pl#175) included in installer. 
 	Installer will now override report.exe during reinstall if it includes newer version.
-	
+
 10/08/2010 ReportGuiSetup 1.0.1, ReportGui 1.0.1 
 	new version of report.exe (report.pl#174) included in installer. 
-  Please uninstall old version first.
+	Please uninstall old version first.
