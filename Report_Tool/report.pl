@@ -153,7 +153,8 @@ use File::Spec;
 use Getopt::Long;
 use Pod::Usage;
 use Text::Balanced qw{extract_bracketed};
-use Text::SpellChecker;
+# XXX causes problems, e.g. need aspell (if restore should use require)
+#use Text::SpellChecker;
 use URI::Split qw(uri_split);
 use XML::LibXML;
 
@@ -165,7 +166,7 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
 
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2011/10/07 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#188 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#189 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -9296,15 +9297,15 @@ sub util_check_spelling
     # XXX for now...
     return $text;
 
-    my $checker = Text::SpellChecker->new(text => $text, lang => 'en_US');
+    #my $checker = Text::SpellChecker->new(text => $text, lang => 'en_US');
 
     # XXX see http://search.cpan.org/~bduggan/Text-SpellChecker-0.11/
     #     lib/Text/SpellChecker.pm
-    while (my $word = $checker->next_word) {
-        print STDERR "spelling mistake?: $word\n";
-    }
+    #while (my $word = $checker->next_word) {
+    #    print STDERR "spelling mistake?: $word\n";
+    #}
     
-    return $text;
+    #return $text;
 }
 
 # Convert spec to document name
@@ -10386,6 +10387,6 @@ This script is only for illustration of concepts and has many shortcomings.
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
 $Date: 2011/10/07 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#188 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#189 $
 
 =cut
