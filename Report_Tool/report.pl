@@ -165,8 +165,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/10/07 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#189 $};
+my $tool_vers_date = q{$Date: 2011/10/13 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#190 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -9040,8 +9040,6 @@ sub util_clean_cmd_line
 {
     my ($cmd) = @_;
 
-    print STDERR "$cmd\n";
-
     my @in = split /\s+/, $cmd;
     my @out = ();
 
@@ -10386,7 +10384,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2011/10/07 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#189 $
+$Date: 2011/10/13 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#190 $
 
 =cut
