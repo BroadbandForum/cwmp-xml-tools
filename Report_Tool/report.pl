@@ -165,8 +165,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/10/13 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#190 $};
+my $tool_vers_date = q{$Date: 2011/10/28 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#191 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -510,16 +510,18 @@ sub expand_toplevel
 
     # for XSD files, just track the target namespace then return
     my $spec;
+    my $pubdate = util_pubdate($toplevel);
     if ($file =~ /\.xsd$/) {
         my $targetNamespace = $toplevel->findvalue('@targetNamespace');
         push @$allfiles, {name => $file, spec => $targetNamespace,
-                          schema => 1};
+                          pubdate => $pubdate, schema => 1};
         return;
     }
     else {
         $spec = $toplevel->findvalue('@spec');
         my @models = $toplevel->findnodes('model');
-        push @$allfiles, {name => $file, spec => $spec, models => \@models};
+        push @$allfiles, {name => $file, spec => $spec,
+                          pubdate => $pubdate, models => \@models};
     }
 
     # if one or more top-level file has the same name, use the final directory
@@ -625,6 +627,19 @@ sub expand_toplevel
             }
         }
     }
+}
+
+# "allfiles" comparison based on publication date (any files with unknown
+# empty publication date will precede any with known publication date; but
+# if no files have known publication date, the order will be unchanged)
+sub allfiles_pubdate_cmp
+{
+    my $ad = $a->{pubdate};
+    my $bd = $b->{pubdate};
+
+    print STDERR "#### $a->{name} $b->{name}\n";
+
+    return ($ad cmp $bd);
 }
 
 # Model name doesn't match --ignore
@@ -7882,69 +7897,109 @@ END
 
 # HTML "BBF" report of node.
 #
-# Similar output to that on CWMP web page at http://www.broadband-forum.org/
-# cwmp.php.  Used to pass requirements to AMS.  Will hopefull evolve to be
-# more like the "OD-148" report.
+# Similar output to that proposed for the CWMP web page at
+# http://www.broadband-forum.org/cwmp.php.
+#
+# implementation concepts are similar to those for the bbf148 ("OD-148")
+# report.
 
-# implementation concepts are similar to those for the "OD-148" report.
+# pattern matching filenames of support files (hopefully this pattern will
+# never need to change; note that it's agnostic to presence or absence of
+# version number)
+my $htmlbbf_supportpatt = q{^tr-(069|106).*-(types|biblio)\.xml$};
 
 # pattern matching filenames or specs that define both the IGD and Dev root
 # data models (this list will never need to change)
 my $htmlbbf_igddevpatt = q{^tr-(143-1-0|157-1-[0-3])-};
 
-# Comments with informal template expansion:
-# - {{name}} => model name: name:m.n or "and"-separated list
+# Text with informal template expansion:
+# - {{name}} => model name: name:m.n (previously or "and"-separated list)
 # - {{type}} => model type: "Root Object" or "Service Object"
-# - {{def}} => "definition" or "definitions" (depends on number of models)
+# - {{def}} => "definition" (previously could also be "definitions")
 # - {{err}} => "errata and clarifications"
 # - {{ver}} => "vm.n"
-my $htmlbbf_comments = {
+
+# these are used for the "Document" column
+my $htmlbbf_document_templates = {
     rpcs => 'TR-069 RPCs',
-    dm => 'TR-069 Data Model Definition Schema (DM Schema) {{ver}}',
+    dm => 'TR-069 Data Model Definition Schema (DM Schema)',
     dmr => 'TR-069 Data Model Report Schema (DMR Schema)',
-    dt => 'TR-069 Device Type Schema (DT Schema) {{ver}}',
+    dt => 'TR-069 Device Type Schema (DT Schema)',
     dtf => 'TR-069 DT (Device Type) Features Schema (DTF Schema)',
     bibref => 'TR-069 Data Model Bibliographic References',
     types => 'TR-069 Data Model Data Types',
-    objdef => 'TR-069 {{name}} {{type}} {{def}}',
-    objerr => 'TR-069 {{name}} {{type}} {{err}}',
-    compdef => 'Component objects for CWMP: TR-069 {{name}} {{type}} {{def}}',
-    comperr => 'Component objects for CWMP: TR-069 {{name}} {{type}} {{err}}'
+    objdef => 'XXX not used?',
+    objerr => 'XXX not used?',
+    compdef => 'TBD {{def}}',
+    comperr => 'TBD {{err}}'
+};
+
+# these are used for the "Description" column
+my $htmlbbf_description_templates = {
+    rpcs => '{{ver}}: TBD',
+    dm => '{{ver}}: TBD',
+    dmr => 'TBD',
+    dt => '{{ver}}: TBD',
+    dtf => 'TBD',
+    bibref => 'TBD',
+    types => 'TBD',
+    objdef => 'TBD {{name}} {{type}} {{def}}',
+    objerr => 'TBD {{name}} {{type}} {{err}}',
+    compdef => 'TBD {{def}}',
+    comperr => 'TBD {{err}}'
 };
 
 # File info (could read this from a config file) that overrides information
 # inferred from the files themselves (shouldn't be needed for DM Instances).
+# XXX MUST remove this information from this file!!!!
 my $htmlbbf_info = {
     'cwmp-1-0.xsd' => {
-        comment => 'rpcs', trname => 'tr-069-1-1', date => '2006-12'},
+        template => 'rpcs', trname => 'tr-069-1-1', pubdate => '2006-12'},
     'cwmp-1-1.xsd' => {
-        comment => 'rpcs', trname => 'tr-069-1-2', date => '2007-12'},
+        template => 'rpcs', trname => 'tr-069-1-2', pubdate => '2007-12'},
+    'cwmp-1-2.xsd' => {
+        template => 'rpcs', trname => 'tr-069-1-3', pubdate => '2011-08'},
+    'cwmp-1-3.xsd' => {
+        template => 'rpcs', trname => 'tr-069-1-4', pubdate => '2011-07'},
+
     'cwmp-datamodel-1-0.xsd' => {
-        comment => 'dm', trname => 'tr-106-1-2', date => '2008-11'},
+        template => 'dm', trname => 'tr-106-1-2', pubdate => '2008-11'},
     'cwmp-datamodel-1-1.xsd' => {
-        comment => 'dm', trname => 'tr-106-1-3', date => '2009-09'},
+        template => 'dm', trname => 'tr-106-1-3', pubdate => '2009-09'},
     'cwmp-datamodel-1-2.xsd' => {
-        comment => 'dm', trname => 'tr-106-1-4', date => '2010-02'},
+        template => 'dm', trname => 'tr-106-1-4', pubdate => '2010-02'},
+    'cwmp-datamodel-1-3.xsd' => {
+        template => 'dm', trname => 'tr-106-1-5', pubdate => '2010-11'},
+    'cwmp-datamodel-1-4.xsd' => {
+        template => 'dm', trname => 'tr-106-1-6', pubdate => '2011-02'},
+
     'cwmp-datamodel-report.xsd' => {
-        comment => 'dmr', date => '2009-09'},
+        template => 'dmr', trname => 'tr-106-1-2', pubdate => '2009-09'},
+
     'cwmp-devicetype-1-0.xsd' => {
-        comment => 'dt', trname => 'tr-106-1-3', date => '2009-09'},
+        template => 'dt', trname => 'tr-106-1-3', pubdate => '2009-09'},
+    'cwmp-devicetype-1-1.xsd' => {
+        template => 'dt', trname => 'tr-106-1-5', pubdate => '2010-11'},
+
     'cwmp-devicetype-features.xsd' => {
-        comment => 'dtf', date => '2009-09'},
+        template => 'dtf', trname => 'tr-106-1-3', pubdate => '2009-09'},
+
     'tr-069-biblio.xml' => {
-        comment => 'bibref', support => 1},
+        template => 'bibref', trname => 'tr-106-1-6', pubdate => '2011-07'},
     'tr-106-1-0-0-types.xml' => {
-        comment => 'types', support => 1}
+        template => 'types', trname => 'tr-106-1-6', pubdate => '2011-07'}
 };
 
-my $htmlbbf = [];
-
 # XXX this is effectively copied from html_node; not all styles are used
+# XXX note use of hard-coded vertical alignment "middle", which isn't good
+#     for very large cells (it should be set on a per-column basis)
+# XXX there are other things like that, e.g. could center the version column
+# XXX 
 sub htmlbbf_begin
 {
     # styles
     my $table = qq{text-align: left;};
-    my $row = qq{vertical-align: top;};
+    my $row = qq{vertical-align: middle;};
     my $center = qq{text-align: center;};
 
     # font
@@ -7956,6 +8011,7 @@ sub htmlbbf_begin
     # others
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
+    # header
     print <<END;
 <html>
   <head>
@@ -7976,13 +8032,15 @@ sub htmlbbf_begin
   <body>
     <h1>CPE WAN Management Protocol (CWMP)</h1>
 
-    <h1>XML Schemas and Data Model Definitions</h1>
+    <h1>XML Data Model Definitions and Schemas</h1>
 
     <div align="center">
+      [<a href="#Root">Root Data Models</a>]
+      [<a href="#Service">Service Data Models</a>]
+      [<a href="#Component">Component Definitions</a>]
+      [<a href="#Support">Support Files</a>]
       [<a href="#Schema">Schema Files</a>]
-      [<a href="#DMS">DM Support</a>]
-      [<a href="#DMD">DM Definitions</a>]
-      [<a href="cwmp.zip">Directory Contents</a>]
+      [<a href="#Downloads">Downloads</a>]
     </div>
 
     <p/>
@@ -7992,40 +8050,214 @@ sub htmlbbf_begin
     <p>Note: all the files below are directly reachable via:
        http://www.broadband-forum.org/cwmp/&lt;filename&gt;.</p>
 
+END
+
+    # XXX oo we so should be using OO :(
+    my $context;
+
+    # first determine heuristically which ones are support files and components
+    # (schema files are already identified in $allfiles)
+    # XXX this modifies the $allfiles element, but should do no harm
+    foreach my $file (@$allfiles) {
+        my $name = $file->{name};
+        my $models = $file->{models};
+        if ($file->{schema}) {
+        } elsif ($name =~ /$htmlbbf_supportpatt/) {
+            $file->{support} = 1;
+        } elsif ($name =~ /$htmlbbf_igddevpatt/ ||
+                 !defined $models || !@$models) {
+            $file->{component} = 1;
+        }
+    }
+
+    # data models (use version of $allfiles with one model per entry)
+    my $modelfiles = [];
+    foreach my $file (@$allfiles) {
+        my $models = $file->{models};
+        foreach my $model (@$models) {
+            my $tmpfile = util_copy($file, ['models']);
+            $tmpfile->{model} = $model;
+            push @$modelfiles, $tmpfile;
+        }
+    }
+
+    # root data models
+    print <<END;
+    <a name="Root"/>
+    <h1>Root Data Models</h1>
+END
+    $context = htmlbbf_file(undef, {model => 1, root => 1, header => 1});
+    foreach my $file (sort htmlbbf_model_cmp @$modelfiles) {
+        htmlbbf_file($file, {model => 1, root => 1, context => $context});
+    }
+    htmlbbf_file(undef, {model => 1, root => 1, footer => 1,
+                         context => $context});
+
+    # service data models
+    print <<END;
+    <a name="Service"/>
+    <h1>Service Data Models</h1>
+END
+    $context = htmlbbf_file(undef, {model => 1, service => 1, header => 1});
+    foreach my $file (sort htmlbbf_model_cmp @$modelfiles) {
+        htmlbbf_file($file, {model => 1, service => 1, context => $context});
+    }
+    htmlbbf_file(undef, {model => 1, service => 1, footer => 1,
+                         context => $context});
+
+    # components
+    print <<END;
+    <a name="Component"/>
+    <h1>Component Definitions</h1>
+END
+    $context = htmlbbf_file(undef, {component => 1, header => 1});
+    foreach my $file (sort htmlbbf_component_cmp @$allfiles) {
+        htmlbbf_file($file, {component => 1, context => $context});
+    }
+    htmlbbf_file(undef, {component => 1, footer => 1, context => $context});
+
+    # support files
+    print <<END;
+    <a name="Support"/>
+    <h1>Support Files</h1>
+END
+    $context = htmlbbf_file(undef, {support => 1, header => 1});
+    foreach my $file (sort htmlbbf_support_cmp @$allfiles) {
+        htmlbbf_file($file, {support => 1, context => $context});
+    }
+    htmlbbf_file(undef, {support => 1, footer => 1, context => $context});
+
+    # schemas
+    print <<END;
     <a name="Schema"/>
     <h1>Schema Files</h1>
 END
-    htmlbbf_file('', {header => 1});
-    foreach my $file (@$allfiles) {
-        htmlbbf_file($file, {schema => 1});
+    $context = htmlbbf_file(undef, {schema => 1, header => 1});
+    foreach my $file (sort htmlbbf_schema_cmp @$allfiles) {
+        htmlbbf_file($file, {schema => 1, context => $context});
     }
-    htmlbbf_file('', {footer => 1});
+    htmlbbf_file(undef, {schema => 1, footer => 1, context => $context});
 
+    # downloads
     print <<END;
-    <a name="DMS"/>
-    <h1>Data Model Support Files</h1>
+    <a name="Downloads"/>
+    <h1>Downloads</h1>
+    <ul>
+      <li><a href="cwmp.zip">cwmp.zip</a>: all XML and HTML files from this page</li>
+      <li>names? others? TBD</li>
+    </ul>
 END
-    htmlbbf_file('', {header => 1});
-    foreach my $file (@$allfiles) {
-        htmlbbf_file($file, {support => 1});
-    }
-    htmlbbf_file('', {footer => 1});
 
+    # footer
     print <<END;
-    <a name="DMD"/>
-    <h1>Data Model Definitions</h1>
-END
-    htmlbbf_file('', {header => 1});
-    foreach my $file (@$allfiles) {
-        htmlbbf_file($file);
-    }
-    htmlbbf_file('', {footer => 1});
-
-    print <<END;
-    </table>
   </body>
 </html>
 END
+}
+
+# compare schema files; $allfiles elements are passed and the comparison is
+# based on file name, with the following order:
+#
+#   cwmp-<number>
+#   cwmp-datamodel-<number>
+#   cwmp-datamodel-<rest>
+#   cwmp-devicetype-<number>
+#   cwmp-devicetype-<rest>
+#   <rest>
+#
+# within the above categories, the order is alphabetical
+sub htmlbbf_schema_cmp
+{
+    my @n = ($a->{name}, $b->{name});
+    my @c = (undef, undef); 
+
+    for (my $i = 0; $i < 2; $i++) {
+        $c[$i] =
+            ($n[$i] =~ /^cwmp-\d/)            ? 0 :
+            ($n[$i] =~ /^cwmp-datamodel-\d/)  ? 1 :
+            ($n[$i] =~ /^cwmp-datamodel-/)    ? 2 :
+            ($n[$i] =~ /^cwmp-devicetype-\d/) ? 3 :
+            ($n[$i] =~ /^cwmp-devicetype-/)   ? 4 : 5;
+    }
+
+    return ($c[0] == $c[1]) ? ($n[0] cmp $n[1]) : ($c[0] <=> $c[1]);
+}
+
+# compare support files; $allfiles elements are passed and the comparison is
+# based on file name
+sub htmlbbf_support_cmp
+{
+    return ($a->{name} cmp $b->{name});
+}
+
+# compare component files; $allfiles elements are passed and the comparison is
+# based on file name
+sub htmlbbf_component_cmp
+{
+    return ($a->{name} cmp $b->{name});
+}
+
+# compare model files; $allfiles-like elements are passed and the
+# comparison is based on model name, major version, minor version
+#
+# the actual elements are not $allfiles, because some files define multiple
+# models; so $allfiles element {models => [m1, m2], ...} is replicated into
+# {model => m1, ...}, {model => m2, ...} before sorting
+sub htmlbbf_model_cmp
+{
+    my @f = ($a->{name}, $b->{name});
+    my @m = ($a->{model}, $b->{model});
+
+    # if both don't contain models (this can't happen), return 0 (no change)
+    return 0 unless $m[0] && $m[1];
+
+    my @n = (undef, undef);
+    my @x = (undef, undef);
+    my @y = (undef, undef);
+    my @s = (undef, undef);
+    for (my $i = 0; $i < 2; $i++) {
+        my $name = $m[$i]->findvalue('@name');
+        ($n[$i], $x[$i], $y[$i]) = ($name =~ /([^:]+):(\d+)\.(\d+)/); 
+        $s[$i] = boolean($m[$i]->findvalue('@isService'));
+   }
+
+    return
+        ($n[0] ne $n[1]) ? (htmlbbf_model_name_cmp(@f, @n, @s)) :
+        ($x[0] != $x[1]) ? ($x[0] <=> $x[1]) : ($y[0] <=> $y[1]);
+}
+
+# helper for the above; is passed file names, model names (no version) and
+# whether they are services, e.g. ("tr-181-2-1-0.xml", "tr-104-1-2-0.xml",
+# "Device", "VoiceService", 0, 1)
+#
+# is called only when model names are different
+#
+# Root Object "InternetGatewayDevice" comes first, then other Root Objects
+# ordered by file name, followed by Service Objects ordered by file name
+# (i.e. by TR number)
+sub htmlbbf_model_name_cmp
+{
+    my ($f1, $f2, $n1, $n2, $s1, $s2) = @_;
+
+    # both are root objects
+    if (!$s1 && !$s2) {
+        return
+            ($n1 eq 'InternetGatewayDevice') ? -1 :
+            ($n2 eq 'InternetGatewayDevice') ?  1 : ($f1 cmp $f2);
+    }
+
+    # first is root object; second is service object (or vice versa)
+    elsif ($s1 != $s2) {
+        return ($s1 <=> $s2);
+    }
+
+    # both are service objects
+    else {
+        return ($f1 cmp $f2);
+    }
+
+    # can't get here
+    return 0;
 }
 
 # dummy (needed in order to indicate that report type is valid)
@@ -8035,165 +8267,426 @@ sub htmlbbf_node
 
 my $htmlbbf_mnames = {};
 
+# there are four file categories (schema, support, component, model); the file
+# category is passed in the opts argument
+#
+# for models, additional root / service booleans are passed in the opts
+# argument
+#
+# the routine is assumed to be called in the correct presentation order for
+# the files; consecutive rows with the same content are spanned
 sub htmlbbf_file
 {
     my ($file, $opts) = @_;
 
-    # table options
-    my $tabopts = qq{border="1" cellpadding="2" cellspacing="0"};
+    my $context = $opts->{context};
 
+    # header (c.f. constructor)
     if ($opts->{header}) {
-        print <<END;
-    <table width="100%" $tabopts>
-      <tr>
-        <th width="15%">Filename</th>
-        <th width="60%">Comment / HTML</th>
-        <th width="12%">Publication Date</th>
-        <th width="13%">Technical Report</th>
-      </tr>
-END
-        return;
+        # create context (could, but are not, use the fact that it's opts)
+        $context = $opts;
 
-    } elsif ($opts->{footer}) {
-        print <<END;
-    </table>
-END
+        # conditional column rules are as follows:
+        #
+        # column         present for    comment
+        # ------         -----------    -------
+        # Document/Model all            "Data Model" for model, else "Document"
+        # Version        model
+        # Filename/XML   all            "Filename" for schema, else "XML"
+        # HTML           all but schema
+        # Description    all
+        # Publicn Date   all
+        # PDF            all
+        my $document_suppress = $opts->{model};
+        my $model_suppress = !$opts->{model};
+        my $version_suppress = $model_suppress;
+        my $html_suppress = $opts->{schema};
+        my $filename = $opts->{schema} ? 'Filename' : 'XML';
+
+        # row is an array of columns (first row is header; don't need suppress
+        # or percent values in subsequent rows)
+        # XXX it would be better to omit rather than suppress?
+        push @{$context->{rows}},
+        [
+         { name => 'document', value => 'Document', percent => 15,
+           suppress => $document_suppress },
+         { name => 'model', value => 'Data Model', percent => 15,
+           suppress => $model_suppress },
+         { name => 'version', value => 'Version', percent => 5,
+           suppress => $version_suppress },
+         { name => 'file', value => $filename, percent => 12, suppress => 0 },
+         { name => 'html', value => 'HTML', percent => 12,
+           suppress => $html_suppress },
+         { name => 'description', value => 'Description', percent => 40,
+           suppress => 0 },
+         { name => 'pubdate', value => 'Publication Date', percent => 10,
+           suppress => 0 },
+         { name => 'pdflink', value => 'PDF', percent => 15, suppress => 0 }
+        ];
+
+        return $context;
+    }
+
+    # footer (c.f. destructor)
+    elsif ($opts->{footer}) {
+        htmlbbf_output_table(
+            qq{width="100%" border="1" cellpadding="2" cellspacing="0"},
+            $context->{rows});
         return;
     }
 
+    # not header or footer
+
+    # information from $allfiles
     my $name = $file->{name};
     my $spec = $file->{spec};
     my $schema = $file->{schema};
-    my $models = $file->{models};
+    my $support = $file->{support};
+    my $component = $file->{component};
 
+    # $allfiles has "models", but the objects passed to this routine have only
+    # "model" (if multiple models, this routine is called for each model); opts
+    # is checked because, for a file with components and models, this routine
+    # is called for both the components and for each model
+    my $model = $opts->{model} ? $file->{model} : undef;
+
+    # return if file isn't of the requested type
+    # XXX would be better to put this logic in the caller really
     return if  $opts->{schema} && !$schema;
     return if !$opts->{schema} &&  $schema;
-
-    my $info = $htmlbbf_info->{$name};
-    my $comment = $info->{comment};
-    my $support = $info->{support};
-    my $trname = $info->{trname};
-    my $date = $info->{date};
 
     return if  $opts->{support} && !$support;
     return if !$opts->{support} &&  $support;
 
-    my $seen = 0;
-    my $mult = 0;
-    my $type = 'Root Object';
-    my $mnames = '';
-    # XXX this exposes a logic error here, since the HTML file naming
-    #     conventions assume that all data models in a file either define
-    #     a new major version or not (actually a reasonable assumption)
-    my $newmaj = 1;
-    if ($models) {
-        foreach my $model (@$models) {
-            my $mname = $model->findvalue('@name');
-            my $isService = $model->findvalue('@isService');
+    return if  $opts->{component} && !$component;
+    return if !$opts->{component} && !$opts->{model} && $component;
 
-            $seen = 1 if $htmlbbf_mnames->{$mname};
-            $htmlbbf_mnames->{$mname} = 1;
+    # for model, check root / service
+    if ($model) {
+        my $service = $model->findvalue('@isService');
 
-            $mult = 1 if $mnames;
+        return if  $opts->{root} &&  $service;
+        return if !$opts->{root} && !$service;
 
-            # XXX assumes that all models in file are Root or Service
-            $type = 'Service Object' if $isService;
-
-            $mnames .= ' and ' if $mult;
-            $mnames .= $mname;
-
-            my ($mmaj, $mmin) = ($mname =~ /:(\d+)\.(\d+)/);
-            $newmaj = 0 if $mmin;
-        }   
+        return if  $opts->{service} && !$service;
+        return if !$opts->{service} &&  $service;
     }
 
-    my $def = 'definition' . ($mult ? 's' : '');
+    # information from the static info object (which might be missing)
+    my $info = $htmlbbf_info->{$name};
+    my $template = $info->{template};
+    my $trname = $info->{trname};
+    my $pubdate = $info->{pubdate};
+
+    my $seen = 0;
+    my $mname = '';
+    my $mname_name = '';
+    my $mname_major = '';
+    my $mname_minor = '';
+    my $newmaj = 1;
+    if ($model) {
+        $mname = $model->findvalue('@name');
+
+        $seen = 1 if $htmlbbf_mnames->{$mname};
+        $htmlbbf_mnames->{$mname} = 1;
+        
+        ($mname_name, my $version) = ($mname =~ /([^:]+):(.*)/);
+        ($mname_major, $mname_minor) = ($version =~ /(\d+)\.(\d+)/);
+        $newmaj = 0 if $mname_minor;
+    }
+
+    my $type = ($opts->{root} ? 'Root' : 'Service') . ' Object';
+
+    my $def = 'definition';
     my $err = 'errata and clarifications';
 
+    # XXX this $ver applies only to schemas (could tidy up)
     my ($maj, $min) = $name =~ /-(\d+)-(\d+)\.xsd$/;
     $maj = '?' unless defined $maj;
     $min = '?' unless defined $min;
     my $ver = qq{v${maj}.${min}};
 
-    if (!$comment && !$opts->{schema} && !$opts->{support}) {
-        $comment .= $mult ? 'comp' : 'obj';
-        $comment .= $seen ? 'err'  : 'def';
+    # generate default template name for components and model
+    if (!$template && ($opts->{component} || $opts->{model})) {
+        $template  = $opts->{model} ? 'obj' : 'comp';
+        $template .= $seen ? 'err'  : 'def';
     }
 
-    $comment = $comment ? $htmlbbf_comments->{$comment} : 'TBD';
-    $comment =~ s/{{name}}/$mnames/;
-    $comment =~ s/{{type}}/$type/;
-    $comment =~ s/{{def}}/$def/;
-    $comment =~ s/{{err}}/$err/;
-    $comment =~ s/{{ver}}/$ver/;
+    # $template is the template name; expand the document and description
+    # templates
+    my $document = $template ?
+        $htmlbbf_document_templates->{$template} : 'TBD';
+    $document =~ s/{{name}}/$mname/;
+    $document =~ s/{{type}}/$type/;
+    $document =~ s/{{def}}/$def/;
+    $document =~ s/{{err}}/$err/;
+    $document =~ s/{{ver}}/$ver/;
 
-    # decide whether to add the "all" XML link (not the HTML link because the
-    # HTML should be the same)
-    my $nameall = qq{};
+    my $description = $template ?
+        $htmlbbf_description_templates->{$template} : 'TBD';
+    $description =~ s/{{name}}/$mname/;
+    $description =~ s/{{type}}/$type/;
+    $description =~ s/{{def}}/$def/;
+    $description =~ s/{{err}}/$err/;
+    $description =~ s/{{ver}}/$ver/;
+
+    # determine the file rows, which involves deciding whether to add the
+    # "all" XML link (not the HTML link because the "all" HTML should be the
+    # same)
+    # XXX should use logic rather than file existence here
+    my @filerows = ();
+    push @filerows, qq{<a href="cwmp/$name">$name</a>};
     if ($name =~ /\.xml$/) {
-        $nameall = $name;
-        $nameall =~ s/\.xml$/-all.xml/;
-        if (!-r $nameall) {
-            $nameall = qq{};
-        } else {
-            $nameall = qq{<br><a href="cwmp/$nameall">$nameall</a>};
+        my $aname = $name;
+        $aname =~ s/\.xml$/-all.xml/;
+        if (-r $aname) {
+            push @filerows, qq{<a href="cwmp/$aname">$aname</a>};
         }
     }
 
-    # add the HTML hyperlinks
+    # determine the HTML rows (first collect the file suffices)
     my $suffices = [];
-    if ($schema || $name !~ /\.xml$/) {
+    if ($opts->{schema} || $name !~ /\.xml$/) {
         # no HTML for schema files
     } elsif ($name =~ /$htmlbbf_igddevpatt/) {
-        push @$suffices, '-dev';
-        push @$suffices, '-igd';
+        push @$suffices, '-dev' if
+            $opts->{component} || $mname_name eq "Device";
+        push @$suffices, '-igd' if
+            $opts->{component} || $mname_name eq "InternetGatewayDevice";
     } else {
         push @$suffices, '';
     }
     my $nsuffices = [];
     foreach my $suffix (@$suffices) {
-        push @$nsuffices, qq{$suffix-last-diffs} unless $newmaj;
+        push @$nsuffices, qq{$suffix-last} unless $newmaj;
     }
     push @$suffices, @$nsuffices;
-    $comment .= qq{<ul>} if @$suffices;
+    my @htmlrows = ();
     foreach my $suffix (@$suffices) {
         my $hname = $name;
         $hname =~ s/(\.xml)$/$suffix.html/;
-        $comment .= qq{<li><a href="cwmp/$hname">$hname</a></li>};
+        push @htmlrows, qq{<a href="cwmp/$hname">$hname</a>};
     }
-    $comment .= qq{</ul>} if @$suffices;
 
-    $trname = $spec unless $trname;
-    $trname = util_doc_name($trname, {verbose => 1});
-    $trname = '&nbsp;' unless $trname;
-    
-    # XXX not clear where to get the date info from
-    if (!$date) {
-        $date = 'TBD';
+    # generate the publication date
+    # XXX it's not clear where to get the publication date from
+    if (!$pubdate) {
+        $pubdate = 'TBD';
     } else {
         my $months = ['NotAMonth', 'January', 'February', 'March', 'April',
                       'May', 'June', 'July', 'August', 'September', 'October',
                       'November', 'December'];
-        my ($year, $month) = $date =~ /(\d+)-(\d+)/;
-        $date = qq{$months->[$month] $year};
+        my ($year, $month) = $pubdate =~ /(\d+)-(\d+)/;
+        $pubdate = qq{$months->[$month] $year};
     }
-    
-    my $xmllink = qq{cwmp/$name};
-    my $trlink = util_doc_link($trname);
+
+    # generate the TR document name and PDF link
+    # XXX how do we know whether there is a TR document for this file?
+    $trname = $spec unless $trname;
+    $trname = util_doc_name($trname, {verbose => 1});
+    $trname = undef unless $trname;
 
     # no TR link for support files or if TR name doesn't begin TR (catches
     # unversioned schemas)
-    $trlink = qq{<a href="$trlink">$trname</a>};
-    $trlink = '&nbsp;' if $support || $trname !~ /^TR/;
+    # XXX should verify that we still want this logic
+    my $pdflink = util_doc_link($trname);
+    $pdflink = qq{<a href="$pdflink">$trname</a>};
+    $pdflink = undef if $support || $trname !~ /^TR/;
+    
+    # generate the table rows for this file; number of rows is the maximum of
+    # the number of file and HTML rows
+    my $numrows = (@filerows > @htmlrows) ? @filerows : @htmlrows;
+    for (my $i = 0; $i < $numrows; $i++) {
+
+        # determine file and HTML row values
+        my $filerow = ($i < @filerows) ? $filerows[$i] : undef;
+        my $htmlrow = ($i < @htmlrows) ? $htmlrows[$i] : undef;
+
+        # XXX key is a bit klunky; the row should be a hash rather than an
+        #     array; by convention the key is on the first column (regardless
+        #     of which columns contribute to it)
+        my $key = !$opts->{model} ? $document : qq{$mname_name:$mname_major};
+
+        # row is an array of columns
+        push @{$context->{rows}},
+        [
+         { name => 'document',    value => $document, key => $key },
+         { name => 'model',       value => qq{$mname_name:$mname_major} },
+         { name => 'version',     value => qq{$mname_major.$mname_minor} },
+         { name => 'file',        value => $filerow },
+         { name => 'html',        value => $htmlrow },
+         { name => 'description', value => $description },
+         { name => 'pubdate',     value => $pubdate },
+         { name => 'pdflink',     value => $pdflink }
+        ];
+    }
+}
+
+# output table, using rowspan to span consecutive rows that have the same
+# value or are undefined; put a double line after any row where the first
+# non-suppressed column changes value
+# XXX no, the double line criterion is more complicated; need to use a key
+#     value for this; can place on first column?
+# XXX should generalise the options (e.g. the double line one) and not pass
+#     HTML options directly in $tabopts (pass a hash instead)
+sub htmlbbf_output_table
+{
+    my ($tabopts, $rows) = @_;
+
+    # first row is the header
+    # XXX I tend not to worry about these things but is this modifying the
+    #     argument in the caller; can one get warnings for such things?
+    my $header = shift @$rows;
+
+    # output header row
+    print <<END;
+    <table $tabopts>
+      <thead>
+        <tr>
+END
+
+    # need to remember which columns are suppressed (this information is given
+    # only on the header row) and number of unsuppressed columnt
+    my $suppressed = [];
+    my $actcols = 0;
+
+    # header columns have name, value, percent and suppress attributes
+    # XXX I think the percent values need to be scaled in order to sum
+    #     correctly?
+    # XXX don't really need the column name
+    foreach my $col (@$header) {
+        my $value = $col->{value};
+        my $percent = $col->{percent};
+        my $suppress = $col->{suppress};
+
+        push @$suppressed, $suppress;
+        $actcols++ unless $suppress;
+
+        my $oc = $suppress ? '<!-- ' : '';
+        my $cc = $suppress ? ' -->' : '';
+
+        print <<END;
+          $oc<th width="$percent%">$value</th>$cc
+END
+    }
 
     print <<END;
-      <tr>
-        <td><a href="$xmllink">$name</a>$nameall</td>
-        <td>$comment</td>
-        <td>$date</td>
-        <td>$trlink</td>
-      </tr>
+        </tr>
+      </thead>
+      <tbody>
 END
+
+    # create a copy of the rows with the same information but additionally
+    # tracking where values change down columns
+    my $nrows = [];
+    for (my $i = 0; $i < @$rows; $i++) {
+        my $row = $rows->[$i];
+        my $prow = ($i == 0) ? undef : $nrows->[$i-1];
+
+        # key is by convention held on the first column
+        my $key = $row->[0]->{key};
+        my $pkey = $prow->[0]->{key};
+        my $newkey = ($i == 0) ||
+            (defined $key && !defined $pkey) ||
+            (defined $key && $key ne $pkey);
+
+        my $ncols = [];
+        for (my $j = 0; $j < @$row; $j++) {
+            my $col = $row->[$j];
+            my $key = $col->{key};
+            my $name = $col->{name};
+            my $value = $col->{value};
+
+            my $pcol = (!defined $prow) ? undef : $prow->[$j];
+            my $pvalue = $pcol->{value};
+
+            # name and value come from the old row
+            # key comes from old row; newkey indicates that it has changed
+            # block (reference to field that starts block) is set below;
+            # bsize (number of rows in block) and bvals (number of defined
+            # values in block) are set (via block) in subsequent rows
+            my $ncol = { name => $name, value => $value,
+                         key => $key, newkey => $newkey,
+                         block => undef, bsize => undef, bvals => undef };
+
+            # this is the same as the "newkey" criterion; a new key forces
+            # all column values to be regarded as new
+            my $newval = $newkey || ($i == 0) ||
+                (defined $value && !defined $pvalue) ||
+                (defined $value && $value ne $pvalue);
+
+            # block is this column in the row that started the block
+            my $block = $newval ? $ncol : $pcol->{block};
+            $ncol->{block} = $block;
+
+            # the somewhat complicated logic is to distinguish 0 and undef
+            # (bsize and bvals are defined only in start-of-block rows)
+            $block->{bsize} =
+                !defined($block->{bsize}) ? 1 : $block->{bsize} + 1;
+            if (defined $value) {
+                $block->{bvals} =
+                    !defined($block->{bvals}) ? 1 : $block->{bvals} + 1;
+            }
+
+            push @$ncols, $ncol;
+        }
+        push @$nrows, $ncols;
+    }
+
+    # output body rows
+    for (my $i = 0; $i < @$nrows; $i++) {
+        my $row = $nrows->[$i];
+        my $newkey = $row->[0]->{newkey};
+
+        # if key has changed, and if this isn't the first row, output
+        # a separator row
+        if ($newkey && $i > 0) {
+            print <<END;
+        <tr>
+          <td colspan="$actcols"></td>
+        </tr>
+END
+        }
+
+        print <<END;
+        <tr>
+END
+        for (my $j = 0; $j < @$row; $j++) {
+            my $col = $row->[$j];
+            my $value = $col->{value};
+            my $bsize = $col->{bsize};
+            my $bbsize = $col->{block}->{bsize};
+
+            my $suppress = $suppressed->[$j];
+            my $oc = $suppress ? '<!-- ' : '';
+            my $cc = $suppress ? ' -->' : '';
+
+            # bbsize is the block row's bsize (always defined); bsize is this
+            # row's bsize (defined only if this is the block row)
+            my $rs = qq{ rowspan="$bbsize"};
+            my $rs_oc = (!$oc && !defined $bsize) ? '<!-- ' : '';
+            my $rs_cc = (!$cc && !defined $bsize) ? ' -->' : '';
+
+            # value might be undefined, e.g. if undefined on the first row
+            # of a block; if so, quietly replace with non-breaking space
+            $value = '&nbsp;' if !defined $value;
+
+            print <<END;
+          $rs_oc$oc<td$rs>$value</td>$cc$rs_cc
+END
+
+        }
+        print <<END;
+        </tr>
+END
+    }
+
+    print <<END;
+      </tbody>
+    </table>
+END
+    #print STDERR Dumper($nrows);
+    #die;
 }
 
 # HTML "OD-148" report of node.
@@ -8201,6 +8694,12 @@ END
 # Similar output to that of OD-148 sections 2 and 3; pass each data model
 # on the command line (duplication doesn't matter because no file is ever
 # read more than once).
+#
+# This will be replaced by the new "htmlbbf" report, which merges the
+# existing CWMP web page structure with some OD-148 layout ideas.
+
+# XXX until then, could / should use the new generic htmlbbf table output
+#     routine (makes all the row spanning etc much easier)
 
 # array containing all info to be reported, in the form:
 #
@@ -8426,7 +8925,7 @@ END
         my $update_type = $version_update eq 'Initial' ? '-' :
             $version_update eq 'Major' ? 'Replacement' : 'Incremental';
         my $update_type_entry = $update_type eq '-' ? '-' :
-            qq{<a href="cwmp/$row->{file}$htmlsuff-last-diffs.html">$update_type</a>};
+            qq{<a href="cwmp/$row->{file}$htmlsuff-last.html">$update_type</a>};
 
         $text .= <<END;
         <tr>
@@ -9086,6 +9585,16 @@ sub util_module_routine
 {
     my ($module, $routine) = @_;
     return defined &{"$module\::$routine"} ? \&{"$module\::$routine"} : undef;
+}
+
+# Heuristic determination of publication date of an XML file; the date is
+# returned as numeric 'yyyy-mm-dd' (i.e. will sort correctly) or as '' if
+# unknown
+sub util_pubdate
+{
+    my ($toplevel) = @_;
+
+    return '';
 }
 
 # Heuristic insertion of blank lines
@@ -10384,7 +10893,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2011/10/13 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#190 $
+$Date: 2011/10/28 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#191 $
 
 =cut
