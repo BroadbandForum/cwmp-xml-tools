@@ -165,8 +165,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/10/28 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#191 $};
+my $tool_vers_date = q{$Date: 2011/11/03 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#192 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -473,6 +473,7 @@ $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
 my $first_comment = undef;
 my $validation_errors = [];
 my $allfiles = [];
+my $files2 = []; # like $files but has the same structure as $allfiles
 my $specs = [];
 # XXX for DT, lfile and lspec should be last processed DM file
 #     (current workaround is to use same spec for DT and this DM)
@@ -486,6 +487,13 @@ my $imports = {}; # XXX not a good name, because it includes main file defns
 my $imports_i = 0;
 my $bibrefs = {};
 # XXX need to change $objects to use util_is_defined()
+# XXX $objects, $parameters (and $profiles?) need to be qualified by model,
+#     since otherwise there are conflicts when processing multiple versions
+#     of the same model, e.g. Device:1 and Device:2; but just adding another
+#     level is hard because the model isn't always available; could perhaps
+#     use a global variable for current model (but this is horrible); or could
+#     encode the model in the path as the first component (but this would
+#     require a lot of changes)
 my $objects = {};
 my $parameters = {};
 my $profiles = {};
@@ -513,15 +521,19 @@ sub expand_toplevel
     my $pubdate = util_pubdate($toplevel);
     if ($file =~ /\.xsd$/) {
         my $targetNamespace = $toplevel->findvalue('@targetNamespace');
-        push @$allfiles, {name => $file, spec => $targetNamespace,
-                          pubdate => $pubdate, schema => 1};
+        my $hash = {name => $file, spec => $targetNamespace,
+                    pubdate => $pubdate, schema => 1};
+        push @$allfiles, $hash;
+        push @$files2, $hash;
         return;
     }
     else {
         $spec = $toplevel->findvalue('@spec');
         my @models = $toplevel->findnodes('model');
-        push @$allfiles, {name => $file, spec => $spec,
-                          pubdate => $pubdate, models => \@models};
+        my $hash = {name => $file, spec => $spec, pubdate => $pubdate,
+                    models => \@models};
+        push @$allfiles, $hash;
+        push @$files2, $hash;
     }
 
     # if one or more top-level file has the same name, use the final directory
@@ -637,8 +649,6 @@ sub allfiles_pubdate_cmp
     my $ad = $a->{pubdate};
     my $bd = $b->{pubdate};
 
-    print STDERR "#### $a->{name} $b->{name}\n";
-
     return ($ad cmp $bd);
 }
 
@@ -732,16 +742,23 @@ sub expand_import
         unless specs_match($spec, $fspec);
 
     # collect top-level item declarations
+    my @models = ();
     foreach my $item ($toplevel->findnodes('dataType|component|model')) {
         my $element = $item->findvalue('local-name()');
         my $name = $item->findvalue('@name');
         my $ref = $item->findvalue('@base');
         # DO NOT default ref to name here; empty ref indicates an initial
         # definition of something!
+
+        push @models, $item if $element eq 'model';
         
         update_imports($file, $fspec, $file, $fspec, $element, $name, $ref,
                        $item);
     }
+
+    my $pubdate = util_pubdate($toplevel);
+    push @$files2, {name => $tfile, spec => $fspec, pubdate => $pubdate,
+                    models => \@models};
 
     unshift @$context, {file => $file, spec => $fspec,
                         lfile => $file, lspec => $fspec,
@@ -2260,22 +2277,28 @@ sub add_model
         $verbose > 1;
 
     # XXX monumental hack to allow vendor models to be derived from standard
-    #     ones; assume that PrefixModel:a.b is derived from Model:c.d
-    my ($tname, $tnamever) = $name =~ /([^:]*):(.*)/;
-    my ($tref, $trefver) = $ref =~ /([^:]*):(.*)/;
-    if ($tref && $tref ne $tname && $tname =~ /$tref$/) {
+    #     ones; assume that PrefixModel:a.b (name) is derived from Model:c.d
+    #     (ref)
+    my $tname = $name;
+    my ($tname1, $tname2) = $name =~ /([^:]*):(.*)/;
+    my ($tref1, $tref2) = $ref =~ /([^:]*):(.*)/;
+    if ($tref1 && $tref1 ne $tname1 && $tname1 =~ /$tref1$/) {
         print STDERR "hacked so model $name is derived from $ref\n"
             if $verbose;
-        $tname = qq{$tref:$tnamever};
+        # PrefixModel:a.b -> Model:a.b (for the search below)
+        $tname = qq{$tref1:$tname2};
     }
 
     # if ref, find the referenced model
+    # XXX minor version doesn't matter because search uses only the major
+    #     version; all minor versions will already be sharing the same instance
     my $nnode;
     if ($ref) {
         my @match = grep {
-            my ($a) = ($tname =~ /([^:]*)/);
-            my ($b) = ($_->{name} =~ /([^:]*)/);
-            $_->{type} eq 'model' && $a eq $b;
+            my ($a) = ($tname =~ /([^:]*:\d+)/);
+            my ($b) = ($_->{name} =~ /([^:]*:\d+)/);
+            $_->{type} eq 'model' &&
+                defined($a) && defined($b) && $a eq $b;
         } @{$root->{nodes}};
         # there can't be more than one match
         if (@match) {
@@ -2283,9 +2306,10 @@ sub add_model
             print STDERR "reusing node $nnode->{name}\n" if $verbose > 1;
         } elsif (load_model($context, $file, $spec, $ref)) {
             @match = grep {
-                my ($a) = ($tname =~ /([^:]*)/);
-                my ($b) = ($_->{name} =~ /([^:]*)/);
-                $_->{type} eq 'model' && $a eq $b;
+                my ($a) = ($tname =~ /([^:]*:\d+)/);
+                my ($b) = ($_->{name} =~ /([^:]*:\d+)/);
+                $_->{type} eq 'model' &&
+                    defined($a) && defined($b) && $a eq $b;
             } @{$root->{nodes}};
             $nnode = $match[0];
             print STDERR "{$file}$ref: model loaded\n" if $verbose;
@@ -3127,7 +3151,8 @@ sub add_parameter
 	$parameters->{$path} = $nnode;
     }
 
-    update_datatypes($syntax->{ref}, $file, $spec) if $type eq 'dataType';
+    update_datatypes($syntax->{ref}, $file, $spec)
+        if $type eq 'dataType' && $syntax->{ref};
 
     print STDERR Dumper(util_copy($nnode, ['nodes', 'pnode', 'mnode',
                                            'table'])) if
@@ -7906,10 +7931,12 @@ END
 # pattern matching filenames of support files (hopefully this pattern will
 # never need to change; note that it's agnostic to presence or absence of
 # version number)
+# XXX should put this info in the config file
 my $htmlbbf_supportpatt = q{^tr-(069|106).*-(types|biblio)\.xml$};
 
 # pattern matching filenames or specs that define both the IGD and Dev root
 # data models (this list will never need to change)
+# XXX should put this info in the config file
 my $htmlbbf_igddevpatt = q{^tr-(143-1-0|157-1-[0-3])-};
 
 # Text with informal template expansion:
@@ -7920,38 +7947,41 @@ my $htmlbbf_igddevpatt = q{^tr-(143-1-0|157-1-[0-3])-};
 # - {{ver}} => "vm.n"
 
 # these are used for the "Document" column
+# XXX should markup be permitted here (it is in the descriptions)?
+# XXX the config file replaces this
 my $htmlbbf_document_templates = {
-    rpcs => 'TR-069 RPCs',
-    dm => 'TR-069 Data Model Definition Schema (DM Schema)',
-    dmr => 'TR-069 Data Model Report Schema (DMR Schema)',
-    dt => 'TR-069 Device Type Schema (DT Schema)',
-    dtf => 'TR-069 DT (Device Type) Features Schema (DTF Schema)',
-    bibref => 'TR-069 Data Model Bibliographic References',
-    types => 'TR-069 Data Model Data Types',
-    objdef => 'XXX not used?',
-    objerr => 'XXX not used?',
-    compdef => 'TBD {{def}}',
-    comperr => 'TBD {{err}}'
+    rpcs => q{TR-069 RPCs},
+    dm => q{TR-069 Data Model Definition Schema (DM Schema)},
+    dmr => q{TR-069 Data Model Report Schema (DMR Schema)},
+    dt => q{TR-069 Device Type Schema (DT Schema)},
+    dtf => q{TR-069 DT (Device Type) Features Schema (DTF Schema)},
+    bibref => q{TR-069 Data Model Bibliographic References},
+    types => q{TR-069 Data Model Data Types},
+    objdef => q{XXX not used?},
+    objerr => q{XXX not used?},
+    compdef => q{TBD {{def}}},
+    comperr => q{TBD {{err}}}
 };
 
 # these are used for the "Description" column
+# XXX the config file replaces this
 my $htmlbbf_description_templates = {
-    rpcs => '{{ver}}: TBD',
-    dm => '{{ver}}: TBD',
-    dmr => 'TBD',
-    dt => '{{ver}}: TBD',
-    dtf => 'TBD',
-    bibref => 'TBD',
-    types => 'TBD',
-    objdef => 'TBD {{name}} {{type}} {{def}}',
-    objerr => 'TBD {{name}} {{type}} {{err}}',
-    compdef => 'TBD {{def}}',
-    comperr => 'TBD {{err}}'
+    rpcs => q{{{ver}}: '''TBD'''},
+    dm => q{{{ver}}: '''TBD'''},
+    dmr => q{'''TBD'''},
+    dt => q{{{ver}}: '''TBD'''},
+    dtf => q{'''TBD'''},
+    bibref => q{'''TBD'''},
+    types => q{'''TBD'''},
+    objdef => q{'''TBD''' {{name}} {{type}} {{def}}},
+    objerr => q{'''TBD''' {{name}} {{type}} {{err}}},
+    compdef => q{'''TBD''' {{def}}},
+    comperr => q{'''TBD''' {{err}}}
 };
 
 # File info (could read this from a config file) that overrides information
 # inferred from the files themselves (shouldn't be needed for DM Instances).
-# XXX MUST remove this information from this file!!!!
+# XXX the config file replaces this
 my $htmlbbf_info = {
     'cwmp-1-0.xsd' => {
         template => 'rpcs', trname => 'tr-069-1-1', pubdate => '2006-12'},
@@ -7974,7 +8004,7 @@ my $htmlbbf_info = {
         template => 'dm', trname => 'tr-106-1-6', pubdate => '2011-02'},
 
     'cwmp-datamodel-report.xsd' => {
-        template => 'dmr', trname => 'tr-106-1-2', pubdate => '2009-09'},
+        template => 'dmr', trname => 'tr-106-1-3', pubdate => '2009-09'},
 
     'cwmp-devicetype-1-0.xsd' => {
         template => 'dt', trname => 'tr-106-1-3', pubdate => '2009-09'},
@@ -8011,7 +8041,110 @@ sub htmlbbf_begin
     # others
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
+    # try to parse htmlbbf.ini file (http://en.wikipedia.org/wiki/INI_file)
+    #
+    # the config structure is a two-level hash; the top-level is the section
+    # and the second-level is the properties
+    #
+    # XXX see htmlbbf.ini for the details
+    my $known_props = q{template|document|description|descr_model|} .
+        q{trname|pubdate};
+
+    require Config::IniFiles;
+    my $config_file = qq{$report.ini};
+    my %config;
+    tie %config, 'Config::IniFiles', ( -file => $config_file,
+                                       -allowcontinue => 1 );
+    my $config = \%config;
+    if (@Config::IniFiles::errors) {
+        foreach my $error (@Config::IniFiles::errors) {
+            print STDERR "$config_file: $error\n";
+        }
+    } elsif (%$config) {
+
+        # config file has been found and successfully parsed, so discard the
+        # information hard-coded above
+        $htmlbbf_document_templates = {};
+        $htmlbbf_description_templates = {};
+        $htmlbbf_info = {};
+
+        foreach my $section (sort keys %$config) {
+
+            # templates; template name should begin "doc_" (document) or "dsc_"
+            # (description)
+            # XXX templates are being removed from the config file, so can
+            #     delete this section
+            if ($section eq 'templates') {
+                my $values = $config->{$section};
+                foreach my $name (sort keys %$values) {
+                    my $value = $values->{$name};
+                    $value = join "\n", @$value if ref $value eq 'ARRAY';
+                    my $ref = undef;
+                    if ($name =~ /^doc_(.*)/) {
+                        $ref = \$htmlbbf_document_templates->{$1};
+                    } elsif ($name =~ /^dsc_(.*)/) {
+                        $ref = \$htmlbbf_description_templates->{$1};
+                    } else {
+                        print STDERR "$config_file: template unexpected: " .
+                            "$name = \"$value\"\n";
+                    }
+                    # XXX don't need these checks any more
+                    if (defined $ref) {
+                        if (defined $$ref) {
+                            print STDERR "$config_file: template $name = " .
+                                "\"$value\" (unchanged)\n"
+                                if $pedantic > 2 && $value eq $$ref;
+                            print STDERR "$config_file: template $name = " .
+                                "\"$value\" (was \"$$ref\")\n"
+                                if $value ne $$ref;
+                        }
+                        $$ref = $value;
+                    }
+                }
+            }
+
+            # file name
+            else {
+                my $file = $section;
+                my $values = $config->{$file};
+                foreach my $prop (sort keys %$values) {
+                    my $value = $values->{$prop};
+                    $value = join "\n", @$value if ref $value eq 'ARRAY';
+                    if ($prop !~ /$known_props/) {
+                        print STDERR "$config_file: $file unexpected: " .
+                            "$prop = \"$value\"\n";
+                    }
+                    my $ref = \$htmlbbf_info->{$file}->{$prop};
+                    # XXX don't need these checks any more
+                    if (defined $$ref) {
+                        print STDERR "$config_file: $file $prop = " .
+                            "\"$value\" (unchanged)\n"
+                            if $pedantic > 2 && $value eq $$ref;
+                        print STDERR "$config_file: $file $prop = " .
+                            "\"$value\" (was \"$$ref\")\n"
+                            if $value ne $$ref;
+                    }
+                    $$ref = $value;
+                }
+            }
+        }
+    }
+
+    # check that all referenced templates are defined
+    foreach my $file (keys %$htmlbbf_info) {
+        my $info = $htmlbbf_info->{$file};
+        my $template = $info->{template};
+        if (defined $template &&
+            !defined $htmlbbf_document_templates->{$template} &&
+            !defined $htmlbbf_description_templates->{$template}) {
+            print STDERR "$config_file: $file undefined template " .
+                "\"$template\"\n";
+        }
+    }
+
     # header
+    # XXX should put standard header and footer info, as for the HTML report
+    # XXX should add some navigation, anchors and links
     print <<END;
 <html>
   <head>
@@ -8044,16 +8177,19 @@ sub htmlbbf_begin
     </div>
 
     <p/>
-    <p>The available XML Schemas and data model definitions for the TR-069
+    <p>The available data model definitions and XML Schemas for the TR-069
        suite of documents are listed below.</p>
     <p/>
     <p>Note: all the files below are directly reachable via:
-       http://www.broadband-forum.org/cwmp/&lt;filename&gt;.</p>
+       <em>http://www.broadband-forum.org/cwmp/&lt;filename&gt;</em>.</p>
 
 END
 
     # XXX oo we so should be using OO :(
     my $context;
+
+    # XXX temporary until are sure that it works
+    my $allfiles = $files2;
 
     # first determine heuristically which ones are support files and components
     # (schema files are already identified in $allfiles)
@@ -8144,7 +8280,7 @@ END
     <h1>Downloads</h1>
     <ul>
       <li><a href="cwmp.zip">cwmp.zip</a>: all XML and HTML files from this page</li>
-      <li>names? others? TBD</li>
+      <li>names? others? <b>TBD</b></li>
     </ul>
 END
 
@@ -8180,7 +8316,7 @@ sub htmlbbf_schema_cmp
             ($n[$i] =~ /^cwmp-devicetype-/)   ? 4 : 5;
     }
 
-    return ($c[0] == $c[1]) ? ($n[0] cmp $n[1]) : ($c[0] <=> $c[1]);
+    return ($c[0] == $c[1]) ? (lc($n[0]) cmp lc($n[1])) : ($c[0] <=> $c[1]);
 }
 
 # compare support files; $allfiles elements are passed and the comparison is
@@ -8194,7 +8330,7 @@ sub htmlbbf_support_cmp
 # based on file name
 sub htmlbbf_component_cmp
 {
-    return ($a->{name} cmp $b->{name});
+    return (lc($a->{name}) cmp lc($b->{name}));
 }
 
 # compare model files; $allfiles-like elements are passed and the
@@ -8212,18 +8348,22 @@ sub htmlbbf_model_cmp
     return 0 unless $m[0] && $m[1];
 
     my @n = (undef, undef);
+    my @s = (undef, undef);
     my @x = (undef, undef);
     my @y = (undef, undef);
-    my @s = (undef, undef);
+    my @z = (undef, undef);
     for (my $i = 0; $i < 2; $i++) {
         my $name = $m[$i]->findvalue('@name');
         ($n[$i], $x[$i], $y[$i]) = ($name =~ /([^:]+):(\d+)\.(\d+)/); 
         $s[$i] = boolean($m[$i]->findvalue('@isService'));
+        # XXX this is a hack to place TR-143 before TR-106a2
+        $z[$i] = ($f[$i] =~ /^tr-143-1-0/) ? 0 : 1;
    }
 
     return
         ($n[0] ne $n[1]) ? (htmlbbf_model_name_cmp(@f, @n, @s)) :
-        ($x[0] != $x[1]) ? ($x[0] <=> $x[1]) : ($y[0] <=> $y[1]);
+        ($x[0] != $x[1]) ? ($x[0] <=> $x[1]) : 
+        ($y[0] != $y[1]) ? ($y[0] <=> $y[1]) : ($z[0] <=> $z[1]);
 }
 
 # helper for the above; is passed file names, model names (no version) and
@@ -8243,7 +8383,7 @@ sub htmlbbf_model_name_cmp
     if (!$s1 && !$s2) {
         return
             ($n1 eq 'InternetGatewayDevice') ? -1 :
-            ($n2 eq 'InternetGatewayDevice') ?  1 : ($f1 cmp $f2);
+            ($n2 eq 'InternetGatewayDevice') ?  1 : (lc($f1) cmp lc($f2));
     }
 
     # first is root object; second is service object (or vice versa)
@@ -8253,7 +8393,7 @@ sub htmlbbf_model_name_cmp
 
     # both are service objects
     else {
-        return ($f1 cmp $f2);
+        return (lc($f1) cmp lc($f2));
     }
 
     # can't get here
@@ -8372,17 +8512,13 @@ sub htmlbbf_file
         return if !$opts->{service} &&  $service;
     }
 
-    # information from the static info object (which might be missing)
-    my $info = $htmlbbf_info->{$name};
-    my $template = $info->{template};
-    my $trname = $info->{trname};
-    my $pubdate = $info->{pubdate};
-
+    # determine model name and version (used below)
     my $seen = 0;
     my $mname = '';
     my $mname_name = '';
     my $mname_major = '';
     my $mname_minor = '';
+    my $mdesc = '';
     my $newmaj = 1;
     if ($model) {
         $mname = $model->findvalue('@name');
@@ -8393,8 +8529,68 @@ sub htmlbbf_file
         ($mname_name, my $version) = ($mname =~ /([^:]+):(.*)/);
         ($mname_major, $mname_minor) = ($version =~ /(\d+)\.(\d+)/);
         $newmaj = 0 if $mname_minor;
+
+        # alternative name for model description (necessary because some
+        # files can contain both components and models)
+        $mdesc = 'descr_model';
     }
 
+    # name used for looking up config info is filename first, then filename
+    # with successive version numbers omitted (only the first encountered value
+    # is used)
+    my @names = ();
+
+    # for schemas, support names of form prefix-m-n.xsd where prefix contains
+    # no digits and m and n are numeric
+    if ($schema) {
+        # the rather complicated pattern allows it to match names with no
+        # numeric characters at all, e.g. cwmp-datamodel-report.xsd
+        my ($prefix, $m, $n) = $name =~
+            /^([^\d\.]+)(?:-(\d+))?(?:-(\d+))?\.xsd$/;
+        push @names, qq{$prefix-$m-$n.xsd} if defined $n;
+        push @names, qq{$prefix-$m.xsd} if defined $m;
+        push @names, qq{$prefix.xsd};
+    }
+
+    # for models and components, support names of form xxnnn-i-a[-c][label].xml
+    # where xxnnn is of the form "xx-nnn", i, a and c are numeric and label
+    # can't begin with a digit
+    elsif ($model || $component) {
+        my ($xxnnn, $i, $a, $c, $label) =
+            $name =~ /^([^-]+-\d+)-(\d+)-(\d+)(?:-(\d+))?(-\D.*)?\.xml$/;
+        $label = '' unless defined $label;
+        push @names, qq{$xxnnn-$i-$a-$c$label.xml} if defined $c;
+        push @names, qq{$xxnnn-$i-$a$label.xml} if defined $a;
+        push @names, qq{$xxnnn-$i$label.xml} if defined $i;
+        push @names, qq{$xxnnn$label.xml};
+    }
+
+    # other files aren't versioned so just push the full name
+    else {
+        push @names, $name;
+    }
+
+    # look up config info
+    my $document = undef;
+    my $template = undef;
+    my $trname = undef;
+    my $pubdate = undef;
+    my $description = undef;
+    foreach my $n (@names) {
+        my $info = $htmlbbf_info->{$n};
+
+        $document = $info->{document} unless defined $document;
+        $template = $info->{template} unless defined $template;
+        $trname = $info->{trname} unless defined $trname;
+        $pubdate = $info->{pubdate} unless defined $pubdate;
+
+        # use $mdesc if it's defined, otherwise "description"
+        my $descname = defined($info->{$mdesc}) ? $mdesc : 'description';
+        $description = $info->{$descname} unless defined $description;
+    }
+
+    # various bits and pieces of logic for default template names
+    # XXX do we still need this?
     my $type = ($opts->{root} ? 'Root' : 'Service') . ' Object';
 
     my $def = 'definition';
@@ -8407,28 +8603,40 @@ sub htmlbbf_file
     my $ver = qq{v${maj}.${min}};
 
     # generate default template name for components and model
+    # XXX do we still need this?
     if (!$template && ($opts->{component} || $opts->{model})) {
         $template  = $opts->{model} ? 'obj' : 'comp';
         $template .= $seen ? 'err'  : 'def';
     }
 
-    # $template is the template name; expand the document and description
-    # templates
-    my $document = $template ?
-        $htmlbbf_document_templates->{$template} : 'TBD';
-    $document =~ s/{{name}}/$mname/;
-    $document =~ s/{{type}}/$type/;
-    $document =~ s/{{def}}/$def/;
-    $document =~ s/{{err}}/$err/;
-    $document =~ s/{{ver}}/$ver/;
+    # if document unknown, expand the document template
+    # XXX do we still need this?
+    if (!$document) {
+        $document = $template && $htmlbbf_document_templates->{$template} ?
+            $htmlbbf_document_templates->{$template} : 'TBD';
+        $document =~ s/{{name}}/$mname/;
+        $document =~ s/{{type}}/$type/;
+        $document =~ s/{{def}}/$def/;
+        $document =~ s/{{err}}/$err/;
+        $document =~ s/{{ver}}/$ver/;
+    }
 
-    my $description = $template ?
-        $htmlbbf_description_templates->{$template} : 'TBD';
-    $description =~ s/{{name}}/$mname/;
-    $description =~ s/{{type}}/$type/;
-    $description =~ s/{{def}}/$def/;
-    $description =~ s/{{err}}/$err/;
-    $description =~ s/{{ver}}/$ver/;
+    # if description unknown, expand the description template
+    # XXX do we still need this?
+    if (!$description) {
+        $description = $template &&
+            $htmlbbf_description_templates->{$template} ?
+            $htmlbbf_description_templates->{$template} : q{'''TBD'''};
+        $description =~ s/{{name}}/$mname/;
+        $description =~ s/{{type}}/$type/;
+        $description =~ s/{{def}}/$def/;
+        $description =~ s/{{err}}/$err/;
+        $description =~ s/{{ver}}/$ver/;
+    }
+
+    # escape the description
+    # XXX is this the best place to do this? should any options be passed?
+    $description = html_escape($description, {});
 
     # determine the file rows, which involves deciding whether to add the
     # "all" XML link (not the HTML link because the "all" HTML should be the
@@ -8468,11 +8676,8 @@ sub htmlbbf_file
         push @htmlrows, qq{<a href="cwmp/$hname">$hname</a>};
     }
 
-    # generate the publication date
-    # XXX it's not clear where to get the publication date from
-    if (!$pubdate) {
-        $pubdate = 'TBD';
-    } else {
+    # convert the publication date from "yyyy-mm" to "Month yyyy"
+    if ($pubdate) {
         my $months = ['NotAMonth', 'January', 'February', 'March', 'April',
                       'May', 'June', 'July', 'August', 'September', 'October',
                       'November', 'December'];
@@ -8481,17 +8686,20 @@ sub htmlbbf_file
     }
 
     # generate the TR document name and PDF link
-    # XXX how do we know whether there is a TR document for this file?
-    $trname = $spec unless $trname;
-    $trname = util_doc_name($trname, {verbose => 1});
-    $trname = undef unless $trname;
+    if ($trname) {
+        $trname = util_doc_name($trname, {verbose => 1});
+        $trname = undef unless $trname;
+    }
 
     # no TR link for support files or if TR name doesn't begin TR (catches
     # unversioned schemas)
     # XXX should verify that we still want this logic
-    my $pdflink = util_doc_link($trname);
-    $pdflink = qq{<a href="$pdflink">$trname</a>};
-    $pdflink = undef if $support || $trname !~ /^TR/;
+    my $pdflink = undef;
+    if ($trname) {
+        $pdflink = util_doc_link($trname);
+        $pdflink = qq{<a href="$pdflink">$trname</a>};
+        $pdflink = undef if $support || $trname !~ /^TR/;
+    }
     
     # generate the table rows for this file; number of rows is the maximum of
     # the number of file and HTML rows
@@ -8685,8 +8893,6 @@ END
       </tbody>
     </table>
 END
-    #print STDERR Dumper($nrows);
-    #die;
 }
 
 # HTML "OD-148" report of node.
@@ -10193,10 +10399,15 @@ sub sanity_node
 
             # add a reference from each #entries parameter to its table (can
             # be used in report generation)
+            # XXX huge hack (see comments to $objects and $parameters) to
+            #     suppress the warning for the htmlbbf and html148 reports
+            #     (which are the only ones that might process multiple major
+            #     versions of the same model)
             if ($numEntriesParameter->{table}) {
                 print STDERR "$path: numEntriesParameter " .
                     "($numEntriesParameter->{name}) already used by " .
-                    "$numEntriesParameter->{table}->{path}\n";
+                    "$numEntriesParameter->{table}->{path}\n"
+                    unless $report =~ /^html(bbf|148)$/;
             } else {
                 $numEntriesParameter->{table} = $node;
             }
@@ -10893,7 +11104,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2011/10/28 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#191 $
+$Date: 2011/11/03 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#192 $
 
 =cut
