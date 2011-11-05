@@ -426,7 +426,7 @@ DM-instance...</p>
 <dd>
 <p>adds an extra column containing a summary of the parameter syntax; is like the Type column for simple types, but includes additional details for lists</p>
 </dd>
-<dt><strong><a name="special_deprecated_key_nonascii_normative_notify_obsoleted_profile_ref_rfc" class="item"><strong>--special=deprecated|key|nonascii|normative|notify|obsoleted|profile|ref|rfc</strong></a></strong></dt>
+<dt><strong><a name="special_deprecated_imports_key_nonascii_normative_notify_obsoleted_profile_ref_rfc" class="item"><strong>--special=deprecated|imports|key|nonascii|normative|notify|obsoleted|profile|ref|rfc</strong></a></strong></dt>
 
 <dd>
 <p>performs special checks, most of which assume that several versions of the same data model have been supplied on the command line, and many of which operate only on the highest version of the data model</p>
@@ -435,6 +435,37 @@ DM-instance...</p>
 
 <dd>
 <p>for each profile item (object or parameter) report if it is deprecated or obsoleted</p>
+</dd>
+<dt><strong><a name="imports_imports_element_imports_element_name" class="item"><strong>imports</strong>, <strong>imports:element</strong>, <strong>imports:element:name</strong></a></strong></dt>
+
+<dd>
+<p>lists the components, data types and models that are defined in all the files that were read by the tool</p>
+<p><strong>element</strong> is <strong>component</strong>, <strong>dataType</strong> or <strong>model</strong> and can be abbreviated, so it is usual to specify just the first letter</p>
+<p><strong>name</strong> is the first part of the element name (it can be the full element name but this is not necessary); element names which start with an underscore will also be listed</p>
+<p>the output format is illustrated by these examples:</p>
+<pre>
+ report.pl --special=imports:m:Device:2 tr-181-2-3-0.xml
+ model {tr-181-2-3-0}Device:2.3
+ model {tr-181-2-3-0}Device:2.2 = {tr-181-2-2-0}Device:2.2
+ model {tr-181-2-2-0}Device:2.2
+ model {tr-181-2-2-0}Device:2.1 = {tr-181-2-1-0}Device:2.1
+ model {tr-181-2-1-0}Device:2.1
+ model {tr-181-2-1-0}Device:2.0 = {tr-181-2-0-1}Device:2.0
+ model {tr-181-2-0-1}Device:2.0</pre>
+<pre>
+ report.pl --special=imports:c:UPnP tr-181-2-3-0.xml
+ component {tr-157-1-3-0}UPnP = {tr-157-1-2-0}UPnP
+ component {tr-157-1-2-0}UPnPDiffs
+ component {tr-157-1-2-0}UPnP
+ component {tr-157-1-2-0}_UPnP = {tr-157-1-1-0}UPnP {tr-157-1-0-0}
+ component {tr-157-1-1-0}UPnP = {tr-157-1-0-0}UPnP
+ component {tr-157-1-0-0}UPnP
+ component {tr-181-2-0-1}UPnP = {tr-157-1-2-0}UPnP
+ component {tr-157-1-4-0}UPnP = {tr-157-1-3-0}UPnP {tr-157-1-2-0}</pre>
+<p>each line starts with the element name, followed by the element in the form <strong>{file}name</strong>; then, if the element is imported from another file (possibly using a different name), that is indicated after an equals sign; finally if the actual definition is in a different file, that is indicated inthe form <strong>{file}</strong></p>
+<p>for example, the following line indicates that the <strong>tr-157-1-2-0</strong> <strong>_UPnP</strong> component is imported from the <strong>tr-157-1-1-0</strong> <strong>UPnP</strong> component, which is actually defined in <strong>tr-157-1-0-0</strong></p>
+<pre>
+ component {tr-157-1-2-0}_UPnP = {tr-157-1-1-0}UPnP {tr-157-1-0-0}</pre>
 </dd>
 <dt><strong><a name="key" class="item"><strong>key</strong></a></strong></dt>
 
@@ -525,8 +556,8 @@ DM-instance...</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:william.lupton@pace.com">william.lupton@pace.com</a>&gt;</p>
-<p>$Date: 2011/11/03 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#192 $</p>
+<p>$Date: 2011/11/05 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#193 $</p>
 
 </body>
 

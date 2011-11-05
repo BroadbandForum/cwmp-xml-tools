@@ -362,8 +362,8 @@ Options:
         is like the Type column for simple types, but includes additional
         details for lists
 
-    --special=deprecated|key|nonascii|normative|notify|obsoleted|profile|ref
-    |rfc
+    --special=deprecated|imports|key|nonascii|normative|notify|obsoleted|pro
+    file|ref|rfc
         performs special checks, most of which assume that several versions
         of the same data model have been supplied on the command line, and
         many of which operate only on the highest version of the data model
@@ -371,6 +371,50 @@ Options:
         deprecated, obsoleted
             for each profile item (object or parameter) report if it is
             deprecated or obsoleted
+
+        imports, imports:element, imports:element:name
+            lists the components, data types and models that are defined in
+            all the files that were read by the tool
+
+            element is component, dataType or model and can be abbreviated,
+            so it is usual to specify just the first letter
+
+            name is the first part of the element name (it can be the full
+            element name but this is not necessary); element names which
+            start with an underscore will also be listed
+
+            the output format is illustrated by these examples:
+
+             report.pl --special=imports:m:Device:2 tr-181-2-3-0.xml
+             model {tr-181-2-3-0}Device:2.3
+             model {tr-181-2-3-0}Device:2.2 = {tr-181-2-2-0}Device:2.2
+             model {tr-181-2-2-0}Device:2.2
+             model {tr-181-2-2-0}Device:2.1 = {tr-181-2-1-0}Device:2.1
+             model {tr-181-2-1-0}Device:2.1
+             model {tr-181-2-1-0}Device:2.0 = {tr-181-2-0-1}Device:2.0
+             model {tr-181-2-0-1}Device:2.0
+
+             report.pl --special=imports:c:UPnP tr-181-2-3-0.xml
+             component {tr-157-1-3-0}UPnP = {tr-157-1-2-0}UPnP
+             component {tr-157-1-2-0}UPnPDiffs
+             component {tr-157-1-2-0}UPnP
+             component {tr-157-1-2-0}_UPnP = {tr-157-1-1-0}UPnP {tr-157-1-0-0}
+             component {tr-157-1-1-0}UPnP = {tr-157-1-0-0}UPnP
+             component {tr-157-1-0-0}UPnP
+             component {tr-181-2-0-1}UPnP = {tr-157-1-2-0}UPnP
+             component {tr-157-1-4-0}UPnP = {tr-157-1-3-0}UPnP {tr-157-1-2-0}
+
+            each line starts with the element name, followed by the element
+            in the form {file}name; then, if the element is imported from
+            another file (possibly using a different name), that is
+            indicated after an equals sign; finally if the actual definition
+            is in a different file, that is indicated inthe form {file}
+
+            for example, the following line indicates that the tr-157-1-2-0
+            _UPnP component is imported from the tr-157-1-1-0 UPnP
+            component, which is actually defined in tr-157-1-0-0
+
+             component {tr-157-1-2-0}_UPnP = {tr-157-1-1-0}UPnP {tr-157-1-0-0}
 
         key for each table with a functional key, report access, path and
             the key

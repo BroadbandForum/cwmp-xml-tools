@@ -165,8 +165,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/11/03 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#192 $};
+my $tool_vers_date = q{$Date: 2011/11/05 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#193 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -433,7 +433,7 @@ my $samename = 0;
     }
 }
 
-*STDERR = *STDOUT if $report eq 'null';
+*STDERR = *STDOUT if $report =~ /^(null|special)$/;
 
 $marktemplates = '&&&&' if defined($marktemplates);
 
@@ -798,7 +798,7 @@ sub expand_import
         print STDERR "{$file}$ref: invalid import of internal $element\n"
             if $ref =~ /^_/;
 
-        # XXX this logic is from expand_model_component
+        # XXX this logic is (originally) from expand_model_component
         my ($elem) = grep {$_->{element} eq $element && $_->{name} eq $ref}
         @{$imports->{$file}->{imports}};
         if (!$elem) {
@@ -1298,10 +1298,25 @@ sub expand_model_component
 	return;
     }
 
+    # find the file that actually defines the component (as opposed to just
+    # having it in its namespace)
+    while ($comp->{file} ne $file) {
+        $file = $comp->{file};
+        $spec = $comp->{spec};
+        my $ref = $comp->{ref};
+        ($comp) = grep {$_->{element} eq 'component' && $_->{name} eq $ref}
+        @{$imports->{$file}->{imports}};
+
+        # XXX this should never happen but could if $imports was invalid
+        if (!$comp) {
+            print STDERR "internal error in expand_model_component " .
+                "(ignored)\n";
+            last;
+        }
+    }
+
     # from now on, file and spec relate to the component
     # XXX this is ugly (want clean namespace handling)
-    $file = $comp->{file};
-    $spec = $comp->{spec};
 
     # check for recursive invocation
     if (grep {$_->{file} eq $file && $_->{name} eq $name} @$context) {
@@ -9712,7 +9727,7 @@ sub special_end
         }
     }
 
-    # key: for each table with a functional key, report access, path and the key
+    # key: for each table with a functional key, report access, path and key
     elsif ($special eq 'key') {
         foreach my $item (@$special_items) {
             my $path = $item->{path};
@@ -9730,6 +9745,35 @@ sub special_end
             next unless $keys; # only interested in functional keys
             my $access = $item->{access};
             print "$access\t$path\t$keys\n";
+        }
+    }
+
+    # imports: report the imports structure in a human-readable way
+    # XXX inefficient because doesn't require a pass through the node tree
+    elsif ($special =~ /^imports/) {
+        my $colon = ':'; # XXX otherwise confuses Emacs syntax highlighting
+        my ($ignore, $ielem, $iname) = split /$colon/, $special, 3;
+        # XXX it gets autovivified somewhere...
+        foreach my $file (sort keys %$imports) {
+            $imports->{$file}->{i} = -1 unless defined $imports->{$file}->{i};
+        }
+        foreach my $file (sort {$imports->{$a}->{i} <=>
+                                    $imports->{$b}->{i}} keys %$imports) {
+            my $impfile = $imports->{$file};
+            foreach my $imp (@{$impfile->{imports}}) {
+                next if $ielem && $imp->{element} !~ /^$ielem/;
+                next if $iname && $imp->{name} !~ /^_?$iname/;
+                my $dfile = $imp->{file};
+                my $element = $imp->{element};
+                my $name = $imp->{name};
+                my $ref = $imp->{ref};
+                my $alias = $dfile ne $file ? qq{ = {$dfile}$ref} : qq{};
+                my $uri = $imp->{item}->ownerDocument()->URI();
+                $uri =~ s/^.*\///;
+                $uri =~ s/\..*$//;
+                $uri = $uri ne $dfile ? qq{ {$uri}} : qq{};
+                print "$element {$file}$name$alias$uri\n"
+            }
         }
     }
 
@@ -11014,7 +11058,7 @@ currently affects only the B<html> report; generates a B<Spec> rather than a B<V
 
 adds an extra column containing a summary of the parameter syntax; is like the Type column for simple types, but includes additional details for lists
 
-=item B<--special=deprecated|key|nonascii|normative|notify|obsoleted|profile|ref|rfc>
+=item B<--special=deprecated|imports|key|nonascii|normative|notify|obsoleted|profile|ref|rfc>
 
 performs special checks, most of which assume that several versions of the same data model have been supplied on the command line, and many of which operate only on the highest version of the data model
 
@@ -11023,6 +11067,41 @@ performs special checks, most of which assume that several versions of the same 
 =item B<deprecated>, B<obsoleted>
 
 for each profile item (object or parameter) report if it is deprecated or obsoleted
+
+=item B<imports>, B<imports:element>, B<imports:element:name>
+
+lists the components, data types and models that are defined in all the files that were read by the tool
+
+B<element> is B<component>, B<dataType> or B<model> and can be abbreviated, so it is usual to specify just the first letter
+
+B<name> is the first part of the element name (it can be the full element name but this is not necessary); element names which start with an underscore will also be listed
+
+the output format is illustrated by these examples:
+
+ report.pl --special=imports:m:Device:2 tr-181-2-3-0.xml
+ model {tr-181-2-3-0}Device:2.3
+ model {tr-181-2-3-0}Device:2.2 = {tr-181-2-2-0}Device:2.2
+ model {tr-181-2-2-0}Device:2.2
+ model {tr-181-2-2-0}Device:2.1 = {tr-181-2-1-0}Device:2.1
+ model {tr-181-2-1-0}Device:2.1
+ model {tr-181-2-1-0}Device:2.0 = {tr-181-2-0-1}Device:2.0
+ model {tr-181-2-0-1}Device:2.0
+
+ report.pl --special=imports:c:UPnP tr-181-2-3-0.xml
+ component {tr-157-1-3-0}UPnP = {tr-157-1-2-0}UPnP
+ component {tr-157-1-2-0}UPnPDiffs
+ component {tr-157-1-2-0}UPnP
+ component {tr-157-1-2-0}_UPnP = {tr-157-1-1-0}UPnP {tr-157-1-0-0}
+ component {tr-157-1-1-0}UPnP = {tr-157-1-0-0}UPnP
+ component {tr-157-1-0-0}UPnP
+ component {tr-181-2-0-1}UPnP = {tr-157-1-2-0}UPnP
+ component {tr-157-1-4-0}UPnP = {tr-157-1-3-0}UPnP {tr-157-1-2-0}
+
+each line starts with the element name, followed by the element in the form B<{file}name>; then, if the element is imported from another file (possibly using a different name), that is indicated after an equals sign; finally if the actual definition is in a different file, that is indicated inthe form B<{file}>
+
+for example, the following line indicates that the B<tr-157-1-2-0> B<_UPnP> component is imported from the B<tr-157-1-1-0> B<UPnP> component, which is actually defined in B<tr-157-1-0-0>
+
+ component {tr-157-1-2-0}_UPnP = {tr-157-1-1-0}UPnP {tr-157-1-0-0}
 
 =item B<key>
 
@@ -11104,7 +11183,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2011/11/03 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#192 $
+$Date: 2011/11/05 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#193 $
 
 =cut
