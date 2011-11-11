@@ -408,7 +408,7 @@ Options:
             in the form {file}name; then, if the element is imported from
             another file (possibly using a different name), that is
             indicated after an equals sign; finally if the actual definition
-            is in a different file, that is indicated inthe form {file}
+            is in a different file, that is indicated in the form {file}
 
             for example, the following line indicates that the tr-157-1-2-0
             _UPnP component is imported from the tr-157-1-1-0 UPnP

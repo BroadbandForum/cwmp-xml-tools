@@ -165,8 +165,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/11/05 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#193 $};
+my $tool_vers_date = q{$Date: 2011/11/11 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#194 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -632,8 +632,8 @@ sub expand_toplevel
             next if $name =~ /^_/;
 
             print STDERR "referencing component: $name\n" if $verbose;
-            foreach my $item ($component->findnodes('component|object|'.
-                                                    'parameter')) {
+            foreach my $item ($component->findnodes('component|parameter|'.
+                                                    'object|profile')) {
                 my $element = $item->findvalue('local-name()');
                 "expand_model_$element"->($context, $nnode, $nnode, $item);
             }
@@ -11097,7 +11097,7 @@ the output format is illustrated by these examples:
  component {tr-181-2-0-1}UPnP = {tr-157-1-2-0}UPnP
  component {tr-157-1-4-0}UPnP = {tr-157-1-3-0}UPnP {tr-157-1-2-0}
 
-each line starts with the element name, followed by the element in the form B<{file}name>; then, if the element is imported from another file (possibly using a different name), that is indicated after an equals sign; finally if the actual definition is in a different file, that is indicated inthe form B<{file}>
+each line starts with the element name, followed by the element in the form B<{file}name>; then, if the element is imported from another file (possibly using a different name), that is indicated after an equals sign; finally if the actual definition is in a different file, that is indicated in the form B<{file}>
 
 for example, the following line indicates that the B<tr-157-1-2-0> B<_UPnP> component is imported from the B<tr-157-1-1-0> B<UPnP> component, which is actually defined in B<tr-157-1-0-0>
 
@@ -11183,7 +11183,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2011/11/05 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#193 $
+$Date: 2011/11/11 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#194 $
 
 =cut
