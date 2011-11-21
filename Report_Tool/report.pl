@@ -165,8 +165,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/11/11 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#194 $};
+my $tool_vers_date = q{$Date: 2011/11/21 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#195 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -212,57 +212,58 @@ my $modifiedusesspec = 1;
 #     all are included; why doesn't this work for bibrefs too?
 # XXX need to change declarations to be "our" in order for variables to be
 #     visible to plugins; better to use a single options hash?
-my $allbibrefs = 0;
-my $autobase = 0;
-my $autodatatype = 0;
-my $automodel = 0;
-my $bibrefdocfirst = 0;
-my $canonical = 0;
-my $catalogs = [];
-my $compare = 0;
-my $components = 0;
-my $debugpath = '';
-my $deletedeprecated = 0;
-my $dtprofiles = [];
-my $dtspec = 'urn:example-com:device-1-0-0';
-my $help = 0;
-my $nohyphenate = 0;
-my $ignore = undef;
-my $importsuffix = '';
-my $includes = [];
-my $info = 0;
-my $lastonly = 0;
-my $marktemplates = undef;
-my $newparser = 0;
-my $noautomodel = 0;
-my $nocomments = 0;
-my $nolinks = 0;
-my $nomodels = 0;
-my $noobjects = 0;
-my $noparameters = 0;
-my $noprofiles = 0;
-my $notemplates = 0;
-my $nowarnredef = 0;
-my $nowarnprofbadref = 0;
-my $objpat = '';
+our $allbibrefs = 0;
+our $autobase = 0;
+our $autodatatype = 0;
+our $automodel = 0;
+our $bibrefdocfirst = 0;
+our $canonical = 0;
+our $catalogs = [];
+our $compare = 0;
+our $components = 0;
+our $debugpath = '';
+our $deletedeprecated = 0;
+our $dtprofiles = [];
+our $dtspec = 'urn:example-com:device-1-0-0';
+our $help = 0;
+our $nohyphenate = 0;
+our $ignore = undef;
+our $importsuffix = '';
+our $includes = [];
+our $info = 0;
+our $lastonly = 0;
+our $marktemplates = undef;
+our $newparser = 0;
+our $noautomodel = 0;
+our $nocomments = 0;
+our $nolinks = 0;
+our $nomodels = 0;
+our $noobjects = 0;
+our $noparameters = 0;
+our $noprofiles = 0;
+our $notemplates = 0;
+our $nowarnredef = 0;
+our $nowarnprofbadref = 0;
+our $objpat = '';
+our $options = {};
 our $outfile = undef;
-my $pedantic = undef;
-my $plugins = [];
-my $quiet = 0;
-my $report = '';
-my $showdiffs = 0;
-my $showspec = 0;
-my $showreadonly = 0;
-my $showsyntax = 0;
-my $special = '';
-my $thisonly = 0;
-my $tr106 = 'TR-106';
-my $ugly = 0;
-my $upnpdm = 0;
-my $verbose = undef;
-my $warnbibref = undef;
-my $warndupbibref = 0;
-my $writonly = 0;
+our $pedantic = undef;
+our $plugins = [];
+our $quiet = 0;
+our $report = '';
+our $showdiffs = 0;
+our $showspec = 0;
+our $showreadonly = 0;
+our $showsyntax = 0;
+our $special = '';
+our $thisonly = 0;
+our $tr106 = 'TR-106';
+our $ugly = 0;
+our $upnpdm = 0;
+our $verbose = undef;
+our $warnbibref = undef;
+our $warndupbibref = 0;
+our $writonly = 0;
 GetOptions('allbibrefs' => \$allbibrefs,
            'autobase' => \$autobase,
            'autodatatype' => \$autodatatype,
@@ -296,6 +297,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'nowarnredef' => \$nowarnredef,
            'nowarnprofbadref' => \$nowarnprofbadref,
 	   'objpat:s' => \$objpat,
+           'option:s%' => \$options,
            'outfile:s' => \$outfile,
 	   'pedantic:i' => \$pedantic,
            'plugin:s@' => \$plugins,
@@ -320,9 +322,11 @@ pod2usage(1) if $help;
 $report = 'special' if $special;
 $report = 'null' unless $report;
 
-# determine all possible report types; either a routine called "<rrr>_node"
-# (for some rrr) in the main module or a routine called "report_node" in a
-# plugin module
+# this means that plugins can be in included directories
+push @INC, @$includes;
+
+# determine all possible report types; a routine called "<rrr>_node" in the
+# main module or in a plugin module
 # XXX this will give "false positives" if any routines happen to be called
 #     "<rrr>_node", e.g. there was an "unhide_node" routine
 unshift @$plugins, 'main'; # avoids main being (too much of) a special case
@@ -336,9 +340,11 @@ foreach my $plugin (@$plugins) {
     foreach my $routine (util_module_routines($plugin)) {
         if ($routine =~ /^(.*?)_node$/ && $1 ne 'report') {
             $reports->{$1} = {
+                begin => util_module_routine($plugin, "$1\_begin"),
                 node => util_module_routine($plugin, "$1\_node"),
                 postpar => util_module_routine($plugin, "$1\_postpar"),
-                post => util_module_routine($plugin, "$1\_post")
+                post => util_module_routine($plugin, "$1\_post"),
+                end => util_module_routine($plugin, "$1\_end")
             };
             $any = 1;
         }
@@ -415,6 +421,9 @@ if ($compare) {
     $modifiedusesspec = 0 if $lastonly;
 }
 
+# XXX should make this conditional on it having a file extension; then can use
+#     an outfile without extension as a base name and allow reports to generate
+#     multiple files if they so choose
 if ($outfile) {
     if (!open(STDOUT, ">", $outfile)) {
         die "can't create --outfile $outfile: $!";
@@ -10573,9 +10582,10 @@ report_node($root, 0, {report => 'sanity'});
 # XXX currently doesn't work for all report types (haven't updated them all for
 #     the new interface)
 # XXX need to re-think "hidden" versus use of "lspec"
-"${report}_begin"->($root) if defined &{"${report}_begin"};
+#my $beginfunc = $reports->{$report}
+#"${report}_begin"->($root) if defined &{"${report}_begin"};
 report_node($root);
-"${report}_end"->($root) if defined &{"${report}_end"};
+#"${report}_end"->($root) if defined &{"${report}_end"};
 
 sub report_node
 {
@@ -10590,9 +10600,17 @@ sub report_node
     # the sanity report needs to visit ALL nodes
     return if $treport ne 'sanity' && util_is_omitted($node);
 
+    my $beginfunc = $reports->{$treport}->{begin};
     my $nodefunc = $reports->{$treport}->{node};
     my $postparfunc = $reports->{$treport}->{postpar};
     my $postfunc = $reports->{$treport}->{post};
+    my $endfunc = $reports->{$treport}->{end};
+
+    if (!$indent) {
+        unshift @_, $node, $indent, $opts;
+        $beginfunc->(@_) if defined $beginfunc;
+        shift; shift; shift;
+    }
 
     unshift @_, $node, $indent, $opts;
     $nodefunc->(@_);
@@ -10642,6 +10660,12 @@ sub report_node
     unshift @_, $node, $indent, $opts;
     $postfunc->(@_) if defined $postfunc;
     shift; shift; shift;
+
+    if (!$indent) {
+        unshift @_, $node, $indent, $opts;
+        $endfunc->(@_) if defined $endfunc;
+        shift; shift; shift;
+    }
 }
 
 # Warn of unused bibrefs (note do this after generating the report because
@@ -10727,6 +10751,7 @@ B<report.pl>
 [--nowarnredef]
 [--nowarnprofbadref]
 [--objpat=pattern("")]
+[--option=n=v]...
 [--outfile=s]
 [--pedantic[=i(1)]]
 [--plugin=s]...
@@ -10930,6 +10955,10 @@ this is deprecated because it is no longer needed (use status="deleted" as appro
 
 specifies an object name pattern (a regular expression); objects that do not match this pattern will be ignored (the default of "" matches all objects)
 
+=item B<--option=n=v>...
+
+can be specified multiple times; defines options that can be accessed and used when generating the report; useful when used with reports implemented in plugins
+
 =item B<--outfile=s>
 
 specifies the output file; if not specified, output will be sent to I<stdout>
@@ -10960,17 +10989,19 @@ can be specified multiple times; defines external plugins that can define additi
 
 =over
 
-=item * currently each plugin must correspond to a file of the same name but with a B<.pm> (Perl Module) extension; this file should be in the current directory (more specifically, it must be in the Perl include path); for example, B<--plugin=foo> must correspond to a file called B<foo.pm>
+=item * currently each plugin must correspond to a file of the same name but with a B<.pm> (Perl Module) extension; for example, B<--plugin=foo> must correspond to a file called B<foo.pm>; the directories specified via the Perl include path (including the current directory) and via B<--include> are searched
 
 =item * each plugin must define a package of the same name and can define one of more routines with names of the form B<rrr_node>; B<rrr> becomes an additional report type; if only one such routine is defined then by convention B<rrr> should be the same as the plugin name; for example, B<foo.pm> will always define the B<foo> package and will usually define a B<foo_node> routine
 
-=item * the file can optionally also define routines with names of the form B<rrr_postpar> and B<rrr_post>
+=item * the file can optionally also define routines with names of the form B<rrr_begin>, B<rrr_postpar>, B<rrr_post> and B<rrr_end>
 
 =item * each of the routines is called with three arguments; the first is the node on which it is to report; the second is the indentation level (0 means the initial call, for which the node is the root node, i.e. the parent of any B<model> nodes); the third is a reference to an option hash
 
-=item * the B<node> routine is called for each node; the B<postpar> routine (if defined) is called after parameter B<node> routines have been called, and the B<post> routine (if defined) is called after child node B<node> routines have been called; these routines are not themselves responsible for traversing child nodes
+=item * the B<begin> routine is called at the beginning; the B<node> routine is called for each node; the B<postpar> routine (if defined) is called after parameter B<node> routines have been called; the B<post> routine (if defined) is called after child node B<node> routines have been called; the B<end> routine is called at the end; these routines are not themselves responsible for traversing child nodes
 
-=item * the node object is a hash that contains keys such as B<path> and B<name>; it is not currently documented
+=item * the node object is a reference to a hash that contains keys such as B<path> and B<name>; it is not currently documented
+
+=item * it is safe to store information on the node; any new names should begin B<rrr_> in order to avoid name clashes
 
 =item * these instructions are not expected to be sufficient to write a plugin; it will be necessary to consult the main report tool source code; the plugin interface may change in the future, in which case plugins may need to be adjusted
 
@@ -11183,7 +11214,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2011/11/11 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#194 $
+$Date: 2011/11/21 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#195 $
 
 =cut

@@ -7,12 +7,12 @@ Usage:
     [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate]
     [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
     [--notemplates] [--nowarnredef] [--nowarnprofbadref]
-    [--objpat=pattern("")] [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]...
-    [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd|other...]
-    [--showdiffs] [--showreadonly] [--showspec] [--showsyntax]
-    [--special=<option>] [--thisonly] [--tr106=s(TR-106)] [--ugly]
-    [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly]
-    DM-instance...
+    [--objpat=pattern("")] [--option=n=v]... [--outfile=s]
+    [--pedantic[=i(1)]] [--plugin=s]... [--quiet]
+    [--report=html|(null)|tab|text|xls|xml|xml2|xsd|other...] [--showdiffs]
+    [--showreadonly] [--showspec] [--showsyntax] [--special=<option>]
+    [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
+    [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
     *   the most common options are --include, --pedantic and --report=html
 
@@ -214,6 +214,11 @@ Options:
         that do not match this pattern will be ignored (the default of ""
         matches all objects)
 
+    --option=n=v...
+        can be specified multiple times; defines options that can be
+        accessed and used when generating the report; useful when used with
+        reports implemented in plugins
+
     --outfile=s
         specifies the output file; if not specified, output will be sent to
         *stdout*
@@ -249,10 +254,10 @@ Options:
         define additional report types
 
         *   currently each plugin must correspond to a file of the same name
-            but with a .pm (Perl Module) extension; this file should be in
-            the current directory (more specifically, it must be in the Perl
-            include path); for example, --plugin=foo must correspond to a
-            file called foo.pm
+            but with a .pm (Perl Module) extension; for example,
+            --plugin=foo must correspond to a file called foo.pm; the
+            directories specified via the Perl include path (including the
+            current directory) and via --include are searched
 
         *   each plugin must define a package of the same name and can
             define one of more routines with names of the form rrr_node; rrr
@@ -262,7 +267,7 @@ Options:
             will usually define a foo_node routine
 
         *   the file can optionally also define routines with names of the
-            form rrr_postpar and rrr_post
+            form rrr_begin, rrr_postpar, rrr_post and rrr_end
 
         *   each of the routines is called with three arguments; the first
             is the node on which it is to report; the second is the
@@ -270,14 +275,19 @@ Options:
             is the root node, i.e. the parent of any model nodes); the third
             is a reference to an option hash
 
-        *   the node routine is called for each node; the postpar routine
-            (if defined) is called after parameter node routines have been
-            called, and the post routine (if defined) is called after child
-            node node routines have been called; these routines are not
-            themselves responsible for traversing child nodes
+        *   the begin routine is called at the beginning; the node routine
+            is called for each node; the postpar routine (if defined) is
+            called after parameter node routines have been called; the post
+            routine (if defined) is called after child node node routines
+            have been called; the end routine is called at the end; these
+            routines are not themselves responsible for traversing child
+            nodes
 
-        *   the node object is a hash that contains keys such as path and
-            name; it is not currently documented
+        *   the node object is a reference to a hash that contains keys such
+            as path and name; it is not currently documented
+
+        *   it is safe to store information on the node; any new names
+            should begin rrr_ in order to avoid name clashes
 
         *   these instructions are not expected to be sufficient to write a
             plugin; it will be necessary to consult the main report tool
