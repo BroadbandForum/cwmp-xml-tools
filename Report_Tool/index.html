@@ -322,10 +322,13 @@ DM-instance...</p>
 <li><strong><a name="each_plugin_must_define_a_package_of_the_same_name_and_can_define_one_of_more_routines_with_names_of_the_form_rrr_node_rrr_becomes_an_additional_report_type_if_only_one_such_routine_is_defined_then_by_convention_rrr_should_be_the_same_as_the_plugin_name_for_example_foo_pm_will_always_define_the_foo_package_and_will_usually_define_a_foo_node_routine" class="item">each plugin must define a package of the same name and can define one of more routines with names of the form <strong>rrr_node</strong>; <strong>rrr</strong> becomes an additional report type; if only one such routine is defined then by convention <strong>rrr</strong> should be the same as the plugin name; for example, <strong>foo.pm</strong> will always define the <strong>foo</strong> package and will usually define a <strong>foo_node</strong> routine</a></strong>
 
 </li>
-<li><strong><a name="the_file_can_optionally_also_define_routines_with_names_of_the_form_rrr_begin_rrr_postpar_rrr_post_and_rrr_end" class="item">the file can optionally also define routines with names of the form <strong>rrr_begin</strong>, <strong>rrr_postpar</strong>, <strong>rrr_post</strong> and <strong>rrr_end</strong></a></strong>
+<li><strong><a name="the_file_can_optionally_also_define_routines_with_names_of_the_form_rrr_init_rrr_begin_rrr_postpar_rrr_post_and_rrr_end" class="item">the file can optionally also define routines with names of the form <strong>rrr_init</strong>, <strong>rrr_begin</strong>, <strong>rrr_postpar</strong>, <strong>rrr_post</strong> and <strong>rrr_end</strong></a></strong>
 
 </li>
-<li><strong><a name="level" class="item">each of the routines is called with three arguments; the first is the node on which it is to report; the second is the indentation level (0 means the initial call, for which the node is the root node, i.e. the parent of any <strong>model</strong> nodes); the third is a reference to an option hash</a></strong>
+<li><strong><a name="rrr_init_is_called_after_processing_command_line_arguments_but_before_reading_any_of_the_dm_files_it_can_be_used_for_initializing_the_plugin_e_g_parsing_configuration_files" class="item"><strong>rrr_init</strong> is called after processing command line arguments but before reading any of the DM files; it can be used for initializing the plugin, e.g. parsing configuration files</a></strong>
+
+</li>
+<li><strong><a name="level" class="item">each of the other routines is called with three arguments; the first is the node on which it is to report; the second is the indentation level (0 means the initial call, for which the node is the root node, i.e. the parent of any <strong>model</strong> nodes); the third is a reference to an option hash</a></strong>
 
 </li>
 <li><strong><a name="routine" class="item">the <strong>begin</strong> routine is called at the beginning; the <strong>node</strong> routine is called for each node; the <strong>postpar</strong> routine (if defined) is called after parameter <strong>node</strong> routines have been called; the <strong>post</strong> routine (if defined) is called after child node <strong>node</strong> routines have been called; the <strong>end</strong> routine is called at the end; these routines are not themselves responsible for traversing child nodes</a></strong>
@@ -565,8 +568,8 @@ DM-instance...</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:william.lupton@pace.com">william.lupton@pace.com</a>&gt;</p>
-<p>$Date: 2011/11/21 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#195 $</p>
+<p>$Date: 2011/11/23 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#196 $</p>
 
 </body>
 

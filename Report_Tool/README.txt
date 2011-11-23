@@ -267,10 +267,14 @@ Options:
             will usually define a foo_node routine
 
         *   the file can optionally also define routines with names of the
-            form rrr_begin, rrr_postpar, rrr_post and rrr_end
+            form rrr_init, rrr_begin, rrr_postpar, rrr_post and rrr_end
 
-        *   each of the routines is called with three arguments; the first
-            is the node on which it is to report; the second is the
+        *   rrr_init is called after processing command line arguments but
+            before reading any of the DM files; it can be used for
+            initializing the plugin, e.g. parsing configuration files
+
+        *   each of the other routines is called with three arguments; the
+            first is the node on which it is to report; the second is the
             indentation level (0 means the initial call, for which the node
             is the root node, i.e. the parent of any model nodes); the third
             is a reference to an option hash
