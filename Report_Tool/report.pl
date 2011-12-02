@@ -165,8 +165,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/11/23 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#196 $};
+my $tool_vers_date = q{$Date: 2011/12/01 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#198 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -1268,7 +1268,8 @@ sub expand_model
     #     are omitted (really the answer here is for the node tree to include
     #     nodes for all nodes in the final report)
     if (!$any_profiles) {
-        push @{$nnode->{nodes}}, {type => 'profile', name => '',
+        push @{$nnode->{nodes}}, {mnode => $nnode, pnode => $nnode,
+                                  type => 'profile', name => '',
                                   spec => $spec, file => $file,
                                   lspec => $Lspec, lfile => $Lfile};
     }
@@ -4752,7 +4753,7 @@ sub xml2_node
             $tfile = $outfile;
         } else {
             $tfile = $dmfile;
-            $tfile =~ s/\.xml/-all.xml/;
+            $tfile =~ s/\.xml/-full.xml/;
         }
         my $fileattr = qq{ file="$tfile"};
 
@@ -5385,7 +5386,7 @@ sub html_create_anchor
     my ($label, $type, $opts) = @_;
 
     # label and opts as used as follows:
-    # - heading: label is section name
+    # - heading: label is section name; prefix with $opts->{node} name if there
     # - datatype: label is data type name
     # - bibref: label is bibref id
     # - path: label is the obj/par node (NOT the path)
@@ -5412,7 +5413,11 @@ sub html_create_anchor
     # determine the name as a function of anchor type (for many it is just the
     # supplied label)
     my $name = $label;
-    if ($type eq 'bibref') {
+    if ($type eq 'heading') {
+        my $mnode = $node;
+        my $mname = $mnode->{name};
+        $name = qq{$mname.$name} if $mname;
+    } elsif ($type eq 'bibref') {
         $label = '';
     } elsif ($type eq 'path') {
         die "html_create_anchor: for type '$type', label must be node" if $node;
@@ -5981,6 +5986,12 @@ END
         }
 
         if ($model) {
+            if ($html_profile_active) {
+                print <<END;
+        </ul> <!-- Profile Definitions -->
+      </ul> <!-- Data Model -->
+END
+            }
             my $title = qq{$name Data Model};
             $title .= qq{ (changes)} if $lastonly;
             my $anchor = html_create_anchor($title, 'heading');
@@ -6027,13 +6038,15 @@ END
         #     is defined, so we know here that we are the end of the data
         #     model definition
         if ($profile) {
+            my $mnode = $node->{mnode};
             if (!$html_profile_active) {
-                my $anchor = html_create_anchor(
-                    'Inform and Notification Requirements', 'heading');
+                my $infreq = 'Inform and Notification Requirements';
+                my $anchor = html_create_anchor($infreq, 'heading',
+                                                {node => $mnode});
                 print <<END;
         </ul> <!-- Data Model Definition -->
         <li>$anchor->{ref}</li>
-        <ul> <!-- Inform and Notification Requirements -->
+        <ul> <!-- $infreq -->
 END
                 $html_buffer .= <<END;
       </tbody>
@@ -6042,28 +6055,29 @@ END
 END
                 $html_buffer .=
                 html_param_table(qq{Forced Inform Parameters},
-                                 {tabopts => $tabopts},
+                                 {tabopts => $tabopts, mnode => $mnode},
                                  grep {$_->{forcedInform}} @$html_parameters) .
                 html_param_table(qq{Forced Active Notification Parameters},
-                                 {tabopts => $tabopts},
+                                 {tabopts => $tabopts, mnode => $mnode},
                                  grep {$_->{activeNotify} eq 'forceEnabled'}
                                  @$html_parameters) .
                 html_param_table(qq{Default Active Notification Parameters},
-                                 {tabopts => $tabopts},
+                                 {tabopts => $tabopts, mnode => $mnode},
                                  grep {$_->{activeNotify} eq
                                            'forceDefaultEnabled'}
                                  @$html_parameters) .
                 html_param_table(qq{Parameters for which Active Notification }.
                                  qq{MAY be Denied},
-                                 {tabopts => $tabopts, sepobj => 1},
+                                 {tabopts => $tabopts, sepobj => 1,
+                                  mnode => $mnode},
                                  grep {$_->{activeNotify} eq 'canDeny'}
                                  @$html_parameters);
                 my $panchor = html_create_anchor('Profile Definitions',
-                                                 'heading');
+                                                 'heading', {node => $mnode});
                 my $nanchor = html_create_anchor('Notation',
-                                                 'heading');
+                                                 'heading', {node => $mnode});
                 print <<END;
-        </ul> <!-- Inform and Notification Requirements -->
+        </ul> <!-- $infreq -->
         <li>$panchor->{ref}</li>
         <ul> <!-- $panchor->{label} -->
           <li>$nanchor->{ref}</li>
@@ -6111,7 +6125,8 @@ END
             #     mentioned above (use $node->{name} because $name has been
             #     escaped)
             return unless $node->{name};
-            my $anchor = html_create_anchor(qq{$name Profile}, 'heading');
+            my $anchor = html_create_anchor(qq{$name Profile}, 'heading', 
+                                            {node => $mnode});
             my $panchor = html_create_anchor($node, 'profile');
             print <<END;
           <li>$anchor->{ref}</li>
@@ -6198,11 +6213,14 @@ sub html_post
     return if $profile && !$name;
 
     if (($model && !$html_profile_active) || $profile || !$indent) {
-        # XXX this can close too many tables (not a bad problem?)
-	$html_buffer .= <<END;
+        # XXX this can close too many tables (not a bad problem?); fixed?
+        if ($indent) {
+            $html_buffer .= <<END;
       </tbody>
     </table> <!-- $name -->
 END
+        }
+
         # output profile footnotes if any
         if ($profile) {
             $html_buffer .= html_profile_footnotes($node);
@@ -6235,8 +6253,9 @@ sub html_param_table
 
     my $tabopts = $hash->{tabopts};
     my $sepobj = $hash->{sepobj};
+    my $mnode = $hash->{mnode};
 
-    my $anchor = html_create_anchor($title, 'heading');
+    my $anchor = html_create_anchor($title, 'heading', {node => $mnode});
 
     my $html_buffer = qq{};
 
@@ -8396,8 +8415,7 @@ END
     <a name="Downloads"/>
     <h1>Downloads</h1>
     <ul>
-      <li><a href="cwmp.zip">cwmp.zip</a>: all XML and HTML files from this page</li>
-      <li>names? others? <b>TBD</b></li>
+      <li><a href="cwmp.zip">cwmp.zip</a>: directory contents</li>
     </ul>
 END
 
@@ -8586,7 +8604,7 @@ END
          { name => 'version', value => 'Version', percent => 5,
            suppress => $version_suppress },
          { name => 'file', value => $filename, percent => 12, suppress => 0 },
-         { name => 'html', value => 'HTML', percent => 12,
+         { name => 'html', value => 'HTML', percent => 5,
            suppress => $html_suppress },
          { name => 'description', value => 'Description', percent => 40,
            suppress => 0 },
@@ -8797,13 +8815,14 @@ END
     push @filerows, qq{$name};
     if ($name =~ /\.xml$/) {
         my $aname = $name;
-        $aname =~ s/\.xml$/-all.xml/;
+        $aname =~ s/\.xml$/-full.xml/;
         if ($model || $component) {
             push @filerows, qq{$aname};
         }
     }
 
     # determine the HTML rows (first collect the file suffices)
+    # - note that only use the "dev" version for the "Components" section
     my $suffices = [];
     if ($context->{schema} || $name !~ /\.xml$/) {
         # no HTML for schema files
@@ -8811,15 +8830,16 @@ END
         push @$suffices, '-dev' if
             $context->{component} || $mname_name eq "Device";
         push @$suffices, '-igd' if
-            $context->{component} || $mname_name eq "InternetGatewayDevice";
+            $mname_name eq "InternetGatewayDevice";
     } else {
         push @$suffices, '';
     }
     my $nsuffices = [];
     foreach my $suffix (@$suffices) {
-        push @$nsuffices, qq{$suffix-last} unless $newmaj;
+        push @$nsuffices, qq{$suffix-diffs} unless $newmaj;
     }
-    push @$suffices, @$nsuffices;
+    # note that the "diffs" suffices are put at the start of the list
+    unshift @$suffices, @$nsuffices;
     my @htmlrows = ();
     foreach my $suffix (@$suffices) {
         my $hname = $name;
@@ -8909,11 +8929,11 @@ END
             $context->{model} && $mtemp && !$htmlbbf_anchors->{$mtemp}++;
         my $fanchor = qq{};
         $fanchor = qq{<a name="$ftemp"/>} if
-            $ftemp && $ftemp !~ /-all\.xml$/ && !$htmlbbf_anchors->{$ftemp}++;
+            $ftemp && $ftemp !~ /-full\.xml$/ && !$htmlbbf_anchors->{$ftemp}++;
 
         # define links for file and html
         $ftemp = qq{$fanchor<a href="cwmp/$ftemp">$ftemp</a>} if $ftemp;
-        $htemp = qq{<a href="cwmp/$htemp">$htemp</a>} if $htemp;
+        $htemp = qq{<a href="cwmp/$htemp">HTML</a>} if $htemp;
 
         # row is an array of columns
         push @{$context->{rows}},
@@ -8963,17 +8983,21 @@ END
 
     # need to remember which columns are suppressed (this information is given
     # only on the header row) and number of unsuppressed columnt
+    # XXX don't really need the column name
     my $suppressed = [];
     my $actcols = 0;
 
     # header columns have name, value, percent and suppress attributes
-    # XXX I think the percent values need to be scaled in order to sum
-    #     correctly?
-    # XXX don't really need the column name
+    my $perctot = 0;
+    foreach my $col (@$header) {
+        $perctot += $col->{percent} unless $col->{suppress};
+    }
     foreach my $col (@$header) {
         my $value = $col->{value};
         my $percent = $col->{percent};
         my $suppress = $col->{suppress};
+
+        $percent = sprintf("%.2f", ($percent * 100) / $perctot);
 
         push @$suppressed, $suppress;
         $actcols++ unless $suppress;
@@ -9073,7 +9097,6 @@ END
         print <<END;
         <tr>
 END
-        #my $adone = 0;
         for (my $j = 0; $j < @$row; $j++) {
             my $col = $row->[$j];
             my $value = $col->{value};
@@ -9089,12 +9112,6 @@ END
             my $rs = qq{ rowspan="$bbsize"};
             my $rs_oc = (!$oc && !defined $bsize) ? '<!-- ' : '';
             my $rs_cc = (!$cc && !defined $bsize) ? ' -->' : '';
-
-            # define an anchor for the first visible column of each block row
-            #if (!$adone && defined $bsize && !$suppress && $value) {
-            #    $value = qq{<a name="$value">$value</a>};
-            #    $adone = 1;
-            #}
 
             # value might be undefined, e.g. if undefined on the first row
             # of a block; if so, quietly replace with non-breaking space
@@ -9336,9 +9353,9 @@ END
         my $version = $row->{version};
         my $version_entry = qq{<a href="cwmp/$row->{file}.xml">$version</a>};
 
-        my $fileall = $row->{file} . '-all.xml';
-        if (-r $fileall) {
-            $version_entry .= qq{ <a href="cwmp/$fileall">[all]</a>};
+        my $filefull = $row->{file} . '-full.xml';
+        if (-r $filefull) {
+            $version_entry .= qq{ <a href="cwmp/$filefull">[full]</a>};
         }
 
         my $version_update = $version eq '1.0' ? 'Initial' :
@@ -9353,7 +9370,7 @@ END
         my $update_type = $version_update eq 'Initial' ? '-' :
             $version_update eq 'Major' ? 'Replacement' : 'Incremental';
         my $update_type_entry = $update_type eq '-' ? '-' :
-            qq{<a href="cwmp/$row->{file}$htmlsuff-last.html">$update_type</a>};
+            qq{<a href="cwmp/$row->{file}$htmlsuff-diffs.html">$update_type</a>};
 
         $text .= <<END;
         <tr>
@@ -11409,7 +11426,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2011/11/23 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#196 $
+$Date: 2011/12/01 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#198 $
 
 =cut
