@@ -11,6 +11,18 @@ For questions and comments please contact klaus.wich@nsn.com
 
 History
 --------
+12/09/2011 ReportGuiSetup 2.1, ReportGui 2.1, report.exe#198 (report.pl#198)
+	new version of report.exe (report.pl#198) included in installer
+	bug fixes and enhancements:
+	* perform report tool updates with admin rights
+	* compact command output for readability, new option to show command string
+	* input field for additional include directories extended 
+	* Publish all does not work from any directory due to missing include of own directory
+	* time stamps for generation
+	* new naming conventions for generated xmls: last becomes diffs and all becomes full
+	* new Setting "Use Old xml names" to switch back to old naming conventions
+	* automatic adaptation of window height to vertical screen size
+
 08/15/2011 ReportGuiSetup 2.0, ReportGui 2.0, report.exe#186 (report.pl#186)
 	new version of report.exe (report.pl#186) included in installer
 	new ReportGui version 2.0:
@@ -22,7 +34,7 @@ History
 	  * New setting to show or hide statistic display
 	  * Publish option also generates flattened xml file
 	
-	- Neu functions:
+	- New functions:
 	  * New option to download all released xml and schema files from BBF website into default include directory
 	  * New upgrade option to check for new versions
 	  * "Publish all files" option to generate files to be published for a whole directory
