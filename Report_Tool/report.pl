@@ -165,8 +165,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2011/12/01 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#198 $};
+my $tool_vers_date = q{$Date: 2012/01/10 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#200 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -559,7 +559,7 @@ sub expand_toplevel
     # of the same data model); this process isn't repeated recursively
     # XXX File::Spec likes to put trailing "/" characters on directory names,
     #     which requires a special case; hopefully this code is portable
-    if ($samename) {
+    if ($samename && $dir) {
         my @tdirs = File::Spec->splitdir($dir);
         pop @tdirs if $tdirs[$#tdirs] eq '';
         my $tcomp = pop @tdirs;
@@ -2944,6 +2944,13 @@ sub add_parameter
                 print STDERR "$path: discarding existing ranges\n" if $verbose;
                 $nnode->{syntax}->{ranges} = undef;
             }
+            # XXX special case: if type changed to string, discard dataType
+            # XXX this should be unconditional warning (unless suppressed)?
+            if ($type eq 'string' &&
+                ($nnode->{syntax}->{ref} || $nnode->{syntax}->{base})) {
+                print STDERR "$path: discarding base/ref\n" if $verbose;
+                $nnode->{syntax}->{ref} = $nnode->{syntax}->{base} = undef;
+            }
             # XXX special case: if type changed to dataType, discard sizes and
             #     ranges
             if ($type eq 'dataType' && $nnode->{syntax}->{sizes}) {
@@ -3985,9 +3992,15 @@ sub parse_file
             $path =~ s/.*\/// if $scheme && $scheme =~ /^https?$/i;
         }
 
-        # search for file; don't report failure (schema validation will do this)
+        # search for file; don't report failure (schema validation will do
+        # this)
         my ($dir, $file) = find_file($path);
-        $path = File::Spec->catfile($dir, $file) if $dir;
+        if ($dir) {
+            $path = File::Spec->catfile($dir, $file);
+            # XXX backslashes cause problems under Windows because they are
+            #     not valid in an xs:anyURI, so change to forward slashes
+            $path =~ s/\\/\//g;
+        }
         $schemas .= qq{<xs:import namespace="$ns" schemaLocation="$path"/>\n};
     }
 
@@ -10494,6 +10507,10 @@ sub util_node_is_new
     my $mnode = $node->{mnode};
     return 0 unless $mnode;
 
+    # unnamed nodes are always regarded as new
+    # XXX this is really here just for the fake unnamed profile node
+    return 1 unless $node->{name};
+
     # otherwise new if the node version is the model version
     # XXX there probably a more direct way of doing this but this method has
     #     the advantage of being easy to understand!
@@ -11426,7 +11443,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2011/12/01 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#198 $
+$Date: 2012/01/10 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#200 $
 
 =cut
