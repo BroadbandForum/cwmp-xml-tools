@@ -4,11 +4,11 @@ Usage:
     [--components] [--debugpath=pattern("")] [--deletedeprecated]
     [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")]
     [--importsuffix=string("")] [--include=d]... [--info] [--lastonly]
-    [--marktemplates] [--noautomodel] [--nocomments] [--nohyphenate]
-    [--nolinks] [--nomodels] [--noobjects] [--noparameters] [--noprofiles]
-    [--notemplates] [--nowarnredef] [--nowarnprofbadref]
-    [--objpat=pattern("")] [--option=n=v]... [--outfile=s]
-    [--pedantic[=i(1)]] [--plugin=s]... [--quiet]
+    [--loglevel=tn(i)] [--marktemplates] [--noautomodel] [--nocomments]
+    [--nohyphenate] [--nolinks] [--nologprefix] [--nomodels] [--noobjects]
+    [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef]
+    [--nowarnprofbadref] [--objpat=pattern("")] [--option=n=v]...
+    [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]... [--quiet]
     [--report=html|(null)|tab|text|xls|xml|xml2|xsd|other...] [--showdiffs]
     [--showreadonly] [--showspec] [--showsyntax] [--special=<option>]
     [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
@@ -137,6 +137,43 @@ Options:
         those from the second file on the command line even if both files
         have the same spec)
 
+    --loglevel=tn(i)
+        sets the log level; this consists of a type and a sublevel; all
+        messages up and including this level will be output to stderr; the
+        default is info, which means that only error and informational
+        messages will be output
+
+        by default, messages are output with a prefix consisting of the
+        upper-case first letter of the log level type followed by a colon
+        (:) and a space; for example, "E: " indicates an error message; "O:
+        " indicates an "other" message (not tied to a specific level); this
+        prefix can be suppressed using --nologprefix
+
+        the possible log level types, which can be abbreviated to a single
+        character, are:
+
+        error
+            only error messages will be output; the sublevel is ignored
+
+        info
+            only error and informational messages will be output; the
+            sublevel is ignored; this is the default
+
+        warning
+            only error, informational and warning messages will be output;
+            the sublevel distinguishes different levels of warning messages
+
+        debug
+            error, informational, warning and debug messages will be output;
+            the sublevel distinguishes different levels of debug messages
+
+        for example, a value of w2 will cause error, informational, level 1
+        warnings and level 2 warnings to be output
+
+        the log level feature is used to implement the functionality of
+        --quiet, --pedantic and --verbose (all of which are all still
+        supported)
+
     --marktemplates
         mark selected template expansions with &&&& followed by
         template-related information, a colon and a space
@@ -171,6 +208,10 @@ Options:
     --nolinks
         affects only the html report; disables generation of hyperlinks
         (which makes it easier to import HTML into Word documents)
+
+    --nologprefix
+        suppresses log message prefixes, i.e. the strings such as "E: " or
+        "W: " that indicate errors, warnings etc
 
     --nomodels
         specifies that model definitions should not be reported
@@ -235,8 +276,14 @@ Options:
         in the XML are detected; if the option is specified without a value,
         the value defaults to 1
 
-        also enables XML schema validation of DM instances; XML schemas are
-        located using the schemaLocation attribute:
+        this has exactly the same effect as setting --loglevel to "w"
+        (warning) followed by the pedantic value, e.g. "w2" for --pedantic=2
+
+        --pedantic also enables the inclusion of error and warning messages
+        in HTML reports
+
+        --pedantic also enables XML schema validation of DM instances; XML
+        schemas are located using the schemaLocation attribute:
 
         *   if it specifies an absolute path, no search is performed
 
@@ -314,6 +361,8 @@ Options:
 
     --quiet
         suppresses informational messages
+
+        this has the same effect as setting --loglevel to "e" (error)
 
     --report=html|(null)|tab|text|xls|xml|xml2|xsd|other...
         specifies the report format; one of the following:
@@ -500,6 +549,9 @@ Options:
 
     --verbose[=i(1)]
         enables verbose output; the higher the level the more the output
+
+        this has the same effect as setting --loglevel to "d" (debug)
+        followed by the verbose value, e.g. "d3" for --verbose=3
 
     --warnbibref[=i(1)]
         enables bibliographic reference warnings (these warnings are also

@@ -50,11 +50,13 @@
 [--include=d]...
 [--info]
 [--lastonly]
+[--loglevel=tn(i)]
 [--marktemplates]
 [--noautomodel]
 [--nocomments]
 [--nohyphenate]
 [--nolinks]
+[--nologprefix]
 [--nomodels]
 [--noobjects]
 [--noparameters]
@@ -209,6 +211,37 @@ DM-instance...</p>
 <p>reports only on items that were defined or last modified in the specification corresponding to the last XML file on the command line (as determined by the last XML file's <strong>spec</strong> attribute)</p>
 <p>if <strong>--compare</strong> is also specified, the &quot;last only&quot; criterion uses the file name rather than the spec (so the changes shown will always be those from the second file on the command line even if both files have the same spec)</p>
 </dd>
+<dt><strong><a name="tn" class="item"><strong>--loglevel=tn(i)</strong></a></strong></dt>
+
+<dd>
+<p>sets the log level; this consists of a <strong>type</strong> and a <strong>sublevel</strong>; all messages up and including this level will be output to <strong>stderr</strong>; the default is <strong>info</strong>, which means that only error and informational messages will be output</p>
+<p>by default, messages are output with a prefix consisting of the upper-case first letter of the log level type followed by a colon (:) and a space; for example, &quot;E: &quot; indicates an error message; &quot;O: &quot; indicates an &quot;other&quot; message (not tied to a specific level); this prefix can be suppressed using <strong>--nologprefix</strong></p>
+<p>the possible log level types, which can be abbreviated to a single character, are:</p>
+<dl>
+<dt><strong><a name="error" class="item"><strong>error</strong></a></strong></dt>
+
+<dd>
+<p>only error messages will be output; the sublevel is ignored</p>
+</dd>
+<dt><strong><strong>info</strong></strong></dt>
+
+<dd>
+<p>only error and informational messages will be output; the sublevel is ignored; this is the default</p>
+</dd>
+<dt><strong><a name="warning" class="item"><strong>warning</strong></a></strong></dt>
+
+<dd>
+<p>only error, informational and warning messages will be output; the sublevel distinguishes different levels of warning messages</p>
+</dd>
+<dt><strong><a name="debug" class="item"><strong>debug</strong></a></strong></dt>
+
+<dd>
+<p>error, informational, warning and debug messages will be output; the sublevel distinguishes different levels of debug messages</p>
+</dd>
+</dl>
+<p>for example, a value of <strong>w2</strong> will cause error, informational, level 1 warnings and level 2 warnings to be output</p>
+<p>the log level feature is used to implement the functionality of <strong>--quiet</strong>, <strong>--pedantic</strong> and <strong>--verbose</strong> (all of which are all still supported)</p>
+</dd>
 <dt><strong><a name="marktemplates" class="item"><strong>--marktemplates</strong></a></strong></dt>
 
 <dd>
@@ -237,6 +270,11 @@ DM-instance...</p>
 
 <dd>
 <p>affects only the <strong>html</strong> report; disables generation of hyperlinks (which makes it easier to import HTML into Word documents)</p>
+</dd>
+<dt><strong><a name="nologprefix" class="item"><strong>--nologprefix</strong></a></strong></dt>
+
+<dd>
+<p>suppresses log message prefixes, i.e. the strings such as &quot;E: &quot; or &quot;W: &quot; that indicate errors, warnings etc</p>
 </dd>
 <dt><strong><a name="nomodels" class="item"><strong>--nomodels</strong></a></strong></dt>
 
@@ -298,7 +336,9 @@ DM-instance...</p>
 
 <dd>
 <p>enables output of warnings to <em>stderr</em> when logical inconsistencies in the XML are detected; if the option is specified without a value, the value defaults to 1</p>
-<p>also enables XML schema validation of DM instances; XML schemas are located using the <strong>schemaLocation</strong> attribute:</p>
+<p>this has exactly the same effect as setting <strong>--loglevel</strong> to &quot;w&quot; (warning) followed by the pedantic value, e.g. &quot;w2&quot; for <strong>--pedantic=2</strong></p>
+<p><strong>--pedantic</strong> also enables the inclusion of error and warning messages in <strong>HTML</strong> reports</p>
+<p><strong>--pedantic</strong> also enables XML schema validation of DM instances; XML schemas are located using the <strong>schemaLocation</strong> attribute:</p>
 <ul>
 <li><strong><a name="if_it_specifies_an_absolute_path_no_search_is_performed" class="item">if it specifies an absolute path, no search is performed</a></strong>
 
@@ -362,6 +402,7 @@ DM-instance...</p>
 
 <dd>
 <p>suppresses informational messages</p>
+<p>this has the same effect as setting <strong>--loglevel</strong> to &quot;e&quot; (error)</p>
 </dd>
 <dt><strong><a name="report_html_null_tab_text_xls_xml_xml2_xsd_other" class="item"><strong>--report=html|(null)|tab|text|xls|xml|xml2|xsd|other...</strong></a></strong></dt>
 
@@ -545,6 +586,7 @@ DM-instance...</p>
 
 <dd>
 <p>enables verbose output; the higher the level the more the output</p>
+<p>this has the same effect as setting <strong>--loglevel</strong> to &quot;d&quot; (debug) followed by the verbose value, e.g. &quot;d3&quot; for <strong>--verbose=3</strong></p>
 </dd>
 <dt><strong><strong>--warnbibref[=i(1)]</strong></strong></dt>
 
@@ -568,8 +610,8 @@ DM-instance...</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:william.lupton@pace.com">william.lupton@pace.com</a>&gt;</p>
-<p>$Date: 2012/01/10 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#200 $</p>
+<p>$Date: 2012/01/13 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#201 $</p>
 
 </body>
 
