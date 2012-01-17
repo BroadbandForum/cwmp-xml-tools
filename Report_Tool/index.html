@@ -63,6 +63,7 @@
 [--noprofiles]
 [--notemplates]
 [--nowarnredef]
+[--nowarnreport]
 [--nowarnprofbadref]
 [--objpat=pattern(&quot;&quot;)]
 [--option=n=v]...
@@ -215,7 +216,8 @@ DM-instance...</p>
 
 <dd>
 <p>sets the log level; this consists of a <strong>type</strong> and a <strong>sublevel</strong>; all messages up and including this level will be output to <strong>stderr</strong>; the default is <strong>info</strong>, which means that only error and informational messages will be output</p>
-<p>by default, messages are output with a prefix consisting of the upper-case first letter of the log level type followed by a colon (:) and a space; for example, &quot;E: &quot; indicates an error message; &quot;O: &quot; indicates an &quot;other&quot; message (not tied to a specific level); this prefix can be suppressed using <strong>--nologprefix</strong></p>
+<p>by default, messages are output with a prefix consisting of the upper-case first letter of the log level type followed by a colon (:) and a space; for example, &quot;E: &quot; indicates an error message</p>
+<p>the message prefix can be suppressed using <strong>--nologprefix</strong></p>
 <p>the possible log level types, which can be abbreviated to a single character, are:</p>
 <dl>
 <dt><strong><a name="error" class="item"><strong>error</strong></a></strong></dt>
@@ -240,7 +242,7 @@ DM-instance...</p>
 </dd>
 </dl>
 <p>for example, a value of <strong>w2</strong> will cause error, informational, level 1 warnings and level 2 warnings to be output</p>
-<p>the log level feature is used to implement the functionality of <strong>--quiet</strong>, <strong>--pedantic</strong> and <strong>--verbose</strong> (all of which are all still supported)</p>
+<p>the log level feature is used to implement the functionality of <strong>--quiet</strong>, <strong>--pedantic</strong> and <strong>--verbose</strong> (all of which are still supported)</p>
 </dd>
 <dt><strong><a name="marktemplates" class="item"><strong>--marktemplates</strong></a></strong></dt>
 
@@ -308,6 +310,11 @@ DM-instance...</p>
 <p>disables parameter and object redefinition warnings (these warnings are also output if <strong>--verbose</strong> is specified)</p>
 <p>there are some circumstances under which parameter or object redefinition is not worthy of comment</p>
 </dd>
+<dt><strong><a name="nowarnreport" class="item"><strong>--nowarnreport</strong></a></strong></dt>
+
+<dd>
+<p>disables the inclusion of error and warning messages in reports (currently only in <strong>HTML</strong> reports)</p>
+</dd>
 <dt><strong><a name="nowarnprofbadref" class="item"><strong>--nowarnprofbadref</strong></a></strong></dt>
 
 <dd>
@@ -337,7 +344,6 @@ DM-instance...</p>
 <dd>
 <p>enables output of warnings to <em>stderr</em> when logical inconsistencies in the XML are detected; if the option is specified without a value, the value defaults to 1</p>
 <p>this has exactly the same effect as setting <strong>--loglevel</strong> to &quot;w&quot; (warning) followed by the pedantic value, e.g. &quot;w2&quot; for <strong>--pedantic=2</strong></p>
-<p><strong>--pedantic</strong> also enables the inclusion of error and warning messages in <strong>HTML</strong> reports</p>
 <p><strong>--pedantic</strong> also enables XML schema validation of DM instances; XML schemas are located using the <strong>schemaLocation</strong> attribute:</p>
 <ul>
 <li><strong><a name="if_it_specifies_an_absolute_path_no_search_is_performed" class="item">if it specifies an absolute path, no search is performed</a></strong>
@@ -610,8 +616,8 @@ DM-instance...</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:william.lupton@pace.com">william.lupton@pace.com</a>&gt;</p>
-<p>$Date: 2012/01/13 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#201 $</p>
+<p>$Date: 2012/01/17 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#202 $</p>
 
 </body>
 

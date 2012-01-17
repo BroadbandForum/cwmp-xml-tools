@@ -1,6 +1,6 @@
 #!/usr/bin/env perl -w
 #
-# Copyright (C) 2011  Pace Plc
+# Copyright (C) 2011, 2012  Pace Plc
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -117,7 +117,7 @@
 
 # XXX why does this happen?
 # % report.pl tr-098-1-1-0.xml tr-098-1-2-0.xml
-#InternetGatewayDevice.DownloadDiagnostics.: object not found (auto-creating)
+#Internetgatewaydevice.DownloadDiagnostics.: object not found (auto-creating)
 #InternetGatewayDevice.DownloadDiagnostics.DownloadURL: parameter not found
 #    (auto-creating)
 #InternetGatewayDevice.DownloadDiagnostics.DownloadURL: untyped parameter
@@ -146,6 +146,7 @@ no strict "refs";
 #no autovivification qw{fetch exists delete warn};
 
 use Algorithm::Diff;
+use Carp;
 use Clone qw{clone};
 use Data::Compare;
 use Data::Dumper;
@@ -165,8 +166,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2012/01/13 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#201 $};
+my $tool_vers_date = q{$Date: 2012/01/17 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#202 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -243,6 +244,7 @@ our $noparameters = 0;
 our $noprofiles = 0;
 our $notemplates = 0;
 our $nowarnredef = 0;
+our $nowarnreport = 0;
 our $nowarnprofbadref = 0;
 our $objpat = '';
 our $options = {};
@@ -297,6 +299,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
 	   'noprofiles' => \$noprofiles,
 	   'notemplates' => \$notemplates,
            'nowarnredef' => \$nowarnredef,
+           'nowarnreport' => \$nowarnreport,
            'nowarnprofbadref' => \$nowarnprofbadref,
 	   'objpat:s' => \$objpat,
            'option:s%' => \$options,
@@ -326,7 +329,7 @@ $report = 'null' unless $report;
 
 # msg helpers (use parsed loglevel; see below)
 sub msg;
-sub omsg  { msg 'O', @_;                    }
+sub tmsg  { msg 'T', @_;                    } # used for temporary debug output
 sub emsg  { msg 'E', @_ if $loglevel >= 00; }
 sub imsg  { msg 'I', @_ if $loglevel >= 10; }
 sub wmsg  { msg 'W', @_ if $loglevel >= 20; }
@@ -456,6 +459,10 @@ if ($compare) {
     $modifiedusesspec = 0 if $lastonly;
 }
 
+if ($report =~ /html(bbf|148)/) {
+    $noautomodel = 1;
+}
+
 # XXX should make this conditional on it having a file extension; then can use
 #     an outfile without extension as a base name and allow reports to generate
 #     multiple files if they so choose
@@ -516,7 +523,7 @@ $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
 
 # XXX load_catalog() works but there is no error checking?
 {
-    my $parser = XML::LibXML->new();
+    my $parser = XML::LibXML->new(line_numbers => 1);
     foreach my $catalog (@$catalogs) {
         my ($dir, $file) = find_file($catalog);
         if (!$dir) {
@@ -548,14 +555,6 @@ my $no_imports = 1;
 my $imports = {}; # XXX not a good name, because it includes main file defns
 my $imports_i = 0;
 my $bibrefs = {};
-# XXX need to change $objects to use util_is_defined()
-# XXX $objects, $parameters (and $profiles?) need to be qualified by model,
-#     since otherwise there are conflicts when processing multiple versions
-#     of the same model, e.g. Device:1 and Device:2; but just adding another
-#     level is hard because the model isn't always available; could perhaps
-#     use a global variable for current model (but this is horrible); or could
-#     encode the model in the path as the first component (but this would
-#     require a lot of changes)
 my $objects = {};
 my $parameters = {};
 my $profiles = {};
@@ -772,12 +771,13 @@ sub expand_import
 
     d2msg "expand_import file=$file spec=$spec";
 
+    my $ofile = $file;
     (my $dir, $file, my $corr) = find_file($file);
 
     my $tfile = $file;
     $file =~ s/\.xml//;
 
-    emsg "$cfile.xml: import $file.xml: corrigendum number should " .
+    emsg "$cfile.xml: import $ofile: corrigendum number should " .
         "be omitted" if $corr && $depth == 1;
 
     # if already read file, just add the imports to the current namespace
@@ -823,8 +823,16 @@ sub expand_import
 
     # check spec (if supplied)
     $spec = $fspec unless $spec;
-    wmsg "import $file: spec is $fspec (expected $spec)"
-        unless specs_match($spec, $fspec);
+    my $trspec = $fspec;
+    $trspec =~ s/:wt-/:tr-/;
+    my $full_match = specs_match($spec, $fspec);
+    my $trwt_mismatch = specs_match($spec, $trspec);
+    if ($full_match) {
+    } elsif ($trwt_mismatch) {
+        wmsg "import $ofile: referenced file's spec indicates it's still a WT";
+    } else {
+        wmsg "import $ofile: spec is $fspec (doesn't match $spec)";
+    }
 
     # collect top-level item declarations
     my @models = ();
@@ -1140,13 +1148,13 @@ sub expand_bibliography
                 # this isn't necessarily a problem; it can happen if two files
                 # with the same spec are processed (which definitely isn't an
                 # error if $autobase is set)
-                omsg "$id: duplicate bibref: {$file}$name"
+                msg "W", "$id: duplicate bibref: {$file}$name"
                     if !$autobase && ($loglevel >= 30 || $warnbibref);
             } elsif ($dupref->{name} ne $name) {
                 emsg "$id: ambiguous bibref: ".
                     "{$dupref->{file}}$dupref->{name}, {$file}$name";
             } else {
-                omsg "$id: duplicate bibref: " .
+                msg "W", "$id: duplicate bibref: " .
                     "{$dupref->{file}}$dupref->{name}, {$file}$name"
                     if $loglevel >= 30 || $warnbibref;
             }
@@ -1168,13 +1176,13 @@ sub expand_bibliography
         my $bbf = 'Broadband Forum';
         my $tr = 'Technical Report';
         if ($hash->{organization} =~ /^(BBF|The\s+Broadband\s+Forum)$/i) {
-            omsg "$id: $file: replaced organization ".
+            msg "W", "$id: $file: replaced organization ".
                 "\"$hash->{organization}\" with \"$bbf\""
                 if $warnbibref > 1 || $loglevel >= 30;
             $hash->{organization} = $bbf;
         }
         if ($hash->{category} =~ /^TR$/i) {
-            omsg "$id: $file: replaced category ".
+            msg "W", "$id: $file: replaced category ".
                 "\"$hash->{category}\" with \"$tr\""
                 if $warnbibref > 1 || $loglevel >= 30;
             $hash->{category} = $tr;
@@ -1183,13 +1191,13 @@ sub expand_bibliography
         # XXX check for missing category
         if ($id =~ /^TR/i && $name =~ /^TR/i &&
             $hash->{organization} eq $bbf && !$hash->{category}) {
-            omsg "$id: $file: missing $bbf category (\"$tr\" assumed)"
+            msg "W", "$id: $file: missing $bbf category (\"$tr\" assumed)"
                 if $warnbibref > 1 || $loglevel >= 30;
             $hash->{category} = $tr;
         }
         if ($id =~ /^RFC/i && $name =~ /^RFC/i &&
             $hash->{organization} eq 'IETF' && !$hash->{category}) {
-             omsg "$id: $file: missing IETF category (\"RFC\" assumed)"
+             msg "W", "$id: $file: missing IETF category (\"RFC\" assumed)"
                 if $warnbibref > 1 || $loglevel >= 30;
             $hash->{category} = 'RFC';
         }
@@ -1200,7 +1208,7 @@ sub expand_bibliography
         # hyperlink according to BBF conventions
         if ($hash->{organization} eq $bbf && $hash->{category} eq $tr) {
             if ($hash->{hyperlink}) {
-                omsg "$id: $file: replaced deprecated $bbf $tr hyperlink"
+                msg "W", "$id: $file: replaced deprecated $bbf $tr hyperlink"
                     if $warnbibref > 1 || $loglevel >= 30;
             }
             my $h = qq{http://www.broadband-forum.org/technical/download/};
@@ -1217,7 +1225,7 @@ sub expand_bibliography
         # hyperlink according to IETF conventions
         if ($hash->{organization} eq 'IETF' && $hash->{category} eq 'RFC') {
             if ($hash->{hyperlink}) {
-                omsg "$id: $file: replaced deprecated IETF RFC hyperlink"
+                msg "W", "$id: $file: replaced deprecated IETF RFC hyperlink"
                     if $warnbibref > 1 || $loglevel >= 30;
             }
             my $h = qq{http://tools.ietf.org/html/};
@@ -2102,20 +2110,22 @@ sub expand_model_profile
         my $version = defined $majorVersion && defined $minorVersion ?
             qq{$majorVersion.$minorVersion} : undef;
         my $defmodel = $version ? qq{$mname_only:$version} : $mnode->{name};
-        $profiles->{$name}->{defmodel} = $defmodel;
+        my $fpath = util_full_path($nnode);
+        $profiles->{$fpath}->{defmodel} = $defmodel;
     }
 
     # expand nested parameters and objects
     foreach my $item ($profile->findnodes('parameter|object')) {
 	my $element = $item->findvalue('local-name()');
-	"expand_model_profile_$element"->($context, $nnode, $nnode, $item);
+	"expand_model_profile_$element"->($context, $mnode,
+                                          $nnode, $nnode, $item);
     }
 }
 
 # Expand a data model profile object.
 sub expand_model_profile_object
 {
-    my ($context, $Pnode, $pnode, $object) = @_;
+    my ($context, $mnode, $Pnode, $pnode, $object) = @_;
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
@@ -2140,7 +2150,8 @@ sub expand_model_profile_object
     $name = $Path . $name if $Path;
 
     # these errors are reported by sanity_node
-    unless ($objects->{$name} && %{$objects->{$name}}) {
+    my $fpath = util_full_path($Pnode, 1) . $name;
+    unless (util_is_defined($objects, $fpath)) {
         if ($noprofiles) {
         } elsif (!defined $Pnode->{errors}->{$name}) {
             $Pnode->{errors}->{$name} = {status => $status};
@@ -2180,10 +2191,11 @@ sub expand_model_profile_object
 	$nnode = $match[0];
         $push_needed = 0;
     } else {
-	$nnode = {pnode => $pnode, path => $name, name => $name,
-                  type => 'objectRef', access => $access, status => $status,
-                  description => $description, descact => $descact,
-                  descdef => $descdef, nodes => [], baseobj => $baseobj};
+	$nnode = {mnode => $mnode, pnode => $pnode, path => $name,
+                  name => $name, type => 'objectRef', access => $access,
+                  status => $status, description => $description,
+                  descact => $descact, descdef => $descdef, nodes => [],
+                  baseobj => $baseobj};
         $push_deferred = 1;
     }
 
@@ -2194,7 +2206,8 @@ sub expand_model_profile_object
     #     the wrong place in the hierarchy
     foreach my $item ($object->findnodes('parameter|object')) {
 	my $element = $item->findvalue('local-name()');
-	"expand_model_profile_$element"->($context, $Pnode, $nnode, $item);
+	"expand_model_profile_$element"->($context, $mnode,
+                                          $Pnode, $nnode, $item);
     }
 
     # suppress push if possible
@@ -2203,14 +2216,15 @@ sub expand_model_profile_object
         dmsg "profile $Pnode->{name} will ignore object $name";
     } elsif ($push_needed) {
         push(@{$pnode->{nodes}}, $nnode);
-        $profiles->{$Pnode->{name}}->{$name} = $access;
+        my $fpath = util_full_path($Pnode);
+        $profiles->{$fpath}->{$name} = $access;
     }
 }
 
 # Expand a data model profile parameter.
 sub expand_model_profile_parameter
 {
-    my ($context, $Pnode, $pnode, $parameter) = @_;
+    my ($context, $mnode, $Pnode, $pnode, $parameter) = @_;
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
@@ -2238,7 +2252,8 @@ sub expand_model_profile_parameter
     $path = $Path . $path if $Path && $Pnode == $pnode;
 
     # these errors are reported by sanity_node
-    unless (util_is_defined($parameters, $path)) {
+    my $fpath = util_full_path($Pnode, 1) . $path;
+    unless (util_is_defined($parameters, $fpath)) {
         if ($noprofiles) {
         } elsif (!defined $Pnode->{errors}->{$path}) {
             $Pnode->{errors}->{$path} = {status => $status};
@@ -2248,9 +2263,9 @@ sub expand_model_profile_parameter
         delete $Pnode->{errors}->{$path} if $status eq 'deleted';
         return;
     } elsif ($access ne 'readOnly' &&
-             $parameters->{$path}->{access} eq 'readOnly') {
+             $parameters->{$fpath}->{access} eq 'readOnly') {
 	emsg "profile $Pnode->{name} has invalid requirement ".
-            "($access) for $path ($parameters->{$path}->{access})";
+            "($access) for $path ($parameters->{$fpath}->{access})";
     }
 
     # XXX need bad hyperlink to be visually apparent
@@ -2289,10 +2304,10 @@ sub expand_model_profile_parameter
     } else {
         # XXX recently added path; there is code elsewhere that creates it
         #     when needed rather than taking from the node (should tidy up)
-        $nnode = {pnode => $pnode, path => $path, name => $name,
-                  type => 'parameterRef', access => $access, status => $status,
-                  description => $description, descact => $descact,
-                  descdef => $descdef, nodes => []};
+        $nnode = {mnode => $mnode, pnode => $pnode, path => $path,
+                  name => $name, type => 'parameterRef', access => $access,
+                  status => $status, description => $description,
+                  descact => $descact, descdef => $descdef, nodes => []};
 
         # if previous is defined, it's a hint to insert this node after the
         # node of this name, if it exists
@@ -2308,7 +2323,8 @@ sub expand_model_profile_parameter
             }
         }
         splice @{$pnode->{nodes}}, $index, 0, $nnode;
-        $profiles->{$Pnode->{name}}->{$path} = $access;
+        my $fpath = util_full_path($Pnode);
+        $profiles->{$fpath}->{$path} = $access;
     }
 }
 
@@ -2586,7 +2602,7 @@ sub add_object
 
     my $path = $pnode->{path} . ($ref ? $ref : $name);
 
-    omsg "add_object name=$name ref=$ref auto=$auto spec=$spec"
+    msg "D", "add_object name=$name ref=$ref auto=$auto spec=$spec"
         if $loglevel >= 32 || ($debugpath && $path =~ /$debugpath/);
 
     # if ref, find the referenced object
@@ -2607,7 +2623,7 @@ sub add_object
         # XXX should this be unconditional?
         # XXX sometimes don't want report (need finer reporting control)
         if (@match && !$autobase) {
-            omsg "$path: object already defined (new one ignored)" if
+            msg "W", "$path: object already defined (new one ignored)" if
                 $loglevel >= 30 || (!$nowarnredef && !$automodel);
             return $match[0];
         }
@@ -2637,21 +2653,25 @@ sub add_object
         # XXX what are the implications for history?
         # XXX should this be marked as a change? yes
         if ($name && $ref) {
-            $objects->{$path} = undef;
+            my $fpath = util_full_path($nnode);
+            $objects->{$fpath} = undef;
             $path = $pnode->{path} . $name;
             $nnode->{path} = $path;
             $nnode->{name} = $name;
-            $objects->{$path} = $nnode;
+            $fpath = util_full_path($nnode);
+            $objects->{$fpath} = $nnode;
             # XXX this does only half the job; should build the objects and
             #     parameters hashes after the tree has been built
             # XXX should also avoid nodes knowing their path names
             foreach my $tnode (@{$nnode->{nodes}}) {
                 if ($tnode->{type} ne 'object') {
                     my $opath = $tnode->{path};
+                    my $fopath = util_full_path($tnode);
                     my $tpath = $path . $tnode->{name};
                     $tnode->{path} = $tpath;
-                    $parameters->{$opath} = undef;
-                    $parameters->{$tpath} = $tnode;
+                    my $ftpath = util_full_path($tnode);
+                    $parameters->{$fopath} = undef;
+                    $parameters->{$ftpath} = $tnode;
                 }
             }
             dmsg "$path: renamed from $ref";
@@ -2772,10 +2792,11 @@ sub add_object
             }
         }
         splice @{$pnode->{nodes}}, $index, 0, $nnode;
-	$objects->{$path} = $nnode;
+        my $fpath = util_full_path($nnode);
+	$objects->{$fpath} = $nnode;
     }
 
-    omsg Dumper(util_copy($nnode, ['nodes', 'pnode', 'mnode']))
+    msg "D", Dumper(util_copy($nnode, ['nodes', 'pnode', 'mnode']))
         if $debugpath && $path =~ /$debugpath/;
 
     return $nnode;
@@ -2833,7 +2854,7 @@ sub add_parameter
     my $path = $pnode->{path} . ($ref ? $ref : $name);
     my $auto = 0;
 
-    omsg "add_parameter name=$name ref=$ref"
+    msg "D", "add_parameter name=$name ref=$ref"
         if $loglevel >= 32 || ($debugpath && $path =~ /$debugpath/);
 
     # if ref, find the referenced parameter
@@ -2855,7 +2876,7 @@ sub add_parameter
         # XXX sometimes don't want report (need finer reporting control)
 	$nnode = $match[0];
         if (@match && !$autobase) {
-            omsg "$path: parameter already defined (new one ignored)"
+            msg "W", "$path: parameter already defined (new one ignored)"
                 if $loglevel >= 30 || (!$nowarnredef && !$automodel);
             return $nnode;
         }
@@ -2883,11 +2904,13 @@ sub add_parameter
         # XXX what are the implications for history?
         # XXX should this be marked as a change? yes
         if ($name && $ref) {
-            $parameters->{$path} = undef;
+            my $fpath = util_full_path($nnode);
+            $parameters->{$fpath} = undef;
             $path = $pnode->{path} . $name;
             $nnode->{path} = $path;
             $nnode->{name} = $name;
-            $parameters->{$path} = $nnode;
+            $fpath = util_full_path($nnode);
+            $parameters->{$fpath} = $nnode;
             dmsg "$path: renamed from $ref";
         }
 
@@ -3193,13 +3216,14 @@ sub add_parameter
         splice @{$pnode->{nodes}}, $index, 0, $nnode;
         $pnode->{lfile} = $Lfile;
         $pnode->{lspec} = $Lspec;
-	$parameters->{$path} = $nnode;
+        my $fpath = util_full_path($nnode);
+	$parameters->{$fpath} = $nnode;
     }
 
     update_datatypes($syntax->{ref}, $file, $spec)
         if $type eq 'dataType' && $syntax->{ref};
 
-    omsg Dumper(util_copy($nnode, ['nodes', 'pnode', 'mnode', 'table']))
+    msg "D", Dumper(util_copy($nnode, ['nodes', 'pnode', 'mnode', 'table']))
         if $debugpath && $path =~ /$debugpath/;
 
     return $nnode;
@@ -3911,7 +3935,7 @@ sub parse_file
     dmsg "parse_file: parsing $tfile";
 
     # parse file
-    my $parser = XML::LibXML->new();
+    my $parser = XML::LibXML->new(line_numbers => 1);
     my $tree = $parser->parse_file($tfile);
     my $toplevel = $tree->getDocumentElement;
 
@@ -4873,6 +4897,8 @@ $i             $specattr="$dmspec"$fileattr>
         my $minorVersion = $node->{minorVersion};
         my $extends = $node->{extends};
 
+        my $mpref = util_full_path($node, 1);
+
         my $requirement = '';
         my $version = version($majorVersion, $minorVersion);
 
@@ -4899,7 +4925,7 @@ $i             $specattr="$dmspec"$fileattr>
                 print qq{  <component name="$cname">\n};
             }
             if (@$dtprofiles) {
-                $access = object_requirement($dtprofiles, $path);
+                $access = object_requirement($mpref, $dtprofiles, $path);
                 # XXX this is risky because it assumes that there will be
                 #     no parameters; mark the element empty so it won't be
                 #     closed (also see below for parameter check)
@@ -4919,7 +4945,7 @@ $i             $specattr="$dmspec"$fileattr>
             $element = 'parameter';
             $node->{xml2}->{element} = $element;
             if (@$dtprofiles) {
-                $access = parameter_requirement($dtprofiles, $path);
+                $access = parameter_requirement($mpref, $dtprofiles, $path);
                 # XXX see above for how element can be empty
                 if ($node->{pnode}->{xml2}->{element} eq '') {
                     d2msg "$path: ignoring because parent not in profile";
@@ -5222,11 +5248,12 @@ sub xml2_post
 # Determine maximum requirement for a given object across a set of profiles
 sub object_requirement
 {
-    my ($dtprofiles, $path) = @_;
+    my ($mpref, $dtprofiles, $path) = @_;
 
     my $maxreq = 0;
     foreach my $dtprofile (@$dtprofiles) {
-        my $req = $profiles->{$dtprofile}->{$path};
+        my $fpath = $mpref . $dtprofile;
+        my $req = $profiles->{$fpath}->{$path};
         next unless $req;
 
         $req = {notSpecified => 1, present => 2, create => 3, delete => 4,
@@ -5250,11 +5277,12 @@ sub object_requirement
 # Determine maximum requirement for a given parameter across a set of profiles
 sub parameter_requirement
 {
-    my ($dtprofiles, $path) = @_;
+    my ($mpref, $dtprofiles, $path) = @_;
 
     my $maxreq = 0;
     foreach my $dtprofile (@$dtprofiles) {
-        my $req = $profiles->{$dtprofile}->{$path};
+        my $fpath = $mpref . $dtprofile;
+        my $req = $profiles->{$fpath}->{$path};
         next unless $req;
 
         $req = {readOnly => 1, readWrite => 2}->{$req};
@@ -5406,19 +5434,21 @@ sub html_create_anchor
     my ($label, $type, $opts) = @_;
 
     # label and opts as used as follows:
-    # - heading: label is section name; prefix with $opts->{node} name if there
+    # - heading: label is section name; prefix with $opts->{node} pfx if there
     # - datatype: label is data type name
     # - bibref: label is bibref id
     # - path: label is the obj/par node (NOT the path)
-    # - pathref: label is the path
     # - value: label is the value; param node is in $opts->{node}
     # - profile: label is the profile node (NOT the path)
     # - profoot: label is the profile obj/par node (NOT the path)
+    #
+    # label is prefixed with model prefix from $opts->{node} (if present) for
+    # model-specific anchors, i.e. heading, path, value, profile and profoot
 
     my $node = $opts->{node};
 
     # validate type (any error is a programming error)
-    my $types = ['heading', 'datatype', 'bibref', 'path', 'pathref', 'value',
+    my $types = ['heading', 'datatype', 'bibref', 'path', 'value',
                  'profile', 'profoot'];
     die "html_create_anchor: undefined anchor type" unless $type;
     die "html_create_anchor: unsupported anchor type: $type"
@@ -5435,39 +5465,35 @@ sub html_create_anchor
     # supplied label)
     my $name = $label;
     if ($type eq 'heading') {
-        my $mnode = $node;
-        my $mname = $mnode->{name};
-        $name = qq{$mname.$name} if $mname;
+        my $mpref = util_full_path($node, 1);
+        $name = $mpref . $name;
     } elsif ($type eq 'bibref') {
         $label = '';
     } elsif ($type eq 'path') {
-        die "html_create_anchor: for type '$type', label must be node" if $node;
+        die "html_create_anchor: for type '$type', label must be node"
+            if $node;
         $node = $label;
-        $name = $node->{path};
+        $name = util_full_path($node);
         $label = $node->{type} eq 'object' ? $node->{path} : $node->{name};
     } elsif ($type eq 'value') {
         die "html_create_anchor: for type '$type', node must be in opts"
             unless $node;
-        $name = qq{$node->{path}.$label};
+        $name = util_full_path($node) . '.' . $label;
         $label = '';
     } elsif ($type eq 'profile') {
-        die "html_create_anchor: for type '$type', label must be node" if $node;
+        die "html_create_anchor: for type '$type', label must be node"
+            if $node;
         $node = $label;
-        my $mnode = $node->{pnode};
-        my $mname = $mnode->{name};
-        $mname =~ s/:(\d+)\.\d+$/:$1/;
-        $name = qq{$mname.$node->{name}};
+        $name = util_full_path($node);
         $label = '';
     } elsif ($type eq 'profoot') {
-        die "html_create_anchor: for type '$type', label must be node" if $node;
+        die "html_create_anchor: for type '$type', label must be node"
+            if $node;
         $node = $label;
         # XXX this is not nice...
         my $object = ($node->{type} eq 'objectRef');
         my $Pnode = $object ? $node->{pnode} : $node->{pnode}->{pnode};
-        my $mnode = $Pnode->{pnode};
-        my $mname = $mnode->{name};
-        $mname =~ s/:(\d+)\.\d+$/:$1/;
-        $name = qq{$mname.$Pnode->{name}.$node->{path}};
+        $name = util_full_path($Pnode) . '.' . $node->{path};
         # XXX nor is this
         $label = ++$Pnode->{html_profoot_num};
     }
@@ -5500,7 +5526,9 @@ sub html_create_anchor
         my $tpath = $path;
         $tpath =~ s/(\.\{i\})?\.$//;
         if ($tpath ne $path) {
-            $adef = qq{<a name="$namespace_prefix$tpath"/>$adef};
+            my $fpath = util_full_path($node);
+            $fpath =~ s/(\.\{i\})?\.$//;
+            $adef = qq{<a name="$namespace_prefix$fpath"/>$adef};
         }
     }
 
@@ -5524,7 +5552,7 @@ sub html_create_anchor
 }
 
 # Get the reference text for an anchor of the specified type (the anchor need
-# not already be defined
+# not already be defined)
 sub html_get_anchor
 {
     my ($name, $type, $label) = @_;
@@ -5554,6 +5582,8 @@ sub html_get_anchor
     #     might not be sufficient? (this is all rather heuristic, but the
     #     worst thing that can happen is that there is a link to nowhere)
     if ($type eq 'path') {
+        # XXX this assumes that name is the key to the $objects and $parameters
+        #     globals (so the caller has to ensure that this is the case)
         my $node = $objects->{$name};
         $node = $parameters->{$name} if
             !$node && util_is_defined($parameters, $name);
@@ -5649,7 +5679,6 @@ sub html_node
                     {default => '', empty => '',
                      node => $node,
                      path => $path,
-                     model => $profile ? $node->{pnode}->{name} : '',
                      param => $parameter ? $name : '',
                      object => $parameter ? $ppath : $object ? $path : undef,
                      table => $node->{table},
@@ -5700,8 +5729,8 @@ sub html_node
         $preamble .= qq{<br>} if $preamble;
         # XXX should use a routine for this
         my $errors = qq{};
-        if ($loglevel >= 20 && @$msgs) {
-            $errors .= qq{<h1>Errors and Warnings</h1><ol>};
+        if (!$nowarnreport && @$msgs) {
+            $errors .= qq{<h1>Messages</h1><ol>};
             foreach my $error (@$msgs) {
                 $error = html_escape(qq{$error});
                 $errors .= qq{<li>$error</li>};
@@ -5950,7 +5979,7 @@ END
         # XXX the above is addressed by $showspec and the use of a cleaned-up
         #     version of the spec
         # XXX doing this for every item is inefficient...
-        omsg Dumper(util_copy($node, ['nodes', 'pnode', 'mnode', 'table']))
+        msg "D", Dumper(util_copy($node, ['nodes', 'pnode', 'mnode', 'table']))
             if $debugpath && $path =~ /$debugpath/;
 
         my $mspecs = util_history_values($node, 'mspec');
@@ -6049,11 +6078,10 @@ END
         #     is defined, so we know here that we are the end of the data
         #     model definition
         if ($profile) {
-            my $mnode = $node->{mnode};
             if (!$html_profile_active) {
                 my $infreq = 'Inform and Notification Requirements';
                 my $anchor = html_create_anchor($infreq, 'heading',
-                                                {node => $mnode});
+                                                {node => $node});
                 print <<END;
         </ul> <!-- Data Model Definition -->
         <li>$anchor->{ref}</li>
@@ -6066,27 +6094,27 @@ END
 END
                 $html_buffer .=
                 html_param_table(qq{Forced Inform Parameters},
-                                 {tabopts => $tabopts, mnode => $mnode},
+                                 {tabopts => $tabopts, node => $node},
                                  grep {$_->{forcedInform}} @$html_parameters) .
                 html_param_table(qq{Forced Active Notification Parameters},
-                                 {tabopts => $tabopts, mnode => $mnode},
+                                 {tabopts => $tabopts, node => $node},
                                  grep {$_->{activeNotify} eq 'forceEnabled'}
                                  @$html_parameters) .
                 html_param_table(qq{Default Active Notification Parameters},
-                                 {tabopts => $tabopts, mnode => $mnode},
+                                 {tabopts => $tabopts, node => $node},
                                  grep {$_->{activeNotify} eq
                                            'forceDefaultEnabled'}
                                  @$html_parameters) .
                 html_param_table(qq{Parameters for which Active Notification }.
                                  qq{MAY be Denied},
                                  {tabopts => $tabopts, sepobj => 1,
-                                  mnode => $mnode},
+                                  node => $node},
                                  grep {$_->{activeNotify} eq 'canDeny'}
                                  @$html_parameters);
                 my $panchor = html_create_anchor('Profile Definitions',
-                                                 'heading', {node => $mnode});
+                                                 'heading', {node => $node});
                 my $nanchor = html_create_anchor('Notation',
-                                                 'heading', {node => $mnode});
+                                                 'heading', {node => $node});
                 print <<END;
         </ul> <!-- $infreq -->
         <li>$panchor->{ref}</li>
@@ -6137,7 +6165,7 @@ END
             #     escaped)
             return unless $node->{name};
             my $anchor = html_create_anchor(qq{$name Profile}, 'heading', 
-                                            {node => $mnode});
+                                            {node => $node});
             my $panchor = html_create_anchor($node, 'profile');
             print <<END;
           <li>$anchor->{ref}</li>
@@ -6179,16 +6207,8 @@ END
 	</tr>
 END
         } else {
-            # XXX this is all about top-level profile parameters; search for
-            #     $tlpp in the xml2 report to see why (maybe)
-            if (!$object) {
-                my $tpath = $path;
-                $tpath =~ s/[^\.]+$//;
-                my $pname = $node->{pnode}->{type} eq 'profile' ? $tpath :
-                    $node->{pnode}->{name};
-                $path = $pname . $name;
-            }
-            $name = html_get_anchor($path, 'path', $name) unless $nolinks;
+            my $fpath = util_full_path($node);
+            $name = html_get_anchor($fpath, 'path', $name) unless $nolinks;
             $write = 'R' if $access eq 'readOnly';
             my $footnote = qq{};
             # XXX need to use origdesc because description has already been
@@ -6266,9 +6286,9 @@ sub html_param_table
 
     my $tabopts = $hash->{tabopts};
     my $sepobj = $hash->{sepobj};
-    my $mnode = $hash->{mnode};
+    my $node = $hash->{node};
 
-    my $anchor = html_create_anchor($title, 'heading', {node => $mnode});
+    my $anchor = html_create_anchor($title, 'heading', {node => $node});
 
     my $html_buffer = qq{};
 
@@ -6290,6 +6310,9 @@ END
 
     my $curobj = '';
     foreach my $parameter (@parameters) {
+        # this is the model prefix (it's the same for all the parameters)
+        my $mpref = util_full_path($parameter, 1);
+
         # don't html_escape until after have parsed path (assumes dots)
         my $path = $parameter->{path};
         my $param = $path;
@@ -6298,7 +6321,8 @@ END
             $object = html_escape($object, {empty => ''});
             if ($object && $object ne $curobj) {
                 $curobj = $object;
-                $object = html_get_anchor($object, 'path') unless $nolinks;
+                $object = html_get_anchor($mpref.$object, 'path', $object)
+                    unless $nolinks;
                 $html_buffer .= <<END;
         <tr>
           <td class="o">$object</td>
@@ -6308,7 +6332,7 @@ END
         }
         $path = html_escape($path, {empty => ''});
         $param = html_escape($param, {empty => ''});
-        $param = html_get_anchor($path, 'path', $param) unless $nolinks;
+        $param = html_get_anchor($mpref.$path, 'path', $param) unless $nolinks;
         $html_buffer .= <<END;
         <tr>
           <td>$param</td>
@@ -6891,7 +6915,9 @@ sub html_template_null
     $name = $param unless $name;
 
     (my $path, $name) = relative_path($object, $name, $scope);
-    if (!util_is_defined($parameters, $path)) {
+    my $mpref = util_full_path($opts->{node}, 1);
+    my $fpath = $mpref . $path;
+    if (!util_is_defined($parameters, $fpath)) {
         # XXX don't warn if this item has been deleted
         if (!util_is_deleted($opts->{node})) {
             emsg "$object$param: reference to invalid parameter $path"
@@ -6900,8 +6926,8 @@ sub html_template_null
         return undef;
     }
 
-    my $type = $parameters->{$path}->{type};
-    my $syntax = $parameters->{$path}->{syntax};
+    my $type = $parameters->{$fpath}->{type};
+    my $syntax = $parameters->{$fpath}->{syntax};
 
     my $typeinfo = get_typeinfo($type, $syntax);
     my ($primtype, $dataType) = ($typeinfo->{value}, $typeinfo->{dataType});
@@ -7036,7 +7062,8 @@ sub html_template_profdesc
     return '' unless $name;
 
     # model in which profile was first defined
-    my $defmodel = $profiles->{$name}->{defmodel};
+    my $mpref = util_full_path($opts->{node}, 1);
+    my $defmodel = $profiles->{$mpref.$name}->{defmodel};
 
     # same model but excluding minor version number
     my $defmodelmaj = $defmodel;
@@ -7106,12 +7133,13 @@ sub html_template_keys
     # XXX experimental: warn is there is a unique key parameter that's a
     #     strong reference (this is a candidate for additional auto-text)
     my $anystrong = 0;
+    my $mpref = util_full_path($opts->{node}, 1);
     foreach my $uniqueKey (@$uniqueKeys) {
         my $keyparams = $uniqueKey->{keyparams};
         foreach my $parameter (@$keyparams) {
-            my $path = $object . $parameter;
-            my $refType = util_is_defined($parameters, $path) ? 
-                $parameters->{$path}->{syntax}->{refType} : undef;
+            my $fpath = $mpref . $object . $parameter;
+            my $refType = util_is_defined($parameters, $fpath) ? 
+                $parameters->{$fpath}->{syntax}->{refType} : undef;
             $anystrong = 1 if defined($refType) && $refType eq 'strong';
         }
     }
@@ -7184,11 +7212,11 @@ sub html_template_keys
                 my $functional = $uniqueKey->{functional};
                 my $keyparams = $uniqueKey->{keyparams};
                 foreach my $parameter (@$keyparams) {
-                    my $path = $object . $parameter;
+                    my $fpath = $mpref . $object . $parameter;
                     my $defaulted =
-                        util_is_defined($parameters, $path, 'default') &&
-                        $parameters->{$path}->{deftype} eq 'object' &&
-                        $parameters->{$path}->{defstat} ne 'deleted';
+                        util_is_defined($parameters, $fpath, 'default') &&
+                        $parameters->{$fpath}->{deftype} eq 'object' &&
+                        $parameters->{$fpath}->{defstat} ne 'deleted';
                     push @$params, $parameter unless $defaulted;
                     $i++;
                 }
@@ -7338,7 +7366,9 @@ sub html_template_paramref
         "referring to current parameter" if $name eq $param;
 
     (my $path, $name) = relative_path($object, $name, $scope);
-    my $invalid = util_is_defined($parameters, $path) ? '' : '?';
+    my $mpref = util_full_path($opts->{node}, 1);
+    my $fpath = $mpref . $path;
+    my $invalid = util_is_defined($parameters, $fpath) ? '' : '?';
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
     # XXX don't warn further if this item has been deleted
@@ -7347,8 +7377,8 @@ sub html_template_paramref
             if $invalid && !$automodel;
         # XXX make this nicer (not sure why test of status is needed here but
         #     upnpdm triggers "undefined" errors otherwise
-        if (!$invalid && $parameters->{$path}->{status} &&
-            $parameters->{$path}->{status} eq 'deleted') {
+        if (!$invalid && $parameters->{$fpath}->{status} &&
+            $parameters->{$fpath}->{status} eq 'deleted') {
             wmsg "$object$param: reference to deleted parameter ".
                 "$path" if !$showdiffs;
             $invalid = '!';
@@ -7356,7 +7386,7 @@ sub html_template_paramref
     }
 
     $name = qq{''$name$invalid''};
-    $name = html_get_anchor($path, 'path', $name) unless $nolinks;
+    $name = html_get_anchor($fpath, 'path', $name) unless $nolinks;
 
     return $name;
 }
@@ -7370,6 +7400,8 @@ sub html_template_objectref
     my $object = $opts->{object};
     my $param = $opts->{param};
 
+    my $mpref = util_full_path($opts->{node}, 1);
+
     # parameterless case (no "name") is special; use just the last component
     # of the path (don't generate link from object to itself)
     # XXX this is an experiment
@@ -7378,7 +7410,7 @@ sub html_template_objectref
         $name =~ s/\.(\{i\}\.)?$//;
         $name =~ s/.*\.//;
         $name = qq{''$name''};
-        $name = html_get_anchor($object, 'path', $name)
+        $name = html_get_anchor($mpref.$object, 'path', $name)
             unless $nolinks || !$param;
         return $name;
     }
@@ -7396,14 +7428,15 @@ sub html_template_objectref
     $path2 .= '{i}.' if $path2 !~ /\{i\}\.$/;
 
     # XXX horrible
-    $path = $path1 if $objects->{$path1} && %{$objects->{$path1}};
-    $path = $path2 if $objects->{$path2} && %{$objects->{$path2}};
+    $path = $path1 if util_is_defined($objects, $mpref.$path1);
+    $path = $path2 if util_is_defined($objects, $mpref.$path2);
+    my $fpath = $mpref . $path;
 
     # XXX if path starts ".Services." this is a reference to another data
     #     model, so no checks and no link
     return qq{''$name''} if $path =~ /^\.Services\./;
 
-    my $invalid = ($objects->{$path} && %{$objects->{$path}}) ? '' : '?';
+    my $invalid = util_is_defined($objects, $fpath) ? '' : '?';
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
     # XXX don't warn further if this item has been deleted
@@ -7412,8 +7445,8 @@ sub html_template_objectref
             if $invalid && !$automodel;
         # XXX make this nicer (not sure why test of status is needed here but
         #     upnpdm triggers "undefined" errors otherwise
-        if (!$invalid && $objects->{$path}->{status} &&
-            $objects->{$path}->{status} eq 'deleted') {
+        if (!$invalid && $objects->{$fpath}->{status} &&
+            $objects->{$fpath}->{status} eq 'deleted') {
             wmsg "$object$param: reference to deleted object $path"
                 if !$showdiffs;
             $invalid = '!';
@@ -7421,7 +7454,7 @@ sub html_template_objectref
     }
 
     $name = qq{''$name$invalid''};
-    $name = html_get_anchor($path, 'path', $name) unless $nolinks;
+    $name = html_get_anchor($fpath, 'path', $name) unless $nolinks;
 
     return $name;
 }
@@ -7442,7 +7475,9 @@ sub html_template_valueref
 
     my $invalid = '';
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
-    if (!util_is_defined($parameters, $path)) {
+    my $mpref = util_full_path($opts->{node}, 1);
+    my $fpath = $mpref . $path;
+    if (!util_is_defined($parameters, $fpath)) {
         $invalid = '?';
         $invalid = '' if $upnpdm;
         # XXX don't warn further if this item has been deleted
@@ -7451,15 +7486,15 @@ sub html_template_valueref
                 "$path" if $invalid && !$automodel;
             # XXX make this nicer (not sure why test of status is needed here
             #     but upnpdm triggers "undefined" errors otherwise
-            if (!$invalid && $parameters->{$path}->{status} &&
-                $parameters->{$path}->{status} eq 'deleted') {
+            if (!$invalid && $parameters->{$fpath}->{status} &&
+                $parameters->{$fpath}->{status} eq 'deleted') {
                 wmsg "$object$param: reference to deleted parameter ".
                     "$path" if !$showdiffs;
                 $invalid = '!';
             }
         }
     } else {
-        my $node = $parameters->{$path};
+        my $node = $parameters->{$fpath};
         # XXX experimental: try to follow enumerationRefs
         my $syntax = $node->{syntax};
         if ($syntax->{reference} && $syntax->{reference} eq 'enumerationRef') {
@@ -7467,12 +7502,13 @@ sub html_template_valueref
             my $targetParamScope = $syntax->{targetParamScope};
             my ($targetPath) = relative_path($node->{pnode}->{path},
                                              $targetParam, $targetParamScope);
-            if (!util_is_defined($parameters, $targetPath)) {
+            if (!util_is_defined($parameters, $mpref.$targetPath)) {
                 emsg "$path: enumerationRef references non-existent ".
                     "parameter $targetPath: ignored";
             } else {
                 $path = $targetPath;
-                $node = $parameters->{$path};
+                $fpath = $mpref . $path;
+                $node = $parameters->{$fpath};
             }
         }
         my $values = $node->{values};
@@ -7498,7 +7534,7 @@ sub html_template_valueref
     my $sep = $upnpdm ? '/' : '.';
 
     $value = qq{''$value$invalid''};
-    $value = html_get_anchor(qq{$path$sep$tvalue}, 'value', $value)
+    $value = html_get_anchor(qq{$fpath$sep$tvalue}, 'value', $value)
         unless $this || $nolinks;
    
     return $value;
@@ -7509,21 +7545,15 @@ sub html_template_profileref
 {
     my ($opts, $profile) = @_;
 
-    my $node = $opts->{node};
+    my $mpref = util_full_path($opts->{node}, 1);
 
     my $makelink = $profile && !$nolinks;
 
     $profile = $opts->{profile} unless $profile;
 
-    # XXX logic taken from html_create_anchor
-    # XXX would prefer not to have to know link format
-    my $mnode = $node->{pnode};
-    my $mname = $mnode->{name};
-    $mname =~ s/:(\d+)\.\d+$/:$1/;
-
     my $tprofile = $profile;
     $profile = qq{''$profile''};
-    $profile = html_get_anchor(qq{$mname.$tprofile}, 'profile', $profile)
+    $profile = html_get_anchor($mpref.$tprofile, 'profile', $profile)
         if $makelink;
 
     return $profile;
@@ -7588,7 +7618,8 @@ sub html_template_reference
                     # $tpp is now the table object (including "{i}.")
                 }
 
-                my $tpn = $objects->{$tpp};
+                my $mpref = util_full_path($opts->{node}, 1);
+                my $tpn = $objects->{$mpref.$tpp};
                 emsg "$path: targetParent doesn't exist: $tp"
                     unless $tpn || $tpp =~ /^\.Services\./ || $automodel;
 
@@ -8888,10 +8919,10 @@ END
         $pdflink = undef if $support || $trname !~ /^TR/;
     }
 
-    # all of the files and htmls should exist, so warn if not
+    # all of the files and htmls should exist, so output message if not
     foreach my $f ((@filerows, @htmlrows)) {
         my ($dir) = find_file($f);
-        wmsg "non-existent file $f was referenced" unless $dir;
+        emsg "non-existent file $f was referenced" unless $dir;
     }
 
     # generate the table rows for this file; number of rows is the maximum of
@@ -10085,6 +10116,37 @@ sub util_module_routine
     return defined &{"$module\::$routine"} ? \&{"$module\::$routine"} : undef;
 }
 
+# Given a node, form the (model name, model major version, dot) prefix, e.g.
+# "Device:2." and optionally append the path name (note that a profile path is
+# just its name).
+#
+# This routine never fails, but will not try to append things that don't exist.
+sub util_full_path
+{
+    my ($node, $prefix_only) = @_;
+
+    my $text = '';
+
+    # determine model node, either this node if type 'model' or else mnode
+    my $mnode = $node->{type} && $node->{type} eq 'model' ? $node :
+        $node->{mnode};
+
+    # form (model name, major version, dot) prefix, e.g. "Device:2."
+    if ($mnode) {
+        $text .= $mnode->{name};
+        $text  =~ s/\.\d+$//;
+        $text .= '.';
+    }
+
+    # if requested append the path
+    my $path = $node->{path};
+    if ($path && !$prefix_only) {
+        $text .= $node->{path};
+    }
+
+    return $text;
+}
+
 # Heuristic determination of publication date of an XML file; the date is
 # returned as numeric 'yyyy-mm-dd' (i.e. will sort correctly) or as '' if
 # unknown
@@ -10513,10 +10575,12 @@ sub util_node_is_new
     # XXX experimental; always use file for this decision
     #return $node->{file} && $node->{file} eq $lfile;
     
-    # assume not new if there is no model node (so this node isn't an object,
-    # parameter or profile node)
+    # assume not new if there is no model node or it's a parameterRef or
+    # objectRef
     my $mnode = $node->{mnode};
-    return 0 unless $mnode;
+    return 0 if !$mnode || $node->{type} =~ /Ref$/;
+
+    # the node should now be an object parameter or profile node
 
     # unnamed nodes are always regarded as new
     # XXX this is really here just for the fake unnamed profile node
@@ -10578,6 +10642,9 @@ sub sanity_node
     my $numEntriesParameter = $node->{numEntriesParameter};
     my $enableParameter = $node->{enableParameter};
     my $description = $node->{description};
+
+    my $mpref = util_full_path($node, 1);
+    my $fpath = util_full_path($node);
 
     # XXX not sure that I should have to do this (is needed for auto-created
     #     objects, for which minEntries and maxEntries are undefined)
@@ -10643,7 +10710,7 @@ sub sanity_node
     # XXX for DT, need to check that things are not only defined but are not
     #     hidden
     if ($object) {
-        my $ppath = $node->{pnode}->{path};
+        my $fppath = util_full_path($node->{pnode});
         my ($multi, $fixed) = util_is_multi_instance($minEntries, $maxEntries);
 
         w2msg "$path: object is optional; was this intended?"
@@ -10663,11 +10730,11 @@ sub sanity_node
             if !($access ne 'readOnly' && $multi) && $enableParameter;
 
         emsg "$path: enableParameter ($enableParameter) doesn't exist"
-            if $enableParameter && !$parameters->{$path.$enableParameter};
+            if $enableParameter && !$parameters->{$fpath.$enableParameter};
 
         # XXX this is questionable use of "hidden" (TR-196?)
         my $temp = $numEntriesParameter || '';
-        $numEntriesParameter = $parameters->{$ppath.$numEntriesParameter} if
+        $numEntriesParameter = $parameters->{$fppath.$numEntriesParameter} if
             $numEntriesParameter;
         if ($multi && !$fixed &&
             (!$numEntriesParameter ||
@@ -10685,15 +10752,10 @@ sub sanity_node
 
             # add a reference from each #entries parameter to its table (can
             # be used in report generation)
-            # XXX huge hack (see comments to $objects and $parameters) to
-            #     suppress the warning for the htmlbbf and html148 reports
-            #     (which are the only ones that might process multiple major
-            #     versions of the same model)
             if ($numEntriesParameter->{table}) {
                 emsg "$path: numEntriesParameter " .
                     "($numEntriesParameter->{name}) already used by " .
-                    "$numEntriesParameter->{table}->{path}"
-                    unless $report =~ /^html(bbf|148)$/;
+                    "$numEntriesParameter->{table}->{path}";
             } else {
                 $numEntriesParameter->{table} = $node;
             }
@@ -10701,7 +10763,7 @@ sub sanity_node
 
         # XXX old test for enableParameter considered "hidden"; why?
         #$enableParameter =
-        #    $parameters->{$path.$enableParameter} if $enableParameter;
+        #    $parameters->{$fpath.$enableParameter} if $enableParameter;
         #(!$enableParameter || (!$hidden && $enableParameter->{hidden}))
 
         my $any_functional = 0;
@@ -10711,8 +10773,8 @@ sub sanity_node
             my $keyparams = $uniqueKey->{keyparams};
             foreach my $parameter (@$keyparams) {
                 my $ppath = $path . $parameter;
-                my $paccess = util_is_defined($parameters, $ppath) ?
-                    $parameters->{$ppath}->{access} : undef;
+                my $paccess = util_is_defined($parameters, $mpref.$ppath) ?
+                    $parameters->{$mpref.$ppath}->{access} : undef;
                 $any_writable = 1 if $paccess && $paccess ne 'readOnly';
             }
         }
@@ -10967,6 +11029,7 @@ B<report.pl>
 [--noprofiles]
 [--notemplates]
 [--nowarnredef]
+[--nowarnreport]
 [--nowarnprofbadref]
 [--objpat=pattern("")]
 [--option=n=v]...
@@ -11109,7 +11172,9 @@ if B<--compare> is also specified, the "last only" criterion uses the file name 
 
 sets the log level; this consists of a B<type> and a B<sublevel>; all messages up and including this level will be output to B<stderr>; the default is B<info>, which means that only error and informational messages will be output
 
-by default, messages are output with a prefix consisting of the upper-case first letter of the log level type followed by a colon (:) and a space; for example, "E: " indicates an error message; "O: " indicates an "other" message (not tied to a specific level); this prefix can be suppressed using B<--nologprefix>
+by default, messages are output with a prefix consisting of the upper-case first letter of the log level type followed by a colon (:) and a space; for example, "E: " indicates an error message
+
+the message prefix can be suppressed using B<--nologprefix>
 
 the possible log level types, which can be abbreviated to a single character, are:
 
@@ -11135,7 +11200,7 @@ error, informational, warning and debug messages will be output; the sublevel di
 
 for example, a value of B<w2> will cause error, informational, level 1 warnings and level 2 warnings to be output
 
-the log level feature is used to implement the functionality of B<--quiet>, B<--pedantic> and B<--verbose> (all of which are all still supported)
+the log level feature is used to implement the functionality of B<--quiet>, B<--pedantic> and B<--verbose> (all of which are still supported)
 
 =item B<--marktemplates>
 
@@ -11197,6 +11262,10 @@ disables parameter and object redefinition warnings (these warnings are also out
 
 there are some circumstances under which parameter or object redefinition is not worthy of comment
 
+=item B<--nowarnreport>
+
+disables the inclusion of error and warning messages in reports (currently only in B<HTML> reports)
+
 =item B<--nowarnprofbadref>
 
 disables warnings when a profile references an invalid object or parameter
@@ -11226,8 +11295,6 @@ the only reason to use this option (rather than using shell output redirection) 
 enables output of warnings to I<stderr> when logical inconsistencies in the XML are detected; if the option is specified without a value, the value defaults to 1
 
 this has exactly the same effect as setting B<--loglevel> to "w" (warning) followed by the pedantic value, e.g. "w2" for B<--pedantic=2>
-
-B<--pedantic> also enables the inclusion of error and warning messages in B<HTML> reports
 
 B<--pedantic> also enables XML schema validation of DM instances; XML schemas are located using the B<schemaLocation> attribute:
 
@@ -11478,7 +11545,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2012/01/13 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#201 $
+$Date: 2012/01/17 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#202 $
 
 =cut

@@ -7,12 +7,13 @@ Usage:
     [--loglevel=tn(i)] [--marktemplates] [--noautomodel] [--nocomments]
     [--nohyphenate] [--nolinks] [--nologprefix] [--nomodels] [--noobjects]
     [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef]
-    [--nowarnprofbadref] [--objpat=pattern("")] [--option=n=v]...
-    [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]... [--quiet]
-    [--report=html|(null)|tab|text|xls|xml|xml2|xsd|other...] [--showdiffs]
-    [--showreadonly] [--showspec] [--showsyntax] [--special=<option>]
-    [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
-    [--warnbibref[=i(1)]] [--writonly] DM-instance...
+    [--nowarnreport] [--nowarnprofbadref] [--objpat=pattern("")]
+    [--option=n=v]... [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]...
+    [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd|other...]
+    [--showdiffs] [--showreadonly] [--showspec] [--showsyntax]
+    [--special=<option>] [--thisonly] [--tr106=s(TR-106)] [--ugly]
+    [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly]
+    DM-instance...
 
     *   the most common options are --include, --pedantic and --report=html
 
@@ -145,9 +146,9 @@ Options:
 
         by default, messages are output with a prefix consisting of the
         upper-case first letter of the log level type followed by a colon
-        (:) and a space; for example, "E: " indicates an error message; "O:
-        " indicates an "other" message (not tied to a specific level); this
-        prefix can be suppressed using --nologprefix
+        (:) and a space; for example, "E: " indicates an error message
+
+        the message prefix can be suppressed using --nologprefix
 
         the possible log level types, which can be abbreviated to a single
         character, are:
@@ -171,8 +172,7 @@ Options:
         warnings and level 2 warnings to be output
 
         the log level feature is used to implement the functionality of
-        --quiet, --pedantic and --verbose (all of which are all still
-        supported)
+        --quiet, --pedantic and --verbose (all of which are still supported)
 
     --marktemplates
         mark selected template expansions with &&&& followed by
@@ -239,6 +239,10 @@ Options:
         there are some circumstances under which parameter or object
         redefinition is not worthy of comment
 
+    --nowarnreport
+        disables the inclusion of error and warning messages in reports
+        (currently only in HTML reports)
+
     --nowarnprofbadref
         disables warnings when a profile references an invalid object or
         parameter
@@ -278,9 +282,6 @@ Options:
 
         this has exactly the same effect as setting --loglevel to "w"
         (warning) followed by the pedantic value, e.g. "w2" for --pedantic=2
-
-        --pedantic also enables the inclusion of error and warning messages
-        in HTML reports
 
         --pedantic also enables XML schema validation of DM instances; XML
         schemas are located using the schemaLocation attribute:
