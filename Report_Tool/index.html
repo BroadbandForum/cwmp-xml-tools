@@ -215,8 +215,8 @@ DM-instance...</p>
 <dt><strong><a name="tn" class="item"><strong>--loglevel=tn(i)</strong></a></strong></dt>
 
 <dd>
-<p>sets the log level; this consists of a <strong>type</strong> and a <strong>sublevel</strong>; all messages up and including this level will be output to <strong>stderr</strong>; the default is <strong>info</strong>, which means that only error and informational messages will be output</p>
-<p>by default, messages are output with a prefix consisting of the upper-case first letter of the log level type followed by a colon (:) and a space; for example, &quot;E: &quot; indicates an error message</p>
+<p>sets the log level; this consists of a <strong>type</strong> and a <strong>sublevel</strong> (0-9); all messages up and including this sublevel will be output to <strong>stderr</strong>; the default type and sublevel are <strong>info</strong> and <strong>0</strong>, which means that by default only error and informational messages will be output</p>
+<p>by default, messages are output with a prefix consisting of the upper-case first letter of the log level type in parentheses, followed by a space; for example, &quot;(E) &quot; indicates an error message</p>
 <p>the message prefix can be suppressed using <strong>--nologprefix</strong></p>
 <p>the possible log level types, which can be abbreviated to a single character, are:</p>
 <dl>
@@ -234,15 +234,17 @@ DM-instance...</p>
 
 <dd>
 <p>only error, informational and warning messages will be output; the sublevel distinguishes different levels of warning messages</p>
+<p>currently only warning messages with sublevels 0, 1 and 2 are distinguished, but all values in the range 0-9 are valid</p>
 </dd>
 <dt><strong><a name="debug" class="item"><strong>debug</strong></a></strong></dt>
 
 <dd>
 <p>error, informational, warning and debug messages will be output; the sublevel distinguishes different levels of debug messages</p>
+<p>currently only debug messages with sublevels 0, 1 and 2 are distinguished, but all values in the range 0-9 are valid</p>
 </dd>
 </dl>
-<p>for example, a value of <strong>w2</strong> will cause error, informational, level 1 warnings and level 2 warnings to be output</p>
-<p>the log level feature is used to implement the functionality of <strong>--quiet</strong>, <strong>--pedantic</strong> and <strong>--verbose</strong> (all of which are still supported)</p>
+<p>for example, a value of <strong>w1</strong> will cause error, informational, level 0 warnings and level 1 warnings to be output</p>
+<p>the log level feature is used to implement the functionality of <strong>--quiet</strong>, <strong>--pedantic</strong> and <strong>--verbose</strong> (all of which are still supported); these options are processed in the order (<strong>loglevel</strong>, <strong>quiet</strong>, <strong>pedantic</strong>, <strong>verbose</strong>), so (for example) <strong>--loglevel=d --pedantic</strong> is the same as <strong>--loglevel=w</strong></p>
 </dd>
 <dt><strong><a name="marktemplates" class="item"><strong>--marktemplates</strong></a></strong></dt>
 
@@ -343,7 +345,7 @@ DM-instance...</p>
 
 <dd>
 <p>enables output of warnings to <em>stderr</em> when logical inconsistencies in the XML are detected; if the option is specified without a value, the value defaults to 1</p>
-<p>this has exactly the same effect as setting <strong>--loglevel</strong> to &quot;w&quot; (warning) followed by the pedantic value, e.g. &quot;w2&quot; for <strong>--pedantic=2</strong></p>
+<p>this has exactly the same effect as setting <strong>--loglevel</strong> to &quot;w&quot; (warning) followed by the pedantic value minus one, e.g. &quot;w1&quot; for <strong>--pedantic=2</strong></p>
 <p><strong>--pedantic</strong> also enables XML schema validation of DM instances; XML schemas are located using the <strong>schemaLocation</strong> attribute:</p>
 <ul>
 <li><strong><a name="if_it_specifies_an_absolute_path_no_search_is_performed" class="item">if it specifies an absolute path, no search is performed</a></strong>
@@ -592,7 +594,7 @@ DM-instance...</p>
 
 <dd>
 <p>enables verbose output; the higher the level the more the output</p>
-<p>this has the same effect as setting <strong>--loglevel</strong> to &quot;d&quot; (debug) followed by the verbose value, e.g. &quot;d3&quot; for <strong>--verbose=3</strong></p>
+<p>this has the same effect as setting <strong>--loglevel</strong> to &quot;d&quot; (debug) followed by the verbose value minus one, e.g. &quot;d2&quot; for <strong>--verbose=3</strong></p>
 </dd>
 <dt><strong><strong>--warnbibref[=i(1)]</strong></strong></dt>
 
@@ -616,8 +618,8 @@ DM-instance...</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:william.lupton@pace.com">william.lupton@pace.com</a>&gt;</p>
-<p>$Date: 2012/01/17 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#202 $</p>
+<p>$Date: 2012/01/19 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#203 $</p>
 
 </body>
 

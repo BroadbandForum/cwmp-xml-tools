@@ -139,14 +139,14 @@ Options:
         have the same spec)
 
     --loglevel=tn(i)
-        sets the log level; this consists of a type and a sublevel; all
-        messages up and including this level will be output to stderr; the
-        default is info, which means that only error and informational
-        messages will be output
+        sets the log level; this consists of a type and a sublevel (0-9);
+        all messages up and including this sublevel will be output to
+        stderr; the default type and sublevel are info and 0, which means
+        that by default only error and informational messages will be output
 
         by default, messages are output with a prefix consisting of the
-        upper-case first letter of the log level type followed by a colon
-        (:) and a space; for example, "E: " indicates an error message
+        upper-case first letter of the log level type in parentheses,
+        followed by a space; for example, "(E) " indicates an error message
 
         the message prefix can be suppressed using --nologprefix
 
@@ -164,15 +164,24 @@ Options:
             only error, informational and warning messages will be output;
             the sublevel distinguishes different levels of warning messages
 
+            currently only warning messages with sublevels 0, 1 and 2 are
+            distinguished, but all values in the range 0-9 are valid
+
         debug
             error, informational, warning and debug messages will be output;
             the sublevel distinguishes different levels of debug messages
 
-        for example, a value of w2 will cause error, informational, level 1
-        warnings and level 2 warnings to be output
+            currently only debug messages with sublevels 0, 1 and 2 are
+            distinguished, but all values in the range 0-9 are valid
+
+        for example, a value of w1 will cause error, informational, level 0
+        warnings and level 1 warnings to be output
 
         the log level feature is used to implement the functionality of
-        --quiet, --pedantic and --verbose (all of which are still supported)
+        --quiet, --pedantic and --verbose (all of which are still
+        supported); these options are processed in the order (loglevel,
+        quiet, pedantic, verbose), so (for example) --loglevel=d --pedantic
+        is the same as --loglevel=w
 
     --marktemplates
         mark selected template expansions with &&&& followed by
@@ -281,7 +290,8 @@ Options:
         the value defaults to 1
 
         this has exactly the same effect as setting --loglevel to "w"
-        (warning) followed by the pedantic value, e.g. "w2" for --pedantic=2
+        (warning) followed by the pedantic value minus one, e.g. "w1" for
+        --pedantic=2
 
         --pedantic also enables XML schema validation of DM instances; XML
         schemas are located using the schemaLocation attribute:
@@ -552,7 +562,7 @@ Options:
         enables verbose output; the higher the level the more the output
 
         this has the same effect as setting --loglevel to "d" (debug)
-        followed by the verbose value, e.g. "d3" for --verbose=3
+        followed by the verbose value minus one, e.g. "d2" for --verbose=3
 
     --warnbibref[=i(1)]
         enables bibliographic reference warnings (these warnings are also
