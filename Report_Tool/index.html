@@ -40,13 +40,14 @@
 [--catalog=c]...
 [--compare]
 [--components]
-[--debugpath=pattern(&quot;&quot;)]
+[--configfile=s(&quot;&quot;)]
+[--debugpath=p(&quot;&quot;)]
 [--deletedeprecated]
 [--dtprofile=s]...
 [--dtspec[=s]]
 [--help]
-[--ignore=pattern(&quot;&quot;)]
-[--importsuffix=string(&quot;&quot;)]
+[--ignore=p(&quot;&quot;)]
+[--importsuffix=s(&quot;&quot;)]
 [--include=d]...
 [--info]
 [--lastonly]
@@ -65,18 +66,18 @@
 [--nowarnredef]
 [--nowarnreport]
 [--nowarnprofbadref]
-[--objpat=pattern(&quot;&quot;)]
+[--objpat=p(&quot;&quot;)]
 [--option=n=v]...
 [--outfile=s]
 [--pedantic[=i(1)]]
 [--plugin=s]...
 [--quiet]
-[--report=html|(null)|tab|text|xls|xml|xml2|xsd|other...]
+[--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...]
 [--showdiffs]
 [--showreadonly]
 [--showspec]
 [--showsyntax]
-[--special=&lt;option&gt;]
+[--special=s]
 [--thisonly]
 [--tr106=s(TR-106)]
 [--ugly]
@@ -86,7 +87,7 @@
 [--writonly]
 DM-instance...</p>
 <ul>
-<li><strong><a name="the_most_common_options_are_include_pedantic_and_report_html" class="item">the most common options are --include, --pedantic and --report=html</a></strong>
+<li><strong><a name="the_most_common_options_are_include_loglevel_and_report_html" class="item">the most common options are --include, --loglevel and --report=html</a></strong>
 
 </li>
 <li><strong><a name="use_compare_to_compare_files_and_showdiffs_to_show_differences" class="item">use --compare to compare files and --showdiffs to show differences</a></strong>
@@ -103,7 +104,7 @@ DM-instance...</p>
 <p>The files specified on the command line are assumed to be XML TR-069 data model definitions compliant with the <em>cwmp:datamodel</em> (DM) XML schema.</p>
 <p>The script parses, validates (ahem) and reports on these files, generating output in various possible formats to <em>stdout</em>.</p>
 <p>There are a large number of options but in practice only a few need to be used.  For example:</p>
-<p>./report.pl --pedantic --report html tr-098-1-2-0.xml &gt;tr-098-1-2-0.html</p>
+<p>./report.pl --report html tr-098-1-2-0.xml &gt;tr-098-1-2-0.html</p>
 <p>
 </p>
 <hr />
@@ -160,7 +161,14 @@ DM-instance...</p>
 <dd>
 <p>affects only the <strong>xml2</strong> report; generates a component for each object; if <strong>--noobjects</strong> is also specified, the component omits the object definition and consists only of parameter definitions</p>
 </dd>
-<dt><strong><a name="pattern" class="item"><strong>--debugpath=pattern(&quot;&quot;)</strong></a></strong></dt>
+<dt><strong><a name="s" class="item"><strong>--configfile=s(&quot;&quot;)</strong></a></strong></dt>
+
+<dd>
+<p>the name of the configuration file; the configuration file format and usage are specific to the report type; not all report types use configuration files</p>
+<p>the configuration file name can also be specified via <strong>--option configfile=s</strong> but this usage is deprecated</p>
+<p>defaults to <strong>report.ini</strong> where <strong>report</strong> is the report type, e.g. <strong>htmlbbf.ini</strong> for the <strong>htmlbbf</strong> report</p>
+</dd>
+<dt><strong><a name="p" class="item"><strong>--debugpath=p(&quot;&quot;)</strong></a></strong></dt>
 
 <dd>
 <p>outputs debug information for parameters and objects whose path names match the specified pattern</p>
@@ -190,7 +198,7 @@ DM-instance...</p>
 <dd>
 <p>specifies a pattern; data models whose names begin with the pattern will be ignored</p>
 </dd>
-<dt><strong><a name="string" class="item"><strong>--importsuffix=string(&quot;&quot;)</strong></a></strong></dt>
+<dt><strong><strong>--importsuffix=s(&quot;&quot;)</strong></strong></dt>
 
 <dd>
 <p>specifies a suffix which, if specified, will be appended (preceded by a hyphen) to the name part of any imported files in b&lt;xml&gt; reports</p>
@@ -215,9 +223,8 @@ DM-instance...</p>
 <dt><strong><a name="tn" class="item"><strong>--loglevel=tn(i)</strong></a></strong></dt>
 
 <dd>
-<p>sets the log level; this consists of a <strong>type</strong> and a <strong>sublevel</strong> (0-9); all messages up and including this sublevel will be output to <strong>stderr</strong>; the default type and sublevel are <strong>info</strong> and <strong>0</strong>, which means that by default only error and informational messages will be output</p>
-<p>by default, messages are output with a prefix consisting of the upper-case first letter of the log level type in parentheses, followed by a space; for example, &quot;(E) &quot; indicates an error message</p>
-<p>the message prefix can be suppressed using <strong>--nologprefix</strong></p>
+<p>sets the log level; this consists of a <strong>type</strong> and a <strong>sublevel</strong> (0-9); all messages up and including this sublevel will be output to <strong>stderr</strong>; the default type and sublevel are <strong>warning</strong> and <strong>0</strong>, which means that by default only error, informational and sublevel 0 warning messages will be output</p>
+<p>by default, messages are output with a prefix consisting of the upper-case first letter of the log level type in parentheses, followed by a space; for example, &quot;(E) &quot; indicates an error message; the message prefix can be suppressed using <strong>--nologprefix</strong></p>
 <p>the possible log level types, which can be abbreviated to a single character, are:</p>
 <dl>
 <dt><strong><a name="error" class="item"><strong>error</strong></a></strong></dt>
@@ -228,7 +235,7 @@ DM-instance...</p>
 <dt><strong><strong>info</strong></strong></dt>
 
 <dd>
-<p>only error and informational messages will be output; the sublevel is ignored; this is the default</p>
+<p>only error and informational messages will be output; the sublevel is ignored</p>
 </dd>
 <dt><strong><a name="warning" class="item"><strong>warning</strong></a></strong></dt>
 
@@ -243,15 +250,27 @@ DM-instance...</p>
 <p>currently only debug messages with sublevels 0, 1 and 2 are distinguished, but all values in the range 0-9 are valid</p>
 </dd>
 </dl>
-<p>for example, a value of <strong>w1</strong> will cause error, informational, level 0 warnings and level 1 warnings to be output</p>
+<p>for example, a value of <strong>d1</strong> will cause error, informational, all warning, and sublevel 0 and 1 debug messages to be output</p>
 <p>the log level feature is used to implement the functionality of <strong>--quiet</strong>, <strong>--pedantic</strong> and <strong>--verbose</strong> (all of which are still supported); these options are processed in the order (<strong>loglevel</strong>, <strong>quiet</strong>, <strong>pedantic</strong>, <strong>verbose</strong>), so (for example) <strong>--loglevel=d --pedantic</strong> is the same as <strong>--loglevel=w</strong></p>
+<p>a log level of warning or debug also enables XML schema validation of DM instances; XML schemas are located using the <strong>schemaLocation</strong> attribute:</p>
+<ul>
+<li><strong><a name="if_it_specifies_an_absolute_path_no_search_is_performed" class="item">if it specifies an absolute path, no search is performed</a></strong>
+
+</li>
+<li><strong><a name="if_it_specifies_a_relative_path_the_directories_specified_via_include_are_searched" class="item">if it specifies a relative path, the directories specified via <strong>--include</strong> are searched</a></strong>
+
+</li>
+<li><strong><a name="path" class="item">URLs are treated specially: if no XML catalogs were supplied via <strong>--catalog</strong>, the directory part is ignored and the schema is located as for a relative path (above); if XML catalogs were supplied via <strong>--catalog</strong>, the catalogs govern how (and whether) the URLs are processed</a></strong>
+
+</li>
+</ul>
 </dd>
 <dt><strong><a name="marktemplates" class="item"><strong>--marktemplates</strong></a></strong></dt>
 
 <dd>
 <p>mark selected template expansions with <strong>&amp;&amp;&amp;&amp;</strong> followed by template-related information, a colon and a space</p>
 <p>for example, the <strong>reference</strong> template is marked by a string such as <strong>&amp;&amp;&amp;&amp;pathRef-strong:</strong>, <strong>&amp;&amp;&amp;&amp;pathRef-weak:</strong>, <strong>&amp;&amp;&amp;&amp;instanceRef-strong:</strong>, <strong>&amp;&amp;&amp;&amp;instanceRef-strong-list:</strong> or <strong>enumerationRef:</strong></p>
-<p>and the <strong>list</strong> template is marked by a string such as <strong>&amp;&amp;&amp;&amp;list-unsisgnedInt:</strong> or <strong>&amp;&amp;&amp;&amp;list-IPAddress:</strong></p>
+<p>and the <strong>list</strong> template is marked by a string such as <strong>&amp;&amp;&amp;&amp;list-unsignedInt:</strong> or <strong>&amp;&amp;&amp;&amp;list-IPAddress:</strong></p>
 </dd>
 <dt><strong><a name="noautomodel" class="item"><strong>--noautomodel</strong></a></strong></dt>
 
@@ -324,7 +343,7 @@ DM-instance...</p>
 <p>there are some circumstances under which it's useful to use an existing profile definition where some objects or parameters that it references have been (deliberately) deleted</p>
 <p>this is deprecated because it is no longer needed (use status=&quot;deleted&quot; as appropriate to suppress such errors)</p>
 </dd>
-<dt><strong><a name="objpat_pattern" class="item"><strong>--objpat=pattern</strong></a></strong></dt>
+<dt><strong><a name="objpat_p" class="item"><strong>--objpat=p</strong></a></strong></dt>
 
 <dd>
 <p>specifies an object name pattern (a regular expression); objects that do not match this pattern will be ignored (the default of &quot;&quot; matches all objects)</p>
@@ -345,19 +364,7 @@ DM-instance...</p>
 
 <dd>
 <p>enables output of warnings to <em>stderr</em> when logical inconsistencies in the XML are detected; if the option is specified without a value, the value defaults to 1</p>
-<p>this has exactly the same effect as setting <strong>--loglevel</strong> to &quot;w&quot; (warning) followed by the pedantic value minus one, e.g. &quot;w1&quot; for <strong>--pedantic=2</strong></p>
-<p><strong>--pedantic</strong> also enables XML schema validation of DM instances; XML schemas are located using the <strong>schemaLocation</strong> attribute:</p>
-<ul>
-<li><strong><a name="if_it_specifies_an_absolute_path_no_search_is_performed" class="item">if it specifies an absolute path, no search is performed</a></strong>
-
-</li>
-<li><strong><a name="if_it_specifies_a_relative_path_the_directories_specified_via_include_are_searched" class="item">if it specifies a relative path, the directories specified via <strong>--include</strong> are searched</a></strong>
-
-</li>
-<li><strong><a name="path" class="item">URLs are treated specially: if no XML catalogs were supplied via <strong>--catalog</strong>, the directory part is ignored and the schema is located as for a relative path (above); if XML catalogs were supplied via <strong>--catalog</strong>, the catalogs govern how (and whether) the URLs are processed</a></strong>
-
-</li>
-</ul>
+<p>this has the same effect as setting <strong>--loglevel</strong> to &quot;w&quot; (warning) followed by the pedantic value minus one, e.g. &quot;w1&quot; for <strong>--pedantic=2</strong></p>
 </dd>
 <dt><strong><a name="plugin_s" class="item"><strong>--plugin=s</strong>...</a></strong></dt>
 
@@ -412,7 +419,7 @@ DM-instance...</p>
 <p>suppresses informational messages</p>
 <p>this has the same effect as setting <strong>--loglevel</strong> to &quot;e&quot; (error)</p>
 </dd>
-<dt><strong><a name="report_html_null_tab_text_xls_xml_xml2_xsd_other" class="item"><strong>--report=html|(null)|tab|text|xls|xml|xml2|xsd|other...</strong></a></strong></dt>
+<dt><strong><a name="report_html_htmlbbf_null_tab_text_xls_xml_xml2_xsd_other" class="item"><strong>--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...</strong></a></strong></dt>
 
 <dd>
 <p>specifies the report format; one of the following:</p>
@@ -421,6 +428,13 @@ DM-instance...</p>
 
 <dd>
 <p>HTML document; see also <strong>--nolinks</strong> and <strong>--notemplates</strong></p>
+</dd>
+<dt><strong><a name="htmlbbf" class="item"><strong>htmlbbf</strong></a></strong></dt>
+
+<dd>
+<p>HTML document containing the information in the BBF CWMP index page; when generating this report, all the XSD and XML files are specified on the command line</p>
+<p>the <strong>htmlbbf</strong> report reads a configuration file whose name can be specified using <strong>--configfile</strong></p>
+<p>see OD-290 and OD-148 for more details</p>
 </dd>
 <dt><strong><a name="null" class="item"><strong>null</strong></a></strong></dt>
 
@@ -573,7 +587,7 @@ DM-instance...</p>
 <dd>
 <p>outputs only definitions defined in the files on the command line, not those from imported files</p>
 </dd>
-<dt><strong><a name="s" class="item"><strong>--tr106=s(TR-106)</strong></a></strong></dt>
+<dt><strong><strong>--tr106=s(TR-106)</strong></strong></dt>
 
 <dd>
 <p>indicates the TR-106 version (i.e. the <strong>bibref</strong> name) to be referenced in any automatically generated description text</p>
@@ -618,8 +632,8 @@ DM-instance...</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:william.lupton@pace.com">william.lupton@pace.com</a>&gt;</p>
-<p>$Date: 2012/01/19 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#203 $</p>
+<p>$Date: 2012/01/25 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#204 $</p>
 
 </body>
 

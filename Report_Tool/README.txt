@@ -1,21 +1,21 @@
 Usage:
     report.pl [--allbibrefs] [--autobase] [--autodatatype] [--automodel]
     [--bibrefdocfirst] [--canonical] [--catalog=c]... [--compare]
-    [--components] [--debugpath=pattern("")] [--deletedeprecated]
-    [--dtprofile=s]... [--dtspec[=s]] [--help] [--ignore=pattern("")]
-    [--importsuffix=string("")] [--include=d]... [--info] [--lastonly]
-    [--loglevel=tn(i)] [--marktemplates] [--noautomodel] [--nocomments]
-    [--nohyphenate] [--nolinks] [--nologprefix] [--nomodels] [--noobjects]
-    [--noparameters] [--noprofiles] [--notemplates] [--nowarnredef]
-    [--nowarnreport] [--nowarnprofbadref] [--objpat=pattern("")]
+    [--components] [--configfile=s("")] [--debugpath=p("")]
+    [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help]
+    [--ignore=p("")] [--importsuffix=s("")] [--include=d]... [--info]
+    [--lastonly] [--loglevel=tn(i)] [--marktemplates] [--noautomodel]
+    [--nocomments] [--nohyphenate] [--nolinks] [--nologprefix] [--nomodels]
+    [--noobjects] [--noparameters] [--noprofiles] [--notemplates]
+    [--nowarnredef] [--nowarnreport] [--nowarnprofbadref] [--objpat=p("")]
     [--option=n=v]... [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]...
-    [--quiet] [--report=html|(null)|tab|text|xls|xml|xml2|xsd|other...]
-    [--showdiffs] [--showreadonly] [--showspec] [--showsyntax]
-    [--special=<option>] [--thisonly] [--tr106=s(TR-106)] [--ugly]
-    [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly]
-    DM-instance...
+    [--quiet]
+    [--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...]
+    [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--special=s]
+    [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
+    [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
-    *   the most common options are --include, --pedantic and --report=html
+    *   the most common options are --include, --loglevel and --report=html
 
     *   use --compare to compare files and --showdiffs to show differences
 
@@ -87,7 +87,18 @@ Options:
         if --noobjects is also specified, the component omits the object
         definition and consists only of parameter definitions
 
-    --debugpath=pattern("")
+    --configfile=s("")
+        the name of the configuration file; the configuration file format
+        and usage are specific to the report type; not all report types use
+        configuration files
+
+        the configuration file name can also be specified via --option
+        configfile=s but this usage is deprecated
+
+        defaults to report.ini where report is the report type, e.g.
+        htmlbbf.ini for the htmlbbf report
+
+    --debugpath=p("")
         outputs debug information for parameters and objects whose path
         names match the specified pattern
 
@@ -112,7 +123,7 @@ Options:
         specifies a pattern; data models whose names begin with the pattern
         will be ignored
 
-    --importsuffix=string("")
+    --importsuffix=s("")
         specifies a suffix which, if specified, will be appended (preceded
         by a hyphen) to the name part of any imported files in b<xml>
         reports
@@ -141,13 +152,13 @@ Options:
     --loglevel=tn(i)
         sets the log level; this consists of a type and a sublevel (0-9);
         all messages up and including this sublevel will be output to
-        stderr; the default type and sublevel are info and 0, which means
-        that by default only error and informational messages will be output
+        stderr; the default type and sublevel are warning and 0, which means
+        that by default only error, informational and sublevel 0 warning
+        messages will be output
 
         by default, messages are output with a prefix consisting of the
         upper-case first letter of the log level type in parentheses,
-        followed by a space; for example, "(E) " indicates an error message
-
+        followed by a space; for example, "(E) " indicates an error message;
         the message prefix can be suppressed using --nologprefix
 
         the possible log level types, which can be abbreviated to a single
@@ -158,7 +169,7 @@ Options:
 
         info
             only error and informational messages will be output; the
-            sublevel is ignored; this is the default
+            sublevel is ignored
 
         warning
             only error, informational and warning messages will be output;
@@ -174,14 +185,29 @@ Options:
             currently only debug messages with sublevels 0, 1 and 2 are
             distinguished, but all values in the range 0-9 are valid
 
-        for example, a value of w1 will cause error, informational, level 0
-        warnings and level 1 warnings to be output
+        for example, a value of d1 will cause error, informational, all
+        warning, and sublevel 0 and 1 debug messages to be output
 
         the log level feature is used to implement the functionality of
         --quiet, --pedantic and --verbose (all of which are still
         supported); these options are processed in the order (loglevel,
         quiet, pedantic, verbose), so (for example) --loglevel=d --pedantic
         is the same as --loglevel=w
+
+        a log level of warning or debug also enables XML schema validation
+        of DM instances; XML schemas are located using the schemaLocation
+        attribute:
+
+        *   if it specifies an absolute path, no search is performed
+
+        *   if it specifies a relative path, the directories specified via
+            --include are searched
+
+        *   URLs are treated specially: if no XML catalogs were supplied via
+            --catalog, the directory part is ignored and the schema is
+            located as for a relative path (above); if XML catalogs were
+            supplied via --catalog, the catalogs govern how (and whether)
+            the URLs are processed
 
     --marktemplates
         mark selected template expansions with &&&& followed by
@@ -192,7 +218,7 @@ Options:
         &&&&instanceRef-strong-list: or enumerationRef:
 
         and the list template is marked by a string such as
-        &&&&list-unsisgnedInt: or &&&&list-IPAddress:
+        &&&&list-unsignedInt: or &&&&list-IPAddress:
 
     --noautomodel
         disables the auto-generation, if no model element was encountered,
@@ -263,7 +289,7 @@ Options:
         this is deprecated because it is no longer needed (use
         status="deleted" as appropriate to suppress such errors)
 
-    --objpat=pattern
+    --objpat=p
         specifies an object name pattern (a regular expression); objects
         that do not match this pattern will be ignored (the default of ""
         matches all objects)
@@ -289,23 +315,8 @@ Options:
         in the XML are detected; if the option is specified without a value,
         the value defaults to 1
 
-        this has exactly the same effect as setting --loglevel to "w"
-        (warning) followed by the pedantic value minus one, e.g. "w1" for
-        --pedantic=2
-
-        --pedantic also enables XML schema validation of DM instances; XML
-        schemas are located using the schemaLocation attribute:
-
-        *   if it specifies an absolute path, no search is performed
-
-        *   if it specifies a relative path, the directories specified via
-            --include are searched
-
-        *   URLs are treated specially: if no XML catalogs were supplied via
-            --catalog, the directory part is ignored and the schema is
-            located as for a relative path (above); if XML catalogs were
-            supplied via --catalog, the catalogs govern how (and whether)
-            the URLs are processed
+        this has the same effect as setting --loglevel to "w" (warning)
+        followed by the pedantic value minus one, e.g. "w1" for --pedantic=2
 
     --plugin=s...
         can be specified multiple times; defines external plugins that can
@@ -375,11 +386,21 @@ Options:
 
         this has the same effect as setting --loglevel to "e" (error)
 
-    --report=html|(null)|tab|text|xls|xml|xml2|xsd|other...
+    --report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...
         specifies the report format; one of the following:
 
         html
             HTML document; see also --nolinks and --notemplates
+
+        htmlbbf
+            HTML document containing the information in the BBF CWMP index
+            page; when generating this report, all the XSD and XML files are
+            specified on the command line
+
+            the htmlbbf report reads a configuration file whose name can be
+            specified using --configfile
+
+            see OD-290 and OD-148 for more details
 
         null
             no output; errors go to *stdout* rather than *stderr* (default)
