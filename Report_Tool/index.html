@@ -168,6 +168,12 @@ DM-instance...</p>
 <p>the configuration file name can also be specified via <strong>--option configfile=s</strong> but this usage is deprecated</p>
 <p>defaults to <strong>report.ini</strong> where <strong>report</strong> is the report type, e.g. <strong>htmlbbf.ini</strong> for the <strong>htmlbbf</strong> report</p>
 </dd>
+<dt><strong><strong>--cwmpindex=s(..)</strong></strong></dt>
+
+<dd>
+<p>affects only the <strong>html</strong> report; specifies the location of the BBF CWMP index page, i.e. the page generated using the <strong>htmlbbf</strong> report; is used to generate a link back to the appropriate location within the index page</p>
+<p>defaults to <strong>../cwmp</strong> (parent directory), which will work for the BBF web site but will not necessarily work in other locations; the generated link will be <strong>cwmpindex#xmlfile</strong>, e.g. <strong>../cwmp#tr-069-1-0-0.xml</strong></p>
+</dd>
 <dt><strong><a name="p" class="item"><strong>--debugpath=p(&quot;&quot;)</strong></a></strong></dt>
 
 <dd>
@@ -632,8 +638,8 @@ DM-instance...</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:william.lupton@pace.com">william.lupton@pace.com</a>&gt;</p>
-<p>$Date: 2012/01/25 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#204 $</p>
+<p>$Date: 2012/01/26 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#205 $</p>
 
 </body>
 

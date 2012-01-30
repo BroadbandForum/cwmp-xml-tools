@@ -167,8 +167,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2012/01/25 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#204 $};
+my $tool_vers_date = q{$Date: 2012/01/26 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#205 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -222,6 +222,7 @@ our $catalogs = [];
 our $compare = 0;
 our $components = 0;
 our $configfile = '';
+our $cwmpindex = '../cwmp';
 our $debugpath = '';
 our $deletedeprecated = 0;
 our $dtprofiles = [];
@@ -278,6 +279,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'compare' => \$compare,
            'components' => \$components,
            'configfile:s' => \$configfile,
+           'cwmpindex:s' => \$cwmpindex,
            'debugpath:s' => \$debugpath,
            'deletedeprecated' => \$deletedeprecated,
            'dtprofile:s@' => \$dtprofiles,
@@ -5435,9 +5437,7 @@ sub html_anchor_reference_text
     if ($dontref) {
         $text .= $label;
     } else {
-        $text .= qq{<a href="#$name"};
-        $text .= qq{>$label</a>} if $label;
-        $text .= qq{/>} if !$label;
+        $text .= qq{<a href="#$name">$label</a>};
     }
 
     return $text;
@@ -5521,10 +5521,7 @@ sub html_create_anchor
 
     # form the anchor definition
     # XXX if supporting $dontdef would create html_anchor_definition_text()
-    my $adef = qq{};
-    $adef .= qq{<a name="$aname"};
-    $adef .= qq{>$label</a>} if $label;
-    $adef .= qq{/>} if !$label;
+    my $adef = qq{<a name="$aname">$label</a>};
 
     my $dontref = util_is_omitted($node);
 
@@ -5542,7 +5539,7 @@ sub html_create_anchor
         if ($tpath ne $path) {
             my $fpath = util_full_path($node);
             $fpath =~ s/(\.\{i\})?\.$//;
-            $adef = qq{<a name="$namespace_prefix$fpath"/>$adef};
+            $adef = qq{<a name="$namespace_prefix$fpath"></a>$adef};
         }
     }
 
@@ -5719,9 +5716,7 @@ sub html_node
         my $doctype = qq{&nbsp;&nbsp;&nbsp;&nbsp;DATA MODEL DEFINITION};
         my $filename1 = $allfiles->[0]->{name} ? $allfiles->[0]->{name} : qq{};
         my $filename2 = $allfiles->[1]->{name} ? $allfiles->[1]->{name} : qq{};
-        # XXX these links will work on the BBF web site but not within the
-        #     local file system
-        my $filelink1 = qq{<a href="../cwmp#$filename1">$filename1</a>};
+        my $filelink1 = qq{<a href="$cwmpindex#$filename1">$filename1</a>};
         my $filelink2 = $filename2 ?
             qq{<a href="../cwmp#$filename2">$filename2</a>} : qq{};
         my $title = qq{%%%%};
@@ -8434,8 +8429,9 @@ END
     htmlbbf_file(undef, {context => $outdatedcontext, contents => 1});
 
     # downloads (table of contents)
+    # previously: <li> rather than <b>
     print <<END;
-      <li><a href="#Downloads">Downloads</a></li>    
+      <b><a href="#Downloads">Downloads</a></b>
 END
 
     # close the table of contents
@@ -8452,11 +8448,8 @@ END
 
     # downloads (content)
     print <<END;
-    <a name="Downloads"/>
-    <h1>Downloads</h1>
-    <ul>
-      <li><a href="cwmp.zip">cwmp.zip</a>: directory contents</li>
-    </ul>
+    <a name="Downloads"><h1>Downloads</h1></a>
+    <a href="cwmp.zip">cwmp.zip</a>: directory contents<br>
 END
 
     # footer
@@ -8626,8 +8619,9 @@ sub htmlbbf_file
         my $title = $opts->{title};
 
         # open table of contents entry
+        # XXX previously used <li> rather than <b>
         $context->{contents} = <<END;
-      <li><a href="#$title">$title</a></li>
+      <b><a href="#$title">$title</a></b>
       <ul>
 END
 
@@ -8914,7 +8908,7 @@ END
 
         # define anchor only for the first occurrence of each TR
         my $anchor = qq{};
-        $anchor = qq{<a name="$shortname"/>} if
+        $anchor = qq{<a name="$shortname"></a>} if
             !$htmlbbf_anchors->{$shortname}++;
         $pdflink = util_doc_link($trname);
         $pdflink = qq{$anchor<a href="$pdflink">$trname</a>};
@@ -8950,11 +8944,12 @@ END
 
         # output table of contents entry (not for outdated files because
         # the link would go to the latest file)
+        # XXX contents: previously <li> rather than <br>
         if (!$outdated) {
             my $changed = !$context->{prevkey} || $key ne $context->{prevkey}; 
             if ($changed) {
             $context->{contents} .= <<END;
-        <li><a href="#$key">$key</a></li>
+        <a href="#$key">$key</a><br>
 END
             }
         }
@@ -8963,14 +8958,14 @@ END
         # define anchors (and, where appropriate, links) for document, model
         # and file (pdflink anchor was done above; it's a special case because
         # the anchor text is not the same as the displayed text)
-        $dtemp = qq{<a name="$dtemp"/>$dtemp} if
+        $dtemp = qq{<a name="$dtemp"></a>$dtemp} if
             !$context->{model} && $dtemp && !$htmlbbf_anchors->{$dtemp}++;
-        $mtemp = qq{<a name="$mtemp"/>$mtemp} if 
+        $mtemp = qq{<a name="$mtemp"></a>$mtemp} if 
             $context->{model} && $mtemp && !$htmlbbf_anchors->{$mtemp}++;
         my $fanchor = qq{};
-        $fanchor = qq{<a name="$ftemp"/>} if
+        $fanchor = qq{<a name="$ftemp"></a>} if
             $ftemp && $ftemp !~ /-full\.xml$/ && !$htmlbbf_anchors->{$ftemp}++;
-        $fanchor = qq{<a name="$file_nc"/>$fanchor} if
+        $fanchor = qq{<a name="$file_nc"></a>$fanchor} if
             $file_nc && !$htmlbbf_anchors->{$file_nc}++;
 
         # define links for file and html
@@ -9017,7 +9012,7 @@ sub htmlbbf_output_table
     my $title = $header->[0]->{title};
     if ($title) {
         print <<END;
-    <a name="$title"/><h1>$title</h1>
+    <a name="$title"><h1>$title</h1></a>
 END
     }
 
@@ -9099,11 +9094,11 @@ END
             # this is the same as the "newkey" criterion; a new key forces
             # all column values to be regarded as new
             # XXX rather klunky, but if the value begins with an anchor,
-            #     ignore this when comparing
+            #     ignore this when comparing (allow both <a/> and <a></a>)
             my $tvalue = $value;
             my $tpvalue = $pvalue;
-            $tvalue =~ s/^\<a name=[^\>]+\>// if $tvalue;
-            $tpvalue =~ s/^\<a name=[^\>]+\>// if $tpvalue;
+            $tvalue =~ s/^\<a name=[^\>]+\>(\<\/a\>)?// if $tvalue;
+            $tpvalue =~ s/^\<a name=[^\>]+\>(\<\/a\>)?// if $tpvalue;
             my $newval = $newkey || ($i == 0) ||
                 (defined $value && !defined $pvalue) ||
                 (defined $value && $tvalue ne $tpvalue);
@@ -11141,6 +11136,12 @@ the configuration file name can also be specified via B<--option configfile=s> b
 
 defaults to B<report.ini> where B<report> is the report type, e.g. B<htmlbbf.ini> for the B<htmlbbf> report
 
+=item B<--cwmpindex=s(..)>
+
+affects only the B<html> report; specifies the location of the BBF CWMP index page, i.e. the page generated using the B<htmlbbf> report; is used to generate a link back to the appropriate location within the index page
+
+defaults to B<../cwmp> (parent directory), which will work for the BBF web site but will not necessarily work in other locations; the generated link will be B<cwmpindex#xmlfile>, e.g. B<../cwmp#tr-069-1-0-0.xml>
+
 =item B<--debugpath=p("")>
 
 outputs debug information for parameters and objects whose path names match the specified pattern
@@ -11572,7 +11573,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2012/01/25 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#204 $
+$Date: 2012/01/26 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#205 $
 
 =cut

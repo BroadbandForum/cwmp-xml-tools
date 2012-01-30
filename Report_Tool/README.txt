@@ -98,6 +98,17 @@ Options:
         defaults to report.ini where report is the report type, e.g.
         htmlbbf.ini for the htmlbbf report
 
+    --cwmpindex=s(..)
+        affects only the html report; specifies the location of the BBF CWMP
+        index page, i.e. the page generated using the htmlbbf report; is
+        used to generate a link back to the appropriate location within the
+        index page
+
+        defaults to ../cwmp (parent directory), which will work for the BBF
+        web site but will not necessarily work in other locations; the
+        generated link will be cwmpindex#xmlfile, e.g.
+        ../cwmp#tr-069-1-0-0.xml
+
     --debugpath=p("")
         outputs debug information for parameters and objects whose path
         names match the specified pattern
