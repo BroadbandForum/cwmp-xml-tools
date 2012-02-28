@@ -11,9 +11,9 @@ Usage:
     [--option=n=v]... [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]...
     [--quiet]
     [--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...]
-    [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--special=s]
-    [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm] [--verbose[=i(1)]]
-    [--warnbibref[=i(1)]] [--writonly] DM-instance...
+    [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion]
+    [--special=s] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm]
+    [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
     *   the most common options are --include, --loglevel and --report=html
 
@@ -71,9 +71,9 @@ Options:
         and any directories specified via --include are searched when
         locating XML catalogs
 
-        XML catalogs are used only when validating DM instances as described
-        under --pedantic; it is not necessary to use XML catalogs in order
-        to validate DM instances
+        XML catalogs are used only when processing URL-valued schemaLocation
+        attributes during DM instance validation; it is not necessary to use
+        XML catalogs in order to validate DM instances; see --loglevel
 
     --compare
         compares the two files that were specified on the command line,
@@ -214,11 +214,10 @@ Options:
         *   if it specifies a relative path, the directories specified via
             --include are searched
 
-        *   URLs are treated specially: if no XML catalogs were supplied via
-            --catalog, the directory part is ignored and the schema is
-            located as for a relative path (above); if XML catalogs were
-            supplied via --catalog, the catalogs govern how (and whether)
-            the URLs are processed
+        *   URLs are treated specially; if XML catalogs were supplied (see
+            --catalog) then they govern the behavior; otherwise, the
+            directory part is ignored and the schema is located as for a
+            relative path (above)
 
     --marktemplates
         mark selected template expansions with &&&& followed by
@@ -467,6 +466,11 @@ Options:
         adds an extra column containing a summary of the parameter syntax;
         is like the Type column for simple types, but includes additional
         details for lists
+
+    --showunion
+        adds "This object is a member of a union" text to objects that have
+        "1 of n" or "union" semantics; such objects are identified by having
+        minEntries=0 and maxEntries=1
 
     --special=deprecated|imports|key|nonascii|normative|notify|obsoleted|pro
     file|ref|rfc

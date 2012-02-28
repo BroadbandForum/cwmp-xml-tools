@@ -167,8 +167,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2012/01/26 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#205 $};
+my $tool_vers_date = q{$Date: 2012/02/28 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#206 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -260,6 +260,7 @@ our $showdiffs = 0;
 our $showspec = 0;
 our $showreadonly = 0;
 our $showsyntax = 0;
+our $showunion = 0;
 our $special = '';
 our $thisonly = 0;
 our $tr106 = 'TR-106';
@@ -317,6 +318,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'showreadonly' => \$showreadonly,
            'showspec' => \$showspec,
            'showsyntax' => \$showsyntax,
+           'showunion' => \$showunion,
            'special:s' => \$special,
 	   'thisonly' => \$thisonly,
 	   'tr106:s' => \$tr106,
@@ -4010,6 +4012,7 @@ sub parse_file
     foreach my $comment (@$comments) {
         my $text = $comment->findvalue('.');
         next if $text =~ /DO NOT EDIT/i;
+        next if $text =~ /edited with XMLSpy/i;
         $first_comment = $text unless defined $first_comment;
     }
     
@@ -4036,9 +4039,14 @@ sub parse_file
             $path =~ s/.*\/// if $scheme && $scheme =~ /^https?$/i;
         }
 
-        # search for file; don't report failure (schema validation will do
-        # this)
+        # search for file; on failure, extract just the file name and try
+        # again; don't report failure (schema validation will do this)
         my ($dir, $file) = find_file($path);
+        if (!$dir) {
+            (my $scheme_ignore, my $auth_ignore, $path) = uri_split($path);
+            (my $vol_ignore, $dir, $path) = File::Spec->splitpath($path);
+            ($dir, $file) = find_file($path);
+        }
         if ($dir) {
             $path = File::Spec->catfile($dir, $file);
             # XXX drive name causes problems under Windows because it's
@@ -6673,8 +6681,10 @@ sub html_template
         my $sep = !$inval ? "" : "\n";
         $inval .= $sep . "{{factory}}";
     }
-    my ($multi) = util_is_multi_instance($p->{minEntries}, $p->{maxEntries});
-    if ($multi && $inval !~ /\{\{entries/ && $inval !~ /\{\{noentries\}\}/) {
+    my ($multi, $fixed_ignore, $union) = 
+        util_is_multi_instance($p->{minEntries}, $p->{maxEntries});
+    if (($multi || $union) &&
+        $inval !~ /\{\{entries/ && $inval !~ /\{\{noentries\}\}/) {
         my $sep = !$inval ? "" : "\n";
         $inval .= $sep . "{{entries}}";
     }
@@ -7111,11 +7121,13 @@ sub html_template_entries
     my $min = $opts->{minEntries};
     my $max = $opts->{maxEntries};
 
-    my ($multi, $fixed) = util_is_multi_instance($min, $max);
+    my ($multi, $fixed, $union) = util_is_multi_instance($min, $max);
 
     # XXX note that (min,max) = (0,1) is NOT regarded as "multi"; it's too
     #     hard to generate sensible text in this case so we don't try
-    return qq{} unless $multi;
+    return ($showunion ? qq{This object is a member of a union, i.e. } .
+            qq{it is a member of a group of objects of which only one } .
+            qq{can exist at a given time.} : qq{}) if $union;
 
     # don't say anything in the common (0,unbounded) case
     return qq{} if $min == 0 && $max eq 'unbounded';
@@ -7971,10 +7983,11 @@ sub html_font
     # XXX need to escape special characters out of anchors and references
     # XXX would prefer not to have to know link format
     if ($opts->{param}) {
-        my $object = $opts->{object} ? $opts->{object} : '';
-        my $path = $object . $opts->{param};
+        #my $object = $opts->{object} ? $opts->{object} : '';
+        #my $path = $object . $opts->{param};
         my $prefix = html_anchor_namespace_prefix('value');
-        $inval =~ s|%%([^%]*)%%([^%]*)%%|<a name="$prefix$path.$2">$1</a>|g;
+        my $fpath = util_full_path($opts->{node});
+        $inval =~ s|%%([^%]*)%%([^%]*)%%|<a name="$prefix$fpath.$2">$1</a>|g;
     }
 
     return $inval;
@@ -10479,8 +10492,9 @@ sub util_is_multi_instance
 
     my $multi = defined($max) && ($max eq 'unbounded' || $max > 1);
     my $fixed = ($multi && $max eq $min);
+    my $union = (!$multi && defined($min) && $min == 0);
 
-    return ($multi, $fixed);
+    return ($multi, $fixed, $union);
 }
 
 # from http://www.sysarch.com/Perl/autoviv.txt (where it's called deep_defined)
@@ -11046,6 +11060,7 @@ B<report.pl>
 [--showreadonly]
 [--showspec]
 [--showsyntax]
+[--showunion]
 [--special=s]
 [--thisonly]
 [--tr106=s(TR-106)]
@@ -11116,7 +11131,7 @@ old behavior: affected only the B<xml> report; caused descriptions to be process
 
 can be specified multiple times; XML catalogs (http://en.wikipedia.org/wiki/XML_Catalog); the current directory and any directories specified via B<--include> are searched when locating XML catalogs
 
-XML catalogs are used only when validating DM instances as described under B<--pedantic>; it is not necessary to use XML catalogs in order to validate DM instances
+XML catalogs are used only when processing URL-valued B<schemaLocation> attributes during DM instance validation; it is not necessary to use XML catalogs in order to validate DM instances; see B<--loglevel>
 
 =item B<--compare>
 
@@ -11230,7 +11245,7 @@ a log level of warning or debug also enables XML schema validation of DM instanc
 
 =item * if it specifies a relative path, the directories specified via B<--include> are searched
 
-=item * URLs are treated specially: if no XML catalogs were supplied via B<--catalog>, the directory part is ignored and the schema is located as for a relative path (above); if XML catalogs were supplied via B<--catalog>, the catalogs govern how (and whether) the URLs are processed
+=item * URLs are treated specially; if XML catalogs were supplied (see B<--catalog>) then they govern the behavior; otherwise, the directory part is ignored and the schema is located as for a relative path (above)
 
 =back
 
@@ -11446,6 +11461,10 @@ currently affects only the B<html> report; generates a B<Spec> rather than a B<V
 
 adds an extra column containing a summary of the parameter syntax; is like the Type column for simple types, but includes additional details for lists
 
+=item B<--showunion>
+
+adds "This object is a member of a union" text to objects that have "1 of n" or "union" semantics; such objects are identified by having B<minEntries=0> and B<maxEntries=1>
+
 =item B<--special=deprecated|imports|key|nonascii|normative|notify|obsoleted|profile|ref|rfc>
 
 performs special checks, most of which assume that several versions of the same data model have been supplied on the command line, and many of which operate only on the highest version of the data model
@@ -11573,7 +11592,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2012/01/26 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#205 $
+$Date: 2012/02/28 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#206 $
 
 =cut

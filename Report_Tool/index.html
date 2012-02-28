@@ -77,6 +77,7 @@
 [--showreadonly]
 [--showspec]
 [--showsyntax]
+[--showunion]
 [--special=s]
 [--thisonly]
 [--tr106=s(TR-106)]
@@ -148,7 +149,7 @@ DM-instance...</p>
 
 <dd>
 <p>can be specified multiple times; XML catalogs (http://en.wikipedia.org/wiki/XML_Catalog); the current directory and any directories specified via <strong>--include</strong> are searched when locating XML catalogs</p>
-<p>XML catalogs are used only when validating DM instances as described under <strong>--pedantic</strong>; it is not necessary to use XML catalogs in order to validate DM instances</p>
+<p>XML catalogs are used only when processing URL-valued <strong>schemaLocation</strong> attributes during DM instance validation; it is not necessary to use XML catalogs in order to validate DM instances; see <strong>--loglevel</strong></p>
 </dd>
 <dt><strong><a name="compare" class="item"><strong>--compare</strong></a></strong></dt>
 
@@ -266,7 +267,7 @@ DM-instance...</p>
 <li><strong><a name="if_it_specifies_a_relative_path_the_directories_specified_via_include_are_searched" class="item">if it specifies a relative path, the directories specified via <strong>--include</strong> are searched</a></strong>
 
 </li>
-<li><strong><a name="path" class="item">URLs are treated specially: if no XML catalogs were supplied via <strong>--catalog</strong>, the directory part is ignored and the schema is located as for a relative path (above); if XML catalogs were supplied via <strong>--catalog</strong>, the catalogs govern how (and whether) the URLs are processed</a></strong>
+<li><strong><a name="supplied" class="item">URLs are treated specially; if XML catalogs were supplied (see <strong>--catalog</strong>) then they govern the behavior; otherwise, the directory part is ignored and the schema is located as for a relative path (above)</a></strong>
 
 </li>
 </ul>
@@ -507,6 +508,11 @@ DM-instance...</p>
 <dd>
 <p>adds an extra column containing a summary of the parameter syntax; is like the Type column for simple types, but includes additional details for lists</p>
 </dd>
+<dt><strong><a name="showunion" class="item"><strong>--showunion</strong></a></strong></dt>
+
+<dd>
+<p>adds &quot;This object is a member of a union&quot; text to objects that have &quot;1 of n&quot; or &quot;union&quot; semantics; such objects are identified by having <strong>minEntries=0</strong> and <strong>maxEntries=1</strong></p>
+</dd>
 <dt><strong><a name="special_deprecated_imports_key_nonascii_normative_notify_obsoleted_profile_ref_rfc" class="item"><strong>--special=deprecated|imports|key|nonascii|normative|notify|obsoleted|profile|ref|rfc</strong></a></strong></dt>
 
 <dd>
@@ -638,8 +644,8 @@ DM-instance...</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:william.lupton@pace.com">william.lupton@pace.com</a>&gt;</p>
-<p>$Date: 2012/01/26 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#205 $</p>
+<p>$Date: 2012/02/28 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#206 $</p>
 
 </body>
 
