@@ -1,16 +1,34 @@
 ReportGUI:
 ==========
 
-This utility provides a graphical frontend for the "report.exe" tool to generate reports from CWMP xml datafiles.
+This utility provides a graphical frontend for the "report.exe" tool to generate reports from CWMP xml data files.
 
-The windows installer includes the frontend and the report.exe tool. For installation please execute the ReportGuiSetup and
-follow the instructions. The tool runs under Windows (XP, Vista, 7)
+The windows installer includes the frontend and the report.exe tool. For installation please execute the ReportGuiSetup and follow the instructions. The tool runs under Windows (XP, Vista, 7)
 
 For questions and comments please contact klaus.wich@nsn.com
 
 
 History
 --------
+DRAFT:
+02/29/2012 ReportGuiSetup 2.2, ReportGui 2.2, report.exe#206 (report.pl#206)
+	new ReportGui version 2.2:
+	- Changed functions:
+	  * HTML report functions now generates generic HTML with the --nomodels --automodel 
+	    option for component models
+	  * Publish uses option -loglevel=w1 for all reports
+	  * Publish additional generates generic HTML with the --nomodels --automodel option 
+	    for component models
+	  * Publish log includes program version
+	  * new formatted output, differentiated by error, warning, indent
+	  * Select new report tool: confirmation in log file
+	  * improved windows resize to adapt to screen, keep item positions, minimum size 500x580
+	- New functions:
+	  * log level can be selected in panel, output split depending on log level
+	  * New option: Check for new file from BBF home page
+	- Fixed Error(s):
+	  * Capital spelling for options Showdiffs and Lastonly removed
+
 12/09/2011 ReportGuiSetup 2.1, ReportGui 2.1, report.exe#198 (report.pl#198)
 	new version of report.exe (report.pl#198) included in installer
 	bug fixes and enhancements:
@@ -28,7 +46,7 @@ History
 	new ReportGui version 2.0:
 	- Changed functions:
 	  * ReportGui now runs with user rights under Windows 7, Ini file was moved into %USER/appdata directory
-	  * Deprecarted 'noautomodel' option replaced with new option 'automodel'
+	  * Deprecated 'noautomodel' option replaced with new option 'automodel'
 	  * 'ShowDiffs' option added to expert mode and as option to standard html reports
 	  * Report.exe output separated for errors and statistics
 	  * New setting to show or hide statistic display
