@@ -513,7 +513,7 @@ DM-instance...</p>
 <dd>
 <p>adds &quot;This object is a member of a union&quot; text to objects that have &quot;1 of n&quot; or &quot;union&quot; semantics; such objects are identified by having <strong>minEntries=0</strong> and <strong>maxEntries=1</strong></p>
 </dd>
-<dt><strong><a name="special_deprecated_imports_key_nonascii_normative_notify_obsoleted_profile_ref_rfc" class="item"><strong>--special=deprecated|imports|key|nonascii|normative|notify|obsoleted|profile|ref|rfc</strong></a></strong></dt>
+<dt><strong><a name="special_deprecated_imports_key_nonascii_normative_notify_obsoleted_pathref_profile_ref_rfc" class="item"><strong>--special=deprecated|imports|key|nonascii|normative|notify|obsoleted|pathref|profile|ref|rfc</strong></a></strong></dt>
 
 <dd>
 <p>performs special checks, most of which assume that several versions of the same data model have been supplied on the command line, and many of which operate only on the highest version of the data model</p>
@@ -575,6 +575,11 @@ DM-instance...</p>
 
 <dd>
 <p>check which parameters in the highest version of the data model are not in the &quot;can deny active notify request&quot; table; the output is the full path names of all such parameters, one per line</p>
+</dd>
+<dt><strong><a name="pathref" class="item"><strong>pathref</strong></a></strong></dt>
+
+<dd>
+<p>for each pathRef parameter, report cases where a &quot;CPE-managed, non-fixed&quot; object references another &quot;CPE-managed, non-fixed&quot; object; these are candidate cases for objects that should have the same lifetime</p>
 </dd>
 <dt><strong><a name="profile" class="item"><strong>profile</strong></a></strong></dt>
 
@@ -644,8 +649,8 @@ DM-instance...</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:william.lupton@pace.com">william.lupton@pace.com</a>&gt;</p>
-<p>$Date: 2012/02/28 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#206 $</p>
+<p>$Date: 2012/03/21 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#207 $</p>
 
 </body>
 

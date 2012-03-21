@@ -167,8 +167,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2012/02/28 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#206 $};
+my $tool_vers_date = q{$Date: 2012/03/21 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#207 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -844,8 +844,8 @@ sub expand_import
     my $trwt_mismatch = specs_match($spec, $trspec);
     if ($full_match) {
     } elsif ($trwt_mismatch) {
-        w0msg "import $ofile: referenced file's spec indicates it's still a ".
-            "WT";
+        w0msg "import $ofile: referenced file's spec indicates that it's ".
+            "still a WT";
     } else {
         w0msg "import $ofile: spec is $fspec (doesn't match $spec)";
     }
@@ -3541,6 +3541,9 @@ sub get_description
     # XXX there are still problems with "resolve"; can get duplicate
     #     descriptions :(
 
+    # XXX there are also problems with --compare when the last change is
+    #     append (need to realise this and compare only the last change)
+
     # XXX this isn't quite good enough; if description is unaltered in
     #     latest version, this returns the value from the previous version,
     #     whereas it should return an empty string
@@ -3614,6 +3617,7 @@ sub get_old_description
     foreach my $item (reverse @$history) {
         my $descact = $item->{descact};
         my $new = $item->{description};
+        $new = html_whitespace($new);
         if ($descact eq 'prefix') {
             $new = $new . (($old ne '' && $new ne '') ? "\n" : "") . $old;
         } elsif ($descact eq 'append') {
@@ -6616,12 +6620,17 @@ sub html_template
 {
     my ($inval, $p) = @_;
 
+    # XXX hack to ignore ---deleted--- text when deciding whether to auto-
+    #     include template references
+    my $tinval = $inval;
+    $tinval =~ s|\-\-\-(.*?)\-\-\-||gs;
+
     # auto-prefix {{reference}} if the parameter is a reference (put after
     # {{list}} if already there)
-    if ($p->{reference} && $inval !~ /\{\{reference/ &&
-        $inval !~ /\{\{noreference\}\}/) {
-        my $sep = !$inval ? "" : "  ";
-        if ($inval =~ /\{\{list\}\}/) {
+    if ($p->{reference} && $tinval !~ /\{\{reference/ &&
+        $tinval !~ /\{\{noreference\}\}/) {
+        my $sep = !$tinval ? "" : "  ";
+        if ($tinval =~ /\{\{list\}\}/) {
             $inval =~ s/(\{\{list\}\})/$1$sep\{\{reference\}\}/;
         } else {
             $inval = "{{reference}}" . $sep . $inval;
@@ -6629,23 +6638,23 @@ sub html_template
     }
 
     # auto-prefix {{list}} if the parameter is list-valued
-    if ($p->{list} && $inval !~ /\{\{list/ &&
-        $inval !~ /\{\{nolist\}\}/) {
-        my $sep = !$inval ? "" : "  ";
+    if ($p->{list} && $tinval !~ /\{\{list/ &&
+        $tinval !~ /\{\{nolist\}\}/) {
+        my $sep = !$tinval ? "" : "  ";
         $inval = "{{list}}" . $sep . $inval;
     }
 
     # auto-prefix {{datatype}} if the parameter has a named data type
     if ($p->{type} && $p->{type} eq 'dataType' &&
-        $inval !~ /\{\{datatype/ &&
-        $inval !~ /\{\{nodatatype\}\}/) {
-        my $sep = !$inval ? "" : "  ";
+        $tinval !~ /\{\{datatype/ &&
+        $tinval !~ /\{\{nodatatype\}\}/) {
+        my $sep = !$tinval ? "" : "  ";
         $inval = "{{datatype}}" . $sep . $inval;
     }
 
     # auto-prefix {{profdesc}} if it's a profile
-    if ($p->{profile} && $inval !~ /\{\{noprofdesc\}\}/) {
-        my $sep = !$inval ? "" : "  ";
+    if ($p->{profile} && $tinval !~ /\{\{noprofdesc\}\}/) {
+        my $sep = !$tinval ? "" : "  ";
         $inval = "{{profdesc}}" . $sep . $inval;
     }
 
@@ -6657,40 +6666,40 @@ sub html_template
     if ($p->{values} && %{$p->{values}}) {
         my ($key) = keys %{$p->{values}};
         my $facet = $p->{values}->{$key}->{facet};
-        my $sep = !$inval ? "" : $inval =~ /[\.\?\!]\'*$/ ? "  " : "\n{{}}";
+        my $sep = !$tinval ? "" : $tinval =~ /[\.\?\!]\'*$/ ? "  " : "\n{{}}";
         $inval .= $sep . "{{enum}}" if $facet eq 'enumeration' &&
-            $inval !~ /\{\{enum\}\}/ && $inval !~ /\{\{noenum\}\}/;
+            $tinval !~ /\{\{enum\}\}/ && $tinval !~ /\{\{noenum\}\}/;
         $inval .= $sep . "{{pattern}}" if $facet eq 'pattern' &&
-            $inval !~ /\{\{pattern\}\}/ && $inval !~ /\{\{nopattern\}\}/;
+            $tinval !~ /\{\{pattern\}\}/ && $tinval !~ /\{\{nopattern\}\}/;
     }
 
     # similarly auto-append {{hidden}}, {{command}}, {{factory}}, {{entries}}
     # and {{keys}} if appropriate
-    if ($p->{hidden} && $inval !~ /\{\{hidden/ &&
-        $inval !~ /\{\{nohidden\}\}/) {
-        my $sep = !$inval ? "" : "\n";
+    if ($p->{hidden} && $tinval !~ /\{\{hidden/ &&
+        $tinval !~ /\{\{nohidden\}\}/) {
+        my $sep = !$tinval ? "" : "\n";
         $inval .= $sep . "{{hidden}}";
     }
-    if ($p->{command} && $inval !~ /\{\{command/ &&
-        $inval !~ /\{\{nocommand\}\}/) {
-        my $sep = !$inval ? "" : "\n";
+    if ($p->{command} && $tinval !~ /\{\{command/ &&
+        $tinval !~ /\{\{nocommand\}\}/) {
+        my $sep = !$tinval ? "" : "\n";
         $inval .= $sep . "{{command}}";
     }
-    if ($p->{factory} && $inval !~ /\{\{factory/ &&
-        $inval !~ /\{\{nofactory\}\}/) {
-        my $sep = !$inval ? "" : "\n";
+    if ($p->{factory} && $tinval !~ /\{\{factory/ &&
+        $tinval !~ /\{\{nofactory\}\}/) {
+        my $sep = !$tinval ? "" : "\n";
         $inval .= $sep . "{{factory}}";
     }
     my ($multi, $fixed_ignore, $union) = 
         util_is_multi_instance($p->{minEntries}, $p->{maxEntries});
     if (($multi || $union) &&
-        $inval !~ /\{\{entries/ && $inval !~ /\{\{noentries\}\}/) {
-        my $sep = !$inval ? "" : "\n";
+        $tinval !~ /\{\{entries/ && $tinval !~ /\{\{noentries\}\}/) {
+        my $sep = !$tinval ? "" : "\n";
         $inval .= $sep . "{{entries}}";
     }
     if ($p->{uniqueKeys} && @{$p->{uniqueKeys}}&&
-        $inval !~ /\{\{keys/ && $inval !~ /\{\{nokeys\}\}/) {
-        my $sep = !$inval ? "" : "\n";
+        $tinval !~ /\{\{keys/ && $tinval !~ /\{\{nokeys\}\}/) {
+        my $sep = !$tinval ? "" : "\n";
         $inval .= $sep . "{{keys}}";
     }
 
@@ -6773,7 +6782,8 @@ sub html_template
           text0 => q{}},
          {name => 'reference',
           text0 => \&html_template_reference,
-          text1 => \&html_template_reference},
+          text1 => \&html_template_reference,
+          text2 => \&html_template_reference},
          {name => 'noreference',
           text0 => q{}},
          {name => 'units',
@@ -7585,7 +7595,7 @@ sub html_template_profileref
 
 sub html_template_reference
 {
-    my ($opts, $arg) = @_;
+    my ($opts, $arg1, $arg2) = @_;
 
     my $object = $opts->{object};
     my $path = $opts->{path};
@@ -7593,6 +7603,30 @@ sub html_template_reference
     my $list = $opts->{list};
     my $reference = $opts->{reference};
     my $syntax = $opts->{syntax};
+
+    # if the second arg is supplied, it is a comma-separated list of keywords;
+    # currently supported keywords are:
+    # - delete : (delete if null) this reference can never be NULL, i.e. the
+    #            referencing object and the referenced object have the same
+    #            lifetime
+    # - ignore : (ignore if non-existent) ignore any targetParents that do not
+    #            exist (this allows a reference parameter to list targets that
+    #            exist in only some of the data models in which it is to be
+    #            used (e.g. to reference the Host table, which doesn't exist in
+    #            Device:1)
+    my ($delete, $ignore) = (0, 0);
+    if (defined $arg2) {
+        my @keys = split(/,/, $arg2);
+        foreach my $key (@keys) {
+            if ($key eq 'delete') {
+                $delete = 1;
+            } elsif ($key eq 'ignore') {
+                $ignore = 1;
+            } else {
+                emsg "$path: {{reference}} has invalid argument: $arg2";
+            }
+        }
+    }
 
     my $text = qq{};
 
@@ -7624,6 +7658,7 @@ sub html_template_reference
         # XXX this logic currently for pathRef only, but also applies
         #     to instanceRef (for which targetParent cannot be a list, and
         #     targetType is always "row")
+        my $targetParentTemp = '';
         my $targetParentFixed = 0;
         if ($targetParent) {
             $targetParentFixed = 1;
@@ -7644,11 +7679,35 @@ sub html_template_reference
 
                 my $mpref = util_full_path($opts->{node}, 1);
                 my $tpn = $objects->{$mpref.$tpp};
-                emsg "$path: targetParent doesn't exist: $tp"
-                    unless $tpn || $tpp =~ /^\.Services\./ || $automodel;
+
+                # maintain a list consisting only of those targetParent items
+                # that exist
+                if ($tpn) {
+                    $targetParentTemp .= ' ' if $targetParentTemp;
+                    $targetParentTemp .= $tp;
+                }
+
+                # if targetParent item doesn't exist, but ignoring non-existent
+                # ones, quietly proceed to the next item
+                elsif ($ignore) {
+                    next;
+                }
+
+                # XXX heuristically suppress error message in some cases
+                elsif ($tpp !~ /^\.Services\./ && !$automodel) {
+                    emsg "$path: targetParent doesn't exist: $tp";
+                }
 
                 $targetParentFixed = 0 if $tpn && !$tpn->{fixedObject};
             }
+        }
+
+        # if ignoring non-existent targetParent items, replace targetParent
+        # with those that do exist (warn if none are left)
+        if ($ignore) {
+            w0msg "$path: none of the target parents exist: $targetParent" if
+                $targetParent && !$targetParentTemp;
+            $targetParent = $targetParentTemp;
         }
 
         $targetParent = object_references($targetParent,
@@ -7657,8 +7716,8 @@ sub html_template_reference
         $text .= qq{MUST be the path name of };
 
         if ($targetType eq 'row') {
-            if ($arg) {
-                $text .= $arg;
+            if ($arg1) {
+                $text .= $arg1;
             } else {
                 my $s = $targetParent =~ / / ? 's' : '';
                 $text .= $targetParent ?
@@ -7668,8 +7727,8 @@ sub html_template_reference
         } else {
             $targetType =~ s/single/single-instance object/;
             $targetType =~ s/any/parameter or object/;
-            if ($arg) {
-                $text .= $arg;
+            if ($arg1) {
+                $text .= $arg1;
             } else {
                 if ($targetDataType && $targetDataType ne 'any') {
                     $text .= ($targetDataType =~ /^[aeiou]/ ? qq{an} : qq{a});
@@ -7695,10 +7754,16 @@ sub html_template_reference
                     qq{.};
             } else {
                 $text .= qq{.};
-                $text .= qq{  If the referenced $targetType is deleted, the };
-                $text .= $list ?
-                    qq{corresponding item MUST be removed from the list.} :
-                    qq{parameter value MUST be set to {{empty}}.};
+                $text .= qq{  If the referenced $targetType is deleted, };
+                if ($delete) {
+                    $text .= qq{this instance MUST also be deleted (so the } .
+                        qq{parameter value will never be {{empty}}).};
+                } else {
+                    $text .= qq{the };
+                    $text .= $list ?
+                        qq{corresponding item MUST be removed from the list.} :
+                        qq{parameter value MUST be set to {{empty}}.};
+                }
             }
         }
 
@@ -7715,14 +7780,21 @@ sub html_template_reference
         my $s = $targetParent =~ / / ? 's' : '';
         $text .= qq{MUST be the instance number of a row in the }.
             qq{$targetParent table$s};
+        # XXX pathRef has no equivalent of the following text
         $text .= qq{, or else be $nullValue if no row is currently } .
-            qq{referenced} unless $list;
+            qq{referenced} unless $delete || $list;
         $text .= qq{.};
         if ($refType eq 'strong') {
-            $text .= qq{  If the referenced row is deleted, the };
-            $text .= $list ?
-                qq{corresponding item MUST be removed from the list.} :
-                qq{parameter value MUST be set to $nullValue.};
+            $text .= qq{  If the referenced row is deleted, };
+            if ($delete) {
+                $text .= qq{this instance MUST also be deleted (so the } .
+                    qq{parameter value will never be $nullValue).};
+            } else {
+                $text .= qq{the };
+                $text .= $list ?
+                    qq{corresponding item MUST be removed from the list.} :
+                    qq{parameter value MUST be set to $nullValue.};
+            }
         }
 
     } elsif ($reference eq 'enumerationRef') {
@@ -9943,6 +10015,48 @@ sub special_end
         }
     }
 
+    # pathref: somewhat similar to ref but specifically pathref, and
+    # reports references from and to "CPE-managed non-fixed" objects
+    elsif ($special eq 'pathref') {
+        foreach my $item (@$special_items) {
+            my $path = $item->{path};
+            next unless $path; # profile items have no path
+            my $syntax = $item->{syntax};
+            next unless $syntax; # only parameters have syntax
+            my $refType = $syntax->{refType};
+            next unless $refType; # only interested in references
+
+            # source (referencing) object; we are interested only if it's
+            # CPE-managed (read-only) and non-fixed
+            my $srcobj = $item->{pnode};
+            my $srcaccess = $srcobj->{access};
+            my $srcfixed = $srcobj->{fixedObject};
+            next unless $srcaccess eq 'readOnly' && !$srcfixed;
+            my $list = $syntax->{list};
+
+            # target (referenced) object(s); we are interested only if the
+            # targets are specified, are rows, and all are CPE-managed
+            #(read-only) and non-fixed
+            my $targetParent = $syntax->{targetParent};
+            my $targetType = $syntax->{targetType};
+            next unless $targetParent && $targetType eq 'row';
+            my $targetParentScope = $syntax->{targetParentScope};
+            my $mpref = util_full_path($item, 1);
+            my $tgtobjs = '';
+            foreach my $tp (split ' ', $targetParent) {
+                my ($tpp) = relative_path($srcobj->{path}, $tp,
+                                          $targetParentScope);
+                $tpp .= '{i}.' unless $tpp =~ /\{i\}\.$/;
+                my $tgtobj = $objects->{$mpref.$tpp};
+                next unless $tgtobj; # quietly ignore if doesn't exist
+                $tgtobjs .= qq{$tgtobj->{path} }
+                if $tgtobj->{access} eq 'readOnly' && !$tgtobj->{fixedObject};
+            }
+            $list = $list ? qq{ (list)} : qq{};
+            print "$item->{path}$list\t$tgtobjs\n" if $tgtobjs;
+        }
+    }
+
     # profile: for each new parameter, check whether it is in a profile;
     # report those which aren't
     elsif ($special eq 'profile') {
@@ -9962,6 +10076,20 @@ sub special_end
             unless ($found) {
                 print "$path\n";
             }
+        }
+    }
+
+    # ref: for each reference, report access, refType and path
+    elsif ($special eq 'ref') {
+        foreach my $item (@$special_items) {
+            my $path = $item->{path};
+            next unless $path; # profile items have no path
+            my $syntax = $item->{syntax};
+            next unless $syntax; # only parameters have syntax
+            my $refType = $syntax->{refType};
+            next unless $refType; # only interested in references
+            my $access = $item->{access};
+            print "$access\t$refType\t$path\n";
         }
     }
 
@@ -9989,20 +10117,6 @@ sub special_end
             }
         }
         print join(",", sort(keys %$rfcs)) . "\n";
-    }
-
-    # ref: for each reference, report access, refType and path
-    elsif ($special eq 'ref') {
-        foreach my $item (@$special_items) {
-            my $path = $item->{path};
-            next unless $path; # profile items have no path
-            my $syntax = $item->{syntax};
-            next unless $syntax; # only parameters have syntax
-            my $refType = $syntax->{refType};
-            next unless $refType; # only interested in references
-            my $access = $item->{access};
-            print "$access\t$refType\t$path\n";
-        }
     }
 
     # key: for each table with a functional key, report access, path and key
@@ -11465,7 +11579,7 @@ adds an extra column containing a summary of the parameter syntax; is like the T
 
 adds "This object is a member of a union" text to objects that have "1 of n" or "union" semantics; such objects are identified by having B<minEntries=0> and B<maxEntries=1>
 
-=item B<--special=deprecated|imports|key|nonascii|normative|notify|obsoleted|profile|ref|rfc>
+=item B<--special=deprecated|imports|key|nonascii|normative|notify|obsoleted|pathref|profile|ref|rfc>
 
 performs special checks, most of which assume that several versions of the same data model have been supplied on the command line, and many of which operate only on the highest version of the data model
 
@@ -11530,6 +11644,10 @@ the above list is followed by a list of the invalid terms and how often each one
 
 check which parameters in the highest version of the data model are not in the "can deny active notify request" table; the output is the full path names of all such parameters, one per line
 
+=item B<pathref>
+
+for each pathRef parameter, report cases where a "CPE-managed, non-fixed" object references another "CPE-managed, non-fixed" object; these are candidate cases for objects that should have the same lifetime
+
 =item B<profile>
 
 check which parameters defined in the highest version of the data model are not in profiles; the output is the full path names of all such parameters, one per line
@@ -11592,7 +11710,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2012/02/28 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#206 $
+$Date: 2012/03/21 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#207 $
 
 =cut

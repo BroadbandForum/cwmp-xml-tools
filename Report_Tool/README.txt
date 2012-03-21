@@ -472,8 +472,8 @@ Options:
         "1 of n" or "union" semantics; such objects are identified by having
         minEntries=0 and maxEntries=1
 
-    --special=deprecated|imports|key|nonascii|normative|notify|obsoleted|pro
-    file|ref|rfc
+    --special=deprecated|imports|key|nonascii|normative|notify|obsoleted|pat
+    href|profile|ref|rfc
         performs special checks, most of which assume that several versions
         of the same data model have been supplied on the command line, and
         many of which operate only on the highest version of the data model
@@ -554,6 +554,12 @@ Options:
             are not in the "can deny active notify request" table; the
             output is the full path names of all such parameters, one per
             line
+
+        pathref
+            for each pathRef parameter, report cases where a "CPE-managed,
+            non-fixed" object references another "CPE-managed, non-fixed"
+            object; these are candidate cases for objects that should have
+            the same lifetime
 
         profile
             check which parameters defined in the highest version of the
