@@ -168,7 +168,7 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
 
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2012/03/21 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#207 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#208 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -7703,11 +7703,20 @@ sub html_template_reference
         }
 
         # if ignoring non-existent targetParent items, replace targetParent
-        # with those that do exist (warn if none are left)
+        # with those that do exist
+        my $empty = 0;
         if ($ignore) {
-            w0msg "$path: none of the target parents exist: $targetParent" if
-                $targetParent && !$targetParentTemp;
+            $empty = $targetParent && !$targetParentTemp;
             $targetParent = $targetParentTemp;
+            $targetParentFixed = 0 if !$targetParent;
+        }
+
+        # if some targetParent items were specified but none exist, this is
+        # a special case and the parameter value always has to be empty
+        if ($empty) {
+            $text = qq{None of the possible target objects exist in } .
+                qq{this data model, so the parameter value MUST be {{empty}}.};
+            return $text;
         }
 
         $targetParent = object_references($targetParent,
@@ -11711,6 +11720,6 @@ This script is only for illustration of concepts and has many shortcomings.
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
 $Date: 2012/03/21 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#207 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#208 $
 
 =cut
