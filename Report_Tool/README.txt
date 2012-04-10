@@ -12,8 +12,9 @@ Usage:
     [--quiet]
     [--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...]
     [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion]
-    [--special=s] [--thisonly] [--tr106=s(TR-106)] [--ugly] [--upnpdm]
-    [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly] DM-instance...
+    [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)] [--ugly]
+    [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly]
+    DM-instance...
 
     *   the most common options are --include, --loglevel and --report=html
 
@@ -118,8 +119,13 @@ Options:
 
     --dtprofile=s...
         affects only the xml2 report; can be specified multiple times;
-        defines names of profiles to be used to generate an example DT
-        instance
+        defines profiles to be used to generate an example DT instance
+
+        for example, specify Baseline to select the latest version of the
+        Baseline pofile, or Baseline:1 to select the Baseline:1 profile
+
+        base and extends attributes are honored, so (for example),
+        Baseline:2 will automatically include Baseline:1 requirements
 
     --dtspec=s
         affects only the xml2 report; has an affect only when --dtprofile is
@@ -471,6 +477,10 @@ Options:
         adds "This object is a member of a union" text to objects that have
         "1 of n" or "union" semantics; such objects are identified by having
         minEntries=0 and maxEntries=1
+
+    --sortobjects
+        reports objects (and profiles) in alphabetical order rather than in
+        the order that they are defined in the XML
 
     --special=deprecated|imports|key|nonascii|normative|notify|obsoleted|pat
     href|profile|ref|rfc

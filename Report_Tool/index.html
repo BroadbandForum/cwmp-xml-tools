@@ -78,6 +78,7 @@
 [--showspec]
 [--showsyntax]
 [--showunion]
+[--sortobjects]
 [--special=s]
 [--thisonly]
 [--tr106=s(TR-106)]
@@ -188,7 +189,9 @@ DM-instance...</p>
 <dt><strong><a name="dtprofile_s" class="item"><strong>--dtprofile=s</strong>...</a></strong></dt>
 
 <dd>
-<p>affects only the <strong>xml2</strong> report; can be specified multiple times; defines names of profiles to be used to generate an example DT instance</p>
+<p>affects only the <strong>xml2</strong> report; can be specified multiple times; defines profiles to be used to generate an example DT instance</p>
+<p>for example, specify <strong>Baseline</strong> to select the latest version of the <strong>Baseline</strong> pofile, or <strong>Baseline:1</strong> to select the <strong>Baseline:1</strong> profile</p>
+<p><strong>base</strong> and <strong>extends</strong> attributes are honored, so (for example), <strong>Baseline:2</strong> will automatically include <strong>Baseline:1</strong> requirements</p>
 </dd>
 <dt><strong><a name="dtspec_s" class="item"><strong>--dtspec=s</strong></a></strong></dt>
 
@@ -513,6 +516,11 @@ DM-instance...</p>
 <dd>
 <p>adds &quot;This object is a member of a union&quot; text to objects that have &quot;1 of n&quot; or &quot;union&quot; semantics; such objects are identified by having <strong>minEntries=0</strong> and <strong>maxEntries=1</strong></p>
 </dd>
+<dt><strong><a name="sortobjects" class="item"><strong>--sortobjects</strong></a></strong></dt>
+
+<dd>
+<p>reports objects (and profiles) in alphabetical order rather than in the order that they are defined in the XML</p>
+</dd>
 <dt><strong><a name="special_deprecated_imports_key_nonascii_normative_notify_obsoleted_pathref_profile_ref_rfc" class="item"><strong>--special=deprecated|imports|key|nonascii|normative|notify|obsoleted|pathref|profile|ref|rfc</strong></a></strong></dt>
 
 <dd>
@@ -649,8 +657,8 @@ DM-instance...</p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>William Lupton &lt;<a href="mailto:william.lupton@pace.com">william.lupton@pace.com</a>&gt;</p>
-<p>$Date: 2012/03/21 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#208 $</p>
+<p>$Date: 2012/04/10 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#209 $</p>
 
 </body>
 

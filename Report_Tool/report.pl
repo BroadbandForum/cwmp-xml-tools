@@ -167,8 +167,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2012/03/21 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#208 $};
+my $tool_vers_date = q{$Date: 2012/04/10 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#209 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -193,10 +193,21 @@ my $tool_run_time;
 my $tool_cmd_line = $0 . ' ' . join(' ', @ARGV);
 $tool_cmd_line = util_clean_cmd_line($tool_cmd_line);
 
+# XXX this will be used only if the input file is invalid
+my $xsiurn = qq{http://www.w3.org/2001/XMLSchema-instance};
+
+# XXX these are defaults that are used only if missing from the DM instance
+#     (they should match the current versions of the DM and DMR schemas)
+my $dmver = qq{1-4};
+my $dmrver = qq{0-1};
+my $dmurn = qq{urn:broadband-forum-org:cwmp:datamodel-${dmver}};
+my $dmrurn = qq{urn:broadband-forum-org:cwmp:datamodel-report-${dmrver}};
+
 # XXX these have to match the current version of the DT schema
 my $dtver = qq{1-0};
 my $dturn = qq{urn:broadband-forum-org:cwmp:devicetype-${dtver}};
-my $dtloc = qq{cwmp-devicetype-${dtver}.xsd};
+my $dtloc = qq{http://www.broadband-forum.org/cwmp/}.
+    qq{cwmp-devicetype-${dtver}.xsd};
 
 # XXX this prevents warnings about wide characters, but still not handling
 #     them properly (see tr2dm.pl, which now does a better job)
@@ -261,6 +272,7 @@ our $showspec = 0;
 our $showreadonly = 0;
 our $showsyntax = 0;
 our $showunion = 0;
+our $sortobjects = 0;
 our $special = '';
 our $thisonly = 0;
 our $tr106 = 'TR-106';
@@ -319,6 +331,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'showspec' => \$showspec,
            'showsyntax' => \$showsyntax,
            'showunion' => \$showunion,
+           'sortobjects' => \$sortobjects,
            'special:s' => \$special,
 	   'thisonly' => \$thisonly,
 	   'tr106:s' => \$tr106,
@@ -468,9 +481,6 @@ if ($report =~ /html(bbf|148)/) {
     $noautomodel = 1;
 }
 
-# XXX should make this conditional on it having a file extension; then can use
-#     an outfile without extension as a base name and allow reports to generate
-#     multiple files if they so choose
 if ($outfile) {
     if (!open(STDOUT, ">", $outfile)) {
         die "can't create --outfile $outfile: $!";
@@ -651,6 +661,13 @@ sub expand_toplevel
     # XXX hmm... putting this stuff on root isn't right is it?
     $root->{description} = $toplevel->findvalue('description');
     $root->{descact} = $toplevel->findvalue('description/@action');
+
+    # XXX experimentally add annotation (should perhaps use !!!annotation!!!
+    #     to cause it to be highlighted); should do this everywhere and use a
+    #     utility
+    my $annotation = $toplevel->findvalue('annotation');
+    $root->{description} .=
+        (($root->{description} && $annotation) ? "\n" : "") . $annotation;
 
     # collect top-level item declarations (treat as though they were imported
     # from an external file; this avoids special cases)
@@ -2474,13 +2491,14 @@ sub add_model
         # XXX experimental; may break stuff? YEP!
         #my $path = $isService ? '.' : '';
         my $path = '';
-	$nnode = {pnode => $pnode, name => $name, path => $path, file => $file,
-                  spec => $spec, type => 'model', access => '',
-                  isService => $isService, status => $status,
-                  description => $description, descact => $descact,
-                  descdef => $descdef, default => undef, dynamic => $dynamic,
-                  majorVersion => $majorVersion, minorVersion => $minorVersion,
-                  nodes => [], history => undef};
+	$nnode = {pnode => $pnode, oname => $name, name => $name,
+                  path => $path, file => $file, spec => $spec,
+                  type => 'model', access => '', isService => $isService,
+                  status => $status, description => $description,
+                  descact => $descact, descdef => $descdef, default => undef,
+                  dynamic => $dynamic, majorVersion => $majorVersion,
+                  minorVersion => $minorVersion, nodes => [],
+                  history => undef};
         push @{$pnode->{nodes}}, $nnode;
         $previouspath = $path;
     }
@@ -4791,6 +4809,8 @@ sub xml_changed
 # XXX better now, but: (a) need header comment, (b) need any undefined
 #     bibrefs, (c) various other little things showed up by the 181 XML
 
+my $xml2_dtprofiles = [];
+
 sub xml2_node
 {
     my ($node, $indent) = @_;
@@ -4805,13 +4825,13 @@ sub xml2_node
 
     # use indent as a first-time flag
     if (!$indent) {
-        my $comment = $first_comment;
-        my $dm = $node->{dm};
-        my $dmr = $node->{dmr};
+        my $comment = $first_comment || '';
+        my $dm = $node->{dm} || $dmurn;
+        my $dmr = $node->{dmr} || $dmrurn;
         my $dmspec = $lspec;
         my $dmfile = $lfile;
-        my $xsi = $node->{xsi};
-        my $schemaLocation = $node->{schemaLocation};
+        my $xsi = $node->{xsi} || $xsiurn;
+        my $schemaLocation = $node->{schemaLocation} || '';
         my $specattr = 'spec';
 
         $comment = qq{<!--$comment-->} if $comment;
@@ -4882,7 +4902,7 @@ $i             $specattr="$dmspec"$fileattr>
                 xml_bibliography($bibliography, $indent, {});
             }
         } else {
-            my $temp = util_list($dtprofiles);
+            my $temp = util_list($dtprofiles, qq{''\$1''});
             print qq{$i  <annotation>Auto-generated from $temp profiles.</annotation>\n};
             # XXX special case code from xml_node (could generalize)
             my $limports = $imports->{$lfile};
@@ -4935,6 +4955,8 @@ $i             $specattr="$dmspec"$fileattr>
         if ($element eq 'model') {
             $version = '';
             if (@$dtprofiles) {
+                $xml2_dtprofiles = expand_dtprofiles($node, $dtprofiles);
+                $isService = '';
                 $ref = $name;
                 $name = '';
             }
@@ -4953,7 +4975,7 @@ $i             $specattr="$dmspec"$fileattr>
                 print qq{  <component name="$cname">\n};
             }
             if (@$dtprofiles) {
-                $access = object_requirement($mpref, $dtprofiles, $path);
+                $access = object_requirement($mpref, $xml2_dtprofiles, $path);
                 # XXX this is risky because it assumes that there will be
                 #     no parameters; mark the element empty so it won't be
                 #     closed (also see below for parameter check)
@@ -4973,7 +4995,8 @@ $i             $specattr="$dmspec"$fileattr>
             $element = 'parameter';
             $node->{xml2}->{element} = $element;
             if (@$dtprofiles) {
-                $access = parameter_requirement($mpref, $dtprofiles, $path);
+                $access = parameter_requirement($mpref, $xml2_dtprofiles,
+                                                $path);
                 # XXX see above for how element can be empty
                 if ($node->{pnode}->{xml2}->{element} eq '') {
                     d1msg "$path: ignoring because parent not in profile";
@@ -5271,6 +5294,60 @@ sub xml2_post
 
     my $i = "  " x $indent;
     print qq{$i</$element>\n};
+}
+
+# expand_dtprofiles() helper
+sub add_profile_subtree
+{
+    my ($mprofs, $p, $profs) = @_;
+
+    my $b = $p->{base};
+    if ($b) {
+        ($b) = grep {$_->{name} eq $b} @$mprofs;
+        add_profile_subtree($mprofs, $b, $profs) if $b;
+    }
+
+    foreach my $e (split /\s+/, $p->{extends}) {
+        ($e) = grep {$_->{name} eq $e} @$mprofs;
+        add_profile_subtree($mprofs, $e, $profs) if $e;
+    }
+
+    push @$profs, $p->{name} unless grep {$_ eq $p->{name}} @$profs;
+}
+
+# For each model, generate expanded profiles, accounting for omitted versions,
+# dependencies and non-existent profiles
+sub expand_dtprofiles
+{
+    my ($model, $dtprofiles) = @_;
+
+    # collect all the model's profiles
+    my @mprofs = grep {$_->{type} eq 'profile'} @{$model->{nodes}};
+
+    my $profiles = [];
+
+    # cycle through the supplied profile name prefixes
+    foreach my $dtprofile (@$dtprofiles) {
+        # temporarily append ':' if not already there (so "Digital" doesn't
+        # match "DigitalOutput" for example)
+        my $tdt = $dtprofile;
+        $tdt .= ':' if $tdt !~ /:/;
+
+        # collect all the model's profiles that match this one
+        my @profs = grep {$_->{name} =~ /^$tdt/} @mprofs;
+
+        # error if no match
+        emsg "$model->{name}: --dtprofile $dtprofile matches no profiles"
+            unless @profs;
+
+        # for each matching profile, add the profiles that it depends on or
+        # extends (including itself)
+        foreach my $p (@profs) {
+            add_profile_subtree(\@mprofs, $p, $profiles);
+        }
+    }
+
+    return $profiles;
 }
 
 # Determine maximum requirement for a given object across a set of profiles
@@ -10266,8 +10343,10 @@ sub util_full_path
         $node->{mnode};
 
     # form (model name, major version, dot) prefix, e.g. "Device:2."
+    # (this always uses "oname", the original name, which will in most cases
+    # be minor version 0)
     if ($mnode) {
-        $text .= $mnode->{name};
+        $text .= $mnode->{oname};
         $text  =~ s/\.\d+$//;
         $text .= '.';
     }
@@ -11039,6 +11118,15 @@ sub report_node
         }
     }
 
+    if ($sortobjects) {
+        foreach my $type (('object', 'profile')) {
+            if (defined $sorted->{$type}) {
+                my @tmp = sort {$a->{name} cmp $b->{name}} @{$sorted->{$type}};
+                $sorted->{$type} = \@tmp;
+            }
+        }
+    }
+
     foreach my $type (('model', 'parameter', 'object', 'profile')) {
         foreach my $child (@{$sorted->{$type}}) {
             unshift @_, $child, $indent, $opts;
@@ -11050,7 +11138,7 @@ sub report_node
         #     children and before the object children, e.g. where the report
         #     does not nest objects (need to integrate this properly)
         if ($node->{type} =~ /^object/ && $type eq 'parameter') {
-            unshift @_, $node, $indent, $opts;
+            unshift @_, $node, $indent-1, $opts;
             $postparfunc->(@_) if defined $postparfunc;
             shift; shift; shift;
         }
@@ -11184,6 +11272,7 @@ B<report.pl>
 [--showspec]
 [--showsyntax]
 [--showunion]
+[--sortobjects]
 [--special=s]
 [--thisonly]
 [--tr106=s(TR-106)]
@@ -11290,7 +11379,11 @@ mark all deprecated or obsoleted items as deleted
 
 =item B<--dtprofile=s>...
 
-affects only the B<xml2> report; can be specified multiple times; defines names of profiles to be used to generate an example DT instance
+affects only the B<xml2> report; can be specified multiple times; defines profiles to be used to generate an example DT instance
+
+for example, specify B<Baseline> to select the latest version of the B<Baseline> pofile, or B<Baseline:1> to select the B<Baseline:1> profile
+
+B<base> and B<extends> attributes are honored, so (for example), B<Baseline:2> will automatically include B<Baseline:1> requirements
 
 =item B<--dtspec=s>
 
@@ -11588,6 +11681,10 @@ adds an extra column containing a summary of the parameter syntax; is like the T
 
 adds "This object is a member of a union" text to objects that have "1 of n" or "union" semantics; such objects are identified by having B<minEntries=0> and B<maxEntries=1>
 
+=item B<--sortobjects>
+
+reports objects (and profiles) in alphabetical order rather than in the order that they are defined in the XML
+
 =item B<--special=deprecated|imports|key|nonascii|normative|notify|obsoleted|pathref|profile|ref|rfc>
 
 performs special checks, most of which assume that several versions of the same data model have been supplied on the command line, and many of which operate only on the highest version of the data model
@@ -11719,7 +11816,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2012/03/21 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#208 $
+$Date: 2012/04/10 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#209 $
 
 =cut
