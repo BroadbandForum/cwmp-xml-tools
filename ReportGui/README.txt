@@ -10,7 +10,15 @@ For questions and comments please contact klaus.wich@nsn.com
 
 History
 --------
-DRAFT:
+04/13/2012 ReportGuiSetup 2.3, ReportGui 2.3, report.exe#209 (report.pl#209)
+	new version of report.exe (report.pl#209) included in installer
+	new ReportGui version 2.3:
+	- New functions:
+	  * New setting to sort reports. If enabled all reports will be generated with the 
+	    --sortobjects option availabe with report.exe#209. Option defaults to "True"
+	  * Support for plugins in the Expert mode. Plugins can in the <programdir>\plugins directory be selected 
+	    via drop down list to be executed during report generation
+	
 02/29/2012 ReportGuiSetup 2.2, ReportGui 2.2, report.exe#206 (report.pl#206)
 	new ReportGui version 2.2:
 	- Changed functions:

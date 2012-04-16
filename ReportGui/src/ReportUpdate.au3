@@ -1,5 +1,6 @@
 #RequireAdmin
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
+#AutoIt3Wrapper_Icon=Install\icons\Report-NSN.ico
 #AutoIt3Wrapper_Res_requestedExecutionLevel=asInvoker
 #AutoIt3Wrapper_Run_Obfuscator=y
 #Obfuscator_Parameters=/striponly

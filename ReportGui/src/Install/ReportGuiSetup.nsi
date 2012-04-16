@@ -5,7 +5,7 @@ Name ReportGui
 
 # General Symbol Definitions
 !define REGKEY "SOFTWARE\$(^Name)"
-!define VERSION 2.2.0
+!define VERSION 2.3.0
 !define COMPANY "Klaus.Wich, NSN"
 !define URL ""
 
@@ -74,6 +74,10 @@ Section !ReportGui SEC0000
     File ReportGui.ini
     File ..\ReportGuiHelp.ini
     !insertmacro CREATE_SMGROUP_SHORTCUT ReportGui $INSTDIR\ReportGui.exe
+    SetOutPath $INSTDIR\plugins
+    SetOverwrite ifnewer
+    File ..\plugins\ostruct.pm
+    File ..\plugins\nsn.pm
     WriteRegStr HKLM "${REGKEY}\Components" ReportGui 1
 SectionEnd
 

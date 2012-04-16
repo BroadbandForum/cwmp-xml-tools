@@ -154,6 +154,7 @@ Func PrintHelpAbout()
 	;PrintLog(@TAB &"  - Show statistics :  " & @TAB& @TAB & @TAB & getYesNo($m_ShowStats))
 	PrintLog(@TAB &"  - Show command :  " &  @TAB & @TAB & getYesNo($m_ShowCmd))
 	PrintLog(@TAB &"  - Use old xml naming convention :  " &  @TAB & getYesNo($m_OldNames))
+	PrintLog(@TAB &"  - Sort report output " & @TAB & @TAB & getYesNo($m_settsort))
 	PrintLog(@TAB &"  - Include HTML in download :  " & @TAB & getYesNo($m_em_htmlload))
 EndFunc   ;==>PrintHelpAbout
 

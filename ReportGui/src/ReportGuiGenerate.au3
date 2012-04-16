@@ -68,6 +68,7 @@ Func SaveInitValues()
 	IniWrite($iniFilePathName, "Settings", "ShowStats", (BitAND(GUICtrlRead($m_ShowStats), $GUI_CHECKED) = $GUI_CHECKED))
 	IniWrite($iniFilePathName, "Settings", "ShowCmd", (BitAND(GUICtrlRead($m_ShowCmd), $GUI_CHECKED) = $GUI_CHECKED))
 	IniWrite($iniFilePathName, "Settings", "OldNames", (BitAND(GUICtrlRead($m_OldNames), $GUI_CHECKED) = $GUI_CHECKED))
+	IniWrite($iniFilePathName, "Settings", "SortReport", (BitAND(GUICtrlRead($m_settsort), $GUI_CHECKED) = $GUI_CHECKED))
 
 	;IniWrite($iniFilePathName, "Settings", "AutoUpdate", (BitAND(GUICtrlRead($m_AutoUpdate), $GUI_CHECKED) = $GUI_CHECKED))
 	IniWrite($iniFilePathName, "Settings", "HtmlLoad", (BitAND(GUICtrlRead($m_em_htmlload), $GUI_CHECKED) = $GUI_CHECKED))
@@ -201,9 +202,6 @@ Func Publish($f, $fp, $man, $silent)
 		EndIf
 		If GenReport($cmd[$k], $man, $silent) Then
 			$_sc += 1
-			;	PrintLog(" [success]")
-			;Else
-			;		PrintLog(" [error]")
 		EndIf
 	Next
 	If $_sc < $cmd[0] Then
@@ -342,6 +340,9 @@ Func GetCommandString($input, $target, $options, $output)
 	If Not StringInStr($options, "--special") Then
 		$cmd &= " --report=" & $target
 	EndIf
+	If (BitAND(GUICtrlRead($m_settsort), $GUI_CHECKED) = $GUI_CHECKED) Then
+		$cmd &= " --sortobjects"
+	EndIf
 	$cmd &= " --option ReportGUI=" & $progversion
 	$cmd &= " " & $options & ' "' & GetFileName($input) & '"'
 	If ($output <> "") Then
@@ -404,13 +405,22 @@ EndFunc   ;==>BasicCommand
 
 Func CreateCommand()
 	; create command string
+	Local $repoptions = ""
 	Local $target = GUICtrlRead($ctrl_formatselect)
 	$gOutFile = $filepath & GetFileNameWoE($filename)
-	If $target = "xml" Then
-		$gOutFile &= "-xml"
+	If GUICtrlRead($ctrl_pluginselect) <> "none" Then
+		Local $plugin = StringLeft(GUICtrlRead($ctrl_pluginselect), StringInStr(GUICtrlRead($ctrl_pluginselect), ".pm")-1)
+		Debuglog($plugin)
+		$gOutFile &= ".txt"
+		$repoptions &= " --include=" & FileGetShortName($gPluginDir)
+		$repoptions &= " --plugin=" & $plugin & " "
+		$target = $plugin
+	Else
+		If $target = "xml" Then
+			$gOutFile &= "-xml"
+		EndIf
+		$gOutFile &= "." & $target
 	EndIf
-	$gOutFile = $gOutFile & "." & $target
-	Local $repoptions = ""
 	Local $ignore = GUICtrlRead($ctrl_ignore)
 	If StringLen($ignore) > 0 Then
 		$repoptions &= " --ignore=" & $ignore & " "
@@ -482,6 +492,7 @@ Func CreateCommand()
 	$repoptions &= GUICtrlRead($ctrl_options)
 	; add loglevel
 	$repoptions &= " --loglevel=" & IniRead($iniFilePathName, "Settings", "Loglevel", "w1")
+	Debuglog($repoptions)
 	Return GetCommandString($filename, $target, $repoptions, $gOutFile)
 EndFunc   ;==>CreateCommand
 

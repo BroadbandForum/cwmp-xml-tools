@@ -1,4 +1,4 @@
-#Region ;**** Directives created by AutoIt3Wrapper_GUI ****
+#region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=Install\BBF-Icon.ico
 #AutoIt3Wrapper_Outfile=ReportGui.exe
 #AutoIt3Wrapper_Res_Description=Graphical user interface for report.exe
@@ -6,7 +6,7 @@
 #AutoIt3Wrapper_Res_LegalCopyright=klaus.wich@nsn.com
 #AutoIt3Wrapper_Run_Tidy=y
 #AutoIt3Wrapper_Run_Obfuscator=y
-#EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
+#endregion ;**** Directives created by AutoIt3Wrapper_GUI ****
 ;;; MyCommonLib.AU3 ;;;
 ; Klaus.wich@nsn.com
 
@@ -84,8 +84,8 @@ EndFunc   ;==>PrintLogCont
 ;~ 	$DGGCount += 1
 ;~ 	ConsoleWrite("DBG[" & $DGGCount & "]:>" & $val & "<" & @LF)
 ;~ EndFunc   ;==>DebugLog
-Func DebugLog($val,$line = @ScriptLineNumber, $name = @ScriptName)
-	ConsoleWrite(StringFormat("DBG[%12s:%04d]:>%s<", $name,$line,$val) & @CRLF)
+Func DebugLog($val, $line = @ScriptLineNumber, $name = @ScriptName)
+	ConsoleWrite(StringFormat("DBG[%12s:%04d]:>%s<", $name, $line, $val) & @CRLF)
 EndFunc   ;==>DebugLog
 
 Func OpenFile()
@@ -135,7 +135,7 @@ Func mGUICreateRadioBtn($name, $col, $line, $width)
 	Else
 		$handle = GUICtrlCreateRadio($name, $col, $line, $width)
 	EndIf
-	GUICtrlSetResizing($handle, $GUI_DOCKLEFT + $GUI_DOCKTOP+ $GUI_DOCKHEIGHT)
+	GUICtrlSetResizing($handle, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKHEIGHT)
 	setToolTip($handle, $name) ;set tool tip
 	Return $handle
 EndFunc   ;==>mGUICreateRadioBtn
@@ -143,7 +143,7 @@ EndFunc   ;==>mGUICreateRadioBtn
 
 Func mGUICreateSetCheckbox($name, $col, $line)
 	Local $handle = GUICtrlCreateCheckbox($name, $col, $line)
-	GUICtrlSetResizing($handle, $GUI_DOCKLEFT + $GUI_DOCKTOP+ $GUI_DOCKHEIGHT)
+	GUICtrlSetResizing($handle, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKHEIGHT)
 	setToolTip($handle, $name) ;set tool tip
 	Return $handle
 EndFunc   ;==>mGUICreateSetCheckbox
@@ -151,7 +151,7 @@ EndFunc   ;==>mGUICreateSetCheckbox
 
 Func mGUICreateMenueItem($name, $menu)
 	Local $handle = GUICtrlCreateMenuItem($name, $menu)
-	GUICtrlSetResizing($handle, $GUI_DOCKLEFT + $GUI_DOCKTOP+ $GUI_DOCKHEIGHT)
+	GUICtrlSetResizing($handle, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKHEIGHT)
 	setToolTip($handle, $name) ;set tool tip
 	Return $handle
 EndFunc   ;==>mGUICreateMenueItem
@@ -159,7 +159,7 @@ EndFunc   ;==>mGUICreateMenueItem
 
 Func mGUICreateLabel($name, $col, $line)
 	Local $handle = GUICtrlCreateLabel($name & ":", $col, $line)
-	GUICtrlSetResizing($handle, $GUI_DOCKLEFT + $GUI_DOCKTOP+ $GUI_DOCKHEIGHT)
+	GUICtrlSetResizing($handle, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKHEIGHT)
 	setToolTip($handle, $name) ;set tool tip
 	;Return $handle
 EndFunc   ;==>mGUICreateLabel
@@ -172,7 +172,7 @@ Func mGUICreateButton($name, $col, $line, $width)
 	Else
 		$handle = GUICtrlCreateButton($name, $col, $line, $width)
 	EndIf
-	GUICtrlSetResizing($handle, $GUI_DOCKLEFT + $GUI_DOCKTOP+ $GUI_DOCKHEIGHT)
+	GUICtrlSetResizing($handle, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKHEIGHT)
 	setToolTip($handle, $name) ;set tool tip
 	Return $handle
 EndFunc   ;==>mGUICreateButton
@@ -244,7 +244,7 @@ Func setReportTool()
 		$gRepToolPath = $_RepToolPath
 		IniWrite($iniFilePathName, "Reporttool", "toolpath", $gRepToolPath)
 		PrintLog("New report tool selected is " & $gRepToolPath)
-	else
+	Else
 		PrintLog("No new report tool selected ")
 	EndIf
 EndFunc   ;==>setReportTool
@@ -502,6 +502,31 @@ Func CheckMainInclude()
 EndFunc   ;==>CheckMainInclude
 
 
+Func getPlugins()
+	Local $nofls = False
+	Local $plugins = ""
+	If DirGetSize($g_Mainincludepath) == 0 Then
+		$nofls = True
+	Else
+		Local $search = FileFindFirstFile($gPluginDir & "\*.pm")
+		If $search = -1 Then
+			$nofls = True
+		Else
+			While 1
+				Local $file = FileFindNextFile($search)
+				If @error Then ExitLoop
+				$plugins &= "|" & $file
+			WEnd
+		EndIf
+		FileClose($search)
+	EndIf
+	If $nofls Then
+		DebugLog("No plugins in " & $gPluginDir)
+	EndIf
+	DebugLog("Returned plugins: >" & $plugins & "<")
+	Return $plugins
+EndFunc   ;==>getPlugins
+
 ;========= update functions =========
 Func DownloadallBBFXML()
 	PrintLog("Download all files from BBF web page:")
@@ -554,7 +579,7 @@ Func CheckForNewBBFXML()
 			Local $da = StringinStringDiffs($locastr, $diff, $sp)
 			If StringLen($da) > 0 Then
 				Local $diffa = StringSplit($da, $sp, 2)
-				PrintLog("- " & ubound($diffa) & " Files missing in main include directory")
+				PrintLog("- " & UBound($diffa) & " Files missing in main include directory")
 				For $element In $diffa
 					PrintLog("  * " & $element)
 				Next
@@ -562,7 +587,7 @@ Func CheckForNewBBFXML()
 					PrintLog("- Download missing files:")
 					downloadFileListFromBBFSite($diffa)
 				Else
-					PrintLog("=> " & ubound($diffa) & " Files missing, no download requested")
+					PrintLog("=> " & UBound($diffa) & " Files missing, no download requested")
 				EndIf
 			Else
 				PrintLog("=> Main include directory is complete, no files are missing !")

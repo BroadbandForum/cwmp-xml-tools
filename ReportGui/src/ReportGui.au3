@@ -2,9 +2,9 @@
 #AutoIt3Wrapper_Icon=Install\icons\Report-NSN.ico
 #AutoIt3Wrapper_Outfile=ReportGui.exe
 #AutoIt3Wrapper_Res_Description=Graphical user interface for report.exe
-#AutoIt3Wrapper_Res_Fileversion=2.0.0.0
+#AutoIt3Wrapper_Res_Fileversion=2.3.0.1
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=p
-#AutoIt3Wrapper_Res_LegalCopyright=2012 Klaus Wich (klaus.wich@nsn.com)
+#AutoIt3Wrapper_Res_LegalCopyright=2012 Klaus Wich (klaus.wich@aim.com)
 #AutoIt3Wrapper_Res_Language=1033
 #AutoIt3Wrapper_Res_requestedExecutionLevel=asInvoker
 #AutoIt3Wrapper_Run_Tidy=y
@@ -27,8 +27,8 @@ Opt('MustDeclareVars', 1)
 Opt('TrayIconHide', 1)
 Opt("GUIResizeMode", 0)
 
-Global $progversion = "2.2"
-Global $progdate = "(2012/02/29)"
+Global $progversion = "2.3"
+Global $progdate = "(2012/04/13)"
 Global $progyear = "2012"
 Global $progname = "ReportGui: BBF report.exe Frontend"
 Global $iniFileName = "ReportGui.ini"
@@ -43,6 +43,8 @@ Global $filename
 Global $gOutFile
 Global $filepath, $comppath, $g_Mainincludepath
 Global $gFormatSelection = "|html|tab|text|xls|xml|xml2|xsd|null"
+Global $gPluginDir = @ScriptDir & "\Plugins"
+Global $gPluginSelection = "|none"
 ;$outext
 Global $gRepToolPath, $repoptions, $ctrl_options, $ctrl_ignore, $ctrl_pattern, $ctrl_selbutton, $ctrl_showrepbutton, _
 		$ctrl_filelabel, $ctrlLastOnly, $ctrl_filebutton, $ctrl_incbutton, $ctrl_incaddbutton, $ctrl_incdelbutton, $ctrl_incupbutton, _
@@ -57,8 +59,8 @@ Global $gRepToolPath, $repoptions, $ctrl_options, $ctrl_ignore, $ctrl_pattern, $
 Global $mainWindow, $incWindow
 Global $m_filemenu, $m_fileitem, $m_exititem, $m_settmenu, $m_OpenGen, $m_helpmenu, $m_incitem, $m_incdefitem, $m_repsett, $m_DelTmp, $m_ShowCmd, _
 		$m_helpreport, $m_helpgui, $m_helpabout, $m_helpupdate, $m_helpxmlupdate, $m_helpfeedback, $m_helprestore, $m_AutoUpdate, $m_extramenu, $m_em_htmlload, _
-		$m_extra_puball, $m_extra_check, $m_helpwiki, $m_OldNames, $m_log_combo, $m_ShowStats
-Global $gToolTip, $tab, $tab0, $tab1, $cbRepPublishWar
+		$m_extra_puball, $m_extra_check, $m_helpwiki, $m_OldNames, $m_log_combo, $m_ShowStats, $m_settsort
+Global $gToolTip, $tab, $tab0, $tab1, $cbRepPublishWar, $ctrl_pluginselect
 ; include functions
 #include "ReportGuiGenerate.au3"
 
@@ -128,7 +130,10 @@ Func CreateWindow()
 	;If IniRead($iniFilePathName, "Settings", "AutoUpdate", "True") = "True" Then
 	;	GUICtrlSetState($m_AutoUpdate, $GUI_CHECKED)
 	;EndIf
-
+	$m_settsort = GUICtrlCreateMenuItem("Sort Reports", $m_settmenu)
+	If IniRead($iniFilePathName, "Settings", "SortReport", "True") = "True" Then
+		GUICtrlSetState($m_settsort, $GUI_CHECKED)
+	EndIf
 	; extra menu
 	$m_extramenu = GUICtrlCreateMenu("&Extras")
 	$m_extra_puball = GUICtrlCreateMenuItem("Publish all files in directory", $m_extramenu)
@@ -299,6 +304,16 @@ Func CreateWindow()
 	$ctrl_pedantic = mGUICreateSetCheckbox("pedantic", $col4, $line2)
 	$ctrl_allbibrefs = mGUICreateSetCheckbox("allbibrefs", $col5, $line2)
 	$line2 += 25
+
+	mGUICreateLabel("Plugin", $col4, $line2 + 2)
+	;PLUGIN
+	$ctrl_pluginselect = GUICtrlCreateCombo("", $col4 + 50, $line2, 150) ; create first item
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKHEIGHT + $GUI_DOCKWIDTH)
+	setToolTip($ctrl_pluginselect, "Plugin")
+	$gPluginSelection &= getPlugins()
+	GUICtrlSetData($ctrl_pluginselect, $gPluginSelection, "none")
+
+	$line2 += 20
 	mGUICreateLabel("Other options", $col4, $line2 + 2)
 	$line2 += 20
 	$ctrl_options = GUICtrlCreateEdit("", $col4, $line2, 260, -1, $ES_WANTRETURN)
@@ -441,6 +456,12 @@ Func Main()
 					GUICtrlSetState($m_OldNames, $GUI_UNCHECKED)
 				Else
 					GUICtrlSetState($m_OldNames, $GUI_CHECKED)
+				EndIf
+			Case $msg[0] = $m_settsort
+				If BitAND(GUICtrlRead($m_settsort), $GUI_CHECKED) = $GUI_CHECKED Then
+					GUICtrlSetState($m_settsort, $GUI_UNCHECKED)
+				Else
+					GUICtrlSetState($m_settsort, $GUI_CHECKED)
 				EndIf
 				;Case $msg[0] = $m_AutoUpdate
 				;	If BitAND(GUICtrlRead($m_AutoUpdate), $GUI_CHECKED) = $GUI_CHECKED Then
