@@ -167,8 +167,8 @@ my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
     q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
 
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2012/04/10 $};
-my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#209 $};
+my $tool_vers_date = q{$Date: 2012/04/23 $};
+my $tool_id = q{$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#210 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -276,6 +276,7 @@ our $sortobjects = 0;
 our $special = '';
 our $thisonly = 0;
 our $tr106 = 'TR-106';
+our $ucprofiles = [];
 our $ugly = 0;
 our $upnpdm = 0;
 our $verbose = undef;
@@ -335,6 +336,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'special:s' => \$special,
 	   'thisonly' => \$thisonly,
 	   'tr106:s' => \$tr106,
+           'ucprofile:s@' => \$ucprofiles,
            'upnpdm' => \$upnpdm,
            'ugly' => \$ugly,
 	   'verbose:i' => \$verbose,
@@ -424,6 +426,11 @@ unless (defined $reports->{$report}) {
 
 if ($noparameters) {
     emsg "--noparameters not yet implemented";
+    pod2usage(2);
+}
+
+if (@$ucprofiles && !@$dtprofiles) {
+    emsg "--ucprofile requires --dtprofile to be specified";
     pod2usage(2);
 }
 
@@ -4810,6 +4817,7 @@ sub xml_changed
 #     bibrefs, (c) various other little things showed up by the 181 XML
 
 my $xml2_dtprofiles = [];
+my $xml2_ucprofiles = [];
 
 sub xml2_node
 {
@@ -4956,6 +4964,8 @@ $i             $specattr="$dmspec"$fileattr>
             $version = '';
             if (@$dtprofiles) {
                 $xml2_dtprofiles = expand_dtprofiles($node, $dtprofiles);
+                $xml2_ucprofiles = expand_dtprofiles($node, $ucprofiles,
+                                                     'ucprofile');
                 $isService = '';
                 $ref = $name;
                 $name = '';
@@ -4975,7 +4985,20 @@ $i             $specattr="$dmspec"$fileattr>
                 print qq{  <component name="$cname">\n};
             }
             if (@$dtprofiles) {
-                $access = object_requirement($mpref, $xml2_dtprofiles, $path);
+                ($access, my $dtcode, my $dtmatches) =
+                    object_requirement($mpref, $xml2_dtprofiles, $path);
+                my ($ucaccess, $uccode, $ucmatches) =
+                    object_requirement($mpref, $xml2_ucprofiles, $path);
+                if ($uccode > $dtcode) {
+                    $dtmatches = util_list($dtmatches);
+                    $ucmatches = util_list($ucmatches);
+                    if ($dtmatches) {
+                        w0msg "$path: in $ucmatches but requirement ".
+                            "($ucaccess) > $dtmatches ($access)";
+                    } else {
+                        w0msg "$path: in $ucmatches but not in --dtprofile";
+                    }
+                }
                 # XXX this is risky because it assumes that there will be
                 #     no parameters; mark the element empty so it won't be
                 #     closed (also see below for parameter check)
@@ -4995,8 +5018,20 @@ $i             $specattr="$dmspec"$fileattr>
             $element = 'parameter';
             $node->{xml2}->{element} = $element;
             if (@$dtprofiles) {
-                $access = parameter_requirement($mpref, $xml2_dtprofiles,
-                                                $path);
+                ($access, my $dtcode, my $dtmatches) =
+                    parameter_requirement($mpref, $xml2_dtprofiles, $path);
+                my ($ucaccess, $uccode, $ucmatches) =
+                    parameter_requirement($mpref, $xml2_ucprofiles, $path);
+                if ($uccode > $dtcode) {
+                    $dtmatches = util_list($dtmatches);
+                    $ucmatches = util_list($ucmatches);
+                    if ($dtmatches) {
+                        w0msg "$path: in $ucmatches but requirement ".
+                            "($ucaccess) > $dtmatches ($access)";
+                    } else {
+                        w0msg "$path: in $ucmatches but not in --dtprofile";
+                    }
+                }
                 # XXX see above for how element can be empty
                 if ($node->{pnode}->{xml2}->{element} eq '') {
                     d1msg "$path: ignoring because parent not in profile";
@@ -5319,7 +5354,9 @@ sub add_profile_subtree
 # dependencies and non-existent profiles
 sub expand_dtprofiles
 {
-    my ($model, $dtprofiles) = @_;
+    my ($model, $dtprofiles, $optname) = @_;
+
+    $optname = 'dtprofile' unless $optname;
 
     # collect all the model's profiles
     my @mprofs = grep {$_->{type} eq 'profile'} @{$model->{nodes}};
@@ -5337,7 +5374,7 @@ sub expand_dtprofiles
         my @profs = grep {$_->{name} =~ /^$tdt/} @mprofs;
 
         # error if no match
-        emsg "$model->{name}: --dtprofile $dtprofile matches no profiles"
+        emsg "$model->{name}: --$optname $dtprofile matches no profiles"
             unless @profs;
 
         # for each matching profile, add the profiles that it depends on or
@@ -5353,17 +5390,21 @@ sub expand_dtprofiles
 # Determine maximum requirement for a given object across a set of profiles
 sub object_requirement
 {
-    my ($mpref, $dtprofiles, $path) = @_;
+    my ($mpref, $profs, $path) = @_;
 
     my $maxreq = 0;
-    foreach my $dtprofile (@$dtprofiles) {
-        my $fpath = $mpref . $dtprofile;
+    my $matches = [];
+    foreach my $prof (@$profs) {
+        my $fpath = $mpref . $prof;
         my $req = $profiles->{$fpath}->{$path};
         next unless $req;
 
         $req = {notSpecified => 1, present => 2, create => 3, delete => 4,
                 createDelete => 5}->{$req};
-        $maxreq = $req if $req > $maxreq;
+        if ($req > $maxreq) {
+            $maxreq = $req;
+            push @$matches, $prof;
+        }
     }
 
     # XXX special case, force "present" for "Device.", "InternetGatewayDevice."
@@ -5373,30 +5414,34 @@ sub object_requirement
 
     # XXX treat "notSpecified" as readOnly, since a profile definition can
     #     say "notSpecified" for an object and then reference its parameters
-    $maxreq = {0 => '', 1 => 'readOnly', 2 => 'readOnly', 3 => 'create',
-               4 => 'delete', 5 => 'createDelete'}->{$maxreq};
+    my $access = {0 => '', 1 => 'readOnly', 2 => 'readOnly', 3 => 'create',
+                  4 => 'delete', 5 => 'createDelete'}->{$maxreq};
 
-    return $maxreq;
+    return ($access, $maxreq, $matches);
 }
 
 # Determine maximum requirement for a given parameter across a set of profiles
 sub parameter_requirement
 {
-    my ($mpref, $dtprofiles, $path) = @_;
+    my ($mpref, $profs, $path) = @_;
 
     my $maxreq = 0;
-    foreach my $dtprofile (@$dtprofiles) {
-        my $fpath = $mpref . $dtprofile;
+    my $matches = [];
+    foreach my $prof (@$profs) {
+        my $fpath = $mpref . $prof;
         my $req = $profiles->{$fpath}->{$path};
         next unless $req;
 
         $req = {readOnly => 1, readWrite => 2}->{$req};
-        $maxreq = $req if $req > $maxreq;
+        if ($req > $maxreq) {
+            $maxreq = $req;
+            push @$matches, $prof;
+        }
     }
 
-    $maxreq = {0 => '', 1 => 'readOnly', 2 => 'readWrite'}->{$maxreq};
+    my $access = {0 => '', 1 => 'readOnly', 2 => 'readWrite'}->{$maxreq};
 
-    return $maxreq;
+    return ($access, $maxreq, $matches);
 }
 
 # Heuristic changes to description to get rid of formatting etc and increase
@@ -6731,7 +6776,7 @@ sub html_template
 
     # auto-prefix {{profdesc}} if it's a profile
     if ($p->{profile} && $tinval !~ /\{\{noprofdesc\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
+        my $sep = !$tinval ? "" : "\n";
         $inval = "{{profdesc}}" . $sep . $inval;
     }
 
@@ -9146,6 +9191,9 @@ END
             # XXX no; this doesn't look good; always label "HTML"
             $hlabel = qq{HTML};
             $htemp = qq{<a href="cwmp/$htemp">$hlabel</a>};
+            # XXX experimental; bold for the full HTML (stands out better?);
+            #     not very good?
+            $htemp = qq{<b>$htemp</b>} if $htemp !~ /-diffs/;
         }
 
         # row is an array of columns
@@ -11276,6 +11324,7 @@ B<report.pl>
 [--special=s]
 [--thisonly]
 [--tr106=s(TR-106)]
+[--ucprofile=s]...
 [--ugly]
 [--upnpdm]
 [--verbose[=i(1)]]
@@ -11780,6 +11829,10 @@ indicates the TR-106 version (i.e. the B<bibref> name) to be referenced in any a
 
 the default value is the latest version of TR-106 that is referenced elsewhere in the data model (or B<TR-106> if it is not referenced elsewhere)
 
+=item B<--ucprofile=s>...
+
+affects only the B<xml2> report; can be specified multiple times; defines use case profiles whose requirements will be checked against the B<--dtprofile> profiles
+
 =item B<--upnpdm>
 
 transforms output (currently HTML only) so it looks like a B<UPnP DM> (Device Management) data model definition
@@ -11816,7 +11869,7 @@ This script is only for illustration of concepts and has many shortcomings.
 
 William Lupton E<lt>william.lupton@pace.comE<gt>
 
-$Date: 2012/04/10 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#209 $
+$Date: 2012/04/23 $
+$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#210 $
 
 =cut

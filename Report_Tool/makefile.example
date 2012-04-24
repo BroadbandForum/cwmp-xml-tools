@@ -1,0 +1,24 @@
+# example makefile that shows how to use report.mk
+
+# flags that will be passed unconditionally to the BBF report tool
+REPORTFLAGS =
+
+# flags that will be passed to the BBF report tool when generating
+# anything from file.xml
+file_REPORTFLAGS = --option FR=xxx
+
+# flags that will be passed to the BBF report tool when generating
+# file-diffs.html (similarly for any other product)
+file.html_REPORTFLAGS = --option FHR=xxx
+file-diffs.html_REPORTFLAGS = --option FDHR=xxx
+
+# the BBF report tool options are a function of the target name; see
+# the REPORTSPECS variable in report.mk
+TARGETS = file.html file-diffs.html
+
+all: $(TARGETS)
+
+clean:
+	$(RM) $(TARGETS)
+
+include report.mk

@@ -12,9 +12,9 @@ Usage:
     [--quiet]
     [--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...]
     [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion]
-    [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)] [--ugly]
-    [--upnpdm] [--verbose[=i(1)]] [--warnbibref[=i(1)]] [--writonly]
-    DM-instance...
+    [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)]
+    [--ucprofile=s]... [--ugly] [--upnpdm] [--verbose[=i(1)]]
+    [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
     *   the most common options are --include, --loglevel and --report=html
 
@@ -598,6 +598,11 @@ Options:
         the default value is the latest version of TR-106 that is referenced
         elsewhere in the data model (or TR-106 if it is not referenced
         elsewhere)
+
+    --ucprofile=s...
+        affects only the xml2 report; can be specified multiple times;
+        defines use case profiles whose requirements will be checked against
+        the --dtprofile profiles
 
     --upnpdm
         transforms output (currently HTML only) so it looks like a UPnP DM
