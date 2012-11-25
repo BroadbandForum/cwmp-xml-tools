@@ -1,23 +1,38 @@
 ReportGUI:
 ==========
 
-This utility provides a graphical frontend for the "report.exe" tool to generate reports from CWMP xml data files.
+This utility provides a graphical frontend for the "report.exe" tool to generate reports from CWMP 
+xml data files.
 
-The windows installer includes the frontend and the report.exe tool. For installation please execute the ReportGuiSetup and follow the instructions. The tool runs under Windows (XP, Vista, 7)
+The windows installer includes the frontend and the report.exe tool. For installation please 
+execute the ReportGuiSetup and follow the instructions. The tool runs under Windows (XP, Vista, 7)
+and with some effort under MACOS with Wine
 
-For questions and comments please contact klaus.wich@nsn.com
+For questions and comments please contact klaus.wich@axiros.com
 
 
 History
 --------
+11/25/2012 ReportGuiSetup 2.4, ReportGui 2.4, report.exe#209 (report.pl#209)
+	new ReportGui version 2.4:
+	- Changed functions:
+	  * Sort report setting default is now "False"
+	  * Setting "set report tool" now allows also to select the perl script directly
+	  * Icons and colors adapted
+	- New functions:
+	  * New Option Extras->"Create CWMP Index page" to create index pages according to OD-290 
+	    during publishing (report.hmlbbf)
+	    The creation can also be included in the publishing automatically with the settings 
+	    Extras->"Include CWMP Index page in publish all files"
+	    
 04/13/2012 ReportGuiSetup 2.3, ReportGui 2.3, report.exe#209 (report.pl#209)
 	new version of report.exe (report.pl#209) included in installer
 	new ReportGui version 2.3:
 	- New functions:
 	  * New setting to sort reports. If enabled all reports will be generated with the 
 	    --sortobjects option availabe with report.exe#209. Option defaults to "True"
-	  * Support for plugins in the Expert mode. Plugins can in the <programdir>\plugins directory be selected 
-	    via drop down list to be executed during report generation
+	  * Support for plugins in the Expert mode. Plugins can in the <programdir>\plugins directory 
+	    be selected via drop down list to be executed during report generation
 	
 02/29/2012 ReportGuiSetup 2.2, ReportGui 2.2, report.exe#206 (report.pl#206)
 	new ReportGui version 2.2:
@@ -53,7 +68,8 @@ History
 	new version of report.exe (report.pl#186) included in installer
 	new ReportGui version 2.0:
 	- Changed functions:
-	  * ReportGui now runs with user rights under Windows 7, Ini file was moved into %USER/appdata directory
+	  * ReportGui now runs with user rights under Windows 7, Ini file was moved into %USER/appdata 
+	    directory
 	  * Deprecated 'noautomodel' option replaced with new option 'automodel'
 	  * 'ShowDiffs' option added to expert mode and as option to standard html reports
 	  * Report.exe output separated for errors and statistics
@@ -61,13 +77,14 @@ History
 	  * Publish option also generates flattened xml file
 	
 	- New functions:
-	  * New option to download all released xml and schema files from BBF website into default include directory
+	  * New option to download all released xml and schema files from BBF website into default
+	    include directory
 	  * New upgrade option to check for new versions
 	  * "Publish all files" option to generate files to be published for a whole directory
 	  * New feedback option
 	  
 	- Fixed Error(s): 
-		* Error checking crashed program, due to variable error
+	  * Error checking crashed program, due to variable error
 
 02/24/2011 ReportGuiSetup 1.0.6, ReportGui 1.1, report.exe (report.pl#182)
 	new version of report.exe (report.pl#182) included in installer.
