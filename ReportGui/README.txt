@@ -19,6 +19,7 @@ History
 	  * Sort report setting default is now "False"
 	  * Setting "set report tool" now allows also to select the perl script directly
 	  * Icons and colors adapted
+	  * Other option field length limit removed
 	- New functions:
 	  * New Option Extras->"Create CWMP Index page" to create index pages according to OD-290 
 	    during publishing (report.hmlbbf)
