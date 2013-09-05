@@ -1,4 +1,5 @@
 # Copyright (C) 2011, 2012  Pace Plc
+# Copyright (C) 2012, 2013  Cisco Systems
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -8,8 +9,8 @@
 # - Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# - Neither the name of Pace Plc nor the names of its contributors may be
-#   used to endorse or promote products derived from this software without
+# - Neither the name of Broadband Forum nor the names of its contributors may
+#   be used to endorse or promote products derived from this software without
 #   specific prior written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -25,7 +26,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 # report.pl make rules
-# XXX can now remove support for -all.xml and -last.html
+# XXX can now remove support for -all.xml and -diffs.html (use -mark-diffs.html)
 
 # find report.pl in PATH
 # XXX not perfect, e.g. won't find it in a directory whose name includes
@@ -37,8 +38,11 @@ ifeq "$(REPORT)" ""
 endif
 
 # REPORTFLAGS can be set in main makefile or passed on command line
-ifndef REPORTFLAGS
-REPORTFLAGS =
+
+# REPORTDIR is the source and destination directory
+ifdef REPORTDIR
+  REPORTDIR := $(REPORTDIR)/
+  REPORTDIR := $(REPORTDIR://=/)
 endif
 
 # type:suff:opts (use _ in place of space in opts)
@@ -50,22 +54,27 @@ REPORTSPECS = html:.html \
 	      html:-nolh.html:--nolinks_--nohyphenate \
 	      html:-dev.html:--ignore_Internet \
               html:-igd.html:--ignore_Device \
-              html:-last.html:--lastonly_--showdiffs \
-              html:-diffs.html:--lastonly_--showdiffs \
+              html:-diffs.html:--lastonly \
+              html:-mark-diffs.html:--showdiffs_--lastonly \
               html:-nop.html:--noprofiles \
               html:-nop-nol.html:--noprofiles_--nolinks \
               html:-upnpdm.html:--upnpdm \
               html:-upnpdm-nol.html:--upnpdm_--nolinks \
-              html:-dev-diffs.html:--ignore_Internet_--lastonly_--showdiffs \
-              html:-igd-diffs.html:--ignore_Device_--lastonly_--showdiffs \
+              html:-dev-diffs.html:--ignore_Internet_--lastonly \
+              html:-dev-mark-diffs.html:--ignore_Internet_--showdiffs_--lastonly \
+              html:-igd-diffs.html:--ignore_Device_--lastonly \
+              html:-igd-mark-diffs.html:--ignore_Device_--showdiffs_--lastonly \
               html:-dev-upnpdm.html:--ignore_Internet_--upnpdm \
-              html:-dev-upnpdm-diffs.html:--ignore_Internet_--upnpdm_--lastonly_--showdiffs \
+              html:-dev-upnpdm-diffs.html:--ignore_Internet_--upnpdm_--lastonly \
+              html:-dev-upnpdm-mark-diffs.html:--ignore_Internet_--upnpdm_--showdiffs_--lastonly \
               html:-igd-upnpdm.html:--ignore_Device_--upnpdm \
-              html:-igd-upnpdm-diffs.html:--ignore_Device_--upnpdm_--lastonly_--showdiffs \
+              html:-igd-upnpdm-diffs.html:--ignore_Device_--upnpdm_--lastonly \
+              html:-igd-upnpdm-mark-diffs.html:--ignore_Device_--upnpdm_--showdiffs_--lastonly \
               text:.txt: \
-              text:-diffs.txt:--lastonly_--showdiffs \
+              text:-diffs.txt:--lastonly \
+              text:-mark-diffs.txt:--showdiffs_--lastonly \
 	      xml:-can.xml:--canonical \
-	      xml:-dt.xml \
+	      xml:-dtauto.xml \
 	      xml:-all.xml \
 	      xml:-full.xml \
 	      xml:-full-comps.xml:--components \
@@ -82,30 +91,24 @@ REPORTSPECS = html:.html \
 define REPORT_RULE
 TEMP_SPEC := $(subst :, ,$(1))
 TEMP_SUFF := $$(word 2,$$(TEMP_SPEC))
-%$$(TEMP_SUFF): TEMP_TYPE := $$(word 1,$$(TEMP_SPEC))
-%$$(TEMP_SUFF): TEMP_SUFF := $$(word 2,$$(TEMP_SPEC))
-%$$(TEMP_SUFF): TEMP_OPTS := $$(subst _, ,$$(word 3,$$(TEMP_SPEC)))
-%$$(TEMP_SUFF): %.xml $$(REPORT)
-	$$(REPORT) $$(REPORTFLAGS) $$($$*_REPORTFLAGS) $$($$*$$(TEMP_SUFF)_REPORTFLAGS) --report=$$(TEMP_TYPE) $$(TEMP_OPTS) --outfile=$$@ $$*.xml 
+$(REPORTDIR)%$$(TEMP_SUFF): TEMP_TYPE := $$(word 1,$$(TEMP_SPEC))
+$(REPORTDIR)%$$(TEMP_SUFF): TEMP_SUFF := $$(word 2,$$(TEMP_SPEC))
+$(REPORTDIR)%$$(TEMP_SUFF): TEMP_OPTS := $$(subst _, ,$$(word 3,$$(TEMP_SPEC)))
+$(REPORTDIR)%$$(TEMP_SUFF): $(REPORTDIR)%.xml
+	$$(REPORT) $$(REPORTFLAGS) $$($$*_REPORTFLAGS) $$($$*$$(TEMP_SUFF)_REPORTFLAGS) --report=$$(TEMP_TYPE) $$(TEMP_OPTS) --outfile=$$@ $$^ 
 REPORTSUFFICES += $(TEMP_SUFF)
 endef
 
 REPORTSUFFICES =
 $(foreach SPEC,$(REPORTSPECS),$(eval $(call REPORT_RULE,$(SPEC))))
 
-XML = $(wildcard *.xml)
-DOCS = $(XML:%.xml=%)
+REPORTXML = $(wildcard *.xml)
+REPORTDOCS = $(REPORTXML:%.xml=%)
 
-DEFREPS = %.html %-diffs.html
+REPORTDEFREPS = %.html %-mark-diffs.html
 
 # this is the default target and will be used if there is no target in the
 # calling makefile
-$(DOCS): %: $(DEFREPS)
-
-$(DOCS:%=%-dev): %: $(DEFREPS)
-
-$(DOCS:%=%-igd): %: $(DEFREPS)
-
-$(DOCS:%=%-both): %-both: %-dev %-igd
+$(REPORTDOCS): %: $(REPORTDEFREPS)
 
 .DELETE_ON_ERROR:
