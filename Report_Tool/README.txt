@@ -1,8 +1,9 @@
 Usage:
     report.pl [--allbibrefs] [--autobase] [--autodatatype] [--automodel]
     [--bibrefdocfirst] [--canonical] [--catalog=c]... [--compare]
-    [--components] [--configfile=s("")] [--debugpath=p("")]
-    [--deletedeprecated] [--dtprofile=s]... [--dtspec[=s]] [--help]
+    [--components] [--configfile=s("")] [--cwmpindex=s(..)]
+    [--cwmppath=s(cwmp)] [--debugpath=p("")] [--deletedeprecated]
+    [--diffsext=s(mark-diffs)]... [--dtprofile=s]... [--dtspec[=s]] [--help]
     [--ignore=p("")] [--importsuffix=s("")] [--include=d]... [--info]
     [--lastonly] [--loglevel=tn(i)] [--marktemplates] [--noautomodel]
     [--nocomments] [--nohyphenate] [--nolinks] [--nologprefix] [--nomodels]
@@ -13,6 +14,7 @@ Usage:
     [--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...]
     [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion]
     [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)]
+    [--trpage=s(http://www.broadband-forum.org/technical/download)]
     [--ucprofile=s]... [--ugly] [--upnpdm] [--verbose[=i(1)]]
     [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
@@ -110,12 +112,26 @@ Options:
         generated link will be cwmpindex#xmlfile, e.g.
         ../cwmp#tr-069-1-0-0.xml
 
+    --cwmppath=s(cwmp)
+        affects only the htmlbbf report; specifies the location of the XML
+        and HTML files relative to the BBF CWMP index page
+
+        defaults to cwmp (sub-directory), which will work for the BBF web
+        site; can be set to http://www.broadband-forum.org/cwmp to generate
+        a local BBF CWMP index page that references published content
+
     --debugpath=p("")
         outputs debug information for parameters and objects whose path
         names match the specified pattern
 
     --deletedeprecated
         mark all deprecated or obsoleted items as deleted
+
+    --diffsext=s(mark-diffs)
+        how diffs files referenced by the htmlbbf report are named; for DM
+        Instance foo.xml, the diffs file name is foo-diffsext.html; the
+        default is mark-diffs, i.e. the default file name is
+        foo-mark-diffs.html
 
     --dtprofile=s...
         affects only the xml2 report; can be specified multiple times;
@@ -147,12 +163,14 @@ Options:
 
     --include=d...
         can be specified multiple times; specifies directories to search for
-        files specified on the command line or included from other files;
-        the current directory is always searched first
+        files specified on the command line or imported by other files
 
-        no search is performed for files that already include directory
-        names
-
+    * for files specified on the command line, the current directory is
+    always searched first
+    * for files imported by other files, the directory containing the first
+    file is always searched first; b<this behavior has changed; previously
+    the current directory was always searched>
+    * no search is performed for files that already include directory names
     --info
         output details of author, date, version etc
 
@@ -181,29 +199,35 @@ Options:
         the possible log level types, which can be abbreviated to a single
         character, are:
 
+        fatal
+            only fatal messages will be output; the sublevel is ignored
+
         error
-            only error messages will be output; the sublevel is ignored
+            only fatal and error messages will be output; the sublevel is
+            ignored
 
         info
-            only error and informational messages will be output; the
+            only fatal, error and informational messages will be output; the
             sublevel is ignored
 
         warning
-            only error, informational and warning messages will be output;
-            the sublevel distinguishes different levels of warning messages
+            only fatal, error, informational and warning messages will be
+            output; the sublevel distinguishes different levels of warning
+            messages
 
             currently only warning messages with sublevels 0, 1 and 2 are
             distinguished, but all values in the range 0-9 are valid
 
         debug
-            error, informational, warning and debug messages will be output;
-            the sublevel distinguishes different levels of debug messages
+            fatal, error, informational, warning and debug messages will be
+            output; the sublevel distinguishes different levels of debug
+            messages
 
             currently only debug messages with sublevels 0, 1 and 2 are
             distinguished, but all values in the range 0-9 are valid
 
-        for example, a value of d1 will cause error, informational, all
-        warning, and sublevel 0 and 1 debug messages to be output
+        for example, a value of d1 will cause fatal, error, informational,
+        all warning, and sublevel 0 and 1 debug messages to be output
 
         the log level feature is used to implement the functionality of
         --quiet, --pedantic and --verbose (all of which are still
@@ -479,8 +503,9 @@ Options:
         minEntries=0 and maxEntries=1
 
     --sortobjects
-        reports objects (and profiles) in alphabetical order rather than in
-        the order that they are defined in the XML
+        currently affects only the html report; reports objects (and
+        profiles) in alphabetical order rather than in the order that they
+        are defined in the XML
 
     --special=deprecated|imports|key|nonascii|normative|notify|obsoleted|pat
     href|profile|ref|rfc
@@ -598,6 +623,11 @@ Options:
         the default value is the latest version of TR-106 that is referenced
         elsewhere in the data model (or TR-106 if it is not referenced
         elsewhere)
+
+    --trpage=s(http://www.broadband-forum.org/technical/download/)
+        indicates the location of the PDF versions of BBF standards; is
+        concatenated with the filename (trailing slash is added if
+        necessary)
 
     --ucprofile=s...
         affects only the xml2 report; can be specified multiple times;

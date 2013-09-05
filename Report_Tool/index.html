@@ -4,7 +4,7 @@
 <head>
 <title>report.pl - generate report on TR-069 DM instances</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rev="made" href="mailto:wlupton@waialea.gateway.2wire.net" />
+<link rev="made" href="mailto:_mdnsresponder@b1026.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -20,7 +20,6 @@
 	<li><a href="#description">DESCRIPTION</a></li>
 	<li><a href="#options">OPTIONS</a></li>
 	<li><a href="#limitations">LIMITATIONS</a></li>
-	<li><a href="#author">AUTHOR</a></li>
 </ul>
 
 <hr name="index" />
@@ -41,8 +40,11 @@
 [--compare]
 [--components]
 [--configfile=s(&quot;&quot;)]
+[--cwmpindex=s(..)]
+[--cwmppath=s(cwmp)]
 [--debugpath=p(&quot;&quot;)]
 [--deletedeprecated]
+[--diffsext=s(mark-diffs)]...
 [--dtprofile=s]...
 [--dtspec[=s]]
 [--help]
@@ -82,6 +84,7 @@
 [--special=s]
 [--thisonly]
 [--tr106=s(TR-106)]
+[--trpage=s(http://www.broadband-forum.org/technical/download)]
 [--ucprofile=s]...
 [--ugly]
 [--upnpdm]
@@ -177,6 +180,12 @@ DM-instance...</p>
 <p>affects only the <strong>html</strong> report; specifies the location of the BBF CWMP index page, i.e. the page generated using the <strong>htmlbbf</strong> report; is used to generate a link back to the appropriate location within the index page</p>
 <p>defaults to <strong>../cwmp</strong> (parent directory), which will work for the BBF web site but will not necessarily work in other locations; the generated link will be <strong>cwmpindex#xmlfile</strong>, e.g. <strong>../cwmp#tr-069-1-0-0.xml</strong></p>
 </dd>
+<dt><strong><strong>--cwmppath=s(cwmp)</strong></strong></dt>
+
+<dd>
+<p>affects only the <strong>htmlbbf</strong> report; specifies the location of the XML and HTML files relative to the BBF CWMP index page</p>
+<p>defaults to <strong>cwmp</strong> (sub-directory), which will work for the BBF web site; can be set to <strong><a href="http://www.broadband-forum.org/cwmp">http://www.broadband-forum.org/cwmp</a></strong> to generate a local BBF CWMP index page that references published content</p>
+</dd>
 <dt><strong><a name="p" class="item"><strong>--debugpath=p(&quot;&quot;)</strong></a></strong></dt>
 
 <dd>
@@ -186,6 +195,11 @@ DM-instance...</p>
 
 <dd>
 <p>mark all deprecated or obsoleted items as deleted</p>
+</dd>
+<dt><strong><strong>--diffsext=s(mark-diffs)</strong></strong></dt>
+
+<dd>
+<p>how diffs files referenced by the <strong>htmlbbf</strong> report are named; for DM Instance <strong>foo.xml</strong>, the diffs file name is <strong>foo-diffsext.html</strong>; the default is <strong>mark-diffs</strong>, i.e. the default file name is <strong>foo-mark-diffs.html</strong></p>
 </dd>
 <dt><strong><a name="dtprofile_s" class="item"><strong>--dtprofile=s</strong>...</a></strong></dt>
 
@@ -217,8 +231,16 @@ DM-instance...</p>
 <dt><strong><a name="include_d" class="item"><strong>--include=d</strong>...</a></strong></dt>
 
 <dd>
-<p>can be specified multiple times; specifies directories to search for files specified on the command line or included from other files; the current directory is always searched first</p>
-<p>no search is performed for files that already include directory names</p>
+<p>can be specified multiple times; specifies directories to search for files specified on the command line or imported by other files</p>
+</li>
+<li><strong><a name="for_files_specified_on_the_command_line_the_current_directory_is_always_searched_first" class="item">for files specified on the command line, the current directory is always searched first</a></strong>
+
+</li>
+<li><strong><a name="for_files_imported_by_other_files_the_directory_containing_the_first_file_is_always_searched_first_b_this_behavior_has_changed_previously_the_current_directory_was_always_searched" class="item">for files imported by other files, the directory containing the first file is always searched first; b&lt;this behavior has changed; previously the current directory was always searched&gt;</a></strong>
+
+</li>
+<li><strong><a name="no_search_is_performed_for_files_that_already_include_directory_names" class="item">no search is performed for files that already include directory names</a></strong>
+
 </dd>
 <dt><strong><a name="info" class="item"><strong>--info</strong></a></strong></dt>
 
@@ -238,30 +260,35 @@ DM-instance...</p>
 <p>by default, messages are output with a prefix consisting of the upper-case first letter of the log level type in parentheses, followed by a space; for example, &quot;(E) &quot; indicates an error message; the message prefix can be suppressed using <strong>--nologprefix</strong></p>
 <p>the possible log level types, which can be abbreviated to a single character, are:</p>
 <dl>
+<dt><strong><a name="fatal" class="item"><strong>fatal</strong></a></strong></dt>
+
+<dd>
+<p>only fatal messages will be output; the sublevel is ignored</p>
+</dd>
 <dt><strong><a name="error" class="item"><strong>error</strong></a></strong></dt>
 
 <dd>
-<p>only error messages will be output; the sublevel is ignored</p>
+<p>only fatal and error messages will be output; the sublevel is ignored</p>
 </dd>
 <dt><strong><strong>info</strong></strong></dt>
 
 <dd>
-<p>only error and informational messages will be output; the sublevel is ignored</p>
+<p>only fatal, error and informational messages will be output; the sublevel is ignored</p>
 </dd>
 <dt><strong><a name="warning" class="item"><strong>warning</strong></a></strong></dt>
 
 <dd>
-<p>only error, informational and warning messages will be output; the sublevel distinguishes different levels of warning messages</p>
+<p>only fatal, error, informational and warning messages will be output; the sublevel distinguishes different levels of warning messages</p>
 <p>currently only warning messages with sublevels 0, 1 and 2 are distinguished, but all values in the range 0-9 are valid</p>
 </dd>
 <dt><strong><a name="debug" class="item"><strong>debug</strong></a></strong></dt>
 
 <dd>
-<p>error, informational, warning and debug messages will be output; the sublevel distinguishes different levels of debug messages</p>
+<p>fatal, error, informational, warning and debug messages will be output; the sublevel distinguishes different levels of debug messages</p>
 <p>currently only debug messages with sublevels 0, 1 and 2 are distinguished, but all values in the range 0-9 are valid</p>
 </dd>
 </dl>
-<p>for example, a value of <strong>d1</strong> will cause error, informational, all warning, and sublevel 0 and 1 debug messages to be output</p>
+<p>for example, a value of <strong>d1</strong> will cause fatal, error, informational, all warning, and sublevel 0 and 1 debug messages to be output</p>
 <p>the log level feature is used to implement the functionality of <strong>--quiet</strong>, <strong>--pedantic</strong> and <strong>--verbose</strong> (all of which are still supported); these options are processed in the order (<strong>loglevel</strong>, <strong>quiet</strong>, <strong>pedantic</strong>, <strong>verbose</strong>), so (for example) <strong>--loglevel=d --pedantic</strong> is the same as <strong>--loglevel=w</strong></p>
 <p>a log level of warning or debug also enables XML schema validation of DM instances; XML schemas are located using the <strong>schemaLocation</strong> attribute:</p>
 <ul>
@@ -520,7 +547,7 @@ DM-instance...</p>
 <dt><strong><a name="sortobjects" class="item"><strong>--sortobjects</strong></a></strong></dt>
 
 <dd>
-<p>reports objects (and profiles) in alphabetical order rather than in the order that they are defined in the XML</p>
+<p>currently affects only the <strong>html</strong> report; reports objects (and profiles) in alphabetical order rather than in the order that they are defined in the XML</p>
 </dd>
 <dt><strong><a name="special_deprecated_imports_key_nonascii_normative_notify_obsoleted_pathref_profile_ref_rfc" class="item"><strong>--special=deprecated|imports|key|nonascii|normative|notify|obsoleted|pathref|profile|ref|rfc</strong></a></strong></dt>
 
@@ -619,6 +646,11 @@ DM-instance...</p>
 <p>indicates the TR-106 version (i.e. the <strong>bibref</strong> name) to be referenced in any automatically generated description text</p>
 <p>the default value is the latest version of TR-106 that is referenced elsewhere in the data model (or <strong>TR-106</strong> if it is not referenced elsewhere)</p>
 </dd>
+<dt><strong><strong>--trpage=s(http://www.broadband-forum.org/technical/download/)</strong></strong></dt>
+
+<dd>
+<p>indicates the location of the PDF versions of BBF standards; is concatenated with the filename (trailing slash is added if necessary)</p>
+</dd>
 <dt><strong><a name="ucprofile_s" class="item"><strong>--ucprofile=s</strong>...</a></strong></dt>
 
 <dd>
@@ -658,13 +690,6 @@ DM-instance...</p>
 <hr />
 <h1><a name="limitations">LIMITATIONS</a></h1>
 <p>This script is only for illustration of concepts and has many shortcomings.</p>
-<p>
-</p>
-<hr />
-<h1><a name="author">AUTHOR</a></h1>
-<p>William Lupton &lt;<a href="mailto:william.lupton@pace.com">william.lupton@pace.com</a>&gt;</p>
-<p>$Date: 2012/04/23 $
-$Id: //depot/users/wlupton/cwmp-datamodel/report.pl#210 $</p>
 
 </body>
 
