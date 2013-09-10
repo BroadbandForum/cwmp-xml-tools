@@ -165,29 +165,38 @@ use Text::Balanced qw{extract_bracketed};
 use URI::Split qw(uri_split);
 use XML::LibXML;
 
-# XXX use whether the script is writable as an indication of whether or not
-#     the tool is checked out (works around the problem that perforce
-#     leaves the most recently committed version in the RCS keywords)
-my $tool_checked_out = ($0 =~ /\.pl$/ && -w $0) ?
-    q{ (TOOL CURRENTLY CHECKED OUT)} : q{};
-# XXX no longer using source code control system that requires checkout, so
-#     suppress this
-$tool_checked_out = q{};
-
-# XXX git will not expand these; svn will
+# git will not expand these; svn will, so after svn commit should merge
+# back into git; also, if further changes are made, should add a "+" sign
+# after the version number (this will be removed on the next svn commit); e.g.
+# "report.pl 246" -> "report.pl 246+"
 my $tool_author = q{$Author$};
 my $tool_vers_date = q{$Date$};
 my $tool_id = q{$Id$};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
-# XXX will need to adjust this for svn
-my ($tool_vers_date_only) = ($tool_vers_date =~ /([\d\/]+)/);
+# extract author from "$Author$" keyword (assumes SVN)
+my ($tool_author_only) = ($tool_author =~ /\$Author:\s+(\S+)/);
+$tool_author_only = q{unknown} unless $tool_author_only;
+
+# extract yyyy/mm/dd date from "$Date$" keyword (assumes SVN)
+my ($tool_vers_date_only) = ($tool_vers_date =~ /\$Date:\s+(\S+)/);
+$tool_vers_date_only =~ s/-/\//g if $tool_vers_date_only;
 $tool_vers_date_only = q{unknown} unless $tool_vers_date_only;
 
-# XXX will need to adjust this for svn
-my ($tool_id_only) = ($tool_id =~ /([^\$\/ ]+)\s*\$$/);
-$tool_id_only = q{report.pl} unless $tool_id_only && $tool_id_only ne 'Id';
+# extract report.pl#ver from "$Id$" keyword (assumes SVN)
+my ($tool_id_only) = ($tool_id =~ /\$Id:\s+(\S+\s+\S+)/);
+$tool_id_only =~ s/\s+/\#/ if $tool_id_only;
+$tool_id_only = q{report.pl} unless $tool_id_only;
+
+# use the existence of a trailing "+" on the version to determine whether the
+# tool is currently checked out, i.e. whether it's changed since the date and
+# version were last set
+my $tool_checked_out = q{};
+if ($tool_id_only =~ /\+$/) {
+    $tool_checked_out = q{ (TOOL CURRENTLY CHECKED OUT)};
+    $tool_id_only =~ s/\+$//;
+}
 
 my $tool_run_date;
 my $tool_run_month;
@@ -462,9 +471,9 @@ if (@$ucprofiles && !@$dtprofiles) {
 }
 
 if ($info) {
-    imsg $tool_author;
-    imsg $tool_vers_date, $tool_checked_out;
-    imsg $tool_id;
+    imsg 'Author: ', $tool_author_only;
+    imsg 'Date: ', $tool_vers_date_only, $tool_checked_out;
+    imsg 'Id: ', $tool_id_only;
     exit(1);
 }
 
@@ -8656,14 +8665,6 @@ END
     }
     htmlbbf_file(undef, {context => $componentcontext, contents => 1});
 
-    # support files
-    my $supportcontext = htmlbbf_file(undef, {
-        support => 1, title => 'Support Files', header => 1, reverserows => 1});
-    foreach my $file (sort htmlbbf_support_cmp @$allfiles) {
-        htmlbbf_file($file, {context => $supportcontext});
-    }
-    htmlbbf_file(undef, {context => $supportcontext, contents => 1});
-
     # schemas
     my $schemacontext = htmlbbf_file(undef, {
         schema => 1, title => 'Schema Files', header => 1, reverserows => 1});
@@ -8671,6 +8672,14 @@ END
         htmlbbf_file($file, {context => $schemacontext});
     }
     htmlbbf_file(undef, {context => $schemacontext, contents => 1});
+
+    # support files
+    my $supportcontext = htmlbbf_file(undef, {
+        support => 1, title => 'Support Files', header => 1, reverserows => 1});
+    foreach my $file (sort htmlbbf_support_cmp @$allfiles) {
+        htmlbbf_file($file, {context => $supportcontext});
+    }
+    htmlbbf_file(undef, {context => $supportcontext, contents => 1});
 
     # outdated corrigenda; identified via {{xmlref}}) templates in the other
     # files; populate the list (it's like a pared-down $allfiles)
@@ -8722,7 +8731,7 @@ END
 
     # output the tables
     foreach my $context (($latestcontext, $rootcontext, $servicecontext,
-                          $componentcontext, $supportcontext, $schemacontext,
+                          $componentcontext, $schemacontext, $supportcontext,
                           $outdatedcontext)) {
         htmlbbf_file(undef, {context => $context, footer => 1});
     }
@@ -8743,12 +8752,12 @@ END
 # compare schema files; $allfiles elements are passed and the comparison is
 # based on file name, with the following order:
 #
-#   cwmp-<number>
-#   cwmp-datamodel-<non-number>
-#   cwmp-datamodel-<rest>
 #   cwmp-devicetype-<non-number>
 #   cwmp-devicetype-<rest>
+#   cwmp-datamodel-<non-number>
+#   cwmp-datamodel-<rest>
 #   <rest>
+#   cwmp-<number>
 #
 # within the above categories, the order is alphabetical
 sub htmlbbf_schema_cmp
@@ -8758,11 +8767,11 @@ sub htmlbbf_schema_cmp
 
     for (my $i = 0; $i < 2; $i++) {
         $c[$i] =
-            ($n[$i] =~ /^cwmp-\d/)            ? 0 :
-            ($n[$i] =~ /^cwmp-datamodel-\D/)  ? 1 :
-            ($n[$i] =~ /^cwmp-datamodel-/)    ? 2 :
-            ($n[$i] =~ /^cwmp-devicetype-\D/) ? 3 :
-            ($n[$i] =~ /^cwmp-devicetype-/)   ? 4 : 5;
+            ($n[$i] =~ /^cwmp-\d/)            ? 6 :
+            ($n[$i] =~ /^cwmp-datamodel-\D/)  ? 3 :
+            ($n[$i] =~ /^cwmp-datamodel-/)    ? 4 :
+            ($n[$i] =~ /^cwmp-devicetype-\D/) ? 1 :
+            ($n[$i] =~ /^cwmp-devicetype-/)   ? 2 : 5;
     }
 
     return ($c[0] == $c[1]) ? (lc($n[0]) cmp lc($n[1])) : ($c[0] <=> $c[1]);
@@ -11173,7 +11182,7 @@ sub sanity_node
             if !$is_dt && !$multi && $path =~ /\{i\}\.$/;
 
         emsg "$path: object is not a table but has a unique key"
-            if !$multi && @{$node->{uniqueKeys}};
+            if !$multi && $node->{uniqueKeys} && @{$node->{uniqueKeys}};
 
         emsg "$path: object is not writable and multi-instance but " .
             "has enableParameter" if
