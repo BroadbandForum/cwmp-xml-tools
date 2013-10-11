@@ -175,16 +175,16 @@ my $tool_id = q{$Id$};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
-# extract author from "$Author$" keyword (assumes SVN)
+# extract author from Author keyword (assumes SVN)
 my ($tool_author_only) = ($tool_author =~ /\$Author:\s+(\S+)/);
 $tool_author_only = q{unknown} unless $tool_author_only;
 
-# extract yyyy/mm/dd date from "$Date$" keyword (assumes SVN)
+# extract yyyy/mm/dd date from Date keyword (assumes SVN)
 my ($tool_vers_date_only) = ($tool_vers_date =~ /\$Date:\s+(\S+)/);
 $tool_vers_date_only =~ s/-/\//g if $tool_vers_date_only;
 $tool_vers_date_only = q{unknown} unless $tool_vers_date_only;
 
-# extract report.pl#ver from "$Id$" keyword (assumes SVN)
+# extract report.pl#ver from Id keyword (assumes SVN)
 my ($tool_id_only) = ($tool_id =~ /\$Id:\s+(\S+\s+\S+)/);
 $tool_id_only =~ s/\s+/\#/ if $tool_id_only;
 $tool_id_only = q{report.pl} unless $tool_id_only;
@@ -261,7 +261,8 @@ our $cwmppath = 'cwmp';
 our $debugpath = '';
 our $deletedeprecated = 0;
 our $dtprofiles = [];
-our $diffsext = 'mark-diffs';
+our $diffs = 0;
+our $diffsexts = ['diffs'];
 our $dtspec = 'urn:example-com:device-1-0-0';
 our $help = 0;
 our $nohyphenate = 0;
@@ -323,7 +324,8 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'cwmppath:s' => \$cwmppath,
            'debugpath:s' => \$debugpath,
            'deletedeprecated' => \$deletedeprecated,
-           'diffsext:s' => \$diffsext,
+           'diffs' => \$diffs,
+           'diffsext:s@' => \$diffsexts,
            'dtprofile:s@' => \$dtprofiles,
            'dtspec:s' => \$dtspec,
 	   'help' => \$help,
@@ -520,6 +522,16 @@ if ($compare) {
     $modifiedusesspec = 0 if $lastonly;
 }
 
+if ($diffs) {
+    $lastonly = 1;
+    $showdiffs = 1;
+}
+
+if (@$diffsexts == 0 || @$diffsexts > 2) {
+    emsg "--diffsext must be specified either once or twice";
+    pod2usage(2);
+}
+
 if ($report =~ /html(bbf|148)/) {
     $noautomodel = 1;
 }
@@ -529,7 +541,7 @@ if ($outfile) {
         die "can't create --outfile $outfile: $!";
     }
 } else {
-    w0msg "--outfile not specified; cannot check for references to ".
+    w1msg "--outfile not specified; cannot check for references to ".
         "non-existent files" if $report eq 'htmlbbf';
     $tool_cmd_line .= ' ...';
 }
@@ -6034,13 +6046,13 @@ $do_not_edit
     </style>
   </head>
   <body>
-  <table width="100%" border="0">
-    <tr>
-      <td valign="middle">$logo<br><h3>$doctype</h3></td>
-      <td align="center" valign="middle"><h1><br>$preamble$title_link</h1></td>
-      <td width="25%"/>
-    </tr>
-  </table>
+    <table width="100%" border="0">
+      <tr>
+        <td valign="middle">$logo<br><h3>$doctype</h3></td>
+        <td align="center" valign="middle"><h1><br>$preamble$title_link</h1></td>
+        <td width="25%"/>
+      </tr>
+    </table>
   $notice
   $errors
 END
@@ -6915,7 +6927,7 @@ sub html_template
         my $sep = !$tinval ? "" : "\n";
         $inval .= $sep . "{{command}}";
     }
-    if ($p->{factory} && $tinval !~ /\{\{factory/ &&
+    if (defined($p->{factory}) && $tinval !~ /\{\{factory/ &&
         $tinval !~ /\{\{nofactory\}\}/) {
         my $sep = !$tinval ? "" : "\n";
         $inval .= $sep . "{{factory}}";
@@ -8474,7 +8486,13 @@ my $htmlbbf_supportpatt = q{^tr-(069|106).*-(types|biblio)\.xml$};
 # pattern matching filenames or specs that define both the IGD and Dev root
 # data models (this list will never need to change)
 # XXX should put this info in the config file
-my $htmlbbf_igddevpatt = q{^tr-(143-1-0|157-1-[0-3])-};
+my $htmlbbf_igddevpatt = q{^tr-(143-1-0|157-1-[0123])-};
+
+# pattern matching filenames that currently use "file-last.html" for "diffs"
+# HTML on the BBF web site CWMP page (note that these all include corrigendum
+# numbers)
+# XXX should put this info in the config file
+my $htmlbbf_lastpatt = q{^tr-(098-1-[023]-0|104-1-1-0|106-[12]-0|135-1-[12]-0|140-1-[12]-0|143-1-0-1|157-[123]-0|181-1-[01]-0|181-2-[123]-0|196-1-1-0)\.xml$};
 
 # Global settings from config file (htmlbbf_info is declared earlier because
 # it's used in some template expansions).
@@ -9139,6 +9157,8 @@ END
     } else {
         push @$suffices, '';
     }
+    my $diffsext = ($name =~ /$htmlbbf_lastpatt/) ?
+             $diffsexts->[0] : $diffsexts->[-1];
     my $nsuffices = [];
     foreach my $suffix (@$suffices) {
         push @$nsuffices, qq{$suffix-$diffsext} if $mname_minor;
@@ -9237,9 +9257,10 @@ END
 
         my $htmlval = undef;
         if ($htmlrow) {
+            my $diffs = grep {$htmlrow =~ /-$_/} @$diffsexts;
             $htmlval = {text => qq{HTML},
                         link => qq{$cwmppath$htmlrow},
-                        bold => ($htmlrow !~ /-$diffsext/)};
+                        bold => !$diffs};
         }
 
         my $descval = {text => $description};
@@ -9772,6 +9793,8 @@ END
 
         # XXX not quite the same as in OD-148 because ALL XML minor versions
         #     are incremental (not worth keeping this column?)
+        # XXX always use the last diffsext value (we don't support multiple ones)
+        my $diffsext = $diffsexts->[-1];
         my $update_type = $version_update eq 'Initial' ? '-' :
             $version_update eq 'Major' ? 'Replacement' : 'Incremental';
         my $update_type_entry = $update_type eq '-' ? '-' :
@@ -11492,7 +11515,8 @@ B<report.pl>
 [--cwmppath=s(cwmp)]
 [--debugpath=p("")]
 [--deletedeprecated]
-[--diffsext=s(mark-diffs)]...
+[--diffs]
+[--diffsext=s(diffs)]...
 [--dtprofile=s]...
 [--dtspec[=s]]
 [--help]
@@ -11641,9 +11665,15 @@ outputs debug information for parameters and objects whose path names match the 
 
 mark all deprecated or obsoleted items as deleted
 
-=item B<--diffsext=s(mark-diffs)>
+=item B<--diffs>
 
-how diffs files referenced by the B<htmlbbf> report are named; for DM Instance B<foo.xml>, the diffs file name is B<foo-diffsext.html>; the default is B<mark-diffs>, i.e. the default file name is B<foo-mark-diffs.html>
+has the same affect as specifying both B<--lastonly> (reports only items that were defined or last modified in the last XML file on the command line) and B<--showdifffs> (visually indicates the differences)
+
+=item B<--diffsext=s(diffs)>
+
+how diffs files referenced by the B<htmlbbf> report are named; for DM Instance B<foo.xml>, the diffs file name is B<foo-diffsext.html>; the default is B<diffs>, i.e. the default file name is B<foo-diffs.html>
+
+note: as an advanced feature, if this option is specified twice, the first value should be B<last> and will be used for files known to be named B<foo-last.html> on the BBF CWMP page, and the second value (typically B<diffs>) will be used for all other files
 
 =item B<--dtprofile=s>...
 

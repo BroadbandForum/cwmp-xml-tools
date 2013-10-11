@@ -44,7 +44,8 @@
 [--cwmppath=s(cwmp)]
 [--debugpath=p(&quot;&quot;)]
 [--deletedeprecated]
-[--diffsext=s(mark-diffs)]...
+[--diffs]
+[--diffsext=s(diffs)]...
 [--dtprofile=s]...
 [--dtspec[=s]]
 [--help]
@@ -196,10 +197,16 @@ DM-instance...</p>
 <dd>
 <p>mark all deprecated or obsoleted items as deleted</p>
 </dd>
-<dt><strong><strong>--diffsext=s(mark-diffs)</strong></strong></dt>
+<dt><strong><a name="diffs" class="item"><strong>--diffs</strong></a></strong></dt>
 
 <dd>
-<p>how diffs files referenced by the <strong>htmlbbf</strong> report are named; for DM Instance <strong>foo.xml</strong>, the diffs file name is <strong>foo-diffsext.html</strong>; the default is <strong>mark-diffs</strong>, i.e. the default file name is <strong>foo-mark-diffs.html</strong></p>
+<p>has the same affect as specifying both <strong>--lastonly</strong> (reports only items that were defined or last modified in the last XML file on the command line) and <strong>--showdifffs</strong> (visually indicates the differences)</p>
+</dd>
+<dt><strong><strong>--diffsext=s(diffs)</strong></strong></dt>
+
+<dd>
+<p>how diffs files referenced by the <strong>htmlbbf</strong> report are named; for DM Instance <strong>foo.xml</strong>, the diffs file name is <strong>foo-diffsext.html</strong>; the default is <strong>diffs</strong>, i.e. the default file name is <strong>foo-diffs.html</strong></p>
+<p>note: as an advanced feature, if this option is specified twice, the first value should be <strong>last</strong> and will be used for files known to be named <strong>foo-last.html</strong> on the BBF CWMP page, and the second value (typically <strong>diffs</strong>) will be used for all other files</p>
 </dd>
 <dt><strong><a name="dtprofile_s" class="item"><strong>--dtprofile=s</strong>...</a></strong></dt>
 

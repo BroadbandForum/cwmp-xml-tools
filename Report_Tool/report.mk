@@ -26,7 +26,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 # report.pl make rules
-# XXX can now remove support for -all.xml and -diffs.html (use -mark-diffs.html)
 
 # find report.pl in PATH
 # XXX not perfect, e.g. won't find it in a directory whose name includes
@@ -54,28 +53,21 @@ REPORTSPECS = html:.html \
 	      html:-nolh.html:--nolinks_--nohyphenate \
 	      html:-dev.html:--ignore_Internet \
               html:-igd.html:--ignore_Device \
-              html:-diffs.html:--lastonly \
-              html:-mark-diffs.html:--showdiffs_--lastonly \
+              html:-diffs.html:--diffs \
               html:-nop.html:--noprofiles \
               html:-nop-nol.html:--noprofiles_--nolinks \
               html:-upnpdm.html:--upnpdm \
               html:-upnpdm-nol.html:--upnpdm_--nolinks \
-              html:-dev-diffs.html:--ignore_Internet_--lastonly \
-              html:-dev-mark-diffs.html:--ignore_Internet_--showdiffs_--lastonly \
-              html:-igd-diffs.html:--ignore_Device_--lastonly \
-              html:-igd-mark-diffs.html:--ignore_Device_--showdiffs_--lastonly \
+              html:-dev-diffs.html:--ignore_Internet_--diffs \
+              html:-igd-diffs.html:--ignore_Device_--diffs \
               html:-dev-upnpdm.html:--ignore_Internet_--upnpdm \
-              html:-dev-upnpdm-diffs.html:--ignore_Internet_--upnpdm_--lastonly \
-              html:-dev-upnpdm-mark-diffs.html:--ignore_Internet_--upnpdm_--showdiffs_--lastonly \
+              html:-dev-upnpdm-diffs.html:--ignore_Internet_--upnpdm_--diffs \
               html:-igd-upnpdm.html:--ignore_Device_--upnpdm \
-              html:-igd-upnpdm-diffs.html:--ignore_Device_--upnpdm_--lastonly \
-              html:-igd-upnpdm-mark-diffs.html:--ignore_Device_--upnpdm_--showdiffs_--lastonly \
+              html:-igd-upnpdm-diffs.html:--ignore_Device_--upnpdm_--diffs \
               text:.txt: \
-              text:-diffs.txt:--lastonly \
-              text:-mark-diffs.txt:--showdiffs_--lastonly \
+              text:-diffs.txt:--diffs \
 	      xml:-can.xml:--canonical \
 	      xml:-dtauto.xml \
-	      xml:-all.xml \
 	      xml:-full.xml \
 	      xml:-full-comps.xml:--components \
 	      xml:-full-ocomp.xml:--components_--noparameters \
@@ -105,7 +97,7 @@ $(foreach SPEC,$(REPORTSPECS),$(eval $(call REPORT_RULE,$(SPEC))))
 REPORTXML = $(wildcard *.xml)
 REPORTDOCS = $(REPORTXML:%.xml=%)
 
-REPORTDEFREPS = %.html %-mark-diffs.html
+REPORTDEFREPS = %.html %-diffs.html
 
 # this is the default target and will be used if there is no target in the
 # calling makefile

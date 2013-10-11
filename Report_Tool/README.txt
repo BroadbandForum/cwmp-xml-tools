@@ -2,8 +2,8 @@ Usage:
     report.pl [--allbibrefs] [--autobase] [--autodatatype] [--automodel]
     [--bibrefdocfirst] [--canonical] [--catalog=c]... [--compare]
     [--components] [--configfile=s("")] [--cwmpindex=s(..)]
-    [--cwmppath=s(cwmp)] [--debugpath=p("")] [--deletedeprecated]
-    [--diffsext=s(mark-diffs)]... [--dtprofile=s]... [--dtspec[=s]] [--help]
+    [--cwmppath=s(cwmp)] [--debugpath=p("")] [--deletedeprecated] [--diffs]
+    [--diffsext=s(diffs)]... [--dtprofile=s]... [--dtspec[=s]] [--help]
     [--ignore=p("")] [--importsuffix=s("")] [--include=d]... [--info]
     [--lastonly] [--loglevel=tn(i)] [--marktemplates] [--noautomodel]
     [--nocomments] [--nohyphenate] [--nolinks] [--nologprefix] [--nomodels]
@@ -127,11 +127,20 @@ Options:
     --deletedeprecated
         mark all deprecated or obsoleted items as deleted
 
-    --diffsext=s(mark-diffs)
+    --diffs
+        has the same affect as specifying both --lastonly (reports only
+        items that were defined or last modified in the last XML file on the
+        command line) and --showdifffs (visually indicates the differences)
+
+    --diffsext=s(diffs)
         how diffs files referenced by the htmlbbf report are named; for DM
         Instance foo.xml, the diffs file name is foo-diffsext.html; the
-        default is mark-diffs, i.e. the default file name is
-        foo-mark-diffs.html
+        default is diffs, i.e. the default file name is foo-diffs.html
+
+        note: as an advanced feature, if this option is specified twice, the
+        first value should be last and will be used for files known to be
+        named foo-last.html on the BBF CWMP page, and the second value
+        (typically diffs) will be used for all other files
 
     --dtprofile=s...
         affects only the xml2 report; can be specified multiple times;
