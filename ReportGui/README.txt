@@ -13,13 +13,17 @@ For questions and comments please contact klaus.wich@axiros.com
 
 History
 --------
+11/11/2013 ReportGuiSetup 2.5, ReportGui 2.5, report.exe#251 (report.pl#251)
+    new version of report.exe (report.pl#251) included in installer
+    new ReportGui version 2.5
+    - installer fixes
+
 11/25/2012 ReportGuiSetup 2.4, ReportGui 2.4, report.exe#209 (report.pl#209)
 	new ReportGui version 2.4:
 	- Changed functions:
 	  * Sort report setting default is now "False"
 	  * Setting "set report tool" now allows also to select the perl script directly
 	  * Icons and colors adapted
-	  * Other option field length limit removed
 	- New functions:
 	  * New Option Extras->"Create CWMP Index page" to create index pages according to OD-290 
 	    during publishing (report.hmlbbf)
