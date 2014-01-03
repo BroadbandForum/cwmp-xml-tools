@@ -5,12 +5,12 @@ Usage:
     [--cwmppath=s(cwmp)] [--debugpath=p("")] [--deletedeprecated] [--diffs]
     [--diffsext=s(diffs)]... [--dtprofile=s]... [--dtspec[=s]] [--help]
     [--ignore=p("")] [--importsuffix=s("")] [--include=d]... [--info]
-    [--lastonly] [--loglevel=tn(i)] [--marktemplates] [--noautomodel]
-    [--nocomments] [--nohyphenate] [--nolinks] [--nologprefix] [--nomodels]
-    [--noobjects] [--noparameters] [--noprofiles] [--notemplates]
-    [--nowarnredef] [--nowarnreport] [--nowarnprofbadref] [--objpat=p("")]
-    [--option=n=v]... [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]...
-    [--quiet]
+    [--lastonly] [--loglevel=tn(i)] [--marktemplates] [--maxchardiffs=i(5)]
+    [--maxworddiffs=i(10)] [--noautomodel] [--nocomments] [--nohyphenate]
+    [--nolinks] [--nologprefix] [--nomodels] [--noobjects] [--noparameters]
+    [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnreport]
+    [--nowarnprofbadref] [--objpat=p("")] [--option=n=v]... [--outfile=s]
+    [--pedantic[=i(1)]] [--plugin=s]... [--quiet]
     [--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...]
     [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion]
     [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)]
@@ -130,7 +130,7 @@ Options:
     --diffs
         has the same affect as specifying both --lastonly (reports only
         items that were defined or last modified in the last XML file on the
-        command line) and --showdifffs (visually indicates the differences)
+        command line) and --showdiffs (visually indicates the differences)
 
     --diffsext=s(diffs)
         how diffs files referenced by the htmlbbf report are named; for DM
@@ -174,12 +174,16 @@ Options:
         can be specified multiple times; specifies directories to search for
         files specified on the command line or imported by other files
 
-    * for files specified on the command line, the current directory is
-    always searched first
-    * for files imported by other files, the directory containing the first
-    file is always searched first; b<this behavior has changed; previously
-    the current directory was always searched>
-    * no search is performed for files that already include directory names
+        *   for files specified on the command line, the current directory
+            is always searched first
+
+        *   for files imported by other files, the directory containing the
+            first file is always searched first; this behavior has changed;
+            previously the current directory was always searched
+
+        *   no search is performed for files that already include directory
+            names
+
     --info
         output details of author, date, version etc
 
@@ -268,6 +272,19 @@ Options:
 
         and the list template is marked by a string such as
         &&&&list-unsignedInt: or &&&&list-IPAddress:
+
+    --maxchardiffs=i(5), --maxworddiffs=i(10)
+        these control how differences are shown in descriptions; each
+        paragraph is handled separately
+
+        *   if the number of inserted and/or deleted characters in the
+            paragraph is less than or equal to maxchardiffs, changes are
+            shown at the character level
+
+        *   otherwise, if the number of inserted and/or deleted words in the
+            paragraph is less than or equal to maxworddiffs, changes are
+            shown at the word level =item * otherwise, the entire paragraph
+            is shown as a single change
 
     --noautomodel
         disables the auto-generation, if no model element was encountered,

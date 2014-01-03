@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #
 # Copyright (C) 2011, 2012  Pace Plc
-# Copyright (C) 2012, 2013  Cisco Systems
+# Copyright (C) 2012, 2013, 2014  Cisco Systems
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -159,6 +159,7 @@ use Data::Dumper;
 use File::Spec;
 use Getopt::Long;
 use Pod::Usage;
+use String::Tokenizer;
 use Text::Balanced qw{extract_bracketed};
 # XXX causes problems, e.g. need aspell (if restore should use "require")
 #use Text::SpellChecker;
@@ -273,6 +274,8 @@ our $info = 0;
 our $lastonly = 0;
 our $loglevel = 'w';
 our $marktemplates = undef;
+our $maxchardiffs = 5;
+our $maxworddiffs = 10;
 our $newparser = 0;
 our $noautomodel = 0;
 our $nocomments = 0;
@@ -336,6 +339,8 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'lastonly' => \$lastonly,
            'loglevel:s' => \$loglevel,
 	   'marktemplates' => \$marktemplates,
+           'maxchardiffs:i' => \$maxchardiffs,
+           'maxworddiffs:i' => \$maxworddiffs,
            'newparser' => \$newparser,
 	   'noautomodel' => \$noautomodel,
 	   'nocomments' => \$nocomments,
@@ -512,6 +517,11 @@ if ($nowarnprofbadref) {
     emsg "--nowarnprofbadref is deprecated; it's no longer necessary";
 }
 
+if ($diffs) {
+    $lastonly = 1;
+    $showdiffs = 1;
+}
+
 if ($compare) {
     if (@ARGV != 2) {
         emsg "--compare requires exactly two input files";
@@ -520,11 +530,6 @@ if ($compare) {
     $autobase = 1;
     $showdiffs = 1;
     $modifiedusesspec = 0 if $lastonly;
-}
-
-if ($diffs) {
-    $lastonly = 1;
-    $showdiffs = 1;
 }
 
 if (@$diffsexts == 0 || @$diffsexts > 2) {
@@ -670,7 +675,7 @@ sub expand_toplevel
 {
     my ($file)= @_;
 
-    (my $dir, $file) = find_file($file, '');
+    (my $dir, $file, my $rpath) = find_file($file, '');
 
     # parse file
     my $toplevel = parse_file($dir, $file);
@@ -877,13 +882,29 @@ sub expand_import
     d1msg "expand_import file=$file spec=$spec";
 
     my $ofile = $file;
-    (my $dir, $file, my $corr) = find_file($file, $cdir);
+    (my $dir, $file, my $corr, my $rpath) = find_file($file, $cdir);
 
     my $tfile = $file;
     $file =~ s/\.xml//;
 
     emsg "$cfile.xml: import $ofile: corrigendum number should " .
         "be omitted" if $corr && $depth == 1;
+
+    # if one or more top-level file has the same name, use the final directory
+    # component to differentiate them (this is common when comparing versions
+    # of the same data model); this process isn't repeated recursively
+    # XXX File::Spec likes to put trailing "/" characters on directory names,
+    #     which requires a special case; hopefully this code is portable
+    # XXX this code is duplicated from earlier; furthermore, it's a huge hack
+    #     because the $samename criterion is based only on the command-line
+    #     files; want a combination of this logic and use of $rpath
+    if ($samename && $dir) {
+        my @tdirs = File::Spec->splitdir($dir);
+        pop @tdirs if $tdirs[$#tdirs] eq '';
+        my $tcomp = pop @tdirs;
+        my $curdir = File::Spec->curdir();
+        $file = File::Spec->catfile(($tcomp), $file) if $tcomp ne $curdir;
+    }
 
     # if already read file, just add the imports to the current namespace
     if ($files->{$file}) {
@@ -3207,7 +3228,7 @@ sub add_parameter
                                          $cvalues->{$b}->{i}} keys %$cvalues) {
                 w0msg "$path.$value: omitted; should instead mark as ".
                     "deprecated/obsoleted/deleted"
-                    if !$is_dt && !$visited->{$value};
+                    if !$is_dt && !$compare && !$visited->{$value};
             }
             $nnode->{values} = $values;
         }
@@ -4374,8 +4395,13 @@ sub find_file
         }
     }
 
-    d0msg "find_file: $file $predir -> $fdir $ffile $corr";
-    return ($fdir, $ffile, $corr);
+    # form full path and convert to relative path
+    # XXX planned on using this in place of "$file" but this is too many
+    #     changes for now...
+    my $rpath = File::Spec->abs2rel(File::Spec->catfile($fdir, $ffile));
+
+    d0msg "find_file: $file $predir -> $fdir $ffile $corr $rpath";
+    return ($fdir, $ffile, $corr, $rpath);
 }
 
 # Check whether specs match
@@ -4424,8 +4450,8 @@ sub text_node
              (' ' . $node->{status}) : '') .
             ($node->{changed} ?
              (' #changed: ' . xml_changed($node->{changed})) : '') . "\n";
-        print $node->{changed}->{description} if
-            $showdiffs && $node->{changed}->{description};
+        print "=+=+=+=+=\n" . $node->{changed}->{description} . "\n=-=-=-=-=\n"
+            if $showdiffs && $node->{changed}->{description};
     }
 }
 
@@ -7148,7 +7174,7 @@ sub html_template
             $inval =~ s/\{\{/\[\[/;
             next;
         }
-        my $atstart = $inval =~ /^\{\{$name[\|\}]/;
+        my $atstart = $inval =~ /^\{\{\Q$name\E[\|\}]/;
         $p->{atstart} = $atstart;
         $p->{newline} = $newline;
         $p->{period} = $period;
@@ -7195,7 +7221,8 @@ sub html_template
             }
         }
         if ($name && (!defined $text || $text =~ /^\[\[/)) {
-            emsg "$p->{path}: invalid template reference: $tref";
+            emsg "$p->{path}: invalid template reference: $tref"
+                unless $compare;
             #emsg "$name: n=$n cmd=<$cmd> text=<$text>";
             #foreach my $a (@a) {
             #    emsg "  $a";
@@ -7345,6 +7372,7 @@ sub html_template_numentries
 {
     my ($opts) = @_;
 
+    my $node = $opts->{node};
     my $path = $opts->{path};
     my $table = $opts->{table};
 
@@ -7353,7 +7381,7 @@ sub html_template_numentries
 
     if (!$table) {
         emsg "$path: invalid use of {{numentries}}; parameter is " .
-            "not associated with a table";
+            "not associated with a table" unless util_is_deleted($node);
         return undef;
     } else {
         my $tpath = $table->{path};
@@ -7482,6 +7510,7 @@ sub html_template_keys
 {
     my ($opts) = @_;
 
+    my $node = $opts->{node};
     my $object = $opts->{object};
     my $access = $opts->{access};
     my $uniqueKeys = $opts->{uniqueKeys};
@@ -7489,8 +7518,12 @@ sub html_template_keys
 
     my $text = qq{{{mark|keys}}};
 
-    # warn if there is a unique key parameter tht's a list (this has been banned
-    # since TR-106a7)
+    # XXX various errors and warnings are suppressed if the object has been
+    #     deleted; this case should be handled generally and not piecemeal
+    my $is_deleted = util_is_deleted($node);
+
+    # warn if there is a unique key parameter that's a list (this has been
+    # banned since TR-106a7)
     # XXX experimental: warn is there is a unique key parameter that's a
     #     strong reference (this is a candidate for additional auto-text)
     my $anystrong = 0;
@@ -7511,8 +7544,9 @@ sub html_template_keys
         }
     }
     d0msg "$object: unique key parameter is a strong reference ($access)"
-        if $anystrong;
-    emsg "$object: unique key parameter is list-valued" if $anylist;
+        if $anystrong && !$is_deleted;
+    emsg "$object: unique key parameter is list-valued"
+        if $anylist && !$is_deleted;
 
     # for tables with enable parameters, need to generate separate text for
     # non-functional (not affected by enable) and functional keys (affected
@@ -7650,12 +7684,17 @@ sub html_template_bibref
           if $warnbibref > 1 && $origsection ne $section;
     }
 
+    # when showing diffs, "name" can include deleted and inserted text
+    my $bibref_orig = $bibref;
+    $bibref =~ s|\-\-\-(.*?)\-\-\-||g;
+    $bibref =~ s|\+\+\+(.*?)\+\+\+|$1|g;
+
     $bibref = html_get_anchor($bibref, 'bibref') unless $nolinks;
     
     my $text = qq{};
     $text .= qq{[};
     $text .= qq{$section/} if $section && !$bibrefdocfirst;
-    $text .= qq{$bibref};
+    $text .= qq{$bibref_orig};
     $text .= qq{ $section} if $section && $bibrefdocfirst;
     $text .= qq{]};
 
@@ -7779,6 +7818,11 @@ sub html_template_paramref
         return qq{''$param''};
     }
 
+    # when showing diffs, "name" can include deleted and inserted text
+    my $name_orig = $name;
+    $name =~ s|\-\-\-(.*?)\-\-\-||g;
+    $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
+
     w0msg "$object$param: {{param}} argument is unnecessary when ".
         "referring to current parameter" if $name eq $param;
 
@@ -7831,6 +7875,11 @@ sub html_template_objectref
             unless $nolinks || !$param;
         return $name;
     }
+
+    # when showing diffs, "name" can include deleted and inserted text
+    my $name_orig = $name;
+    $name =~ s|\-\-\-(.*?)\-\-\-||g;
+    $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
     # XXX this needs to be cleverer, since "name" can take various forms
     w0msg "$object$param: {{object}} argument unnecessary when ".
@@ -7887,6 +7936,16 @@ sub html_template_valueref
 
     my $this = $name ? 0 : 1;
     $name = $param unless $name;
+
+    # when showing diffs, "value" and "name" can include deleted and inserted
+    # text
+    my $value_orig = $value;
+    $value =~ s|\-\-\-(.*?)\-\-\-||g;
+    $value =~ s|\+\+\+(.*?)\+\+\+|$1|g;
+
+    my $name_orig = $name;
+    $name =~ s|\-\-\-(.*?)\-\-\-||g;
+    $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
     (my $path, $name) = relative_path($object, $name, $scope);
 
@@ -10811,14 +10870,89 @@ sub util_copy
     return $out;
 }
 
+# Scan a string counting +1 for "{" and -1 for "}"
+sub util_brace_count
+{
+    my ($string) = @_;
+
+    my $count = 0;
+    foreach my $char (split '', $string) {
+        $count++ if $char eq '{';
+        $count-- if $char eq '}';
+    }
+
+    return $count;
+}
+
+# Tokenize a string
+# XXX not getting much benefit from String::Tokenizer
+sub util_tokenize
+{
+    my ($string, $delimiters) = @_;
+
+    my $tokens;
+
+    # empty and newline-only delimiters are special
+    if ($delimiters eq qq{} || $delimiters eq qq{\n}) {
+        my @temp_tokens = split $delimiters, $string;
+        $tokens = \@temp_tokens;
+
+    } else {
+        my $tokenizer = String::Tokenizer->new(
+            $string, $delimiters, String::Tokenizer->RETAIN_WHITESPACE);
+        my $temp_tokens = $tokenizer->getTokens();
+        
+        # replace whitespace with a token character; allows (for example)
+        # " " -> "  " to be detected as an addition of a space rather than
+        # a replacement
+        $tokens = [];
+        foreach my $token (@$temp_tokens) {
+            if ($token !~ /^\s*$/) {
+                push @$tokens, $token;
+            } else {
+                push @$tokens, split '', $token;
+            }
+        }
+
+    }
+
+    return $tokens;
+}
+
+# util_diffs() helper; add items surrounded by markers
+sub util_diffs_helper
+{
+    my $marker = shift;
+    my @items = @_;
+
+    my $out = '';
+    if (@items) {
+        $out .= $marker . ' ';
+        foreach my $item (@items) {
+            $out .= ($item eq "\n") ? '\n' : $item;
+        }
+        $out .= "\n";
+    }
+
+    return $out;
+}
+
 # Determine differences between two strings
+# XXX the old logic is still there but for now just invoke util_diffs_markup()
+#     plus minor whitespace tidy-up
 sub util_diffs
 {
     my ($old, $new) = @_;
-    
-    my @old = split "\n", $old;
-    my @new = split "\n", $new;
-    my $diff = Algorithm::Diff->new(\@old, \@new);
+
+    my $text = util_diffs_markup($old, $new);
+    $text =~ s/^\s*//;
+    $text =~ s/\s*$//;
+    return $text;
+
+    my $old_tokens = util_tokenize($old);
+    my $new_tokens = util_tokenize($new);
+
+    my $diff = Algorithm::Diff->new($old_tokens, $new_tokens);
     my $diffs = '';
     while($diff->Next()) {
         next if $diff->Same();
@@ -10835,36 +10969,165 @@ sub util_diffs
             $diffs .= sprintf("%d,%dc%d,%d\n",
                               $diff->Get(qw(Min1 Max1 Min2 Max2)));
         }
-        # XXX these have to be escaped in the XML (better presentation?)
-        $diffs .= "- $_\n" for $diff->Items(1);
+        $diffs .= util_diffs_helper("-", $diff->Items(1));
         $diffs .= $sep;
-        $diffs .= "+ $_\n" for $diff->Items(2);
+        $diffs .= util_diffs_helper("+", $diff->Items(2));
     }
     return $diffs;
 }
 
-# Version of the above that inserts '!' and '!!' markup
-# XXX not working that well; have tried to avoid bad matches by splitting
-#     on word boundaries but loses line breaks so need a better solution
-#     (and / / doesn't work)
+# util_diffs_markup() helper; add items surrounded by markers
+sub util_diffs_markup_helper
+{
+    my ($items, $marker) = @_;
+    $marker = '' unless $marker;
+
+    my $out = '';
+    my $num = 0;
+    my $brc = 0;
+
+    if (@$items) {
+        $out .= $marker;
+        foreach my $item (@$items) {
+            $out .= $marker if $item eq "\n";
+            $out .= $item;
+            $out .= $marker if $item eq "\n";
+
+            # force $num to be huge if item contains template argument
+            # separator
+            # XXX "|" should be a token separator so how is this happening?
+            #     ah, because a hunk can be multiple tokens of course...
+            # XXX a hack and not a nice interface...
+            $num += 1000 if $marker && $item =~ /\|/;
+        }
+        $out .= $marker;
+    }
+
+    # if the marker is non-empty, i.e. these are insertions or deletions...
+    if ($marker) {
+
+        # empty lines can have unnecessary double markers; these won't do any
+        # harm but get rid of them anyway
+        $out =~ s/\Q$marker$marker\E//g;
+
+        # force $num to be huge if braces aren't balanced
+        # XXX a hack and not a nice interface...
+        $brc = util_brace_count($out);
+        $num += 1000 if $brc != 0;
+
+        # maintain a count of the number of insertions or deletions
+        $num++ if @$items;
+    }
+
+    return ($out, $num, $brc);
+}
+
+# util_diffs_markup() helper; look for diffs with a given set of delimiters
+# XXX there is duplication of logic between this routine and the main
+#     util_diffs_markup() routine; ideally only one routine would interface
+#     with Algorithm::Diff
+sub util_diffs_markup_inner_try
+{
+    my ($old, $new, $delimiters) = @_;
+
+    # these tags indicate inserted and deleted text, e.g. "+++new+++" indicates
+    # that "abc" is inserted and "---old---" indicates that "old" is deleted,
+    # so "---old---+++new+++" indicates that "old" is replaced with "new"
+    my $ins = qq{+++};
+    my $del = qq{---};
+
+    my $old_tokens = util_tokenize($old, $delimiters);
+    my $new_tokens = util_tokenize($new, $delimiters);
+
+    my $diff = Algorithm::Diff->new($old_tokens, $new_tokens);
+
+    my $out = qq{};
+    my $num = 0;
+    while ($diff->Next()) {
+        my $a;
+        my $b;
+
+        my @same = $diff->Same();
+        ($a, $b) = util_diffs_markup_helper(\@same);
+        $out .= $a;
+        $num += $b;
+        next if @same;
+
+        my @from_old = $diff->Items(1);
+        my @from_new = $diff->Items(2);
+
+        ($a, $b) = util_diffs_markup_helper(\@from_old, $del);
+        $out .= $a;
+        $num += $b;
+
+        # special case; add newline if both deletions and insertions and
+        # newline delimiter
+        $out .= "\n" if @from_old && @from_new && $delimiters eq "\n";
+
+        ($a, $b) = util_diffs_markup_helper(\@from_new, $ins);
+        $out .= $a;
+        $num += $b;
+    }
+
+    # XXX $num is incremented for each deleted OR inserted section
+    return ($out, $num);
+}
+
+# util_diffs_markup helper(); looks for diffs at the character, word and
+# paragraph level
+sub util_diffs_markup_inner
+{
+    my ($old, $new) = @_;
+
+    my $out;
+    my $num;
+
+    # first try at the character level
+    ($out, $num) = util_diffs_markup_inner_try($old, $new, qq{});
+    return qq{{{mark|diffs-0:$num}}} . $out if $num <= $maxchardiffs;
+
+    # next try at (more-or-less) the word level
+    ($out, $num) = util_diffs_markup_inner_try($old, $new,
+                                               qq{,:;\.\!\?\{\|\}});
+    return qq{{{mark|diffs-1:$num}}} . $out if $num <= $maxworddiffs;
+
+    # fall back to the paragraph level
+    # XXX we are never called with more than one paragraph so this is
+    #     over-complex
+    ($out, $num) = util_diffs_markup_inner_try($old, $new, qq{\n});
+    return qq{{{mark|diffs-2:$num}}} . $out;
+}
+
+# Version of util_diffs() that inserts '+++' and '---' markup
 sub util_diffs_markup
 {
     my ($old, $new) = @_;
 
+    # these tags indicate inserted and deleted text, e.g. "+++new+++" indicates
+    # that "abc" is inserted and "---old---" indicates that "old" is deleted,
+    # so "---old---+++new+++" indicates that "old" is replaced with "new"
     my $ins = qq{+++};
     my $del = qq{---};
 
+    # paragraph separator pattern and replacement string
     my $spp = qr{\n};
     my $sep = qq{\n};
 
+    # prefix pattern matching list item indicators and whitespace
     my $pfx = qr{[*#:\s]*};
 
+    # split old and new strings into paragraphs
     my @old = split /$spp/, $old;
     my @new = split /$spp/, $new;
+
+    # analyze to determine "hunks" (sets of paragraphs)
     my $diff = Algorithm::Diff->new(\@old, \@new);
 
+    # iterate through the hunks
     my $out = qq{};
     while ($diff->Next()) {
+
+        # this hunk is the same in old and new
         my @same = $diff->Same();
         if (@same) {
             $out .= join $sep, @same;
@@ -10872,7 +11135,38 @@ sub util_diffs_markup
             next;
         }
 
+        # this old hunk...
         my @from_old = $diff->Items(1);
+
+        # is replaced by this new hunk
+        my @from_new = $diff->Items(2);
+
+        # if both hunks have the same number of paragraphs, there is a good
+        # chance that there is a 1:1 mapping between the old and new ones, and
+        # that the changes are minor
+        if (@from_old && @from_new && @from_old == @from_new) {
+            for (my $i = 0; $i < @from_old; $i++) {
+                my $a = $from_old[$i];
+                my $b = $from_new[$i];
+
+                # separate out the prefixes, which are never marked as
+                # deletions or insertions
+                my ($ap, $ar) = $a =~ /^($pfx)(.*)$/;
+                my ($bp, $br) = $b =~ /^($pfx)(.*)$/;
+
+                # if prefixes don't match, 
+                $out .= $bp;
+                $out .= util_diffs_markup_inner($ar, $br);
+                $out .= $sep;
+            }
+            next;
+        }
+
+        my $temp1 = @from_old;
+        my $temp2 = @from_new;
+        $out .= "{{mark|diffs-$temp1&$temp2}}";
+
+        # otherwise just show changes paragraph by paragraph
         if (@from_old) {
             for my $item (@from_old) {
                 my ($pre, $rst) = $item =~ /^($pfx)(.*)$/;
@@ -10881,8 +11175,6 @@ sub util_diffs_markup
             # leave the separator, so as to put deleted and inserted text
             # on separate lines
         }
-
-        my @from_new = $diff->Items(2);
         if (@from_new) {
             for my $item (@from_new) {
                 my ($pre, $rst) = $item =~ /^($pfx)(.*)$/;
@@ -11578,6 +11870,9 @@ foreach my $spec (sort @$specs) {
     imsg "$spec: $spectotal->{$spec}" if defined $spectotal->{$spec};
 }
 
+# this allows the file to be included as a module
+1;
+
 # documentation
 =head1 NAME
 
@@ -11612,6 +11907,8 @@ B<report.pl>
 [--lastonly]
 [--loglevel=tn(i)]
 [--marktemplates]
+[--maxchardiffs=i(5)]
+[--maxworddiffs=i(10)]
 [--noautomodel]
 [--nocomments]
 [--nohyphenate]
@@ -11752,7 +12049,7 @@ mark all deprecated or obsoleted items as deleted
 
 =item B<--diffs>
 
-has the same affect as specifying both B<--lastonly> (reports only items that were defined or last modified in the last XML file on the command line) and B<--showdifffs> (visually indicates the differences)
+has the same affect as specifying both B<--lastonly> (reports only items that were defined or last modified in the last XML file on the command line) and B<--showdiffs> (visually indicates the differences)
 
 =item B<--diffsext=s(diffs)>
 
@@ -11788,11 +12085,15 @@ specifies a suffix which, if specified, will be appended (preceded by a hyphen) 
 
 can be specified multiple times; specifies directories to search for files specified on the command line or imported by other files
 
+=over
+
 =item * for files specified on the command line, the current directory is always searched first
 
-=item * for files imported by other files, the directory containing the first file is always searched first; b<this behavior has changed; previously the current directory was always searched>
+=item * for files imported by other files, the directory containing the first file is always searched first; B<this behavior has changed; previously the current directory was always searched>
 
 =item * no search is performed for files that already include directory names
+
+=back
 
 =item B<--info>
 
@@ -11863,6 +12164,19 @@ mark selected template expansions with B<&&&&> followed by template-related info
 for example, the B<reference> template is marked by a string such as B<&&&&pathRef-strong:>, B<&&&&pathRef-weak:>, B<&&&&instanceRef-strong:>, B<&&&&instanceRef-strong-list:> or B<enumerationRef:>
 
 and the B<list> template is marked by a string such as B<&&&&list-unsignedInt:> or B<&&&&list-IPAddress:>
+
+=item B<--maxchardiffs=i(5)>, B<--maxworddiffs=i(10)>
+
+these control how differences are shown in descriptions; each paragraph is handled separately
+
+=over
+
+=item * if the number of inserted and/or deleted characters in the paragraph is less than or equal to B<maxchardiffs>, changes are shown at the character level
+
+=item * otherwise, if the number of inserted and/or deleted words in the paragraph is less than or equal to B<maxworddiffs>, changes are shown at the word level
+=item * otherwise, the entire paragraph is shown as a single change
+
+=back
 
 =item B<--noautomodel>
 

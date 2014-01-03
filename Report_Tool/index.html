@@ -56,6 +56,8 @@
 [--lastonly]
 [--loglevel=tn(i)]
 [--marktemplates]
+[--maxchardiffs=i(5)]
+[--maxworddiffs=i(10)]
 [--noautomodel]
 [--nocomments]
 [--nohyphenate]
@@ -200,7 +202,7 @@ DM-instance...</p>
 <dt><strong><a name="diffs" class="item"><strong>--diffs</strong></a></strong></dt>
 
 <dd>
-<p>has the same affect as specifying both <strong>--lastonly</strong> (reports only items that were defined or last modified in the last XML file on the command line) and <strong>--showdifffs</strong> (visually indicates the differences)</p>
+<p>has the same affect as specifying both <strong>--lastonly</strong> (reports only items that were defined or last modified in the last XML file on the command line) and <strong>--showdiffs</strong> (visually indicates the differences)</p>
 </dd>
 <dt><strong><strong>--diffsext=s(diffs)</strong></strong></dt>
 
@@ -239,15 +241,17 @@ DM-instance...</p>
 
 <dd>
 <p>can be specified multiple times; specifies directories to search for files specified on the command line or imported by other files</p>
-</li>
+<ul>
 <li><strong><a name="for_files_specified_on_the_command_line_the_current_directory_is_always_searched_first" class="item">for files specified on the command line, the current directory is always searched first</a></strong>
 
 </li>
-<li><strong><a name="for_files_imported_by_other_files_the_directory_containing_the_first_file_is_always_searched_first_b_this_behavior_has_changed_previously_the_current_directory_was_always_searched" class="item">for files imported by other files, the directory containing the first file is always searched first; b&lt;this behavior has changed; previously the current directory was always searched&gt;</a></strong>
+<li><strong><a name="for_files_imported_by_other_files_the_directory_containing_the_first_file_is_always_searched_first_this_behavior_has_changed_previously_the_current_directory_was_always_searched" class="item">for files imported by other files, the directory containing the first file is always searched first; <strong>this behavior has changed; previously the current directory was always searched</strong></a></strong>
 
 </li>
 <li><strong><a name="no_search_is_performed_for_files_that_already_include_directory_names" class="item">no search is performed for files that already include directory names</a></strong>
 
+</li>
+</ul>
 </dd>
 <dt><strong><a name="info" class="item"><strong>--info</strong></a></strong></dt>
 
@@ -316,6 +320,20 @@ DM-instance...</p>
 <p>mark selected template expansions with <strong>&amp;&amp;&amp;&amp;</strong> followed by template-related information, a colon and a space</p>
 <p>for example, the <strong>reference</strong> template is marked by a string such as <strong>&amp;&amp;&amp;&amp;pathRef-strong:</strong>, <strong>&amp;&amp;&amp;&amp;pathRef-weak:</strong>, <strong>&amp;&amp;&amp;&amp;instanceRef-strong:</strong>, <strong>&amp;&amp;&amp;&amp;instanceRef-strong-list:</strong> or <strong>enumerationRef:</strong></p>
 <p>and the <strong>list</strong> template is marked by a string such as <strong>&amp;&amp;&amp;&amp;list-unsignedInt:</strong> or <strong>&amp;&amp;&amp;&amp;list-IPAddress:</strong></p>
+</dd>
+<dt><strong><a name="i" class="item"><strong>--maxchardiffs=i(5)</strong>, <strong>--maxworddiffs=i(10)</strong></a></strong></dt>
+
+<dd>
+<p>these control how differences are shown in descriptions; each paragraph is handled separately</p>
+<ul>
+<li><strong><a name="if_the_number_of_inserted_and_or_deleted_characters_in_the_paragraph_is_less_than_or_equal_to_maxchardiffs_changes_are_shown_at_the_character_level" class="item">if the number of inserted and/or deleted characters in the paragraph is less than or equal to <strong>maxchardiffs</strong>, changes are shown at the character level</a></strong>
+
+</li>
+<li><strong><a name="otherwise_if_the_number_of_inserted_and_or_deleted_words_in_the_paragraph_is_less_than_or_equal_to_maxworddiffs_changes_are_shown_at_the_word_level_item_otherwise_the_entire_paragraph_is_shown_as_a_single_change" class="item">otherwise, if the number of inserted and/or deleted words in the paragraph is less than or equal to <strong>maxworddiffs</strong>, changes are shown at the word level
+=item * otherwise, the entire paragraph is shown as a single change</a></strong>
+
+</li>
+</ul>
 </dd>
 <dt><strong><a name="noautomodel" class="item"><strong>--noautomodel</strong></a></strong></dt>
 
@@ -405,7 +423,7 @@ DM-instance...</p>
 <p>if the file already exists, it will be quietly overwritten</p>
 <p>the only reason to use this option (rather than using shell output redirection) is that it allows the tool to know the name of the output file and therefore to include it in the generated XML, HTML report etc</p>
 </dd>
-<dt><strong><a name="i" class="item"><strong>--pedantic=[i(1)]</strong></a></strong></dt>
+<dt><strong><strong>--pedantic=[i(1)]</strong></strong></dt>
 
 <dd>
 <p>enables output of warnings to <em>stderr</em> when logical inconsistencies in the XML are detected; if the option is specified without a value, the value defaults to 1</p>
