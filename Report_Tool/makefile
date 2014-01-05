@@ -1,8 +1,5 @@
-# XXX hacked; needs to be de-hacked
-
-# standalone executables and installation
-PLATFORM = $(shell uname | tr 'A-Z' 'a-z')
-#PLATFORM = exe
+# standalone executable is report.$(PLATFORM): darwin, exe, ...
+PLATFORM = $(shell uname | tr 'A-Z' 'a-z' | sed -e 's/cygwin.*/exe/')
 
 # Windows-specific
 CYGDRIVE = /cygdrive
@@ -11,67 +8,48 @@ STRAWB = $(CYGDRIVE)/c/strawberry32
 STRAWBC = $(STRAWB)/c/bin
 STRAWBP = $(STRAWB)/perl/bin
 STRAWBS = $(STRAWB)/perl/site/bin
-#STRAWBL = $(STRAWB)/c/lib/libxml2.a  $(STRAWB)/c/bin/libxml2-2_.dll  \
-#	  $(STRAWB)/c/lib/libiconv.a $(STRAWB)/c/bin/libiconv-2_.dll \
-#	  $(STRAWB)/c/lib/libz.a     $(STRAWB)/c/bin/libz_.dll
-#STRAWBL = $(STRAWB)/c/bin/libxml2-2_.dll  \
-#	  $(STRAWB)/c/bin/libiconv-2_.dll \
-#	  $(STRAWB)/c/bin/libz_.dll
 STRAWBL = $(STRAWB)/c/bin/libxml2-2_.dll \
 	  $(STRAWB)/c/bin/libiconv-2_.dll \
 	  $(STRAWB)/c/bin/liblzma-5_.dll \
 	  $(STRAWB)/c/bin/zlib1_.dll
 WINDIR = $(CYGDRIVE)/c/Windows/system32
 
-# For all targets
-#INSTDIR = $(DHOME)/cwmp-xml-tools/Report_Tool
-#INSTFILES = report.pl report.pl.info \
-#	    report.mk makefile.example \
-#	    report.$(PLATFORM) report.$(PLATFORM).info \
-#	    README.txt index.html
+FILES = report.$(PLATFORM) report.$(PLATFORM).info
 
-INSTDIR = $(PWD)
-INSTFILES = report.pl.info \
-	    README.txt index.html
+# don't assume that can execute ./report.pl under Windows
+ifneq "$(PLATFORM)" "exe"
+FILES += report.pl.info README.txt index.html
+endif
 
-install: $(INSTFILES:%=$(INSTDIR)/%)
+all: $(FILES)
 
-instclean:
-	$(RM) $(INSTFILES:%=$(INSTDIR)/%)
+clean:
+	$(RM) $(FILES)
 
-$(INSTDIR)/report.pl.info: $(INSTDIR)/report.pl
-	-$< --info 2>$@
+report.pl.info: report.pl
+	-./$< --info 2>$@
 
-$(INSTDIR)/report.$(PLATFORM).info: $(INSTDIR)/report.$(PLATFORM)
-	-$< --info 2>$@
+report.$(PLATFORM).info: report.$(PLATFORM)
+	-./$< --info 2>$@
 
-$(INSTDIR)/README.txt: $(INSTDIR)/report.pl
-	-$< --help >$@
+README.txt: report.pl
+	-./$< --help >$@
 
-$(INSTDIR)/index.html: $(INSTDIR)/report.pl
+index.html: report.pl
 	pod2html5.12 <$< >$@; /bin/rm -f pod2*.tmp
 
-#$(INSTDIR)/%: %
-#	cp -pf $< $@
+PERLMODULES = Algorithm::Diff Clone Config::IniFiles Data::Compare String::Tokenizer XML::LibXML
 
-pp: report.$(PLATFORM)
-
-# XXX no longer maintaining the Cygwin version
-report.cygwin: report.pl
-	pp -o $@ $<
-
-PERLMODULES = Algorithm::Diff Clone Config::IniFiles Data::Compare XML::LibXML
-
-report.exe.william: report.pl makefile
+report.exe: report.pl
 	(PATH=$(STRAWBC):$(STRAWBP):$(STRAWBS) $(WINDIR)/cmd /C pp -c -x -o $@ $(PERLMODULES:%=-M %) $(STRAWBL:%=-l %) $<)
 
-OSXL = /usr/lib/libxml2.dylib \
+DARWINL = /usr/lib/libxml2.dylib \
        /usr/lib/libiconv.2.dylib \
        /usr/lib/libz.1.dylib
-report.darwin: report.pl makefile
-	(PATH=/usr/local/bin DYLD_LIBRARY_PATH=/usr/local/lib DYLD_FALLBACK_LIBRARY_PATH= pp -c -x -o $@ $(PERLMODULES:%=-M %) $(OSXL:%=-l %) $<)
+report.darwin: report.pl
+	(PATH=/usr/local/bin DYLD_LIBRARY_PATH=/usr/local/lib DYLD_FALLBACK_LIBRARY_PATH= pp -c -x -o $@ $(PERLMODULES:%=-M %) $(DARWINL:%=-l %) $<)
 
 # this is one-off after a Strawberry Perl installation
 # XXX should include pp (PAR::Packer) here too
 strawbinst:
-	(PATH=$(STRAWBC):$(STRAWBP) $(WINDIR)/cmd /C cpan -f CPAN $(PERLMODULES))
+	(PATH=$(STRAWBC):$(STRAWBP):$(STRAWBS) $(WINDIR)/cmd /C cpan -f CPAN $(PERLMODULES))
