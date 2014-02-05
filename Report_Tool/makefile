@@ -1,5 +1,7 @@
-# standalone executable is report.$(PLATFORM): darwin, linux, exe, ...
-PLATFORM = $(shell uname | tr 'A-Z' 'a-z' | sed -e 's/cygwin.*/exe/')
+# standalone executable is report.darwin, .linux, .linux32, .exe, ...
+KERNEL = $(shell uname -s | tr 'A-Z' 'a-z' | sed -e 's/cygwin.*/exe/')
+MACHINE = $(shell uname -m | tr 'A-Z' 'a-z' | sed -e 's/i686/32/' -e 's/x86_64//')
+PLATFORM = $(KERNEL)$(MACHINE)
 
 # Windows-specific
 CYGDRIVE = /cygdrive
@@ -56,7 +58,7 @@ report.exe: report.pl
 report.darwin: report.pl
 	(PATH=/usr/local/bin DYLD_LIBRARY_PATH=/usr/local/lib DYLD_FALLBACK_LIBRARY_PATH= pp -c -x -o $@ $(PERLMODULES:%=-M %) $(DARWINL:%=-l %) $<)
 
-report.linux: report.pl
+report.linux report.linux32: report.pl
 	(PATH=/usr/local/bin LD_LIBRARY_PATH=/usr/local/lib pp -c -x -o $@ $(PERLMODULES:%=-M %) $(LINUXL:%=-l %) $<)
 
 # this is one-off after a Strawberry Perl installation
