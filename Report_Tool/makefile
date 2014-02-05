@@ -20,9 +20,9 @@ DARWINL = /usr/lib/libxml2.dylib \
           /usr/lib/libz.1.dylib
 
 # Linux-specific
-LINUXL = /usr/lib/x86_64-linux-gnu/libxml2.so \
-         /usr/lib/x86_64-linux-gnu/libiconv.2.so \
-         /usr/lib/x86_64-linux-gnu/libz.1.so
+LINUXL = /usr/lib/libxml2.so \
+         /usr/lib/libiconv.2.so \
+         /usr/lib/libz.1.so
 
 FILES = report.$(PLATFORM) report.$(PLATFORM).info
 
