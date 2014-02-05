@@ -1,4 +1,4 @@
-# standalone executable is report.$(PLATFORM): darwin, exe, ...
+# standalone executable is report.$(PLATFORM): darwin, linux, exe, ...
 PLATFORM = $(shell uname | tr 'A-Z' 'a-z' | sed -e 's/cygwin.*/exe/')
 
 # Windows-specific
@@ -18,6 +18,11 @@ WINDIR = $(CYGDRIVE)/c/Windows/system32
 DARWINL = /usr/lib/libxml2.dylib \
           /usr/lib/libiconv.2.dylib \
           /usr/lib/libz.1.dylib
+
+# Linux-specific
+LINUXL = /usr/lib/x86_64-linux-gnu/libxml2.so \
+         /usr/lib/x86_64-linux-gnu/libiconv.2.so \
+         /usr/lib/x86_64-linux-gnu/libz.1.so
 
 FILES = report.$(PLATFORM) report.$(PLATFORM).info
 
@@ -50,6 +55,9 @@ report.exe: report.pl
 
 report.darwin: report.pl
 	(PATH=/usr/local/bin DYLD_LIBRARY_PATH=/usr/local/lib DYLD_FALLBACK_LIBRARY_PATH= pp -c -x -o $@ $(PERLMODULES:%=-M %) $(DARWINL:%=-l %) $<)
+
+report.linux: report.pl
+	(PATH=/usr/local/bin LD_LIBRARY_PATH=/usr/local/lib pp -c -x -o $@ $(PERLMODULES:%=-M %) $(LINUXL:%=-l %) $<)
 
 # this is one-off after a Strawberry Perl installation
 # XXX should include pp (PAR::Packer) here too
