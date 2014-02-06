@@ -1,6 +1,6 @@
 # standalone executable is report.darwin, .linux, .linux32, .exe, ...
 KERNEL = $(shell uname -s | tr 'A-Z' 'a-z' | sed -e 's/cygwin.*/exe/')
-MACHINE = $(shell uname -m | tr 'A-Z' 'a-z' | sed -e 's/i686/32/' -e 's/x86_64//')
+MACHINE = $(shell uname -m | tr 'A-Z' 'a-z' | sed -e 's/i.86/32/' -e 's/x86_64//')
 PLATFORM = $(KERNEL)$(MACHINE)
 
 # Windows-specific
