@@ -30,8 +30,10 @@
 # find report.pl in PATH
 # XXX not perfect, e.g. won't find it in a directory whose name includes
 #     whitespace, and would find report.pl* too, but good enough
-REPORT = $(firstword $(wildcard \
-	   $(patsubst %,%/report.pl,$(subst :, ,$(PATH)))))
+ifndef REPORT
+  REPORT = $(firstword $(wildcard \
+	     $(patsubst %,%/report.pl,$(subst :, ,$(PATH)))))
+endif
 ifeq "$(REPORT)" ""
   $(error can\'t find report.pl in PATH)
 endif
@@ -67,6 +69,7 @@ REPORTSPECS = html:.html \
               text:.txt: \
               text:-diffs.txt:--diffs \
 	      xml:-can.xml:--canonical \
+	      xml:-dt.xml \
 	      xml:-dtauto.xml \
 	      xml:-full.xml \
 	      xml:-full-comps.xml:--components \
@@ -78,7 +81,8 @@ REPORTSPECS = html:.html \
 	      xml:-full-nop-pcomp.xml:--noprofiles_--components_--noobjects \
 	      wiki:.wiki \
 	      xls:.xls \
-	      xsd:.xsd
+	      xsd:.xsd \
+	      $(REPORTSPECS_EXTRA)
 
 define REPORT_RULE
 TEMP_SPEC := $(subst :, ,$(1))

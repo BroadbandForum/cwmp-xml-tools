@@ -5650,7 +5650,7 @@ sub parameter_requirement
         next unless $req;
 
         $req = {readOnly => 1, readWrite => 2}->{$req};
-        if ($req > $maxreq) {
+        if (defined($req) && $req > $maxreq) {
             $maxreq = $req;
             push @$matches, $prof;
         }
@@ -7545,7 +7545,7 @@ sub html_template_keys
     }
     d0msg "$object: unique key parameter is a strong reference ($access)"
         if $anystrong && !$is_deleted;
-    emsg "$object: unique key parameter is list-valued"
+    w1msg "$object: unique key parameter is list-valued"
         if $anylist && !$is_deleted;
 
     # for tables with enable parameters, need to generate separate text for
@@ -7685,7 +7685,6 @@ sub html_template_bibref
     }
 
     # when showing diffs, "name" can include deleted and inserted text
-    my $bibref_orig = $bibref;
     $bibref =~ s|\-\-\-(.*?)\-\-\-||g;
     $bibref =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
@@ -7694,7 +7693,7 @@ sub html_template_bibref
     my $text = qq{};
     $text .= qq{[};
     $text .= qq{$section/} if $section && !$bibrefdocfirst;
-    $text .= qq{$bibref_orig};
+    $text .= qq{$bibref};
     $text .= qq{ $section} if $section && $bibrefdocfirst;
     $text .= qq{]};
 
@@ -7819,7 +7818,6 @@ sub html_template_paramref
     }
 
     # when showing diffs, "name" can include deleted and inserted text
-    my $name_orig = $name;
     $name =~ s|\-\-\-(.*?)\-\-\-||g;
     $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
@@ -7877,7 +7875,6 @@ sub html_template_objectref
     }
 
     # when showing diffs, "name" can include deleted and inserted text
-    my $name_orig = $name;
     $name =~ s|\-\-\-(.*?)\-\-\-||g;
     $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
@@ -7939,11 +7936,9 @@ sub html_template_valueref
 
     # when showing diffs, "value" and "name" can include deleted and inserted
     # text
-    my $value_orig = $value;
     $value =~ s|\-\-\-(.*?)\-\-\-||g;
     $value =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
-    my $name_orig = $name;
     $name =~ s|\-\-\-(.*?)\-\-\-||g;
     $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
@@ -12346,7 +12341,7 @@ Excel XML spreadsheet
 
 if B<--lastonly> is specified, DM XML containing only the changes made by the final file on the command line; see also B<--autobase>
 
-if B<--lastonly> is not specified, DM XML with all imports resolved (apart from bibliographic references and data type definitions); use B<--dtprofile>, optionally with B<--dtspec>, to generate DT XML for the specified profiles; use B<--canonical> to generate canonical and more easily compared descriptions; use B<--components> (perhaps with B<--noobjects> or B<--noparameters>) to generate component definitions
+if B<--lastonly> is not specified, DM XML with all imports resolved (apart from bibliographic references and data type definitions); use B<--dtprofile>, optionally with B<--dtspec>, to generate DT XML for the specified profiles; use B<--canonical> to omit transient information, e.g. dates and times, that makes it harder to compare reports; use B<--components> (perhaps with B<--noobjects> or B<--noparameters>) to generate component definitions
 
 =item B<xml2>
 

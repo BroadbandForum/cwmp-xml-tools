@@ -484,10 +484,10 @@ Options:
             if --lastonly is not specified, DM XML with all imports resolved
             (apart from bibliographic references and data type definitions);
             use --dtprofile, optionally with --dtspec, to generate DT XML
-            for the specified profiles; use --canonical to generate
-            canonical and more easily compared descriptions; use
-            --components (perhaps with --noobjects or --noparameters) to
-            generate component definitions
+            for the specified profiles; use --canonical to omit transient
+            information, e.g. dates and times, that makes it harder to
+            compare reports; use --components (perhaps with --noobjects or
+            --noparameters) to generate component definitions
 
         xml2
             same as the xml report with --lastonly not specified; deprecated
