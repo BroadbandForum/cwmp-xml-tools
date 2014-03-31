@@ -671,6 +671,7 @@ my $htmlbbf_info = {};
 
 # Parse and expand a data model definition file.
 # XXX also does minimal expansion of schema files
+my $firstautomodel = undef;
 sub expand_toplevel
 {
     my ($file)= @_;
@@ -808,8 +809,15 @@ sub expand_toplevel
         # XXX is there no way to pass arguments by keyword in perl?
         $i = 1 unless defined $i;
         $a = 0 unless defined $a;
-        my $nnode = add_model($context, $root, $mname, undef, undef, undef,
-            undef, undef, undef, $i, $a);
+        my $mref = undef;
+        if (!defined $firstautomodel) {
+            $firstautomodel = $i;
+        } else {
+            $mref = $mname;
+            $mref =~ s/\d+$/$firstautomodel/;
+        }
+        my $nnode = add_model($context, $root, $mname, $mref, undef, undef,
+            '', 'create', undef, $i, $a);
         foreach my $comp (@comps) {
             my $name = $comp->{name};
             my $component = $comp->{item};
@@ -1698,6 +1706,7 @@ sub expand_model_object
 
     # XXX for unique keys, add any new ones (this means that there is no way
     #     to remove a unique key, but that's OK?)
+    # XXX this logic means that --compare will show duplicates
     if ($uniqueKeys && @$uniqueKeys) {
         if (!@{$nnode->{uniqueKeys}}) {
             $nnode->{uniqueKeys} = $uniqueKeys;
@@ -3224,13 +3233,42 @@ sub add_parameter
             }
         }
         if (%$values) {
+            my $dvalues = {};
             foreach my $value (sort {$cvalues->{$a}->{i} <=>
                                          $cvalues->{$b}->{i}} keys %$cvalues) {
-                w0msg "$path.$value: omitted; should instead mark as ".
-                    "deprecated/obsoleted/deleted"
-                    if !$is_dt && !$compare && !$visited->{$value};
+                if (!$visited->{$value}) {
+                    if (!$compare) {
+                        w0msg "$path.$value: omitted; should instead mark as ".
+                            "deprecated/obsoleted/deleted" if !$is_dt;
+                    } else {
+                        d0msg "$path.$value: deleted";
+                        $changed->{values}->{$value}->{status} = 1;
+                        $dvalues->{$value} = $cvalues->{$value};
+                        $dvalues->{$value}->{status} = 'deleted';
+                    }
+                }
             }
+
             $nnode->{values} = $values;
+
+            # XXX if --compare, rewrite the values with the deleted ones at
+            #     the beginning (should have single set of logic here)
+            if ($compare) {
+                $nnode->{values} = {};
+                my $i = 0;
+                foreach my $value (
+                    sort {$dvalues->{$a}->{i} <=>
+                              $dvalues->{$b}->{i}} keys %$dvalues) {
+                    $nnode->{values}->{$value} = $dvalues->{$value};
+                    $nnode->{values}->{$value}->{i} = $i++
+                }
+                foreach my $value (
+                    sort {$values->{$a}->{i} <=>
+                              $values->{$b}->{i}} keys %$values) {
+                    $nnode->{values}->{$value} = $values->{$value};
+                    $nnode->{values}->{$value}->{i} = $i++
+                }                
+            }
         }
         #emsg Dumper($nnode->{values});
         # XXX this isn't perfect; some things are getting defined as '' when
@@ -3902,6 +3940,8 @@ sub type_string
 {
     my ($type, $syntax) = @_;
 
+    my $psyntax = $syntax;
+
     my $typeinfo = get_typeinfo($type, $syntax);
     my ($value, $dataType) = ($typeinfo->{value}, $typeinfo->{dataType});
 
@@ -3913,9 +3953,9 @@ sub type_string
     }
 
     # lists are always strings at the CWMP level
-    if ($syntax->{list}) {
+    if ($psyntax->{list}) {
         $value = 'string';
-        $value .= add_size($syntax, {list => 1});
+        $value .= add_size($psyntax, {list => 1});
     } else {
         $value .= add_size($syntax);
         $value .= add_range($syntax);
@@ -4257,6 +4297,8 @@ sub parse_file
         qq{<?xml version="1.0" encoding="UTF-8"?>\n} .
         qq{<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">\n};
 
+    $schemaLocation =~ s/^\s*//;
+    $schemaLocation =~ s/\s*$//;
     my %nsmap = split /\s+/, $schemaLocation;
     foreach my $ns (keys %nsmap) {
         my $path = $nsmap{$ns};
@@ -5310,6 +5352,7 @@ $i             $specattr="$dmspec"$fileattr>
         #$description = clean_description($description, $node->{name})
         #    if $canonical;
         $description = xml_escape($description);
+        my $descname = !@$dtprofiles ? qq{description} : qq{annotation};
 
         my $end_element = (@{$node->{nodes}} || $description || $syntax) ? '' : '/';
         print qq{$i<!--\n} if $element eq 'object' && $noobjects;
@@ -5333,8 +5376,7 @@ $i             $specattr="$dmspec"$fileattr>
             print qq{$i</object>\n};
         }
         $node->{xml2}->{element} = '' if $end_element;
-        print qq{$i  <description>$description</description>\n} if
-            $description;
+        print qq{$i  <$descname>$description</$descname>\n} if $description;
         if ($uniqueKeys && !@$dtprofiles) {
             foreach my $uniqueKey (@$uniqueKeys) {
                 my $functional = $uniqueKey->{functional};
@@ -8323,7 +8365,7 @@ sub relative_path
                 unless $parent;
             $name =~ s/^$parp*\.?//;
             # if name is empty, will use final component of parent
-            $name2 = $comps[-1];
+            $name2 = $comps[-1] || '';
             $name2 =~ s/\{.*//;
             #emsg "$parent $name $name2" if $nlev;
         }
@@ -8455,9 +8497,8 @@ sub html_hyperlink
     my ($inval) = @_;
 
     # XXX need a better set of URL characters
-    my $last = q{\w\d\:\/\?\&\=\-};
+    my $last = q{\w\d\:\~\/\?\&\=\-};
     my $notlast = $last . q{\.};
-#   $inval =~ s|([a-z]+://[\w\d\.\:\/\?\&\=-]+)|<a href="$1">$1</a>|g;
     $inval =~ s|([a-z]+://[$notlast]*[$last])|<a href="$1">$1</a>|g;
 
     return $inval;
@@ -11457,10 +11498,12 @@ sub sanity_node
     # XXX experimental: treat as deleted if comparing and node was created
     #     in first file but not mentioned in second file (probably lots of
     #     holes in this but it seems to improve things)
-    # XXX one this is DOES NOT improve is if the node was auto-created!
+    # XXX one thing it DOES NOT improve is if the node was auto-created, so
+    #     auto-created nodes are excluded
     if ($compare) {
         if (defined $node->{file} && $node->{file} eq $pfile) {
-            if (defined $node->{sfile} && $node->{sfile} ne $lfile) {
+            if (defined $node->{sfile} && $node->{sfile} ne $lfile &&
+                !$node->{auto}) {
                 #emsg "$node->{path}: marked deleted!";
                 # XXX should use a function for this (no need to propagate
                 #     to children (although could) because if parent isn't
