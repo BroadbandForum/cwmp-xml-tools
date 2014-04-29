@@ -286,6 +286,7 @@ our $noobjects = 0;
 our $noparameters = 0;
 our $noprofiles = 0;
 our $notemplates = 0;
+our $nowarnbibref = 0;
 our $nowarnredef = 0;
 our $nowarnreport = 0;
 our $nowarnprofbadref = 0;
@@ -352,6 +353,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
 	   'noparameters' => \$noparameters,
 	   'noprofiles' => \$noprofiles,
 	   'notemplates' => \$notemplates,
+           'nowarnbibref' => \$nowarnbibref,
            'nowarnredef' => \$nowarnredef,
            'nowarnreport' => \$nowarnreport,
            'nowarnprofbadref' => \$nowarnprofbadref,
@@ -405,6 +407,7 @@ sub d1msg { msg 'D', @_ if $loglevel >= $LOGLEVEL_DEBUG + 1;   }
 sub d2msg { msg 'D', @_ if $loglevel >= $LOGLEVEL_DEBUG + 2;   }
 
 my $msgs = []; # warnings and errors logged via msg()
+my $num_errors = 0;
 
 # parse loglevel (can't use the msg routines until have set it)
 # 0x=fatal, 1x=error, 2x=info, 3x=warning, 4x=debug
@@ -513,6 +516,10 @@ if ($warndupbibref) {
     $warnbibref = 1;
 }
 
+if (defined $warnbibref && $nowarnbibref) {
+    emsg "--nowarnbibref overrides --warnbibref";
+}
+
 if ($nowarnprofbadref) {
     emsg "--nowarnprofbadref is deprecated; it's no longer necessary";
 }
@@ -567,6 +574,7 @@ $marktemplates = '&&&&' if defined($marktemplates);
 
 $warnbibref = 1 if defined($warnbibref) and !$warnbibref;
 $warnbibref = 0 unless defined($warnbibref);
+$warnbibref = -1 if $nowarnbibref;
 
 $pedantic = 1 if defined($pedantic) and !$pedantic;
 $pedantic = 0 unless defined($pedantic);
@@ -684,11 +692,11 @@ sub expand_toplevel
 
     # for XSD files, just track the target namespace then return
     my $spec;
-    my $pubdate = util_pubdate($toplevel);
+    my $appdate = util_appdate($toplevel);
     if ($file =~ /\.xsd$/) {
         my $targetNamespace = $toplevel->findvalue('@targetNamespace');
         my $hash = {name => $file, spec => $targetNamespace,
-                    pubdate => $pubdate, schema => 1};
+                    appdate => $appdate, schema => 1};
         push @$allfiles, $hash;
         push @$files2, $hash unless grep { $_->{name} eq $file} @$files2;
         return;
@@ -698,7 +706,7 @@ sub expand_toplevel
         my $description = $toplevel->findvalue('description');
         $description = undef unless $description;
         my @models = $toplevel->findnodes('model');
-        my $hash = {name => $file, spec => $spec, pubdate => $pubdate,
+        my $hash = {name => $file, spec => $spec, appdate => $appdate,
                     description => $description, models => \@models};
         push @$allfiles, $hash;
         push @$files2, $hash unless grep { $_->{name} eq $file} @$files2;
@@ -841,13 +849,13 @@ sub expand_toplevel
     }
 }
 
-# "allfiles" comparison based on publication date (any files with unknown
-# empty publication date will precede any with known publication date; but
-# if no files have known publication date, the order will be unchanged)
-sub allfiles_pubdate_cmp
+# "allfiles" comparison based on approval date (any files with unknown
+# empty approval date will precede any with known approval date; but
+# if no files have known approval date, the order will be unchanged)
+sub allfiles_appdate_cmp
 {
-    my $ad = $a->{pubdate};
-    my $bd = $b->{pubdate};
+    my $ad = $a->{appdate};
+    my $bd = $b->{appdate};
 
     return ($ad cmp $bd);
 }
@@ -988,8 +996,8 @@ sub expand_import
                        $item);
     }
 
-    my $pubdate = util_pubdate($toplevel);
-    push @$files2, {name => $tfile, spec => $fspec, pubdate => $pubdate,
+    my $appdate = util_appdate($toplevel);
+    push @$files2, {name => $tfile, spec => $fspec, appdate => $appdate,
                     models => \@models} unless
                         grep { $_->{name} eq $tfile} @$files2;
 
@@ -1290,14 +1298,14 @@ sub expand_bibliography
                 # error if $autobase is set)
                 msg "W", "$id: duplicate bibref: {$file}$name"
                     if !$autobase && ($loglevel >= $LOGLEVEL_DEBUG ||
-                                      $warnbibref);
+                                      $warnbibref > 0);
             } elsif ($dupref->{name} ne $name) {
                 emsg "$id: ambiguous bibref: ".
                     "{$dupref->{file}}$dupref->{name}, {$file}$name";
             } else {
                 msg "W", "$id: duplicate bibref: " .
                     "{$dupref->{file}}$dupref->{name}, {$file}$name"
-                    if $loglevel >= $LOGLEVEL_DEBUG || $warnbibref;
+                    if $loglevel >= $LOGLEVEL_DEBUG || $warnbibref > 0;
             }
         }
 
@@ -1609,6 +1617,7 @@ sub expand_model_object
     my $numEntriesParameter = $object->findvalue('@numEntriesParameter');
     my $enableParameter = $object->findvalue('@enableParameter');
     my $status = $object->findvalue('@status');
+    my $id = $object->findvalue('@id');
     my $description = $object->findvalue('description');
     my $descact = $object->findvalue('description/@action');
     my $descdef = $object->findnodes('description')->size();
@@ -1692,6 +1701,9 @@ sub expand_model_object
         $nnode->{noUniqueKeys};
     $nnode->{fixedObject} = $fixedObject unless
         $nnode->{fixedObject};
+
+    # XXX hack the id
+    $nnode->{id} = $id if $id;
 
     # note previous uniqueKeys
     my $uniqueKeys = $nnode->{uniqueKeys};
@@ -1854,6 +1866,7 @@ sub expand_model_parameter
     my $status = $parameter->findvalue('@status');
     my $activeNotify = $parameter->findvalue('@activeNotify');
     my $forcedInform = $parameter->findvalue('@forcedInform');
+    my $id = $parameter->findvalue('@id');
     # XXX lots of hackery here...
     my @types = $parameter->findnodes('syntax/*');
     my $type = !@types ? undef : $types[0]->findvalue('local-name()') eq 'list' ? $types[1] : $types[0];
@@ -2080,6 +2093,9 @@ sub expand_model_parameter
 
     # XXX add some other stuff (really should be handled by add_parameter)
     check_and_update($nnode->{path}, $nnode, 'hasPattern', $hasPattern);
+
+    # XXX hack the id
+    $nnode->{id} = $id if $id;
 }
 
 # Expand a data model profile.
@@ -3365,7 +3381,7 @@ sub add_parameter
         $nnode->{sfile} = $Lfile;
     } else {
         emsg "$path: unnamed parameter" unless $name;
-        emsg "$path: untyped parameter" unless $type;
+        emsg "$path: untyped parameter" unless $type || $auto;
         w0msg "$path: invalid description action: $descact"
             if !$autobase && $descact && $descact ne 'create';
 
@@ -3633,6 +3649,12 @@ sub valid_ranges
 
     $primtype = base_type($primtype, 1) if $dataType;
 
+    # XXX if range for type is undefined, something is wrong; most likely,
+    #     there is a named data type that is non-numeric but has a range;
+    #     quietly ignore such cases
+    my $rfort = $range_for_type->{$primtype};
+    return 1 unless defined $rfort;
+
     # ensure that both ends of each range are defined
     my $definedranges = [];
     foreach my $range (@$ranges) {
@@ -3648,8 +3670,8 @@ sub valid_ranges
         $maxval = $range_for_type->{$primtype}->{max} unless defined $maxval;
         $step = 1 unless defined $step;
 
-        push @$definedranges, {minInclusive => $minval, maxInclusive => $maxval,
-                               step => $step};
+        push @$definedranges, {minInclusive => $minval,
+                               maxInclusive => $maxval, step => $step};
     }
 
     # sort ranges by minInclusive then maxInclusive
@@ -6088,6 +6110,7 @@ sub html_node
                      table => $node->{table},
                      profile => $profile ? $name : '',
                      access => $node->{access},
+                     id => $node->{id},
                      minEntries => $node->{minEntries},
                      maxEntries => $node->{maxEntries},
                      type => $node->{type},
@@ -6229,7 +6252,7 @@ END
             #     descriptions...
             my $ibr = invalid_bibrefs($preamble);
             emsg "invalid bibrefs (need to use the --tr106 option?): " .
-              join(', ', @$ibr) if @$ibr;
+              join(', ', @$ibr) if $warnbibref >= 0 && @$ibr;
             $preamble = html_escape($preamble);
             $html_buffer .= <<END;
     <h1>$anchor->{def}</h1>
@@ -7005,6 +7028,10 @@ sub html_template
 {
     my ($inval, $p) = @_;
 
+    # path for use in error messages
+    my $path = $p->{path};
+    $path = '<unknown>' unless $path;
+
     # XXX hack to ignore ---deleted--- text when deciding whether to auto-
     #     include template references
     my $tinval = $inval;
@@ -7037,6 +7064,14 @@ sub html_template
         $inval = "{{datatype}}" . $sep . $inval;
     }
 
+    # auto-prefix {{showid}} if requested and the item has an id
+    if ($p->{id} &&
+        $tinval !~ /\{\{showid/ &&
+        $tinval !~ /\{\{noshowid\}\}/) {
+        my $sep = !$tinval ? "" : "  ";
+        $inval = "{{showid}}" . $sep . $inval;
+    }
+
     # auto-prefix {{profdesc}} if it's a profile
     if ($p->{profile} && $tinval !~ /\{\{noprofdesc\}\}/) {
         my $sep = !$tinval ? "" : "\n";
@@ -7058,8 +7093,8 @@ sub html_template
             $tinval !~ /\{\{pattern\}\}/ && $tinval !~ /\{\{nopattern\}\}/;
     }
 
-    # similarly auto-append {{hidden}}, {{command}}, {{factory}}, {{entries}}
-    # and {{keys}} if appropriate
+    # similarly auto-append {{hidden}}, {{command}}, {{factory}}, {{entries}} and
+    # {{keys}} if appropriate
     if ($p->{hidden} && $tinval !~ /\{\{hidden/ &&
         $tinval !~ /\{\{nohidden\}\}/) {
         my $sep = !$tinval ? "" : "\n";
@@ -7094,12 +7129,12 @@ sub html_template
         [
          {name => 'appdate',
           text1 => \&html_template_appdate},
-         {name => 'pubdate',
-          text1 => \&html_template_pubdate},
          {name => 'docname',
           text1 => \&html_template_docname},
          {name => 'trname',
           text1 => \&html_template_trname},
+         {name => 'trref',
+          text1 => \&html_template_trref},
          {name => 'xmlref',
           text1 => \&html_template_xmlref,
           text2 => \&html_template_xmlref},
@@ -7189,6 +7224,12 @@ sub html_template
          {name => 'issue',
           text1 => \&html_template_issue,
           text2 => \&html_template_issue},
+         {name => 'showid',
+          text0 => \&html_template_showid},
+         {name => 'sub',
+          text1 => \&html_template_sub},
+         {name => 'sup',
+          text1 => \&html_template_sup},
          {name => 'ignore',
           text => q{}}
          ];
@@ -7204,7 +7245,8 @@ sub html_template
         # handling nested braces), so match braces to find end
         my $tref = extract_bracketed($temp, '{}');
         if (!defined($tref)) {
-            emsg "$p->{path}: invalid template reference: $temp";
+            emsg "$path: invalid template reference: $temp" unless 
+                ($warnbibref < 0 && $temp =~ /^\{\{bibref/);
             $inval =~ s/\{\{/\[\[/;
             next;
         }
@@ -7212,7 +7254,8 @@ sub html_template
         # XXX atstart is possibly useful for descriptions that consist only of
         #     {{enum}} or {{pattern}}?  I think not...
         if (!defined($name)) {
-            emsg "$p->{path}: invalid template reference: $tref";
+            emsg "$path: invalid template reference: $tref" unless
+                ($warnbibref < 0 && $name eq 'bibref');
             $inval =~ s/\{\{/\[\[/;
             next;
         }
@@ -7263,14 +7306,15 @@ sub html_template
             }
         }
         if ($name && (!defined $text || $text =~ /^\[\[/)) {
-            emsg "$p->{path}: invalid template reference: $tref"
-                unless $compare;
+            emsg "$path: invalid template reference: $tref"
+                unless $compare || ($warnbibref < 0 && $name eq 'bibref');
             #emsg "$name: n=$n cmd=<$cmd> text=<$text>";
             #foreach my $a (@a) {
             #    emsg "  $a";
             #}
         }
         # process tref to avoid problems with RE special characters
+        # XXX could/should use \Q and \E here (but won't change it now)
         $tref =~ s/[^\{\}]/\./g;
         $inval =~ s/$tref/$text/;
     }
@@ -7389,6 +7433,22 @@ sub html_template_units
     } else {
         return qq{''$units''};
     }
+}
+
+# subscript
+sub html_template_sub
+{
+    my ($opts, $arg) = @_;
+
+    return qq{<sub>$arg</sub>};
+}
+
+# superscript
+sub html_template_sup
+{
+    my ($opts, $arg) = @_;
+
+    return qq{<sup>$arg</sup>};
 }
 
 # XXX want to be able to control level of generated info?
@@ -7707,6 +7767,21 @@ sub html_template_pattern
     return $pref . xml_escape(get_values($opts->{node}, !$nolinks));
 }
 
+# report an object or parameter id
+sub html_template_showid
+{
+    my ($opts) = @_;
+
+    my $node = $opts->{node};
+    my $id = $node->{id};
+
+    # XXX would like to generate a link, but this fights with the auto-link
+    #     logic; need to support a more mediawiki-like link syntax
+    #my $text = qq{'''[http://oid-info.com/get/$id]'''};
+    my $text = qq{'''[$id]'''};
+
+    return $text;
+}
 
 # generates reference to bibliographic reference: arguments are bibref name
 # and optional section
@@ -7766,6 +7841,15 @@ sub html_template_trname
     return qq{};
 }
 
+# TR reference
+sub html_template_trref
+{
+    my ($opts, $trname) = @_;
+
+    my $trlink = util_doc_link($trname);
+    return qq{[$trlink $trname]};
+}
+
 # approval date (expands to empty string)
 sub html_template_appdate
 {
@@ -7774,18 +7858,6 @@ sub html_template_appdate
     my $file = $opts->{file};
     $htmlbbf_info->{$file}->{appdate} = $date if
         $file && !defined $htmlbbf_info->{$file}->{appdate};
-
-    return qq{};
-}
-
-# publication date (expands to empty string)
-sub html_template_pubdate
-{
-    my ($opts, $date) = @_;
-
-    my $file = $opts->{file};
-    $htmlbbf_info->{$file}->{pubdate} = $date if
-        $file && !defined $htmlbbf_info->{$file}->{pubdate};
 
     return qq{};
 }
@@ -8492,14 +8564,29 @@ sub html_list
 }
 
 # Process hyperlinks
+# hyperlinks can be either bare URLs, in which case the URL appears literally,
+# or else of the form [URL TEXT] in which case the TEXT appears in the HTML
+# and links to URL (any punctuation or whitespace in URL has to be percent
+# escaped)
 sub html_hyperlink
 {
     my ($inval) = @_;
 
     # XXX need a better set of URL characters
-    my $last = q{\w\d\:\~\/\?\&\=\-};
+    my $last = q{\w\d\:\~\/\?\&\=\-\%\#};
     my $notlast = $last . q{\.};
+
+    # URL => <a href=URL">URL</a>
     $inval =~ s|([a-z]+://[$notlast]*[$last])|<a href="$1">$1</a>|g;
+
+    # [<a href="URL">URL</a> TEXT] => <a href="URL">TEXT</a>
+    #  |-----$1-----|$2||$3| |$4|
+    $inval =~ s|\[(\<[^\>]+\>)([^\<]+)(\<[^\>]+\>)\s+([^\]]+)\]|$1$4$3|g;
+
+    # XXX allow file://#ANCHOR but this is an invalid URL, so remove the
+    #     file:// bit; it would be better instead to support the mediawiki-
+    #     like [[#fragment]] syntax
+    $inval =~ s|file://\#|\#|g;
 
     return $inval;
 }
@@ -8564,7 +8651,7 @@ sub html_paragraph
     my @lines = split /\n/, $inval;
     foreach my $line (@lines) {
         $line =~ s/$/<p>/ if
-            $line =~ /^(<b>|<i>|<span)/ || $line !~ /^(\s|\s*<)/;
+            $line =~ /^(<b>|<i>|<sub>|<sup>|<span)/ || $line !~ /^(\s|\s*<)/;
 
         $outval .= "$line\n";
     }
@@ -8692,8 +8779,7 @@ sub htmlbbf_init
     # XXX see OD-148.txt for the details
     return unless $configfile;
 
-    my $known_props =
-        q{document|description|descr_model|trname|appdate|pubdate};
+    my $known_props = q{document|description|descr_model|trname|appdate};
 
     require Config::IniFiles;
 
@@ -8759,6 +8845,40 @@ sub htmlbbf_begin
     # others
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
+    # introductory text
+    my $intro = $htmlbbf_global->{intro};
+    $intro = <<END unless $intro;
+    [${trpage}TR-181i2%20Overview.pdf Overview of the Device:2 Root Data Model in TR-069 Family of Specifications]
+    The available data model definitions and XML Schemas for the TR-069 suite of documents are listed below.
+
+END
+
+    # handle any footnotes within the introductory text
+    # XXX footnotes are currently handled locally but general footnote support
+    #     might be added later
+    my $footnotes = [];
+    my $footpatt = q{(\{\{footnote\|.*)};
+    my $footcount = 0;
+    while ($intro =~ /$footpatt/) {
+        $footcount++;
+        my ($footref) = $intro =~ /$footpatt/;
+        $footref = extract_bracketed($footref, '{}');
+        my ($footnote) = $footref =~ /{{footnote\|(.*)}}/;
+        $intro =~ s/\Q$footref\E/{{sup|$footcount}}/;
+        push @$footnotes, $footnote;
+    }
+    $intro .= qq{{{footnotes}}} if @$footnotes && $intro !~ /{{footnotes}}/;
+    my $foottext = qq{};
+    $footcount = 0;
+    foreach my $footnote (@$footnotes) {
+        $footcount++;
+        $foottext .= qq{{{sup|$footcount}} $footnote\n};
+    }
+    $intro =~ s/{{footnotes}}\s*/$foottext/;
+
+    # escape the introductory text
+    $intro = html_escape($intro);
+
     # header
     # XXX should put standard header and footer info, as for the HTML report
     print <<END;
@@ -8780,14 +8900,7 @@ sub htmlbbf_begin
   </head>
   <body>
     <h1>CPE WAN Management Protocol (CWMP)</h1>
-    <p><a href="${trpage}TR-181i2%20Overview.pdf">
-    Overview of the Device:2 Root Data Model in TR-069 Family of Specifications</a></p>
-    <p/>
-    <p>The available data model definitions and XML Schemas for the TR-069
-       suite of documents are listed below.</p>
-    <p/>
-    <p>Note: all the files below are directly reachable via:
-       <em>http://www.broadband-forum.org/cwmp/&lt;filename&gt;</em>.</p>
+    $intro
 
 END
 
@@ -8893,15 +9006,15 @@ END
             # multiple {{xmlref}} references to the same outdated file)
             next if grep {$_->{name} eq $rfile} @$outdatedfiles;
 
-            # take the publication date and description from the latest file
+            # take the approval date and description from the latest file
             my ($file) = grep {$_->{name} eq $name} @$allfiles;
-            my $pubdate = $file->{pubdate};
+            my $appdate = $file->{appdate};
             my $description = $file->{description};
 
             # note the name of the file that references the outdated file
             # (this is used when deciding whether to create links)
             push @$outdatedfiles, {name => $rfile, latest => $name,
-                                   pubdate => $pubdate,
+                                   appdate => $appdate,
                                    description => $description,
                                    outdated => 1};
         }
@@ -9122,7 +9235,7 @@ sub htmlbbf_file
            suppress => $html_suppress },
          { name => 'description', value => 'Description', percent => 40,
            suppress => 0 },
-         { name => 'pubdate', value => 'Publication Date', percent => 10,
+         { name => 'appdate', value => 'Approval Date', percent => 10,
            suppress => 0 },
          { name => 'pdflink', value => 'PDF', percent => 15, suppress => 0 }
         ];
@@ -9255,7 +9368,7 @@ END
         push @names, qq{$xxnnn-$i-$a-$c$label.$ext} if defined $c;
         push @names, qq{$xxnnn-$i-$a$label.$ext} if defined $a;
         push @names, qq{$xxnnn-$i$label.$ext} if defined $i;
-        push @names, qq{$xxnnn$label.$ext};
+        push @names, qq{$xxnnn$label.$ext} if defined $xxnnn;
 
         $name_nc = qq{$xxnnn-$i-$a$label.$ext} if defined $i && defined $a;
     }
@@ -9300,20 +9413,15 @@ END
     my $document = undef;
     my $trname = undef;
     my $appdate = undef;
-    my $pubdate = undef;
     foreach my $n (@names) {
         my $info = $htmlbbf_info->{$n};
         $document = $info->{document} unless defined $document;
         $trname = $info->{trname} unless defined $trname;
         $appdate = $info->{appdate} unless defined $appdate;
-        $pubdate = $info->{pubdate} unless defined $pubdate;
     }
 
     # if document unspecified, set to "TBD"
     $document = q{<b>TBD</b>} unless $document;
-
-    # if publication date undefined, use approval date if available
-    $pubdate = $appdate unless $pubdate || !$appdate;
 
     # determine the file rows, which involves deciding whether to add the
     # "full" XML link (not the HTML link because the "full" HTML should be the
@@ -9350,19 +9458,19 @@ END
         push @htmlrows, qq{$hname};
     }
 
-    # convert the publication date from "yyyy-mm" to "Month yyyy"; if it
+    # convert the approval date from "yyyy-mm" to "Month yyyy"; if it
     # doesn't match the pattern, quietly leave it alone (perhaps it's OK!)
-    if ($pubdate) {
+    if ($appdate) {
         my $months = ['NotAMonth', 'January', 'February', 'March', 'April',
                       'May', 'June', 'July', 'August', 'September', 'October',
                       'November', 'December'];
-        my ($year, $month) = $pubdate =~ /(\d+)-(\d+)/;
-        $pubdate = qq{$months->[$month] $year} if
+        my ($year, $month) = $appdate =~ /(\d+)-(\d+)/;
+        $appdate = qq{$months->[$month] $year} if
             defined($month) && defined($year);
     }
 
-    # if publication date unspecified, set to "TBD"
-    $pubdate = q{<b>TBD</b>} unless $pubdate;
+    # if approval date unspecified, set to "TBD"
+    $appdate = q{<b>TBD</b>} unless $appdate;
 
     # generate the TR document name and PDF link
     my $shortname;
@@ -9443,7 +9551,7 @@ END
         }
 
         my $descval = {text => $description};
-        my $pubval = {text => $pubdate};
+        my $appval = {text => $appdate};
 
         # row is an array of columns
         push @{$context->{rows}},
@@ -9454,7 +9562,7 @@ END
          { name => 'file',        value => $fileval },
          { name => 'html',        value => $htmlval },
          { name => 'description', value => $descval },
-         { name => 'pubdate',     value => $pubval },
+         { name => 'appdate',     value => $appval },
          { name => 'pdflink',     value => $pdfval }
         ];
     }
@@ -10704,6 +10812,7 @@ sub msg
     $text = $pfx . $text;
     push @$msgs, $text if $cat =~ /E|W/;
     print STDERR $text, $nl ? qq{} : qq{\n};
+    $num_errors++ if $cat eq 'E';
 }
 
 # Clean the command line by discarding all but the final component from path
@@ -10793,10 +10902,10 @@ sub util_full_path
     return $text;
 }
 
-# Heuristic determination of publication date of an XML file; the date is
+# Heuristic determination of approval date of an XML file; the date is
 # returned as numeric 'yyyy-mm-dd' (i.e. will sort correctly) or as '' if
 # unknown
-sub util_pubdate
+sub util_appdate
 {
     my ($toplevel) = @_;
 
@@ -11566,14 +11675,16 @@ sub sanity_node
         # XXX should check all descriptions, not just obj / par ones (now
         #     better: checking enumeration descriptions)
         my $ibr = invalid_bibrefs($description);
-        emsg "$path: invalid bibrefs: " . join(', ', @$ibr) if @$ibr;
+        emsg "$path: invalid bibrefs: " . join(', ', @$ibr) if
+            $warnbibref >= 0 && @$ibr;
         if (util_is_defined($values)) {
             foreach my $value (keys %$values) {
                 my $cvalue = $values->{$value};
                 
                 my $description = $cvalue->{description};
                 my $ibr = invalid_bibrefs($description);
-                emsg "$path: invalid bibrefs: " . join(', ', @$ibr) if @$ibr;
+                emsg "$path: invalid bibrefs: " . join(', ', @$ibr) if
+                    $warnbibref >= 0 && @$ibr;
             }
         }
 
@@ -11751,7 +11862,7 @@ sub sanity_node
     }
 
     # profile sanity checks
-    if ($profile) {
+    if ($profile && !$automodel) {
         foreach my $path (sort keys %{$node->{errors}}) {
             emsg "profile $name references invalid $path";
         }
@@ -11908,6 +12019,12 @@ foreach my $spec (sort @$specs) {
     imsg "$spec: $spectotal->{$spec}" if defined $spectotal->{$spec};
 }
 
+# The exit code is the negative of the number of reported errors, which will
+# probably be masked to 8 bits, e.g. -2 will probably be reported as 254
+# XXX can't change this unconditionally; will break any scripts that assume
+#     a zero return code; add an option to control it
+# exit -$num_errors;
+
 # this allows the file to be included as a module
 1;
 
@@ -11958,6 +12075,7 @@ B<report.pl>
 [--noprofiles]
 [--notemplates]
 [--nowarnredef]
+[--nowarnbibref]
 [--nowarnreport]
 [--nowarnprofbadref]
 [--objpat=p("")]
@@ -12550,6 +12668,8 @@ this has the same effect as setting B<--loglevel> to "d" (debug) followed by the
 =item B<--warnbibref[=i(1)]>
 
 enables bibliographic reference warnings (these warnings are also output if B<--verbose> is specified); the higher the level the more warnings
+
+setting it to -1 is the same as setting B<--nowarnbibref> and suppresses various bibref-related errors that would normally be output
 
 previously known as B<--warndupbibref>, which is now deprecated (and will be removed in a future release) because it covers more than just duplicate bibliographic references
 

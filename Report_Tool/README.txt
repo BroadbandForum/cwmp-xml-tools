@@ -8,9 +8,9 @@ Usage:
     [--lastonly] [--loglevel=tn(i)] [--marktemplates] [--maxchardiffs=i(5)]
     [--maxworddiffs=i(10)] [--noautomodel] [--nocomments] [--nohyphenate]
     [--nolinks] [--nologprefix] [--nomodels] [--noobjects] [--noparameters]
-    [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnreport]
-    [--nowarnprofbadref] [--objpat=p("")] [--option=n=v]... [--outfile=s]
-    [--pedantic[=i(1)]] [--plugin=s]... [--quiet]
+    [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnbibref]
+    [--nowarnreport] [--nowarnprofbadref] [--objpat=p("")] [--option=n=v]...
+    [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]... [--quiet]
     [--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...]
     [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion]
     [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)]
@@ -681,6 +681,10 @@ Options:
         enables bibliographic reference warnings (these warnings are also
         output if --verbose is specified); the higher the level the more
         warnings
+
+        setting it to -1 is the same as setting --nowarnbibref and
+        suppresses various bibref-related errors that would normally be
+        output
 
         previously known as --warndupbibref, which is now deprecated (and
         will be removed in a future release) because it covers more than
