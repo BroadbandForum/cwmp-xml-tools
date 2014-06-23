@@ -3,15 +3,18 @@ Usage:
     [--bibrefdocfirst] [--canonical] [--catalog=c]... [--compare]
     [--components] [--configfile=s("")] [--cwmpindex=s(..)]
     [--cwmppath=s(cwmp)] [--debugpath=p("")] [--deletedeprecated] [--diffs]
-    [--diffsext=s(diffs)]... [--dtprofile=s]... [--dtspec[=s]] [--help]
-    [--ignore=p("")] [--importsuffix=s("")] [--include=d]... [--info]
-    [--lastonly] [--loglevel=tn(i)] [--marktemplates] [--maxchardiffs=i(5)]
+    [--diffsext=s(diffs)]... [--dtprofile=s]... [--dtspec[=s]]
+    [--dtuuid[=s]] [--exitcode] [--help] [--ignore=p("")]
+    [--importsuffix=s("")] [--include=d]... [--info] [--lastonly]
+    [--loglevel=tn(i)] [--marktemplates] [--maxchardiffs=i(5)]
     [--maxworddiffs=i(10)] [--noautomodel] [--nocomments] [--nohyphenate]
     [--nolinks] [--nologprefix] [--nomodels] [--noobjects] [--noparameters]
     [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnbibref]
-    [--nowarnreport] [--nowarnprofbadref] [--objpat=p("")] [--option=n=v]...
-    [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]... [--quiet]
-    [--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...]
+    [--nowarnenableparameter] [--nowarnnumentries] [--nowarnreport]
+    [--nowarnprofbadref] [--nowarnuniquekeys] [--nowarnwtref]
+    [--objpat=p("")] [--option=n=v]... [--outfile=s] [--pedantic[=i(1)]]
+    [--plugin=s]... [--quiet]
+    [--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...]
     [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion]
     [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)]
     [--trpage=s(http://www.broadband-forum.org/technical/download)]
@@ -86,7 +89,7 @@ Options:
         it also affects the behavior of --lastonly
 
     --components
-        affects only the xml2 report; generates a component for each object;
+        affects only the xml report; generates a component for each object;
         if --noobjects is also specified, the component omits the object
         definition and consists only of parameter definitions
 
@@ -143,7 +146,7 @@ Options:
         (typically diffs) will be used for all other files
 
     --dtprofile=s...
-        affects only the xml2 report; can be specified multiple times;
+        affects only the xml report; can be specified multiple times;
         defines profiles to be used to generate an example DT instance
 
         for example, specify Baseline to select the latest version of the
@@ -153,10 +156,24 @@ Options:
         Baseline:2 will automatically include Baseline:1 requirements
 
     --dtspec=s
-        affects only the xml2 report; has an affect only when --dtprofile is
+        affects only the xml report; has an affect only when --dtprofile is
         also present; specifies the value of the top-level spec attribute in
         the generated DT instance; if not specified, the spec defaults to
         urn:example-com:device-1-0-0
+
+    --dtuuid=s
+        affects only the xml report; has an affect only when --dtprofile is
+        also present; specifies the value of the top-level uuid attribute in
+        the generated DT instance (there is no "uuid:" prefix); if not
+        specified, the UUID defaults to 00000000-0000-0000-0000-000000000000
+
+    --exitcode
+        if specified, the exit code is minus the number of reported errors,
+        which will typically be masked to 8 bits, e.g. 2 errors would result
+        in an exit code of -2, which might become 254
+
+        if not specified, the exit code is zero regardless of the number of
+        errors
 
     --help
         requests output of usage information
@@ -283,8 +300,9 @@ Options:
 
         *   otherwise, if the number of inserted and/or deleted words in the
             paragraph is less than or equal to maxworddiffs, changes are
-            shown at the word level =item * otherwise, the entire paragraph
-            is shown as a single change
+            shown at the word level
+
+        *   otherwise, the entire paragraph is shown as a single change
 
     --noautomodel
         disables the auto-generation, if no model element was encountered,
@@ -318,11 +336,11 @@ Options:
         specifies that model definitions should not be reported
 
     --noobjects
-        affects only the xml2 report when --components is specified; omits
+        affects only the xml report when --components is specified; omits
         objects from component definitions
 
     --noparameters
-        affects only the xml2 report when --components is specified; omits
+        affects only the xml report when --components is specified; omits
         parameters from component definitions
 
         NOT YET IMPLEMENTED
@@ -332,6 +350,21 @@ Options:
 
     --notemplates
         suppresses template expansion (currently affects only html reports
+
+    --nowarnbibref
+        disables bibliographic reference warnings
+
+        see also --warnbibref
+
+    --nowarnnableparameter
+        disables warnings when a writable table has no enable parameter
+
+    --nowarnnumentries
+        disables warnings (and/or errors) when a multi-instance object has
+        no associated NumberOfEntries parameter
+
+        this is always an error so disabling these warnings isn't such a
+        good idea
 
     --nowarnredef
         disables parameter and object redefinition warnings (these warnings
@@ -354,6 +387,13 @@ Options:
 
         this is deprecated because it is no longer needed (use
         status="deleted" as appropriate to suppress such errors)
+
+    --nowarnuniquekeys
+        disables warnings when a multi-instance object has no unique keys
+
+    --nowarnwtref
+        disables "referenced file's spec indicates that it's still a WT"
+        warnings
 
     --objpat=p
         specifies an object name pattern (a regular expression); objects
@@ -450,9 +490,10 @@ Options:
     --quiet
         suppresses informational messages
 
-        this has the same effect as setting --loglevel to "e" (error)
+        this used to have the same effect as setting --loglevel to "e"
+        (error) but now it simply suppresses such messages
 
-    --report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...
+    --report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...
         specifies the report format; one of the following:
 
         html
@@ -483,11 +524,11 @@ Options:
 
             if --lastonly is not specified, DM XML with all imports resolved
             (apart from bibliographic references and data type definitions);
-            use --dtprofile, optionally with --dtspec, to generate DT XML
-            for the specified profiles; use --canonical to omit transient
-            information, e.g. dates and times, that makes it harder to
-            compare reports; use --components (perhaps with --noobjects or
-            --noparameters) to generate component definitions
+            use --dtprofile, optionally with --dtspec and --dtuuid, to
+            generate DT XML for the specified profiles; use --canonical to
+            omit transient information, e.g. dates and times, that makes it
+            harder to compare reports; use --components (perhaps with
+            --noobjects or --noparameters) to generate component definitions
 
         xml2
             same as the xml report with --lastonly not specified; deprecated
@@ -656,7 +697,7 @@ Options:
         necessary)
 
     --ucprofile=s...
-        affects only the xml2 report; can be specified multiple times;
+        affects only the xml report; can be specified multiple times;
         defines use case profiles whose requirements will be checked against
         the --dtprofile profiles
 

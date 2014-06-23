@@ -222,13 +222,13 @@ my $xsiurn = qq{http://www.w3.org/2001/XMLSchema-instance};
 
 # XXX these are defaults that are used only if missing from the DM instance
 #     (they should match the current versions of the DM and DMR schemas)
-my $dmver = qq{1-4};
+my $dmver = qq{1-5};
 my $dmrver = qq{0-1};
 my $dmurn = qq{urn:broadband-forum-org:cwmp:datamodel-${dmver}};
 my $dmrurn = qq{urn:broadband-forum-org:cwmp:datamodel-report-${dmrver}};
 
 # XXX these have to match the current version of the DT schema
-my $dtver = qq{1-1};
+my $dtver = qq{1-3};
 my $dturn = qq{urn:broadband-forum-org:cwmp:devicetype-${dtver}};
 my $dtloc = qq{http://www.broadband-forum.org/cwmp/}.
     qq{cwmp-devicetype-${dtver}.xsd};
@@ -265,6 +265,8 @@ our $dtprofiles = [];
 our $diffs = 0;
 our $diffsexts = ['diffs'];
 our $dtspec = 'urn:example-com:device-1-0-0';
+our $dtuuid = '00000000-0000-0000-0000-000000000000';
+our $exitcode = 0;
 our $help = 0;
 our $nohyphenate = 0;
 our $ignore = undef;
@@ -287,9 +289,13 @@ our $noparameters = 0;
 our $noprofiles = 0;
 our $notemplates = 0;
 our $nowarnbibref = 0;
+our $nowarnenableparameter = 0;
+our $nowarnnumentries = 0;
 our $nowarnredef = 0;
 our $nowarnreport = 0;
 our $nowarnprofbadref = 0;
+our $nowarnuniquekeys = 0;
+our $nowarnwtref = 0;
 our $objpat = '';
 our $options = {};
 our $outfile = undef;
@@ -332,6 +338,8 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'diffsext:s@' => \$diffsexts,
            'dtprofile:s@' => \$dtprofiles,
            'dtspec:s' => \$dtspec,
+           'dtuuid:s' => \$dtuuid,
+           'exitcode' => \$exitcode,
 	   'help' => \$help,
            'ignore:s' => \$ignore,
            'importsuffix:s' => \$importsuffix,
@@ -354,9 +362,13 @@ GetOptions('allbibrefs' => \$allbibrefs,
 	   'noprofiles' => \$noprofiles,
 	   'notemplates' => \$notemplates,
            'nowarnbibref' => \$nowarnbibref,
+           'nowarnenableparameter' => \$nowarnenableparameter,
+           'nowarnnumentries' => \$nowarnnumentries,
            'nowarnredef' => \$nowarnredef,
            'nowarnreport' => \$nowarnreport,
            'nowarnprofbadref' => \$nowarnprofbadref,
+           'nowarnuniquekeys' => \$nowarnuniquekeys,
+           'nowarnwtref' => \$nowarnwtref,
 	   'objpat:s' => \$objpat,
            'option:s%' => \$options,
            'outfile:s' => \$outfile,
@@ -493,6 +505,9 @@ if ($report eq 'xml2') {
     emsg "the xml2 report is deprecated; use the xml report without ".
         "--lastonly to get the same effect";
 }
+if ($report eq 'xml' && $lastonly) {
+    emsg "the xml report with --lastonly is deprecated and might not work";
+}
 if ($report eq 'xml' && !$lastonly) {
     $report = 'xml2';
 }
@@ -588,8 +603,10 @@ $verbose = 0 unless defined($verbose);
 # - verbose  sets loglevel to LOGLEVEL_DEBUG   + verbose  - 1
 # then the variables are undefined to avoid inadvertent usage
 if ($quiet) {
-    $loglevel = $LOGLEVEL_ERROR;
-    undef $quiet;
+    # XXX this has been changed, because it's undesirable for --quiet to
+    #     suppress warnings or file validation
+    #$loglevel = $LOGLEVEL_ERROR;
+    #undef $quiet;
 }
 if ($pedantic) {
     $loglevel = $LOGLEVEL_WARNING + $pedantic - 1;
@@ -640,33 +657,33 @@ $cwmppath .= qq{/} if $cwmppath && $cwmppath !~ /\/$/;
 $trpage .= qq{/} if $trpage && $trpage !~ /\/$/;
 
 # Globals.
-my $first_comment = undef;
-my $allfiles = [];
-my $files2 = []; # like $files but has the same structure as $allfiles
-my $specs = [];
+our $first_comment = undef;
+our $allfiles = [];
+our $files2 = []; # like $files but has the same structure as $allfiles
+our $specs = [];
 # XXX for DT, lfile and lspec should be last processed DM file
 #     (current workaround is to use same spec for DT and this DM)
-my $pfile = ''; # last-but-one command-line-specified file
-my $pspec = ''; # spec from last-but-one command-line-specified file
-my $lfile = ''; # last command-line-specified file
-my $lspec = ''; # spec from last command-line-specified file
-my $files = {};
-my $no_imports = 1;
-my $imports = {}; # XXX not a good name, because it includes main file defns
-my $imports_i = 0;
-my $bibrefs = {};
-my $objects = {};
-my $parameters = {};
-my $profiles = {};
-my $anchors = {};
-my $root = {file => '', spec => '', lspec => '', path => '', name => '',
+our $pfile = ''; # last-but-one command-line-specified file
+our $pspec = ''; # spec from last-but-one command-line-specified file
+our $lfile = ''; # last command-line-specified file
+our $lspec = ''; # spec from last command-line-specified file
+our $files = {};
+our $no_imports = 1;
+our $imports = {}; # XXX not a good name, because it includes main file defns
+our $imports_i = 0;
+our $bibrefs = {};
+our $objects = {};
+our $parameters = {};
+our $profiles = {};
+our $anchors = {};
+our $root = {file => '', spec => '', lspec => '', path => '', name => '',
             type => '', status => 'current', dynamic => 0};
-my $highestMajor = 0;
-my $highestMinor = 0;
-my $previouspath = '';
-my $autogenerated = ''; # is replaced later
+our $highestMajor = 0;
+our $highestMinor = 0;
+our $previouspath = '';
+our $autogenerated = ''; # is replaced later
 
-my $range_for_type = {
+our $range_for_type = {
     'int' => {min => -2147483648, max => 2147483647},
     'long' => {min => -9223372036854775808, max => 9223372036854775807},
     'unsignedInt' => {min => 0, max => 4294967295},
@@ -675,7 +692,7 @@ my $range_for_type = {
 
 # File info from htmlbbf config file (declared here because it's used in some
 # template expansions).
-my $htmlbbf_info = {};
+our $htmlbbf_info = {};
 
 # Parse and expand a data model definition file.
 # XXX also does minimal expansion of schema files
@@ -903,7 +920,7 @@ sub expand_import
     my $tfile = $file;
     $file =~ s/\.xml//;
 
-    emsg "$cfile.xml: import $ofile: corrigendum number should " .
+    w0msg "$cfile.xml: import $ofile: corrigendum number should " .
         "be omitted" if $corr && $depth == 1;
 
     # if one or more top-level file has the same name, use the final directory
@@ -976,10 +993,13 @@ sub expand_import
             "WT rather than TR (spec=$spec, fspec=$fspec, trspec=$trspec";
     } elsif ($trwt_mismatch) {
         w0msg "$cfile.xml: import $ofile: referenced file's spec indicates ".
-            "that it's still a WT";
+            "that it's still a WT" unless $nowarnwtref;
     } else {
         w0msg "$cfile.xml: import $ofile: spec is $fspec (doesn't match $spec)";
     }
+
+    # get description
+    my $fdescription = $toplevel->findvalue('description');
 
     # collect top-level item declarations
     my @models = ();
@@ -998,7 +1018,7 @@ sub expand_import
 
     my $appdate = util_appdate($toplevel);
     push @$files2, {name => $tfile, spec => $fspec, appdate => $appdate,
-                    models => \@models} unless
+                    description => $fdescription, models => \@models} unless
                         grep { $_->{name} eq $tfile} @$files2;
 
     unshift @$context, {dir => $dir, file => $file, spec => $fspec,
@@ -1061,7 +1081,7 @@ sub expand_import
             (my $ddir, $dfile, my $corr) = find_file($dfile.'.xml', $ddir);
             # XXX not sure that we want $depth here; we are already one level
             #     from when we were called
-            emsg "$file.xml: import $dfile.xml: corrigendum number " .
+            w0msg "$file.xml: import $dfile.xml: corrigendum number " .
                 "should be omitted" if $corr && $depth == 1;
             my $dtoplevel = parse_file($ddir, $dfile);
             next unless $dtoplevel;
@@ -2530,6 +2550,25 @@ sub add_model
         d0msg "hacked so model $name is derived from $ref";
         # PrefixModel:a.b -> Model:a.b (for the search below)
         $tname = qq{$tref1:$tname2};
+    }
+
+    # XXX extended hack also to assume that Anything_Model:a.b is derived
+    #     from AnythingElse_Model:c.d, where the prefixes can themselves
+    #     include underscores
+    # XXX ignore referenced models whose names begin with underscores; see
+    #     expand_model's "hack for modifying existing models" for why
+    # XXX probably don't need the first hack if can assume there is always
+    #     an underscore separator (which should be guaranteed by the X_VENDOR_
+    #     prefix fule) ... but will leave it because it does no harm
+    elsif ($ref && $ref !~ /^_/) {
+        $tref1 = '' unless $tref1;
+        my ($tname1pfx, $tname1sfx) = $tname1 =~ /(.*)_(.*)/;
+        my ($tref1pfx, $tref1sfx) = $tref1 =~ /(.*)_(.*)/;
+        if ($tname1sfx && $tref1sfx && $tname1sfx eq $tref1sfx) {
+            d0msg "hacked so model $name is derived from $ref";
+            # Prefix_Model:a.b -> Model:a.b (for the search below)
+            $tname = qq{$tref1:$tname2};
+        }
     }
 
     # if ref, find the referenced model
@@ -4476,17 +4515,19 @@ sub specs_match
     # spec is spec from import and fspec is spec from file; if spec omits the
     # corrigendum number it matches all corrigendum numbers
 
-    # support specs that end name-i-a[-c] where name is of the form "xx-nnn",
-    # and i, a and c are numeric
-    my ($c) = $spec =~ /[^-]+-\d+-\d+-\d+(?:-(\d+))?$/;
+    # support specs that end name-i-a[-c][label] where name is of the form
+    # "xx-nnn", i, a and c are numeric, and label is more-or-less arbitrary
+    # text (but has to contain at least one non-digit)
+    my ($c, $label) = $spec =~ /[^-]+-\d+-\d+-\d+(?:-(\d+))?(\d*\D.*)?$/;
+    $label = '' unless $label;
 
     # if corrigendum number is defined, require exact match
     return ($fspec eq $spec) if defined $c;
 
     # if corrigendum number is undefined in spec, remove it from fspec (if
     # present) before comparing
-    ($c) = $fspec =~ /[^-]+-\d+-\d+-\d+(?:-(\d+))?$/;
-    $fspec =~ s/-\d+$// if defined $c;
+    ($c) = $fspec =~ /[^-]+-\d+-\d+-\d+(?:-(\d+))?(?:\d*\D.*)?$/;
+    $fspec =~ s/-\d+\Q$label\E$/$label/ if defined $c;
     return ($fspec eq $spec);
 }
 
@@ -4562,8 +4603,14 @@ sub tab_escape {
 }
 
 # DM Schema XML report of node.
+
 # XXX does not handle everything (is aimed at processing input documents that
 #     have been derived from existing Word tables)
+
+# XXX can probably just be deleted, because it doesn't really work; first step
+#     can be to rename as the xml0 report and rename xml2 as xml; then check
+#     that the new xml (old xml2) report works with and without --lastonly;
+#     then delete this
 
 # have to work harder to avoid nesting objects :(
 my $xml_objact = 0;
@@ -4598,7 +4645,8 @@ sub xml_node
                                                $dchanged, $history);
     $description = xml_escape($description);
 
-    $status = $status ne 'current' ? qq{ status="$status"} : qq{};
+    # XXX why can status be undefined... but seemingly nothing else?
+    $status = $status && $status ne 'current' ? qq{ status="$status"} : qq{};
     $descact = $descact ne 'create' ? qq{ action="$descact"} : qq{};
 
     # use node to maintain state (assumes that there will be only a single
@@ -5156,9 +5204,11 @@ sub xml2_node
 
         # XXX have to hard-code DT stuff (can't get this from input files)
         my $d = @$dtprofiles ? qq{dt} : qq{dm};
+        my $uuidattr = qq{};
         if ($d eq 'dt') {
             $dm = $dturn;
             $dmspec = $dtspec;
+            $uuidattr = qq{ uuid="$dtuuid"};
             $schemaLocation =~
                 s/urn:broadband-forum-org:cwmp:datamodel.*?\.xsd ?//;
             $schemaLocation = qq{$dturn $dtloc $schemaLocation};
@@ -5177,7 +5227,7 @@ $i<$d:document xmlns:$d="$dm"
 $i             xmlns:dmr="$dmr"
 $i             xmlns:xsi="$xsi"
 $i             xsi:schemaLocation="$schemaLocation"
-$i             $specattr="$dmspec"$fileattr>
+$i             $specattr="$dmspec"$fileattr$uuidattr>
 };
         if (!@$dtprofiles) {
             my $dataTypes = $node->{dataTypes};
@@ -5655,7 +5705,7 @@ sub expand_dtprofiles
         my @profs = grep {$_->{name} =~ /^$tdt/} @mprofs;
 
         # error if no match
-        emsg "$model->{name}: --$optname $dtprofile matches no profiles"
+        w0msg "$model->{name}: --$optname $dtprofile matches no profiles"
             unless @profs;
 
         # for each matching profile, add the profiles that it depends on or
@@ -6063,6 +6113,7 @@ sub html_node
     my $fontdel = qq{color: red;};
 
     # others
+    my $sup_valign = qq{vertical-align: super;};
     my $object_bg = qq{background-color: rgb(255, 255, 153);};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
@@ -6185,6 +6236,7 @@ $do_not_edit
       h1 { $h1font }
       h2 { $h2font }
       h3 { $h3font }
+      sup { $sup_valign }
       span, span.o, div, div.o { $font }
       span.n, div.n { $font $fontnew }
       span.i, div.i { $font $fontnew }
@@ -7064,7 +7116,7 @@ sub html_template
         $inval = "{{datatype}}" . $sep . $inval;
     }
 
-    # auto-prefix {{showid}} if requested and the item has an id
+    # auto-prefix {{showid}} if the item has an id
     if ($p->{id} &&
         $tinval !~ /\{\{showid/ &&
         $tinval !~ /\{\{noshowid\}\}/) {
@@ -7127,14 +7179,10 @@ sub html_template
     # parameters (options)
     my $templates =
         [
-         {name => 'appdate',
-          text1 => \&html_template_appdate},
-         {name => 'docname',
-          text1 => \&html_template_docname},
-         {name => 'trname',
-          text1 => \&html_template_trname},
-         {name => 'trref',
-          text1 => \&html_template_trref},
+         {name => 'appdate', text1 => \&html_template_appdate},
+         {name => 'docname', text1 => \&html_template_docname},
+         {name => 'trname', text1 => \&html_template_trname},
+         {name => 'trref', text1 => \&html_template_trref},
          {name => 'xmlref',
           text1 => \&html_template_xmlref,
           text2 => \&html_template_xmlref},
@@ -7153,43 +7201,40 @@ sub html_template
          {name => 'profile',
           text0 => \&html_template_profileref,
           text1 => \&html_template_profileref},
-         {name => 'keys',
-          text0 => \&html_template_keys},
-         {name => 'nokeys',
-          text0 => q{}},
-         {name => 'entries',
-          text0 => \&html_template_entries},
-         {name => 'noentries',
-          text0 => q{}},
+         {name => 'keys', text0 => \&html_template_keys},
+         {name => 'nokeys', text0 => q{}},
+         {name => 'entries', text0 => \&html_template_entries},
+         {name => 'noentries', text0 => q{}},
          {name => 'list',
           text0 => \&html_template_list,
           text1 => \&html_template_list},
          {name => 'nolist',
           text0 => q{}},
-         {name => 'numentries',
-          text0 => \&html_template_numentries},
+         {name => 'numentries', text0 => \&html_template_numentries},
          {name => 'datatype',
           text0 => \&html_template_datatype,
           text1 => \&html_template_datatype},
-         {name => 'nodatatype',
-          text0 => q{}},
-         {name => 'profdesc',
-          text0 => \&html_template_profdesc},
-         {name => 'noprofdesc',
-          text0 => q{}},
+         {name => 'nodatatype', text0 => q{}},
+         {name => 'profdesc', text0 => \&html_template_profdesc},
+         {name => 'noprofdesc', text0 => q{}},
          {name => 'hidden',
-          text0 => q{{{mark|hidden}}When read, this parameter returns {{null}}, regardless of the actual value.},
-          text1 => q{{{mark|hidden}}When read, this parameter returns ''$a[0]'', regardless of the actual value.}},
+          text0 => q{{{marktemplate|hidden}}}.
+              q{When read, this parameter returns {{null}}, }.
+              q{regardless of the actual value.},
+          text1 => q{{{marktemplate|hidden}}}.
+              q{When read, this parameter returns ''$a[0]'', }.
+              q{regardless of the actual value.}},
          {name => 'nohidden',
           text0 => q{}},
          {name => 'command',
-          text0 => q{{{mark|command}}The value of this parameter is not part of the device configuration and is always {{null}} when read.}},
-         {name => 'nocommand',
-          text0 => q{}},
+          text0 => q{{{marktemplate|command}}}.
+              q{The value of this parameter is not part of the device }.
+              q{configuration and is always {{null}} when read.}},
+         {name => 'nocommand', text0 => q{}},
          {name => 'factory',
-          text0 => q{{{mark|factory}}The factory default value MUST be ''$p->{factory}''.}},
-         {name => 'nofactory',
-          text0 => q{}},
+          text0 => q{{{marktemplate|factory}}}.
+              q{The factory default value MUST be ''$p->{factory}''.}},
+         {name => 'nofactory', text0 => q{}},
          {name => 'null',
           text0 => \&html_template_null,
           text1 => \&html_template_null,
@@ -7199,39 +7244,32 @@ sub html_template
           text1 => \&html_template_valueref,
           text2 => \&html_template_valueref,
           text3 => \&html_template_valueref},
-         {name => 'noenum',
-          text0 => q{}},
+         {name => 'noenum', text0 => q{}},
          {name => 'pattern',
           text0 => \&html_template_pattern,
           text1 => \&html_template_valueref,
           text2 => \&html_template_valueref,
           text3 => \&html_template_valueref},
-         {name => 'nopattern',
-          text0 => q{}},
+         {name => 'nopattern', text0 => q{}},
          {name => 'reference',
           text0 => \&html_template_reference,
           text1 => \&html_template_reference,
           text2 => \&html_template_reference},
-         {name => 'noreference',
-          text0 => q{}},
-         {name => 'units',
-          text0 => \&html_template_units},
+         {name => 'noreference', text0 => q{}},
+         {name => 'units', text0 => \&html_template_units},
          {name => 'empty', text0 => q{an empty string}, ucfirst => 1},
          {name => 'false', text0 => q{''false''}},
          {name => 'true', text0 => q{''true''}},
-         {name => 'mark',
-          text1 => \&html_template_mark},
+         {name => 'marktemplate', text1 => \&html_template_marktemplate},
          {name => 'issue',
           text1 => \&html_template_issue,
           text2 => \&html_template_issue},
-         {name => 'showid',
-          text0 => \&html_template_showid},
-         {name => 'sub',
-          text1 => \&html_template_sub},
-         {name => 'sup',
-          text1 => \&html_template_sup},
-         {name => 'ignore',
-          text => q{}}
+         {name => 'showid', text0 => \&html_template_showid},
+         {name => 'br', text0 => q{<br/>}},
+         {name => 'mark', text1 => q{<mark>$a[0]</mark>}},
+         {name => 'sub', text1 => q{<sub>$a[0]</sub>}},
+         {name => 'sup', text1 => q{<sup>$a[0]</sup>}},
+         {name => 'ignore', text => q{}}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -7330,7 +7368,7 @@ sub html_template
 }
 
 # insert a mark, e.g. for a template expansion
-sub html_template_mark
+sub html_template_marktemplate
 {
     my ($opts, $arg) = @_;
 
@@ -7435,22 +7473,6 @@ sub html_template_units
     }
 }
 
-# subscript
-sub html_template_sub
-{
-    my ($opts, $arg) = @_;
-
-    return qq{<sub>$arg</sub>};
-}
-
-# superscript
-sub html_template_sup
-{
-    my ($opts, $arg) = @_;
-
-    return qq{<sup>$arg</sup>};
-}
-
 # XXX want to be able to control level of generated info?
 sub html_template_list
 {
@@ -7461,7 +7483,7 @@ sub html_template_list
 
     $type = get_typeinfo($type, $syntax)->{value} if $type eq 'dataType';
 
-    my $text = qq{{{mark|list-$type}}Comma-separated };
+    my $text = qq{{{marktemplate|list-$type}}Comma-separated };
     $text .= syntax_string($type, $syntax, 1);
     $text .= qq{, $arg} if $arg;
     $text .= '.';
@@ -7479,7 +7501,7 @@ sub html_template_numentries
     my $table = $opts->{table};
 
     my $text = qq{};
-    $text .= qq{{{mark|numentries}}} if $marktemplates;
+    $text .= qq{{{marktemplate|numentries}}} if $marktemplates;
 
     if (!$table) {
         emsg "$path: invalid use of {{numentries}}; parameter is " .
@@ -7618,7 +7640,7 @@ sub html_template_keys
     my $uniqueKeys = $opts->{uniqueKeys};
     my $enableParameter = $opts->{enableParameter};
 
-    my $text = qq{{{mark|keys}}};
+    my $text = qq{{{marktemplate|keys}}};
 
     # XXX various errors and warnings are suppressed if the object has been
     #     deleted; this case should be handled generally and not piecemeal
@@ -7842,6 +7864,8 @@ sub html_template_trname
 }
 
 # TR reference
+# XXX expects spec or full TR name; should allow it to take names of the
+#     form TR-069a5; should also allow optional link text?
 sub html_template_trref
 {
     my ($opts, $trname) = @_;
@@ -8188,7 +8212,7 @@ sub html_template_reference
     }
 
     my $refType = $syntax->{refType} || '';
-    $text .= qq{\{\{mark|$reference};
+    $text .= qq{\{\{marktemplate|$reference};
     $text .= qq{-$refType} if $refType;
     $text .= qq{-list} if $list;
     $text .= qq{\}\}};
@@ -8642,7 +8666,7 @@ sub html_font
 
 # Process paragraph breaks
 # XXX this assumes that leading spaces are left on verbatim lines
-# XXX it behaves badly with lines that start with <b> or <i> (fudged)
+# XXX lines that start with character formatting tags are treated specially
 sub html_paragraph
 {
     my ($inval) = @_;
@@ -8650,13 +8674,29 @@ sub html_paragraph
     my $outval = '';
     my @lines = split /\n/, $inval;
     foreach my $line (@lines) {
+
+        # XXX if add a character formatting tag here, need to add it below too;
+        #     should use a pattern variable but I am not 100% confident here...
         $line =~ s/$/<p>/ if
-            $line =~ /^(<b>|<i>|<sub>|<sup>|<span)/ || $line !~ /^(\s|\s*<)/;
+            $line =~ /^(<b>|<i>|<sub>|<sup>|<mark>|<span)/ ||
+            $line !~ /^(\s|\s*<)/;
 
         $outval .= "$line\n";
     }
 
+    # removing trailing <p> (see note below); the idea is that text that
+    # doesn't contain multiple paragraphs will not contain any <p> tags
     $outval =~ s/(<p>)?\n$//;
+
+    # XXX need to fix use of <p> properly (i.e. <p>para</p>) but currently
+    #     it's used as a paragraph separator; as a partial workaround, and
+    #     using the same criterion as that used above, it puts a <p> at the
+    #     start if there is least one there already
+    $outval =~ s/^/<p>/ if 
+        $outval =~ /<p>/ &&
+        ($outval =~ /^(<b>|<i>|<sub>|<sup>|<mark>|<span)/ ||
+         $outval !~ /^(\s|\s*<)/);
+
     return $outval;
 }
 
@@ -8843,6 +8883,7 @@ sub htmlbbf_begin
     my $font = qq{font-family: helvetica,arial,sans-serif; font-size: 8pt;};
 
     # others
+    my $sup_valign = qq{vertical-align: super;};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
     # introductory text
@@ -8891,6 +8932,7 @@ END
       h1 { $h1font }
       h2 { $h2font }
       h3 { $h3font }
+      sup { $sup_valign }
       table { $table }
       th { $row $font }
       th.g { $row $font $theader_bg }
@@ -9006,16 +9048,25 @@ END
             # multiple {{xmlref}} references to the same outdated file)
             next if grep {$_->{name} eq $rfile} @$outdatedfiles;
 
-            # take the approval date and description from the latest file
+            # take the description, TR name and approval date from the latest
+            # file
             my ($file) = grep {$_->{name} eq $name} @$allfiles;
-            my $appdate = $file->{appdate};
             my $description = $file->{description};
+            my $trname = $file->{trname};
+            my $appdate = $file->{appdate};
+
+            # override with latest file info from the config file if defined
+            # explicitly
+            my $info = $htmlbbf_info->{$name};
+            $description = $info->{description} if $info->{description};
+            $trname = $info->{trname} if $info->{trname};
+            $appdate = $info->{appdate} if $info->{appdate};
 
             # note the name of the file that references the outdated file
             # (this is used when deciding whether to create links)
             push @$outdatedfiles, {name => $rfile, latest => $name,
-                                   appdate => $appdate,
                                    description => $description,
+                                   trname => $trname, appdate => $appdate,
                                    outdated => 1};
         }
     }
@@ -9358,17 +9409,19 @@ END
     # form xxnnn-i-a[-c][label].xml where xxnnn is of the form "xx-nnn", i, a
     # and c are numeric and label can't begin with a digit (the same for
     # outdated XSD and XML files)
-    # XXX note that support files are not currently versioned but are included
-    #     as an experiment (since they may become versioned)
     elsif ($schema || $model || $component || $support ||
            ($outdated && $name =~ /\.(xsd|xml)/)) {
         my ($xxnnn, $i, $a, $c, $label, $ext) =
             $name =~ /^([^-]+-\d+)(?:-(\d+))?(?:-(\d+))?(?:-(\d+))?(-\D.*)?\.(xsd|xml)$/;
         $label = '' unless defined $label;
-        push @names, qq{$xxnnn-$i-$a-$c$label.$ext} if defined $c;
-        push @names, qq{$xxnnn-$i-$a$label.$ext} if defined $a;
-        push @names, qq{$xxnnn-$i$label.$ext} if defined $i;
-        push @names, qq{$xxnnn$label.$ext} if defined $xxnnn;
+        push @names, qq{$xxnnn-$i-$a-$c$label.$ext} if defined $c && $label;
+        push @names, qq{$xxnnn-$i-$a$label.$ext} if defined $a && $label;
+        push @names, qq{$xxnnn-$i$label.$ext} if defined $i && $label;
+        push @names, qq{$xxnnn$label.$ext} if defined $xxnnn && $label;
+        push @names, qq{$xxnnn-$i-$a-$c.$ext} if defined $c;
+        push @names, qq{$xxnnn-$i-$a.$ext} if defined $a;
+        push @names, qq{$xxnnn-$i.$ext} if defined $i;
+        push @names, qq{$xxnnn.$ext} if defined $xxnnn;
 
         $name_nc = qq{$xxnnn-$i-$a$label.$ext} if defined $i && defined $a;
     }
@@ -9410,14 +9463,14 @@ END
 
     # look up config info (from config file or from templates in the
     # description)
-    my $document = undef;
-    my $trname = undef;
-    my $appdate = undef;
+    my $document = $file->{document};
+    my $trname = $file->{trname};
+    my $appdate = $file->{appdate};
     foreach my $n (@names) {
         my $info = $htmlbbf_info->{$n};
-        $document = $info->{document} unless defined $document;
-        $trname = $info->{trname} unless defined $trname;
-        $appdate = $info->{appdate} unless defined $appdate;
+        $document = $info->{document} unless $document;
+        $trname = $info->{trname} unless $trname;
+        $appdate = $info->{appdate} unless $appdate;
     }
 
     # if document unspecified, set to "TBD"
@@ -9882,6 +9935,7 @@ sub html148_begin
     my $font = qq{font-family: helvetica,arial,sans-serif; font-size: 8pt;};
 
     # others
+    my $sup_valign = qq{vertical-align: super;};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
     # file header and beginning of TOC
@@ -9895,6 +9949,7 @@ sub html148_begin
       h1 { $h1font }
       h2 { $h2font }
       h3 { $h3font }
+      sup { $sup_valign }
       table { $table }
       th { $row $font }
       th.g { $row $font $theader_bg }
@@ -10368,68 +10423,58 @@ sub xls_escape {
 
 # W3C schema report of node.
 # XXX makes all sorts of arbitrary assumptions
-my $xsd_flag = 0;
-
 sub xsd_begin
 {
     print qq{<?xml version="1.0"?>\n};
+    print qq{<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"\n};
+    print qq{           elementFormDefault="qualified"\n};
+    print qq{           attributeFormDefault="unqualified">\n};
 }
 
 sub xsd_node
 {
     my ($node, $indent) = @_;
 
-    my $object = ($node->{type} eq 'object');
-    my $name = xsd_escape($node->{name});
+    my $name = $node->{name};
+    my $access = $node->{access};
     my $description = $node->{description};
+    my $type = $node->{type};
+    my $syntax = $node->{syntax};
+
+    $name = xsd_escape($name, 1);
+
+    my $model = ($type eq 'model');
+    my $object = ($type eq 'object');
+
+    return unless $model || $object || $syntax;
 
     # XXX taken from xls_escape; should do more generically
     $description =~ s/^\n[ \t]*//;
     $description =~ s/\n[ \t]*/\n/g;
     $description =~ s/\n$//;
-    my $documentation = xsd_escape(type_string($node->{type}, $node->{syntax}) .
-				   ' (' . ($node->{access} ne 'readOnly' ? 'W' : 'R') . ')' .
-				   "\n" .
-				   add_values($description, get_values($node)));
+    my $documentation =
+        xsd_escape(type_string($type, $syntax) . ' (' .
+                   ($access ne 'readOnly' ? 'W' : 'R') . ')' . "\n" .
+                   add_values($description, get_values($node)));
 
     # XXX taken from xls_escape; should do more generically
     $documentation =~ s/^\n[ \t]*//;
     $documentation =~ s/\n[ \t]*/\n/g;
     $documentation =~ s/\n$//;
 
-    if ($xsd_flag) {
-	w0msg "ignored second and subsequent data model: $node->{name}";
-
-    } elsif (!$indent) {
-	print qq{<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"\n};
-	print qq{           elementFormDefault="qualified"\n};
-	print qq{           attributeFormDefault="unqualified">\n};
-	foreach my $child (@{$node->{nodes}}) {
-	    xsd_node($child, 1);
-	}
-	print qq{</xs:schema>\n};
-	$xsd_flag = 1;
-
-    } elsif ($object) {
-	my $minEntries = $indent > 1 ? qq{ minEntries="0"} : qq{};
-	print "  "x$indent . qq{<xs:element name="$name"$minEntries>\n};
+    if ($model || $object) {
+	my $minOccurs = $indent > 1 ? qq{ minOccurs="0"} : qq{};
+	print "  "x$indent . qq{<xs:element name="$name"$minOccurs>\n};
         print "  "x$indent . qq{  <xs:annotation>\n};
         print "  "x$indent . qq{    <xs:documentation>$documentation</xs:documentation>\n};
         print "  "x$indent . qq{  </xs:annotation>\n};
-	print "  "x$indent . qq{  <xs:complexType>\n};
 	# XXX did have maxEntries="unbounded" here (allows order not to be
 	#     significant, but also allows duplication)
-	print "  "x$indent . qq{    <xs:sequence minEntries="0">\n};
-	foreach my $child (@{$node->{nodes}}) {
-	    xsd_node($child, $indent + 3);
-	}
-	print "  "x$indent . qq{    </xs:sequence>\n};
-	print "  "x$indent . qq{  </xs:complexType>\n};
-	print "  "x$indent . qq{</xs:element>\n};
+	print "  "x$indent . qq{  <xs:complexType><xs:sequence minOccurs="0">\n};
 
     } else {
-	my $minEntries = $indent > 1 ? qq{ minEntries="0"} : qq{};
-	print "  "x$indent . qq{<xs:element name="$name"$minEntries>\n};
+	my $minOccurs = $indent > 1 ? qq{ minOccurs="0"} : qq{};
+	print "  "x$indent . qq{<xs:element name="$name"$minOccurs>\n};
         print "  "x$indent . qq{  <xs:annotation>\n};
         print "  "x$indent . qq{    <xs:documentation>$documentation</xs:documentation>\n};
         print "  "x$indent . qq{  </xs:annotation>\n};
@@ -10437,12 +10482,28 @@ sub xsd_node
     }    
 }
 
-sub xsd_end {}
+sub xsd_post {
+    my ($node, $indent) = @_;
+
+    my $type = $node->{type};
+
+    my $model = ($type eq 'model');
+    my $object = ($type eq 'object');
+
+    return unless $model || $object;
+
+    print "  "x$indent . qq{  </xs:sequence></xs:complexType>\n};
+    print "  "x$indent . qq{</xs:element>\n};
+}
+
+sub xsd_end {
+    print qq{</xs:schema>\n};
+}
 
 # Escape a value suitably for exporting as W3C XSD.
 # XXX currently used only for names
 sub xsd_escape {
-    my ($value) = @_;
+    my ($value, $is_name) = @_;
 
     $value = util_default($value);
 
@@ -10453,11 +10514,7 @@ sub xsd_escape {
     # XXX should use table syntax
     $value =~ s/\{i\}/i/g;
 
-    # XXX this is for profile names
-    $value =~ s/:/_/g;
-
-    # remove trailing dot
-    $value =~ s/\.$//;
+    $value =~ s/:/_/g if $is_name;
 
     $value = util_lines($value);
 
@@ -11229,18 +11286,18 @@ sub util_diffs_markup_inner
 
     # first try at the character level
     ($out, $num) = util_diffs_markup_inner_try($old, $new, qq{});
-    return qq{{{mark|diffs-0:$num}}} . $out if $num <= $maxchardiffs;
+    return qq{{{marktemplate|diffs-0:$num}}} . $out if $num <= $maxchardiffs;
 
     # next try at (more-or-less) the word level
     ($out, $num) = util_diffs_markup_inner_try($old, $new,
                                                qq{,:;\.\!\?\{\|\}});
-    return qq{{{mark|diffs-1:$num}}} . $out if $num <= $maxworddiffs;
+    return qq{{{marktemplate|diffs-1:$num}}} . $out if $num <= $maxworddiffs;
 
     # fall back to the paragraph level
     # XXX we are never called with more than one paragraph so this is
     #     over-complex
     ($out, $num) = util_diffs_markup_inner_try($old, $new, qq{\n});
-    return qq{{{mark|diffs-2:$num}}} . $out;
+    return qq{{{marktemplate|diffs-2:$num}}} . $out;
 }
 
 # Version of util_diffs() that inserts '+++' and '---' markup
@@ -11309,7 +11366,7 @@ sub util_diffs_markup
 
         my $temp1 = @from_old;
         my $temp2 = @from_new;
-        $out .= "{{mark|diffs-$temp1&$temp2}}";
+        $out .= "{{marktemplate|diffs-$temp1&$temp2}}";
 
         # otherwise just show changes paragraph by paragraph
         if (@from_old) {
@@ -11363,7 +11420,7 @@ sub util_check_spelling
     #return $text;
 }
 
-# Convert spec to document name
+# Convert spec or TR name to document name
 sub util_doc_name
 {
     my ($spec, $opts) = @_;
@@ -11373,7 +11430,13 @@ sub util_doc_name
     # XXX not sure quite why it's ever blank; something to do with profiles?
     return $spec unless $spec;
 
-    # urn:broadband-forum-org:rest -> rest
+    # return input if it's a URN but not a BBF one
+    return $spec if $spec =~ /^urn:/i && $spec !~ /^urn:broadband-forum-org/i;
+
+    # return input if it's a URL
+    return $spec if $spec =~ /^https?:\/\//i;
+
+    # if a URN, urn:broadband-forum-org:rest -> rest
     my $text = $spec;
     $text =~ s/.*://;
 
@@ -11743,7 +11806,7 @@ sub sanity_node
         my $temp = $numEntriesParameter || '';
         $numEntriesParameter = $parameters->{$fppath.$numEntriesParameter} if
             $numEntriesParameter;
-        if (!$is_dt && $multi && !$fixed &&
+        if (!$is_dt && $multi && !$fixed && !$nowarnnumentries &&
             (!$numEntriesParameter ||
              (!$hidden && $numEntriesParameter->{hidden}))) {
             emsg "$path: missing or invalid numEntriesParameter ($temp)";
@@ -11788,7 +11851,7 @@ sub sanity_node
 
         emsg "$path: writable table but no enableParameter"
             if $access ne 'readOnly' && $multi && $any_functional &&
-            $any_writable && !$enableParameter;
+            !$nowarnenableparameter && $any_writable && !$enableParameter;
 
         emsg "$path: writable fixed size table"
             if $access ne 'readOnly' && $multi && $fixed;
@@ -11796,7 +11859,8 @@ sub sanity_node
         # XXX could be cleverer re checking for read-only / writable unique
         #     keys
         w0msg "$path: no unique keys are defined"
-            if $multi && !$node->{noUniqueKeys} && !@{$node->{uniqueKeys}};
+            if $multi && !$nowarnuniquekeys &&
+            !$node->{noUniqueKeys} && !@{$node->{uniqueKeys}};
     }
 
     # parameter sanity checks
@@ -12016,14 +12080,13 @@ if (!$allbibrefs && $root->{bibliography}) {
 report_node($root, 0, {report => 'spec'});
 
 foreach my $spec (sort @$specs) {
-    imsg "$spec: $spectotal->{$spec}" if defined $spectotal->{$spec};
+    imsg "$spec: $spectotal->{$spec}"
+        if !$quiet && defined $spectotal->{$spec};
 }
 
 # The exit code is the negative of the number of reported errors, which will
 # probably be masked to 8 bits, e.g. -2 will probably be reported as 254
-# XXX can't change this unconditionally; will break any scripts that assume
-#     a zero return code; add an option to control it
-# exit -$num_errors;
+exit -$num_errors if $exitcode;
 
 # this allows the file to be included as a module
 1;
@@ -12054,6 +12117,8 @@ B<report.pl>
 [--diffsext=s(diffs)]...
 [--dtprofile=s]...
 [--dtspec[=s]]
+[--dtuuid[=s]]
+[--exitcode]
 [--help]
 [--ignore=p("")]
 [--importsuffix=s("")]
@@ -12076,15 +12141,19 @@ B<report.pl>
 [--notemplates]
 [--nowarnredef]
 [--nowarnbibref]
+[--nowarnenableparameter]
+[--nowarnnumentries]
 [--nowarnreport]
 [--nowarnprofbadref]
+[--nowarnuniquekeys]
+[--nowarnwtref]
 [--objpat=p("")]
 [--option=n=v]...
 [--outfile=s]
 [--pedantic[=i(1)]]
 [--plugin=s]...
 [--quiet]
-[--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...]
+[--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...]
 [--showdiffs]
 [--showreadonly]
 [--showspec]
@@ -12117,7 +12186,7 @@ DM-instance...
 
 The files specified on the command line are assumed to be XML TR-069 data model definitions compliant with the I<cwmp:datamodel> (DM) XML schema.
 
-The script parses, validates (ahem) and reports on these files, generating output in various possible formats to I<stdout>.
+The script parses, validates and reports on these files, generating output in various possible formats to I<stdout>.
 
 There are a large number of options but in practice only a few need to be used.  For example:
 
@@ -12173,7 +12242,7 @@ note that this is identical to setting B<--autobase> and B<--showdiffs>; it also
 
 =item B<--components>
 
-affects only the B<xml2> report; generates a component for each object; if B<--noobjects> is also specified, the component omits the object definition and consists only of parameter definitions
+affects only the B<xml> report; generates a component for each object; if B<--noobjects> is also specified, the component omits the object definition and consists only of parameter definitions
 
 =item B<--configfile=s("")>
 
@@ -12215,7 +12284,7 @@ note: as an advanced feature, if this option is specified twice, the first value
 
 =item B<--dtprofile=s>...
 
-affects only the B<xml2> report; can be specified multiple times; defines profiles to be used to generate an example DT instance
+affects only the B<xml> report; can be specified multiple times; defines profiles to be used to generate an example DT instance
 
 for example, specify B<Baseline> to select the latest version of the B<Baseline> pofile, or B<Baseline:1> to select the B<Baseline:1> profile
 
@@ -12223,7 +12292,17 @@ B<base> and B<extends> attributes are honored, so (for example), B<Baseline:2> w
 
 =item B<--dtspec=s>
 
-affects only the B<xml2> report; has an affect only when B<--dtprofile> is also present; specifies the value of the top-level B<spec> attribute in the generated DT instance; if not specified, the spec defaults to B<urn:example-com:device-1-0-0>
+affects only the B<xml> report; has an affect only when B<--dtprofile> is also present; specifies the value of the top-level B<spec> attribute in the generated DT instance; if not specified, the spec defaults to B<urn:example-com:device-1-0-0>
+
+=item B<--dtuuid=s>
+
+affects only the B<xml> report; has an affect only when B<--dtprofile> is also present; specifies the value of the top-level B<uuid> attribute in the generated DT instance (there is no "uuid:" prefix); if not specified, the UUID defaults to B<00000000-0000-0000-0000-000000000000>
+
+=item B<--exitcode>
+
+if specified, the exit code is minus the number of reported errors, which will typically be masked to 8 bits, e.g. 2 errors would result in an exit code of -2, which might become 254
+
+if not specified, the exit code is zero regardless of the number of errors
 
 =item B<--help>
 
@@ -12330,6 +12409,7 @@ these control how differences are shown in descriptions; each paragraph is handl
 =item * if the number of inserted and/or deleted characters in the paragraph is less than or equal to B<maxchardiffs>, changes are shown at the character level
 
 =item * otherwise, if the number of inserted and/or deleted words in the paragraph is less than or equal to B<maxworddiffs>, changes are shown at the word level
+
 =item * otherwise, the entire paragraph is shown as a single change
 
 =back
@@ -12364,11 +12444,11 @@ specifies that model definitions should not be reported
 
 =item B<--noobjects>
 
-affects only the B<xml2> report when B<--components> is specified; omits objects from component definitions
+affects only the B<xml> report when B<--components> is specified; omits objects from component definitions
 
 =item B<--noparameters>
 
-affects only the B<xml2> report when B<--components> is specified; omits parameters from component definitions
+affects only the B<xml> report when B<--components> is specified; omits parameters from component definitions
 
 B<NOT YET IMPLEMENTED>
 
@@ -12379,6 +12459,22 @@ specifies that profile definitions should not be reported
 =item B<--notemplates>
 
 suppresses template expansion (currently affects only B<html> reports
+
+=item B<--nowarnbibref>
+
+disables bibliographic reference warnings
+
+see also B<--warnbibref>
+
+=item B<--nowarnnableparameter>
+
+disables warnings when a writable table has no enable parameter
+
+=item B<--nowarnnumentries>
+
+disables warnings (and/or errors) when a multi-instance object has no associated NumberOfEntries parameter
+
+this is always an error so disabling these warnings isn't such a good idea
 
 =item B<--nowarnredef>
 
@@ -12397,6 +12493,14 @@ disables warnings when a profile references an invalid object or parameter
 there are some circumstances under which it's useful to use an existing profile definition where some objects or parameters that it references have been (deliberately) deleted
 
 this is deprecated because it is no longer needed (use status="deleted" as appropriate to suppress such errors)
+
+=item B<--nowarnuniquekeys>
+
+disables warnings when a multi-instance object has no unique keys
+
+=item B<--nowarnwtref>
+
+disables "referenced file's spec indicates that it's still a WT" warnings
 
 =item B<--objpat=p>
 
@@ -12462,9 +12566,9 @@ can be specified multiple times; defines external plugins that can define additi
 
 suppresses informational messages
 
-this has the same effect as setting B<--loglevel> to "e" (error)
+this used to have the same effect as setting B<--loglevel> to "e" (error) but now it simply suppresses such messages
 
-=item B<--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...>
+=item B<--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...>
 
 specifies the report format; one of the following:
 
@@ -12502,7 +12606,7 @@ Excel XML spreadsheet
 
 if B<--lastonly> is specified, DM XML containing only the changes made by the final file on the command line; see also B<--autobase>
 
-if B<--lastonly> is not specified, DM XML with all imports resolved (apart from bibliographic references and data type definitions); use B<--dtprofile>, optionally with B<--dtspec>, to generate DT XML for the specified profiles; use B<--canonical> to omit transient information, e.g. dates and times, that makes it harder to compare reports; use B<--components> (perhaps with B<--noobjects> or B<--noparameters>) to generate component definitions
+if B<--lastonly> is not specified, DM XML with all imports resolved (apart from bibliographic references and data type definitions); use B<--dtprofile>, optionally with B<--dtspec> and B<--dtuuid>, to generate DT XML for the specified profiles; use B<--canonical> to omit transient information, e.g. dates and times, that makes it harder to compare reports; use B<--components> (perhaps with B<--noobjects> or B<--noparameters>) to generate component definitions
 
 =item B<xml2>
 
@@ -12647,7 +12751,7 @@ indicates the location of the PDF versions of BBF standards; is concatenated wit
 
 =item B<--ucprofile=s>...
 
-affects only the B<xml2> report; can be specified multiple times; defines use case profiles whose requirements will be checked against the B<--dtprofile> profiles
+affects only the B<xml> report; can be specified multiple times; defines use case profiles whose requirements will be checked against the B<--dtprofile> profiles
 
 =item B<--upnpdm>
 

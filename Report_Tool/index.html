@@ -48,6 +48,8 @@
 [--diffsext=s(diffs)]...
 [--dtprofile=s]...
 [--dtspec[=s]]
+[--dtuuid[=s]]
+[--exitcode]
 [--help]
 [--ignore=p(&quot;&quot;)]
 [--importsuffix=s(&quot;&quot;)]
@@ -70,15 +72,19 @@
 [--notemplates]
 [--nowarnredef]
 [--nowarnbibref]
+[--nowarnenableparameter]
+[--nowarnnumentries]
 [--nowarnreport]
 [--nowarnprofbadref]
+[--nowarnuniquekeys]
+[--nowarnwtref]
 [--objpat=p(&quot;&quot;)]
 [--option=n=v]...
 [--outfile=s]
 [--pedantic[=i(1)]]
 [--plugin=s]...
 [--quiet]
-[--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...]
+[--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...]
 [--showdiffs]
 [--showreadonly]
 [--showspec]
@@ -112,7 +118,7 @@ DM-instance...</p>
 <hr />
 <h1><a name="description">DESCRIPTION</a></h1>
 <p>The files specified on the command line are assumed to be XML TR-069 data model definitions compliant with the <em>cwmp:datamodel</em> (DM) XML schema.</p>
-<p>The script parses, validates (ahem) and reports on these files, generating output in various possible formats to <em>stdout</em>.</p>
+<p>The script parses, validates and reports on these files, generating output in various possible formats to <em>stdout</em>.</p>
 <p>There are a large number of options but in practice only a few need to be used.  For example:</p>
 <p>./report.pl --report html tr-098-1-2-0.xml &gt;tr-098-1-2-0.html</p>
 <p>
@@ -169,7 +175,7 @@ DM-instance...</p>
 <dt><strong><a name="components" class="item"><strong>--components</strong></a></strong></dt>
 
 <dd>
-<p>affects only the <strong>xml2</strong> report; generates a component for each object; if <strong>--noobjects</strong> is also specified, the component omits the object definition and consists only of parameter definitions</p>
+<p>affects only the <strong>xml</strong> report; generates a component for each object; if <strong>--noobjects</strong> is also specified, the component omits the object definition and consists only of parameter definitions</p>
 </dd>
 <dt><strong><a name="s" class="item"><strong>--configfile=s(&quot;&quot;)</strong></a></strong></dt>
 
@@ -214,14 +220,25 @@ DM-instance...</p>
 <dt><strong><a name="dtprofile_s" class="item"><strong>--dtprofile=s</strong>...</a></strong></dt>
 
 <dd>
-<p>affects only the <strong>xml2</strong> report; can be specified multiple times; defines profiles to be used to generate an example DT instance</p>
+<p>affects only the <strong>xml</strong> report; can be specified multiple times; defines profiles to be used to generate an example DT instance</p>
 <p>for example, specify <strong>Baseline</strong> to select the latest version of the <strong>Baseline</strong> pofile, or <strong>Baseline:1</strong> to select the <strong>Baseline:1</strong> profile</p>
 <p><strong>base</strong> and <strong>extends</strong> attributes are honored, so (for example), <strong>Baseline:2</strong> will automatically include <strong>Baseline:1</strong> requirements</p>
 </dd>
 <dt><strong><a name="dtspec_s" class="item"><strong>--dtspec=s</strong></a></strong></dt>
 
 <dd>
-<p>affects only the <strong>xml2</strong> report; has an affect only when <strong>--dtprofile</strong> is also present; specifies the value of the top-level <strong>spec</strong> attribute in the generated DT instance; if not specified, the spec defaults to <strong>urn:example-com:device-1-0-0</strong></p>
+<p>affects only the <strong>xml</strong> report; has an affect only when <strong>--dtprofile</strong> is also present; specifies the value of the top-level <strong>spec</strong> attribute in the generated DT instance; if not specified, the spec defaults to <strong>urn:example-com:device-1-0-0</strong></p>
+</dd>
+<dt><strong><a name="dtuuid_s" class="item"><strong>--dtuuid=s</strong></a></strong></dt>
+
+<dd>
+<p>affects only the <strong>xml</strong> report; has an affect only when <strong>--dtprofile</strong> is also present; specifies the value of the top-level <strong>uuid</strong> attribute in the generated DT instance (there is no &quot;uuid:&quot; prefix); if not specified, the UUID defaults to <strong>00000000-0000-0000-0000-000000000000</strong></p>
+</dd>
+<dt><strong><a name="exitcode" class="item"><strong>--exitcode</strong></a></strong></dt>
+
+<dd>
+<p>if specified, the exit code is minus the number of reported errors, which will typically be masked to 8 bits, e.g. 2 errors would result in an exit code of -2, which might become 254</p>
+<p>if not specified, the exit code is zero regardless of the number of errors</p>
 </dd>
 <dt><strong><a name="help" class="item"><strong>--help</strong></a></strong></dt>
 
@@ -330,8 +347,10 @@ DM-instance...</p>
 <li><strong><a name="if_the_number_of_inserted_and_or_deleted_characters_in_the_paragraph_is_less_than_or_equal_to_maxchardiffs_changes_are_shown_at_the_character_level" class="item">if the number of inserted and/or deleted characters in the paragraph is less than or equal to <strong>maxchardiffs</strong>, changes are shown at the character level</a></strong>
 
 </li>
-<li><strong><a name="otherwise_if_the_number_of_inserted_and_or_deleted_words_in_the_paragraph_is_less_than_or_equal_to_maxworddiffs_changes_are_shown_at_the_word_level_item_otherwise_the_entire_paragraph_is_shown_as_a_single_change" class="item">otherwise, if the number of inserted and/or deleted words in the paragraph is less than or equal to <strong>maxworddiffs</strong>, changes are shown at the word level
-=item * otherwise, the entire paragraph is shown as a single change</a></strong>
+<li><strong><a name="otherwise_if_the_number_of_inserted_and_or_deleted_words_in_the_paragraph_is_less_than_or_equal_to_maxworddiffs_changes_are_shown_at_the_word_level" class="item">otherwise, if the number of inserted and/or deleted words in the paragraph is less than or equal to <strong>maxworddiffs</strong>, changes are shown at the word level</a></strong>
+
+</li>
+<li><strong><a name="otherwise_the_entire_paragraph_is_shown_as_a_single_change" class="item">otherwise, the entire paragraph is shown as a single change</a></strong>
 
 </li>
 </ul>
@@ -371,12 +390,12 @@ DM-instance...</p>
 <dt><strong><a name="noobjects" class="item"><strong>--noobjects</strong></a></strong></dt>
 
 <dd>
-<p>affects only the <strong>xml2</strong> report when <strong>--components</strong> is specified; omits objects from component definitions</p>
+<p>affects only the <strong>xml</strong> report when <strong>--components</strong> is specified; omits objects from component definitions</p>
 </dd>
 <dt><strong><a name="noparameters" class="item"><strong>--noparameters</strong></a></strong></dt>
 
 <dd>
-<p>affects only the <strong>xml2</strong> report when <strong>--components</strong> is specified; omits parameters from component definitions</p>
+<p>affects only the <strong>xml</strong> report when <strong>--components</strong> is specified; omits parameters from component definitions</p>
 <p><strong>NOT YET IMPLEMENTED</strong></p>
 </dd>
 <dt><strong><a name="noprofiles" class="item"><strong>--noprofiles</strong></a></strong></dt>
@@ -388,6 +407,23 @@ DM-instance...</p>
 
 <dd>
 <p>suppresses template expansion (currently affects only <strong>html</strong> reports</p>
+</dd>
+<dt><strong><a name="nowarnbibref" class="item"><strong>--nowarnbibref</strong></a></strong></dt>
+
+<dd>
+<p>disables bibliographic reference warnings</p>
+<p>see also <strong>--warnbibref</strong></p>
+</dd>
+<dt><strong><a name="nowarnnableparameter" class="item"><strong>--nowarnnableparameter</strong></a></strong></dt>
+
+<dd>
+<p>disables warnings when a writable table has no enable parameter</p>
+</dd>
+<dt><strong><a name="nowarnnumentries" class="item"><strong>--nowarnnumentries</strong></a></strong></dt>
+
+<dd>
+<p>disables warnings (and/or errors) when a multi-instance object has no associated NumberOfEntries parameter</p>
+<p>this is always an error so disabling these warnings isn't such a good idea</p>
 </dd>
 <dt><strong><a name="nowarnredef" class="item"><strong>--nowarnredef</strong></a></strong></dt>
 
@@ -406,6 +442,16 @@ DM-instance...</p>
 <p>disables warnings when a profile references an invalid object or parameter</p>
 <p>there are some circumstances under which it's useful to use an existing profile definition where some objects or parameters that it references have been (deliberately) deleted</p>
 <p>this is deprecated because it is no longer needed (use status=&quot;deleted&quot; as appropriate to suppress such errors)</p>
+</dd>
+<dt><strong><a name="nowarnuniquekeys" class="item"><strong>--nowarnuniquekeys</strong></a></strong></dt>
+
+<dd>
+<p>disables warnings when a multi-instance object has no unique keys</p>
+</dd>
+<dt><strong><a name="nowarnwtref" class="item"><strong>--nowarnwtref</strong></a></strong></dt>
+
+<dd>
+<p>disables &quot;referenced file's spec indicates that it's still a WT&quot; warnings</p>
 </dd>
 <dt><strong><a name="objpat_p" class="item"><strong>--objpat=p</strong></a></strong></dt>
 
@@ -481,9 +527,9 @@ DM-instance...</p>
 
 <dd>
 <p>suppresses informational messages</p>
-<p>this has the same effect as setting <strong>--loglevel</strong> to &quot;e&quot; (error)</p>
+<p>this used to have the same effect as setting <strong>--loglevel</strong> to &quot;e&quot; (error) but now it simply suppresses such messages</p>
 </dd>
-<dt><strong><a name="report_html_htmlbbf_null_tab_text_xls_xml_xml2_xsd_other" class="item"><strong>--report=html|htmlbbf|(null)|tab|text|xls|xml|xml2|xsd|other...</strong></a></strong></dt>
+<dt><strong><a name="report_html_htmlbbf_null_tab_text_xls_xml_xsd_other" class="item"><strong>--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...</strong></a></strong></dt>
 
 <dd>
 <p>specifies the report format; one of the following:</p>
@@ -524,7 +570,7 @@ DM-instance...</p>
 
 <dd>
 <p>if <strong>--lastonly</strong> is specified, DM XML containing only the changes made by the final file on the command line; see also <strong>--autobase</strong></p>
-<p>if <strong>--lastonly</strong> is not specified, DM XML with all imports resolved (apart from bibliographic references and data type definitions); use <strong>--dtprofile</strong>, optionally with <strong>--dtspec</strong>, to generate DT XML for the specified profiles; use <strong>--canonical</strong> to omit transient information, e.g. dates and times, that makes it harder to compare reports; use <strong>--components</strong> (perhaps with <strong>--noobjects</strong> or <strong>--noparameters</strong>) to generate component definitions</p>
+<p>if <strong>--lastonly</strong> is not specified, DM XML with all imports resolved (apart from bibliographic references and data type definitions); use <strong>--dtprofile</strong>, optionally with <strong>--dtspec</strong> and <strong>--dtuuid</strong>, to generate DT XML for the specified profiles; use <strong>--canonical</strong> to omit transient information, e.g. dates and times, that makes it harder to compare reports; use <strong>--components</strong> (perhaps with <strong>--noobjects</strong> or <strong>--noparameters</strong>) to generate component definitions</p>
 </dd>
 <dt><strong><a name="xml2" class="item"><strong>xml2</strong></a></strong></dt>
 
@@ -680,7 +726,7 @@ DM-instance...</p>
 <dt><strong><a name="ucprofile_s" class="item"><strong>--ucprofile=s</strong>...</a></strong></dt>
 
 <dd>
-<p>affects only the <strong>xml2</strong> report; can be specified multiple times; defines use case profiles whose requirements will be checked against the <strong>--dtprofile</strong> profiles</p>
+<p>affects only the <strong>xml</strong> report; can be specified multiple times; defines use case profiles whose requirements will be checked against the <strong>--dtprofile</strong> profiles</p>
 </dd>
 <dt><strong><a name="upnpdm" class="item"><strong>--upnpdm</strong></a></strong></dt>
 
