@@ -116,6 +116,10 @@
 # XXX $components is a hack (need full xml2 report support in order to carry
 #     over unique keys, references etc)
 
+# XXX $showdiffs doesn't do the right thing with components, because the history
+#     refers to the component, not the model, so can show component diffs that
+#     should not be shown as model diffs
+
 # XXX why does this happen?
 # % report.pl tr-098-1-1-0.xml tr-098-1-2-0.xml
 #Internetgatewaydevice.DownloadDiagnostics.: object not found (auto-creating)
@@ -6480,6 +6484,8 @@ END
         # XXX $trclass is treated differently from $tdclass only to minimise
         #     diffs with HTML produced by earlier tool versions
         my $trclass = ($showdiffs && util_node_is_new($node)) ? 'n' : '';
+        # XXX never show diffs if the model is new, i.e. has no history
+        $trclass = '' if !defined $node->{mnode}->{history};
         $trclass = $trclass ? qq{ class="$trclass"} : qq{};
 
 	my $tdclass = ($model | $object | $profile) ? 'o' : 'p';
@@ -9598,7 +9604,10 @@ END
         my $htmlval = undef;
         if ($htmlrow) {
             my $diffs = grep {$htmlrow =~ /-$_/} @$diffsexts;
-            $htmlval = {text => qq{HTML},
+            # XXX this did have text => qq{HTML} and bold => !$diffs, but in
+            #     Denver agreed to use qq{Diffs} and qq{Full}; actually using
+            #     qq{Diff} (which some people preferred; and still using bold
+            $htmlval = {text => $diffs ? qq{Diff} : qq{Full},
                         link => qq{$cwmppath$htmlrow},
                         bold => !$diffs};
         }
