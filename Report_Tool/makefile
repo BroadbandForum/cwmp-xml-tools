@@ -4,6 +4,7 @@ MACHINE = $(shell uname -m | tr 'A-Z' 'a-z' | sed -e 's/i.86/32/' -e 's/x86_64//
 PLATFORM = $(KERNEL)$(MACHINE)
 
 # Windows-specific
+# XXX should use the 32-bit version in order to maximise applicability
 CYGDRIVE = /cygdrive
 PERL = perl
 STRAWB = $(CYGDRIVE)/c/strawberry32
@@ -14,7 +15,7 @@ STRAWBL = $(STRAWB)/c/bin/libxml2-2_.dll \
 	  $(STRAWB)/c/bin/libiconv-2_.dll \
 	  $(STRAWB)/c/bin/liblzma-5_.dll \
 	  $(STRAWB)/c/bin/zlib1_.dll
-WINDIR = $(CYGDRIVE)/c/Windows/system32
+WINDIR = $(CYGDRIVE)/c/Windows/System32
 
 # Darwin-specific (OS X)
 DARWINL = /usr/lib/libxml2.dylib \
@@ -62,6 +63,7 @@ report.linux report.linux32: report.pl
 	(PATH=/usr/local/bin LD_LIBRARY_PATH=/usr/local/lib pp -c -x -o $@ $(PERLMODULES:%=-M %) $(LINUXL:%=-l %) $<)
 
 # this is one-off after a Strawberry Perl installation
-# XXX should include pp (PAR::Packer) here too
+# XXX have removed CPAN from the list; maybe it was causing problems but
+#     there is something wrong with the environment (do in Command Prompt)
 strawbinst:
-	(PATH=$(STRAWBC):$(STRAWBP):$(STRAWBS) $(WINDIR)/cmd /C cpan -f CPAN $(PERLMODULES))
+	(PATH=$(STRAWBC):$(STRAWBP):$(STRAWBS) $(WINDIR)/cmd /C cpan -f $(PERLMODULES) PAR::Packer)
