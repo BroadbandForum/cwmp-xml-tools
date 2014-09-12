@@ -13,6 +13,13 @@ For questions and comments please contact klaus.wich@axiros.com
 
 History
 --------
+09/11/2013 ReportGuiSetup 2.6, ReportGui 2.6, report.exe#277 (report.pl#277)
+    new version of report.exe (report.pl#277) included in installer
+    new ReportGui version 2.6
+    - xml download aadapted to new BBF web page
+    - publish options adapted to new format
+    - publishing without warnings report as default 
+    
 11/11/2013 ReportGuiSetup 2.5, ReportGui 2.5, report.exe#251 (report.pl#251)
     new version of report.exe (report.pl#251) included in installer
     new ReportGui version 2.5
