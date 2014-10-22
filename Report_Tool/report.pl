@@ -1708,10 +1708,14 @@ sub expand_model_object
     # XXX this isn't working in a component (need to prefix component path)
     #emsg "$previous" if $previous;
 
+    # determine old name of this object; this is used to allow history tracking
+    # across renames during data model development
+    my $oldname = dmr_oldname($object);
+
     # create the new object
     my $nnode = add_object($context, $mnode, $pnode, $is_dt, $name, $ref, 0,
                            $access, $status, $description, $descact, $descdef,
-                           $majorVersion, $minorVersion, $previous);
+                           $majorVersion, $minorVersion, $previous, $oldname);
 
     # XXX add some other stuff (really should be handled by add_object)
     check_and_update($path, $nnode, 'minEntries', $minEntries);
@@ -1829,6 +1833,20 @@ sub dmr_previous
         $hash->{$name} = $attr;
     }
     return $hash;
+}
+
+# Get old names from dmr:old*, if present
+sub dmr_oldname
+{
+    my ($element) = @_;
+
+    my $dmr = $element->lookupNamespaceURI('dmr');
+    my @oldname;
+    @oldname = $element->findnodes('@dmr:oldParameter|'.
+                                   '@dmr:oldObject|'.
+                                   '@dmr:oldProfile') if $dmr;
+    
+    return @oldname ? $oldname[0]->findvalue('.') : undef;
 }
 
 # Adjust and return first node name to be at the same level as the second
@@ -2109,11 +2127,16 @@ sub expand_model_parameter
         $previous = undef if $previous eq '';
     }
 
+    # determine old name of this parameter; this is used to allow history
+    # tracking across renames during data model development
+    my $oldname = dmr_oldname($parameter);
+
     my $nnode = add_parameter($context, $mnode, $pnode, $is_dt, $name, $ref,
                               $type, $syntax, $access, $status, $description,
                               $descact, $descdef, $values, $default, $deftype,
                               $defstat, $majorVersion, $minorVersion,
-                              $activeNotify, $forcedInform, $units, $previous);
+                              $activeNotify, $forcedInform, $units, $previous,
+                              $oldname);
 
     # XXX add some other stuff (really should be handled by add_parameter)
     check_and_update($nnode->{path}, $nnode, 'hasPattern', $hasPattern);
@@ -2208,6 +2231,7 @@ sub expand_model_profile
     } else {
         # if base specified, find base profile
         my $baseprof;
+        my $baseauto = 0;
         if ($base) {
             ($baseprof) = grep {
                 $_->{type} eq 'profile' && $_->{name} eq $base;
@@ -2227,7 +2251,10 @@ sub expand_model_profile
                 my ($b) = ($_->{name} =~ /([^:]*)/);
                 $_->{type} eq 'profile' && $a eq $b;
             } @{$mnode->{nodes}};
-            $base = $baseprof->{name} if $baseprof;
+            if ($baseprof) {
+                $base = $baseprof->{name};
+                $baseauto = 1;
+            }
         }
 
         # if extends specified, find profiles that are being extended
@@ -2237,10 +2264,31 @@ sub expand_model_profile
                 my ($extprof) = grep {
                     $_->{type} eq 'profile' && $_->{name} eq $extend;
                 } @{$mnode->{nodes}};
-                emsg "{$file}$extend: profile not found (ignoring)"
-                    unless $extprof;
-                push @$extendsprofs, $extprof if $extprof;
+                if (!$extprof) {
+                    emsg "{$file}$extend: profile not found (ignoring)";
+                } elsif ($base && $extend eq $base) {
+                    $baseauto += 2;
+                } else {
+                    push @$extendsprofs, $extprof;
+                }
             }
+        }
+
+        # baseauto = 0 if there are no problems with base and extends
+        # baseauto = 1 if base was omitted and determined automatically
+        # baseauto = 2 if base was specified and extends duplicates it
+        # baseauto = 3 if base was specified incorrectly via extends
+        if ($baseauto == 1) {
+            w1msg "{$file}$name: base profile $base omitted and therefore " .
+                "determined automatically";
+        } elsif ($baseauto == 2) {
+            w0msg "{$file}$name: base profile $base specified incorrectly " .
+                "via both \"base\" and \"extends\"";
+        } elsif ($baseauto == 3) {
+            # XXX maybe this should be w0msg but that would generate warnings
+            #     for existing data models that were not previously generated
+            w1msg "{$file}$name: base profile $base specified incorrectly " .
+                "via \"extends\"";
         }
 
         my ($mname_only, $mversion_major, $mversion_minor) =
@@ -2793,7 +2841,7 @@ sub add_object
 {
     my ($context, $mnode, $pnode, $is_dt, $name, $ref, $auto, $access, $status,
         $description, $descact, $descdef, $majorVersion, $minorVersion,
-        $previous) = @_;
+        $previous, $oldname) = @_;
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
@@ -2814,6 +2862,10 @@ sub add_object
     $description = '' unless $description;
     # don't default descact, so can tell whether it was specified
     # don't touch version, since undefined is significant
+
+    # use oldname as fallback for ref when comparing
+    # XXX should this be autobase rather than compare?
+    $ref = $oldname if $compare && !$ref && $oldname;
 
     my $path = $pnode->{path} . ($ref ? $ref : $name);
 
@@ -2868,6 +2920,7 @@ sub add_object
         $nnode->{history} = [] unless defined $nnode->{history};
 
         # XXX if both name and ref are defined, this is a rename operation
+        # XXX what if the new object has a different parent?
         # XXX what if the new-named object already exists?
         # XXX what are the implications for history?
         # XXX should this be marked as a change? yes
@@ -2910,7 +2963,7 @@ sub add_object
             d0msg "$path: status: $nnode->{status} -> $status";
             $nnode->{status} = $status;
             $changed->{status} = 1;
-            hide_subtree($nnode) if util_is_deleted($nnode);
+            hide_subtree($nnode) if !$compare && util_is_deleted($nnode);
         }
         if ($description) {
             if ($description eq $nnode->{description}) {
@@ -3043,7 +3096,7 @@ sub add_parameter
     my ($context, $mnode, $pnode, $is_dt, $name, $ref, $type, $syntax, $access,
         $status, $description, $descact, $descdef, $values, $default, $deftype,
         $defstat, $majorVersion, $minorVersion, $activeNotify, $forcedInform,
-        $units, $previous)
+        $units, $previous, $oldname)
         = @_;
 
     my $file = $context->[0]->{file};
@@ -3072,6 +3125,10 @@ sub add_parameter
     # don't touch version, since undefined is significant
     $activeNotify = 'normal' unless $activeNotify;
     # forcedInform is boolean
+
+    # use oldname as fallback for ref when comparing
+    # XXX should this be autobase rather than compare?
+    $ref = $oldname if $compare && !$ref && $oldname;
 
     my $path = $pnode->{path} . ($ref ? $ref : $name);
     my $auto = 0;
@@ -3126,6 +3183,7 @@ sub add_parameter
         $nnode->{history} = [] unless defined $nnode->{history};
 
         # XXX if both name and ref are defined, this is a rename operation
+        # XXX what if the new parameter has a different parent?
         # XXX what if the new-named parameter already exists?
         # XXX what are the implications for history?
         # XXX should this be marked as a change? yes
@@ -3156,7 +3214,7 @@ sub add_parameter
             d0msg "$path: status: $nnode->{status} -> $status";
             $nnode->{status} = $status;
             $changed->{status} = 1;
-            hide_subtree($nnode) if util_is_deleted($nnode);
+            hide_subtree($nnode) if !$compare && util_is_deleted($nnode);
         }
         my $tactiveNotify = $activeNotify;
         $tactiveNotify =~ s/will/can/;
@@ -7409,12 +7467,15 @@ sub html_template_issue
     my $deleted = ($opts->{insdel} && $opts->{insdel} eq '---');
 
     # if preceded by "---" is deleted, so no counter increment
-    my $counter = $deleted ? qq{''n''} : $issue_counter->{$prefix}++;
+    my $counter = $deleted ? qq{''n''} : ++$issue_counter->{$prefix};
 
     # if not already deleted and issue has been addressed, mark accordingly
     my $mark = (!$deleted && $status) ? '---' : '';
 
-    return qq{\n'''$mark$prefix $counter: $comment$mark'''};
+    # if there is a status, include it
+    $status = $status ? qq{ ($status)} : qq{};
+
+    return qq{\n'''$mark$prefix $counter$status: $comment$mark'''};
 }
 
 # insert appropriate null value
@@ -7570,8 +7631,8 @@ sub html_template_profdesc
 
     my $node = $opts->{node};
     my $name = $node->{name};
-    my $base = $node->{base};
-    my $extends = $node->{extends};
+    my $baseprof = $node->{baseprof};
+    my $extendsprofs = $node->{extendsprofs};
 
     # XXX horrible hack for nameless profiles
     return '' unless $name;
@@ -7584,23 +7645,22 @@ sub html_template_profdesc
     my $defmodelmaj = $defmodel;
     $defmodelmaj =~ s/\.\d+$//;
 
-    my $baseprofs = $base;
-    my $plural = '';
-    if ($extends) {
-        $plural = 's' if $baseprofs || $extends =~ / /;
-        $baseprofs .= ' ' if $baseprofs;
-        $baseprofs .= $extends;
-    }
-    if ($baseprofs) {
-        $baseprofs =~ s/(\w+:\d+)/{{profile|$1}}/g;
-        $baseprofs =~ s/ /, /g;
-        $baseprofs =~ s/, ([^,]+$)/ and $1/;
+    my $profs = [];
+    push @$profs, $baseprof if $baseprof;
+    push @$profs, @$extendsprofs if $extendsprofs && @$extendsprofs;
+    my $plural = @$profs > 1 ? 's' : '';
+    my $profnames = join ' ', map { $_->{name} } @$profs;
+
+    if ($profnames) {
+        $profnames =~ s/(\w+:\d+)/{{profile|$1}}/g;
+        $profnames =~ s/ /, /g;
+        $profnames =~ s/, ([^,]+$)/ and $1/;
     }
 
-    my $text = $baseprofs ? qq{The} : qq{This table defines the};
+    my $text = $profnames ? qq{The} : qq{This table defines the};
     $text .= qq{ {{profile}} profile for the ''$defmodelmaj'' data model};
-    $text .= qq{ is defined as the union of the $baseprofs profile$plural }.
-        qq{and the additional requirements defined in this table} if $baseprofs;
+    $text .= qq{ is defined as the union of the $profnames profile$plural }.
+        qq{and the additional requirements defined in this table} if $profnames;
     $text .= qq{.  The minimum REQUIRED version for this profile is }.
         qq{''$defmodel''.};
 
@@ -7861,6 +7921,16 @@ sub html_template_docname
 sub html_template_trname
 {
     my ($opts, $name) = @_;
+
+    # convert the TR-nnniiaacc form to tr-nnn-i-a-c (because it's documented)
+    my ($tr, $nnn, $i, $a, $c) =
+        ($name =~ /^(TR)-(\d+)(?:i(\d+))?(?:a(\d+))?(?:c(\d+))?$/);
+    if (defined $tr  && defined $nnn) {
+        $i = 1 unless defined $i;
+        $a = 0 unless defined $a;
+        $c = 0 unless defined $c;
+        $name = qq{tr-$nnn-$i-$a-$c};
+    }
 
     my $file = $opts->{file};
     $htmlbbf_info->{$file}->{trname} = $name if
