@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tns:document xmlns:tns="urn:broadband-forum-org:cwmp:datamodel-1-5"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-5 file:/Users/wilupton/Documents/BBF/cwmp-bbf/bbf-publish-tool/test/Work/cwmp-datamodel-1-5.xsd" spec="steve-1-1-0" file="steve-1-1-0.xml">
+ <import file="steve-1-0-0.xml">
+  <model name="Steve:1.0"/>
+ </import>
+ <model name="Steve:1.1" base="Steve:1.0">
+  <object base="Radio.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+   <parameter base="SupportedStandards" access="readOnly">
+    <description action="replace">
+     {{list}} List items indicate which IEEE 802.11 standards this {{object}} instance can support simultaneously, in the frequency band specified by {{param|OperatingFrequencyBand}}.  {{enum}}
+     Each value indicates support for the indicated standard.
+     If {{param|OperatingFrequencyBand}} is set to {{enum|2.4GHz|OperatingFrequencyBand}}, only values {{enum|b}}, {{enum|g}}, {{enum|n}}, {{enum|ac}} are allowed.
+     If {{param|OperatingFrequencyBand}} is set to {{enum|5GHz|OperatingFrequencyBand}}, only values {{enum|a}}, {{enum|n}}, {{enum|ac}} are allowed.
+    </description>
+    <syntax>
+     <list/>
+     <string>
+      <enumeration value="a"/>
+      <enumeration value="b"/>
+      <enumeration value="g"/>
+      <enumeration value="n"/>
+      <enumeration value="ac">
+       <description>{{bibref|802.11ac-2013}}</description>
+      </enumeration>
+     </string>
+    </syntax>
+   </parameter>
+   <parameter base="OperatingStandards" access="readWrite">
+    <description action="replace">
+     {{list}} List items indicate which IEEE 802.11 standard this {{object}} instance is configured for.
+     Each value indicates support for the indicated standard.
+     If {{param|OperatingFrequencyBand}} is set to {{enum|2.4GHz|OperatingFrequencyBand}}, only values {{enum|b}}, {{enum|g}}, {{enum|n}}, {{enum|ac}} are allowed.
+     If {{param|OperatingFrequencyBand}} is set to {{enum|5GHz|OperatingFrequencyBand}}, only values {{enum|a}}, {{enum|n}}, {{enum|ac}} are allowed.
+     For example, a value of "g,b" (or "b,g" - order is not important) means that the 802.11g standard {{bibref|802.11g-2003}} is used with a backwards-compatible mode for 802.11b {{bibref|802.11b-1999}}. A value of "g" means that only the 802.11g standard can be used.
+    </description>
+   </parameter>
+  </object>
+ </model>
+</tns:document>

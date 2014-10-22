@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tns:document xmlns:tns="urn:broadband-forum-org:cwmp:datamodel-1-5"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-5 file:/Users/wilupton/Documents/BBF/cwmp-bbf/bbf-publish-tool/test/Work/cwmp-datamodel-1-5.xsd" spec="steve-1-0-0" file="steve-1-0-0.xml">
+ <model name="Steve:1.0">
+  <object name="Radio.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+   <parameter name="SupportedFrequencyBands" access="readOnly">
+    <description>{{list}} List items indicate the frequency bands at which the radio can operate.</description>
+    <syntax>
+     <list/>
+     <string>
+      <enumeration value="2.4GHz"/>
+      <enumeration value="5GHz"/>
+     </string>
+    </syntax>
+   </parameter>
+   <parameter name="OperatingFrequencyBand" access="readWrite">
+    <description>
+     Indicates the frequency band at which the radio is operating. 
+     If the radio supports multiple bands, and {{param}} is changed, then all parameters whose value is not valid for the new frequency band (e.g. ''Channel'') MUST be set to a valid value (according to some CPE vendor-specific behavior).
+    </description>
+    <syntax>
+     <string>
+      <enumerationRef targetParam="SupportedFrequencyBands"/>
+     </string>
+    </syntax>
+   </parameter>
+   <parameter name="SupportedStandards" access="readOnly">
+    <description>
+     {{list}} List items indicate which IEEE 802.11 standards this {{object}} instance can support simultaneously, in the frequency band specified by {{param|OperatingFrequencyBand}}.  {{enum}}
+     Each value indicates support for the indicated standard.
+     If {{param|OperatingFrequencyBand}} is set to {{enum|2.4GHz|OperatingFrequencyBand}}, only values {{enum|b}}, {{enum|g}}, {{enum|n}} are allowed.
+     If {{param|OperatingFrequencyBand}} is set to {{enum|5GHz|OperatingFrequencyBand}}, only values {{enum|a}}, {{enum|n}} are allowed.
+    </description>
+    <syntax>
+     <list/>
+     <string>
+      <enumeration value="a">
+       <description>{{bibref|802.11a-1999}}</description>
+      </enumeration>
+      <enumeration value="b">
+       <description>{{bibref|802.11b-1999}}</description>
+      </enumeration>
+      <enumeration value="g">
+       <description>{{bibref|802.11g-2003}}</description>
+      </enumeration>
+      <enumeration value="n">
+       <description>{{bibref|802.11n-2009}}</description>
+      </enumeration>
+     </string>
+    </syntax>
+   </parameter>
+   <parameter name="OperatingStandards" access="readWrite">
+    <description>
+     List items indicate which IEEE 802.11 standard this {{object}} instance is configured for. 
+     Each value indicates support for the indicated standard.
+     If {{param|OperatingFrequencyBand}} is set to {{enum|2.4GHz|OperatingFrequencyBand}}, only values {{enum|b}}, {{enum|g}}, {{enum|n}} are allowed.
+     If {{param|OperatingFrequencyBand}} is set to {{enum|5GHz|OperatingFrequencyBand}}, only values {{enum|a}}, {{enum|n}} are allowed.
+     For example, a value of "g,b" (or "b,g" - order is not important) means that the 802.11g standard {{bibref|802.11g-2003}} is used with a backwards-compatible mode for 802.11b {{bibref|802.11b-1999}}. A value of "g" means that only the 802.11g standard can be used.
+    </description>
+    <syntax>
+     <list/>
+     <string>
+      <enumerationRef targetParam="SupportedStandards"/>
+     </string>
+    </syntax>
+   </parameter>   
+  </object>
+ </model>
+</tns:document>
