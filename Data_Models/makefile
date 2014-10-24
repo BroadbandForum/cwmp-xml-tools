@@ -37,7 +37,7 @@ REPORT = ../Report_Tool/report.pl
 PUBLISH = ../Publish_Tool/publish.pl
 PUBLISHFLAGS += --makevar REPORT="$(REPORT)"
 PUBLISHFLAGS += --makevar REPORT_FLAGS="--showdiffs"
-PUBLISHFLAGS += --od148=$(OD148)
+PUBLISHFLAGS += --od148=$(CONFIG)
 
 # the publish tool's "mini make" tool
 MINIMAKE = ../Publish_Tool/deps.pl
@@ -77,8 +77,8 @@ TRMAKEFILE = makefile-$(TRWORKDIR)
 WTMAKEFILE = makefile-$(WTWORKDIR)
 ILMAKEFILE = makefile-$(ILWORKDIR)
 
-# this directory must contain the latest OD-148 revision, named OD-148.txt
-OD148 = OD-148.txt
+# the publish tool's config file
+CONFIG = config.txt
 
 # default target builds cwmp-trs and (if the Standards directory exist)
 # cwmp-wts and cwmp-ils
@@ -122,8 +122,8 @@ $(ILWORKDIR): $(CWMPZIP) $(WTDIR)
 # XXX unfortunately at present it is necessary manually to specify the inputs;
 #     would like cwmp-trs/index.html to be directly usable
 $(CWMPINDEX): $(TRWORKDIR)
-	$(REPORT) \
-	--quiet --include=$(TRWORKDIR) --report=htmlbbf --configfile=$(OD148) \
+	$(REPORT) --quiet \
+        --include=$(TRWORKDIR) --report=htmlbbf --configfile=$(CONFIG) \
 	cwmp-1-0.xsd cwmp-1-1.xsd cwmp-1-2.xsd cwmp-1-3.xsd cwmp-1-4.xsd \
 	cwmp-datamodel-1-0.xsd cwmp-datamodel-1-1.xsd cwmp-datamodel-1-2.xsd \
 	cwmp-datamodel-1-3.xsd cwmp-datamodel-1-4.xsd cwmp-datamodel-1-5.xsd \
