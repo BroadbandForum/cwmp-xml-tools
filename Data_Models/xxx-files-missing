@@ -1,0 +1,67 @@
+#!/bin/sh
+#
+# hacked shell script to generate ZIP file containing files referenced by
+# CWMP index file but not yet published (includes missing HTML)
+#
+# also generates ZIP file containing all HTML (so there is some overlap)
+# XXX currently suppressed
+
+# XXX note that it doesn't (currently) include the "no corrigendum" versions
+#     of XML files (whether hand-created or "full"); that will have to wait
+#     for official publish tool support
+
+# CWMP index file
+INDEX=cwmpindex.html
+
+# directory containing published XML etc
+PUBDIR=cwmp-zip/cwmp
+
+# directory containing to-be-published XML etc
+TRSDIR=cwmp-trs
+
+# intermediate files
+THERE=xxx-files-already-there.txt
+NEEDED=xxx-files-needed.txt
+MISSING=xxx-files-missing.txt
+
+# output ZIP file 1 (missing files, including some HTML)
+ZIP1=xxx-files-missing.zip
+
+# output ZIP file 2 (all HTML)
+# currently suppressed
+#ZIP2=xxx-files-html.zip
+
+# generate list of published files
+ls -1 $PUBDIR \
+        >$THERE
+
+# generate list of files referenced by index file
+# XXX note assumption that PUBDIR is xxx/cwmp
+grep '<a href=' $INDEX | \
+    grep -v '<!--' | \
+    grep -v 'broadband-forum.org' | \
+    grep -v 'href="#' | \
+    grep -v cwmp.zip | \
+    sed -e 's/.*a href="//' -e 's/".*//' -e 's:cwmp/::' | \
+    sort | \
+    uniq \
+        >$NEEDED
+
+# generate list of files that are referenced but not published
+comm -13 $THERE $NEEDED \
+        >$MISSING
+
+# create a ZIP file containing the missing files
+/bin/rm -f $ZIP1
+(cd $TRSDIR; \
+    zip ../$ZIP1 $(cat ../$MISSING))
+
+# create a ZIP file containing all tr-*.html files (excludes index.html)
+# XXX currently suppressed
+#/bin/rm -f $ZIP2
+#(cd $TRSDIR; \
+#    zip ../$ZIP2 tr-*.html)
+
+# tidy up
+/bin/rm -f $THERE $NEEDED $MISSING
+
