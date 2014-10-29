@@ -291,6 +291,7 @@ our $nomodels = 0;
 our $noobjects = 0;
 our $noparameters = 0;
 our $noprofiles = 0;
+our $noshowreadonly = 0;
 our $notemplates = 0;
 our $nowarnbibref = 0;
 our $nowarnenableparameter = 0;
@@ -309,7 +310,7 @@ our $quiet = 0;
 our $report = '';
 our $showdiffs = 0;
 our $showspec = 0;
-our $showreadonly = 0;
+our $showreadonly = undef;
 our $showsyntax = 0;
 our $showunion = 0;
 our $sortobjects = 0;
@@ -364,6 +365,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
 	   'noobjects' => \$noobjects,
 	   'noparameters' => \$noparameters,
 	   'noprofiles' => \$noprofiles,
+	   'noshowreadonly' => \$noshowreadonly,
 	   'notemplates' => \$notemplates,
            'nowarnbibref' => \$nowarnbibref,
            'nowarnenableparameter' => \$nowarnenableparameter,
@@ -522,6 +524,10 @@ if ($autodatatype) {
 
 if ($noautomodel) {
     emsg "--noautomodel is deprecated; use --automodel instead";
+}
+
+if ($showreadonly) {
+    emsg "--showreadonly is deprecated because it's enabled by default";
 }
 
 if ($ugly) {
@@ -1139,7 +1145,12 @@ sub expand_dataType
     my $minInclusive = $dataType->findvalue('.//range/@minInclusive');
     my $maxInclusive = $dataType->findvalue('.//range/@maxInclusive');
     my $step = $dataType->findvalue('.//range/@step');
-    my $patterns = $dataType->findnodes('string/pattern');
+    my $values = $dataType->findnodes('string/enumeration');
+    my $hasPattern = 0;
+    if (!$values) {
+        $values = $dataType->findnodes('string/pattern');
+        $hasPattern = 1 if $values;
+    }
 
     my $prim;
     foreach my $type (('base64', 'boolean', 'dateTime', 'hexBinary',
@@ -1193,23 +1204,40 @@ sub expand_dataType
                                         step => $step};
         }
 
+        # XXX this code is taken from expand_model_parameter()
+        my $tvalues = {};
+        my $i = 0;
+        foreach my $value (@$values) {
+            my $facet = $value->findvalue('local-name()');
+            my $access = $value->findvalue('@access');
+            my $status = $value->findvalue('@status');
+            my $optional = $value->findvalue('@optional');
+            my $description = $value->findvalue('description');
+            my $descact = $value->findvalue('description/@action');
+            my $descdef = $value->findnodes('description')->size();
+            $value = $value->findvalue('@value');
+            
+            $status = util_maybe_deleted($status);
+            update_bibrefs($description, $file, $spec);
+
+            $access = 'readWrite' unless $access;
+            $status = 'current' unless $status;
+            $optional = 'false' unless $optional ne '';
+            # don't default descact, so can tell whether it was specified
+
+            $tvalues->{$value} = {access => $access, status => $status,
+                                  optional => $optional,
+                                  description => $description,
+                                  descact => $descact, descdef => $descdef,
+                                  facet => $facet,
+                                  i => $i++};
+        }
+        $values = $tvalues;
+
         $node = {name => $name, base => $base, prim => $prim, spec => $spec,
                  status => $status, description => $description,
                  descact => $descact, descdef => $descdef, syntax => $syntax,
-                 patterns => [], specs => []};
-
-        foreach my $pattern (@$patterns) {
-            my $value = $pattern->findvalue('@value');
-            my $description = $pattern->findvalue('description');
-            my $descact = $pattern->findvalue('description/@action');
-            my $descdef = $pattern->findnodes('description')->size();
-            
-            update_bibrefs($description, $file, $spec);
-
-            push @{$node->{patterns}}, {value => $value, description =>
-                                            $description, descact => $descact,
-                                            descdef => $descdef};
-        }
+                 values => $values, specs => []};
 
         push @{$pnode->{dataTypes}}, $node;
 
@@ -1912,12 +1940,14 @@ sub expand_model_parameter
     # XXX lots of hackery here...
     my @types = $parameter->findnodes('syntax/*');
     my $type = !@types ? undef : $types[0]->findvalue('local-name()') eq 'list' ? $types[1] : $types[0];
-    my $values = $parameter->findnodes('syntax/enumeration/value');
-    $values = $parameter->findnodes('syntax/string/enumeration')
-        unless $values;
+    # XXX this next line is presumably from the depths of history
+    #my $values = $parameter->findnodes('syntax/enumeration/value');
+    # we permit enumeration and pattern to match at any depth, because
+    # they can be under "string" or "dataType"
+    my $values = $parameter->findnodes('syntax//enumeration');
     my $hasPattern = 0;
     if (!$values) {
-        $values = $parameter->findnodes('syntax/string/pattern');
+        $values = $parameter->findnodes('syntax//pattern');
         $hasPattern = 1 if $values;
     }
     my $units = $parameter->findvalue('syntax/*/units/@value');
@@ -2072,11 +2102,9 @@ sub expand_model_parameter
         $status = util_maybe_deleted($status);
         update_bibrefs($description, $file, $spec);
 
-        # XXX where should such defaults be applied? here is better
-        $access = 'readWrite' unless $access;
-        $status = 'current' unless $status;
-        # don't default descact, so can tell whether it was specified
-        
+        # access, status and optional defaults are applied below after checking
+        # for derivation from a named data type
+
         $tvalues->{$value} = {access => $access, status => $status,
                               optional => $optional,
                               description => $description,
@@ -2085,8 +2113,7 @@ sub expand_model_parameter
                               i => $i++};
     }
     $values = $tvalues;
-    #emsg Dumper($values);
-    
+
     d1msg "expand_model_parameter name=$name ref=$ref";
 
     # ignore if doesn't match write-only criterion
@@ -2112,6 +2139,107 @@ sub expand_model_parameter
         # XXX this will fail if $oname has multiple components (which it
         #     shouldn't have)
         $name = ($oname && $oref) ? $oname : '';
+    }
+
+    # if the parameter is of a named data type that has values, and there are
+    # also local values, then check them
+    # XXX this is very similar to the add_parameter() checks when parameter is
+    #     modified, so they should both use the same logic (but they don't)
+    # XXX the logic is simpler because it doesn't consider history, changes or
+    #     --compare
+    # XXX this means that it won't honor descact to (for example) append the
+    #     a parameter-level enumeration description to a datatype-level
+    #     enumeration description
+    # XXX should also check other aspects, e.g. ranges, sizes etc
+    if ($type eq 'dataType' && $syntax->{base}) {
+        my $typeinfo = get_typeinfo($type, $syntax);
+        my $dtname = $typeinfo->{value};
+        my ($dtdef) = grep {$_->{name} eq $dtname} @{$root->{dataTypes}};
+        my $cvalues = $dtdef->{values};
+        if ($cvalues && %$cvalues) {
+            my $visited = {};
+            foreach my $value (sort {$values->{$a}->{i} <=>
+                                         $values->{$b}->{i}} keys %$values) {
+                $visited->{$value} = 1;
+
+                my $cvalue = $cvalues->{$value};
+                my $nvalue = $values->{$value};
+
+                if (!defined $cvalue) {
+                    d0msg "$path.$value: added";
+                    next;
+                }
+
+                if (!$nvalue->{access}) {
+                    $nvalue->{access} = $cvalue->{access};
+                } elsif ($nvalue->{access} ne $cvalue->{access}) {
+                    d0msg "$path.$value: access: $cvalue->{access} -> ".
+                        "$nvalue->{access}";
+                }
+                if (!$nvalue->{status}) {
+                    $nvalue->{status} = $cvalue->{status};
+                } elsif ($nvalue->{status} ne $cvalue->{status}) {
+                    $nvalue->{status} = 'DELETED'
+                        if $nvalue->{status} eq 'deleted';
+                    d0msg "$path.$value: status: $cvalue->{status} -> ".
+                        "$nvalue->{status}";
+                }
+                if ($nvalue->{optional} eq '') {
+                    $nvalue->{optional} = $cvalue->{optional};
+                } elsif (boolean($nvalue->{optional}) ne
+                    boolean($cvalue->{optional})) {
+                    d0msg "$path.$value: optional: $cvalue->{optional} -> ".
+                        "$nvalue->{optional}";
+                }
+                if (!$nvalue->{descdef}) {
+                    $nvalue->{description} = $cvalue->{description};
+                } else {
+                    if ($nvalue->{description} eq $cvalue->{description}) {
+                        $nvalue->{errors}->{samedesc} = $nvalue->{descact}
+                        if !$autobase;
+                    } else {
+                        $nvalue->{errors}->{samedesc} = undef;
+                        # XXX not if descact is prefix or append?
+                        my $diffs = util_diffs($cvalue->{description},
+                                               $nvalue->{description});
+                        d0msg "$path.$value: description: changed";
+                        d1msg $diffs;
+                    }
+                    $nvalue->{errors}->{baddescact} =
+                        (!$autobase && (!$nvalue->{descact} ||
+                                        $nvalue->{descact} eq 'create')) ?
+                                        $nvalue->{descact} : undef;
+                }
+                # XXX need cleverer comparison
+                if ($nvalue->{descact} && $nvalue->{descact} ne
+                    $cvalue->{descact}){
+                    d1msg "$path.$value: descact: $cvalue->{descact} -> ".
+                        "$nvalue->{descact}";
+                }
+            }
+            if (%$values) {
+                my $dvalues = {};
+                foreach my $value (
+                    sort {$cvalues->{$a}->{i} <=>
+                              $cvalues->{$b}->{i}} keys %$cvalues) {
+                    if (!$visited->{$value}) {
+                        w0msg "$path.$value: omitted; should instead " .
+                            "mark as deprecated/obsoleted/deleted";
+                    }
+                }
+            }
+        }
+    }
+
+    # apply defaults for values' access, status and optional
+    # don't default descact, so can tell whether it was specified
+    foreach my $value (keys %$values) {
+        $values->{$value}->{access} = 'readWrite'
+            unless $values->{$value}->{access};
+        $values->{$value}->{status} = 'current'
+            unless $values->{$value}->{status};
+        $values->{$value}->{optional} = 'false'
+            unless $values->{$value}->{optional} ne '';
     }
 
     # determine name of previous sibling (if any) as a hint for where to
@@ -3308,6 +3436,12 @@ sub add_parameter
             unshift @{$cvalue->{history}}, util_copy($cvalue, ['history']);
             $values->{$value}->{history} = $cvalue->{history};
             
+            # XXX these access, status and optional checks are not as good
+            #     as the checks in expand_model_parameter() that compare
+            #     values against those from named data types; the trouble
+            #     is that they have already been defaulted, so we can't
+            #     distinguish "absent" and "default" ("absent" should be
+            #     interpreted as "no change")
             if ($nvalue->{access} ne $cvalue->{access}) {
                 d0msg "$path.$value: access: $cvalue->{access} -> ".
                     "$nvalue->{access}";
@@ -3408,6 +3542,13 @@ sub add_parameter
                 }
             } elsif ($value ne '' && (!defined $nnode->{syntax}->{$key} ||
                                       $value ne $nnode->{syntax}->{$key})) {
+                # XXX special case: if reference changes from undefined to
+                #     enumerationRef, discard existing enumerations
+                if ($key eq 'reference' && !defined($nnode->{syntax}->{$key})
+                    && $value eq 'enumerationRef') {
+                    d0msg "$path: discarding existing enumerations";
+                    $nnode->{values} = undef;
+                }
                 d0msg "$path: $key: $old -> $value";
                 $nnode->{syntax}->{$key} = $value;
                 $changed->{syntax}->{$key} = 1;
@@ -3821,7 +3962,23 @@ sub get_values
 {
     my ($node, $anchor) = @_;
 
-    my $values = $node->{values};
+    # XXX this is really horrible, but allow this routine to be called either
+    #     with a node or with just the values (in which case there's no node
+    #     history); this is intended for getting data type enumerations
+    my $values;
+    my $is_modified;
+    my $changed_values;
+    if (defined $node->{type}) {
+        $values = $node->{values};
+        $is_modified = util_node_is_modified($node);
+        $changed_values = $node->{changed}->{values};
+    } else {
+        $anchor = 0;
+        $values = $node;
+        $is_modified = 0;
+        $changed_values = {};
+    }
+
     return '' unless $values;
 
     my $list = '';
@@ -3837,17 +3994,19 @@ sub get_values
 	my $deprecated = $cvalue->{status} eq 'deprecated';
 	my $obsoleted = $cvalue->{status} eq 'obsoleted';
 	my $deleted = $cvalue->{status} eq 'deleted';
+	my $DELETED = $cvalue->{status} eq 'DELETED';
 
-        next if $deleted && !$showdiffs;
+        # DELETED (upper-case) means skip unconditionally
+        next if $DELETED || ($deleted && !$showdiffs);
 
-        $readonly = 0 unless $showreadonly;
+        $readonly = 0 if $noshowreadonly;
 
-        my $changed = util_node_is_modified($node) &&
-            ($node->{changed}->{values}->{$value}->{added} ||
-             $node->{changed}->{values}->{$value}->{access} ||
-             $node->{changed}->{values}->{$value}->{status});
-        my $dchanged = util_node_is_modified($node) &&
-            ($changed || $node->{changed}->{values}->{$value}->{description});
+        my $changed = $is_modified &&
+            ($changed_values->{$value}->{added} ||
+             $changed_values->{$value}->{access} ||
+             $changed_values->{$value}->{status});
+        my $dchanged = $is_modified &&
+            ($changed || $changed_values->{$value}->{description});
 
         ($description, $descact) = get_description($description, $descact,
                                                    $dchanged, $history, 1);
@@ -4995,6 +5154,7 @@ $i             spec="$lspec">
                 my $evalue = xml_escape($value);
                 my $cvalue = $values->{$value};
 
+                my $facet = $cvalue->{facet};
                 my $history = $cvalue->{history};
                 my $access = $cvalue->{access};
                 my $status = $cvalue->{status};
@@ -5015,9 +5175,9 @@ $i             spec="$lspec">
                 $descact = $descact ne 'create' ? qq{ action="$descact"} : qq{};
                 my $ended = $description ? '' : '/';
 
-                print qq{$i      <enumeration value="$evalue"$access$status$optional$ended>\n};
+                print qq{$i      <$facet value="$evalue"$access$status$optional$ended>\n};
                 print qq{$i        <description$descact>$description</description>\n} if $description;
-                print qq{$i      </enumeration>\n} unless $ended;
+                print qq{$i      </$facet>\n} unless $ended;
             }
             print qq{$i    </$type>\n} unless $ended;
             print qq{$i    <default type="$deftype" value="$default"$defstat/>\n}
@@ -5050,7 +5210,7 @@ sub xml_datatypes
         my $maxLength = $dataType->{syntax}->{sizes}->[0]->{maxLength};
         my $minInclusive = $dataType->{syntax}->{ranges}->[0]->{minInclusive};
         my $maxInclusive = $dataType->{syntax}->{ranges}->[0]->{maxInclusive};
-        my $patterns = $dataType->{patterns};
+        my $values = $dataType->{values};
         
         $description = xml_escape($description);
         
@@ -5070,18 +5230,30 @@ sub xml_datatypes
         print qq{$j    <range$minInclusive$maxInclusive/>\n} if
             $minInclusive || $maxInclusive;
 
-        if ($patterns && @$patterns) {
-            foreach my $pattern (@$patterns) {
-                my $value = $pattern->{value};
-                my $description = $pattern->{description};
-                
+        # XXX logic is similar to that in xml_node() but here there is no
+        #     support for history or descact
+        if ($values && %$values) {
+            foreach my $value (sort {$values->{$a}->{i} <=>
+                                         $values->{$b}->{i}} keys %$values) {
+                my $evalue = xml_escape($value);
+                my $cvalue = $values->{$value};
+
+                my $facet = $cvalue->{facet};
+                my $access = $cvalue->{access};
+                my $status = $cvalue->{status};
+                my $optional = boolean($cvalue->{optional});
+
+                my $description = $cvalue->{description};
                 $description = xml_escape($description);
                 
-                my $end_element = $description ? '' : '/';
-                
-                print qq{$j    <pattern value="$value"$end_element>\n};
+                $optional = $optional ? qq{ optional="true"} : qq{};
+                $access = $access ne 'readWrite'? qq{ access="$access"} : qq{};
+                $status = $status ne 'current' ? qq{ status="$status"} : qq{};
+                my $ended = $description ? '' : '/';
+
+                print qq{$j    <$facet value="$evalue"$access$status$optional$ended>\n};
                 print qq{$j      <description>$description</description>\n} if $description;
-                print qq{$j    </pattern>\n} unless $end_element;
+                print qq{$j    </$facet>\n} unless $ended;
             }
         }
         print qq{$i    </$prim>\n} if $prim;
@@ -6391,6 +6563,7 @@ END
                 my $description = $datatype->{description};
                 # XXX not using this yet
                 my $descact = $datatype->{descact};
+                my $values = $datatype->{values};
 
                 my $name_anchor = html_create_anchor($name, 'datatype');
                 my $base_anchor = html_create_anchor($base, 'datatype');
@@ -6407,7 +6580,7 @@ END
                 #     description with full template expansion
                 # XXX more generally, a data type report should be quite like
                 #     a parameter report (c.f. UPnP relatedStateVariable)
-                $description = html_escape($description);
+                $description = html_escape($description, {values => $values});
 
                 $html_buffer .= <<END;
       <tr>
@@ -7195,22 +7368,28 @@ sub html_template
     }
 
     # auto-append {{enum}} or {{pattern}} if there are values and it's not
-    # already there (put it on the same line if the value is empty or ends
-    # with a sentence terminator, allowing single quote formatting chars)
-    # "{{}}" is an empty template reference that will be removed; it prevents
-    # special "after newline" template expansion behavior
-    if ($p->{values} && %{$p->{values}}) {
+    # already there (apply rather complex logic to decide whether to put it
+    # on the same line); "{{}}" is an empty template reference that will be
+    # removed; it prevents special "after newline" template expansion behavior
+    # XXX actually it's more complicated than this; also don't auto-add them if
+    #     the description includes "{{datatype|expand}}" because it's assumed
+    #     that such an expansion will include "{{enum}}" or "{{pattern}}"
+    if ($p->{values} && %{$p->{values}} &&
+        $tinval !~ /\Q{{datatype|expand}}\E/) {
         my ($key) = keys %{$p->{values}};
         my $facet = $p->{values}->{$key}->{facet};
-        my $sep = !$tinval ? "" : $tinval =~ /[\.\?\!]\'*$/ ? "  " : "\n{{}}";
+        my $sep =
+            !$tinval ? "" :
+            $tinval =~ /(^|\n)\s*[\*\#\:][^\n]*$/s ? "\n{{}}" :
+            $tinval =~ /[\.\?\!]\'*$/ ? "  " : "\n{{}}";
         $inval .= $sep . "{{enum}}" if $facet eq 'enumeration' &&
             $tinval !~ /\{\{enum\}\}/ && $tinval !~ /\{\{noenum\}\}/;
         $inval .= $sep . "{{pattern}}" if $facet eq 'pattern' &&
             $tinval !~ /\{\{pattern\}\}/ && $tinval !~ /\{\{nopattern\}\}/;
     }
 
-    # similarly auto-append {{hidden}}, {{command}}, {{factory}}, {{entries}} and
-    # {{keys}} if appropriate
+    # similarly auto-append {{hidden}}, {{command}}, {{factory}}, {{entries}}
+    # and {{keys}} if appropriate
     if ($p->{hidden} && $tinval !~ /\{\{hidden/ &&
         $tinval !~ /\{\{nohidden\}\}/) {
         my $sep = !$tinval ? "" : "\n";
@@ -7839,20 +8018,28 @@ sub html_template_keys
 sub html_template_enum
 {
     my ($opts) = @_;
+
+    # pass node if supplied; otherwise values
+    my $node_or_values = $opts->{node} ? $opts->{node} : $opts->{values};
+
     # XXX not using atstart (was "atstart or newline")
     my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
         "Each list item is an enumeration of:\n" : "Enumeration of:\n";
-    return $pref . xml_escape(get_values($opts->{node}, !$nolinks));
+    return $pref . xml_escape(get_values($node_or_values, !$nolinks));
 }
 
 sub html_template_pattern
 {
     my ($opts) = @_;
+
+    # pass node if supplied; otherwise values
+    my $node_or_values = $opts->{node} ? $opts->{node} : $opts->{values};
+
     # XXX not using atstart (was "atstart or newline")
     my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
         "Each list item matches one of:\n" :
         "Possible patterns:\n";
-    return $pref . xml_escape(get_values($opts->{node}, !$nolinks));
+    return $pref . xml_escape(get_values($node_or_values, !$nolinks));
 }
 
 # report an object or parameter id
@@ -8144,6 +8331,10 @@ sub html_template_valueref
 
     my $object = $opts->{object};
     my $param = $opts->{param};
+
+    # if object or param not defined, we are probably in a data type definition
+    # so just return the italicised value
+    return qq{''$value''} unless defined($object) && defined($param);
 
     my $this = $name ? 0 : 1;
     $name = $param unless $name;
@@ -12217,6 +12408,7 @@ B<report.pl>
 [--noobjects]
 [--noparameters]
 [--noprofiles]
+[--noshowreadonly]
 [--notemplates]
 [--nowarnredef]
 [--nowarnbibref]
@@ -12535,6 +12727,10 @@ B<NOT YET IMPLEMENTED>
 
 specifies that profile definitions should not be reported
 
+=item B<--noshowreadonly>
+
+disables showing read-only enumeration and pattern values as B<READONLY>
+
 =item B<--notemplates>
 
 suppresses template expansion (currently affects only B<html> reports
@@ -12711,7 +12907,9 @@ is implied by B<--compare>
 
 =item B<--showreadonly>
 
-shows read-only enumeration and pattern values as B<READONLY> (experimental)
+shows read-only enumeration and pattern values as B<READONLY>; this is enabled by default but can be disabled using B<--noshowreadonly>
+
+this is deprecated because it is enabled by default and therefore has no effect
 
 =item B<--showspec>
 
