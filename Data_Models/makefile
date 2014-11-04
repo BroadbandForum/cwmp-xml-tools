@@ -1,5 +1,3 @@
-#!/usr/bin/env perl
-#
 # Copyright (C) 2014  Cisco Systems
 # All Rights Reserved.
 #
