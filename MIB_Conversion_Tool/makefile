@@ -34,7 +34,7 @@ MIBS = $(filter-out $(BADS), $(MIBS2))
 MIB2DM  = ./mib2dm.pl --components
 SMIDUMP = SMIPATH=$(SMIPATH) smidump --keep-going
 PYANG   = pyang --path=yang
-REPORT  = ../report-tool/report.pl --loglevel=error --nowarnbibref --include=../data-models/bbf-published --include=xml --report=html
+REPORT  = ../Report_Tool/report.pl --loglevel=error --nowarnbibref --include=../Data_Models/cwmp-trs --include=xml --report=html
 
 DIRS = xsm xml html yang yin
 
