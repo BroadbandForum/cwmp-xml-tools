@@ -1,11 +1,19 @@
 # standalone executable is report.darwin, .linux, .linux32, .exe, ...
-KERNEL = $(shell uname -s | tr 'A-Z' 'a-z' | sed -e 's/cygwin.*/exe/')
-MACHINE = $(shell uname -m | tr 'A-Z' 'a-z' | sed -e 's/i.86/32/' -e 's/x86_64//')
+KERNEL = $(shell uname -s | tr 'A-Z' 'a-z' | sed -e 's/cygwin.*/exe/' -e 's/mingw32.*/exe/')
+MACHINE = $(shell uname -m | tr 'A-Z' 'a-z' | sed  -e 's/i.86/32/' -e 's/x86_64//')
 PLATFORM = $(KERNEL)$(MACHINE)
+
+ifeq (exe32, $(PLATFORM))
+    PLATFORM = exe
+endif
 
 # Windows-specific
 # XXX should use the 32-bit version in order to maximise applicability
-CYGDRIVE = /cygdrive
+ifneq (,$(findstring cygwin,$(shell uname -s | tr 'A-Z' 'a-z')))
+    CYGDRIVE = /cygdrive
+else
+    CYGDRIVE = 
+endif
 PERL = perl
 STRAWB = $(CYGDRIVE)/c/strawberry32
 STRAWBC = $(STRAWB)/c/bin
@@ -37,7 +45,7 @@ endif
 all: $(FILES)
 
 clean:
-	$(RM) $(FILES)
+	$(RM) $(FILES) 
 
 report.pl.info: report.pl
 	-./$< --info 2>$@
@@ -54,7 +62,7 @@ index.html: report.pl
 PERLMODULES = Algorithm::Diff Clone Config::IniFiles Data::Compare String::Tokenizer XML::LibXML
 
 report.exe: report.pl
-	(PATH=$(STRAWBC):$(STRAWBP):$(STRAWBS) $(WINDIR)/cmd /C pp -c -x -o $@ $(PERLMODULES:%=-M %) $(STRAWBL:%=-l %) $<)
+	(PATH=$(STRAWBC):$(STRAWBP):$(STRAWBS) pp -c -x -o $@ $(PERLMODULES:%=-M %) $(STRAWBL:%=-l %) $<)
 
 report.darwin: report.pl
 	(PATH=/usr/local/bin DYLD_LIBRARY_PATH=/usr/local/lib DYLD_FALLBACK_LIBRARY_PATH= pp -c -x -o $@ $(PERLMODULES:%=-M %) $(DARWINL:%=-l %) $<)
