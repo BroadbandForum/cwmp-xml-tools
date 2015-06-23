@@ -3,7 +3,7 @@ DIFF = diff
 REPORT = ../../report.pl
 REPORT_MK = ../../report.mk
 
-REPORTFLAGS += --include=../../../data-models/bbf-published
+REPORTFLAGS += --include=../../../Data_Models/cwmp-trs
 
 MARKDOWN = /usr/local/bin/pandoc
 MARKDOWNFLAGS = --ascii --standalone --toc
