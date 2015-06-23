@@ -138,7 +138,7 @@ $(CWMPINDEX): $(TRWORKDIR)
 	tr-135-1-3.xml \
 	tr-140-1-2.xml \
 	tr-181-1-6.xml \
-	tr-181-2-8.xml \
+	tr-181-2-9.xml \
 	tr-196-1-1.xml \
 	tr-196-2-0.xml >$@
 
