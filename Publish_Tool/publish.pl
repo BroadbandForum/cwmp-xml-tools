@@ -37,11 +37,15 @@
 #     should add a --trdir with a TR pattern (that's the only difference) and
 #     should search --trdir before --wtdir (integrate this with --ildir)
 
+# XXX re the above, in at least the --trdir case should be laxer wrt which
+#     directories to accept; possibly accept all of them?
+
 # XXX add controls over which XML dependencies are used, e.g. whether to
 #     include dependencies on support files or on the report tool (by default
 #     should do neither of these)
 
-# XXX add control over whether the index file is re-generated (by default yes if#     needed)
+# XXX add control over whether the index file is re-generated (by default yes
+#     if needed)
 
 # XXX add index file dependence on OD-148
 
@@ -61,8 +65,13 @@
 
 # XXX exclude the no-corrigendum files from the ZIP?
 
-# XXX the index.html files should depend on the config file (OD-148.txt); could
-#     put more info into the config file?
+# XXX index.html should depend on the config file (OD-148.txt); could put more
+#     info into the config file?
+
+# XXX index.html should be directly usable in the BBF CWMP page
+
+# XXX should have option of working in empty output directory; would make it
+#     easier when generating updates to upload
 
 # Begin documentation
 =head1 NAME
@@ -848,6 +857,8 @@ sub scan_files {
     }
 }
 
+my $xml_deps_visited = {};
+
 sub get_xml_deps {
     my ($file, $workdir, $alldeps, $depth) = @_;
     $depth = 0 unless defined($depth);
@@ -855,8 +866,14 @@ sub get_xml_deps {
     my $name = $file->{name};
     my $deps = $file->{deps};
 
+    # XXX not sure that this logic is globally correct...
+    $xml_deps_visited = {} if $depth == 0;
+    return if $xml_deps_visited->{$name};
+    $xml_deps_visited->{$name} = 1;
+
     #my $indent = '  ' x $depth;
     #print STDERR "$indent$name\n";
+    #print STDERR "$depth $name\n";
 
     return unless $deps && @$deps;
 
