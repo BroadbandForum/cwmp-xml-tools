@@ -2,6 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
+# Copyright (C) 2015  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -152,7 +153,7 @@ use warnings;
 #no autovivification qw{fetch exists delete warn};
 
 # XXX uncomment to enable traceback on warnings and errors
-#use Carp::Always;
+use Carp::Always;
 #sub control_c { die ""; }
 #$SIG{INT} = \&control_c;
 
@@ -160,6 +161,7 @@ use Algorithm::Diff;
 use Clone qw{clone};
 use Data::Compare;
 use Data::Dumper;
+use File::Glob;
 use File::Spec;
 use Getopt::Long;
 use Pod::Usage;
@@ -171,12 +173,15 @@ use URI::Split qw(uri_split);
 use XML::LibXML;
 
 # git will not expand these; svn will, so after svn commit should merge
-# back into git; also, if further changes are made, should add a "+" sign
-# after the version number (this will be removed on the next svn commit); e.g.
-# "report.pl 246" -> "report.pl 246+"
-my $tool_author = q{$Author$};
-my $tool_vers_date = q{$Date$};
-my $tool_id = q{$Id$};
+# back into git; also, if further changes are made, should add a "-" or "+"
+# sign after the version number (this will be removed on the next svn commit);
+# e.g. "report.pl 246" -> "report.pl 246+"
+# XXX the above is now out of date; will only be using git from now on, and the
+#     last svn version was 299, so will start manual versions from 400
+#     (3xx versions are possible if anyone continues to use svn)
+my $tool_author = q{$Author: wlupton $};
+my $tool_vers_date = q{$Date: 2015-06-24 $};
+my $tool_id = q{$Id: report.pl 400 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -194,13 +199,14 @@ my ($tool_id_only) = ($tool_id =~ /\$Id:\s+(\S+\s+\S+)/);
 $tool_id_only =~ s/\s+/\#/ if $tool_id_only;
 $tool_id_only = q{report.pl} unless $tool_id_only;
 
-# use the existence of a trailing "+" on the version to determine whether the
-# tool is currently checked out, i.e. whether it's changed since the date and
-# version were last set
+# use the existence of a trailing "-" or "+" on the version to determine
+# whether the tool is currently checked out, i.e. whether it's changed since
+# the date and version were last set
 my $tool_checked_out = q{};
-if ($tool_id_only =~ /\+$/) {
+if ($tool_id_only =~ /[\-\+]$/) {
     $tool_checked_out = q{ (TOOL CURRENTLY CHECKED OUT)};
-    $tool_id_only =~ s/\+$//;
+    # XXX let's leave the "-" or "+" as a reminder
+    #$tool_id_only =~ s/[\-\+]$//;
 }
 
 my $tool_run_date;
@@ -272,7 +278,6 @@ our $dtspec = 'urn:example-com:device-1-0-0';
 our $dtuuid = '00000000-0000-0000-0000-000000000000';
 our $exitcode = 0;
 our $help = 0;
-our $nohyphenate = 0;
 our $ignore = undef;
 our $importsuffix = '';
 our $includes = [];
@@ -285,6 +290,7 @@ our $maxworddiffs = 10;
 our $newparser = 0;
 our $noautomodel = 0;
 our $nocomments = 0;
+our $nohyphenate = 0;
 our $nolinks = 0;
 our $nologprefix = 0;
 our $nomodels = 0;
@@ -1176,15 +1182,20 @@ sub expand_dataType
     my $tprim = defined $prim ? $prim : "undef";
     d1msg "expand_dataType name=$name base=$base prim=$tprim";
 
-    # XXX for now only replace description if data type is redefined
+    my $btype = undef;
+    ($btype) = grep {$_->{name} eq $base} @{$root->{dataTypes}} if $base;
+
+    # XXX if data type is redefined, for now just replace the description
     my ($node) = grep {$_->{name} eq $name} @{$root->{dataTypes}};
     if ($node) {
         d0msg "$name: data type redefined (description replaced)";
         $node->{description} = $description;
 
     } else {
-        # XXX syntax should really extend the syntax from the base type, and
-        #     would check that it only ever narrowed the constraints
+        # XXX only doing a partial job of inheriting the syntax from the base
+        #     type; should check that constraints are never extended
+        # XXX really it would be better not to copy at all, and traverse the
+        #     hierarchy as needed... but that would be more complicated
         my $syntax;
 
         $minLength = undef if $minLength eq '';
@@ -1192,6 +1203,10 @@ sub expand_dataType
         if (defined $minLength || defined $maxLength) {
             push @{$syntax->{sizes}}, {minLength => $minLength,
                                        maxLength => $maxLength};
+        } elsif ($btype && $btype->{syntax}->{sizes}) {
+            foreach my $size (@{$btype->{syntax}->{sizes}}) {
+                push @{$syntax->{sizes}}, util_copy($size);
+            }
         }
 
         $minInclusive = undef if $minInclusive eq '';
@@ -1202,9 +1217,14 @@ sub expand_dataType
             push @{$syntax->{ranges}}, {minInclusive => $minInclusive,
                                         maxInclusive => $maxInclusive,
                                         step => $step};
+        } elsif ($btype && $btype->{syntax}->{ranges}) {
+            foreach my $range (@{$btype->{syntax}->{ranges}}) {
+                push @{$syntax->{ranges}}, util_copy($range);
+            }
         }
 
         # XXX this code is taken from expand_model_parameter()
+        # XXX there's no inheritance here
         my $tvalues = {};
         my $i = 0;
         foreach my $value (@$values) {
@@ -4610,6 +4630,8 @@ sub parse_file
             # XXX backslashes cause problems under Windows because they are
             #     not valid in an xs:anyURI, so change to forward slashes
             $path =~ s/\\/\//g;
+            # XXX percent-escape spaces
+            $path =~ s/ /%20/g;
             # XXX should really do more, e.g. percent-escape any invalid chars
         }
         $schemas .= qq{<xs:import namespace="$ns" schemaLocation="$path"/>\n};
@@ -4654,7 +4676,6 @@ sub find_file
     #     directory; warn if undefined because this indicates that the caller
     #     has made a mistake (still need to add dir to some data structures)
     w0msg "find_file: $file: predir is undefined" unless defined $predir;
-    $predir = File::Spec->curdir() unless $predir;
     
     # search path
     my $dirs = [];
@@ -4666,9 +4687,10 @@ sub find_file
         push @$dirs, $dir;
     } else
 
-    # always prepend $predir to the list of includes
+    # always prepend $predir if non-empty, followed by the current directory
     {
-        push @$dirs, $predir;
+        push @$dirs, $predir if $predir;
+        push @$dirs, File::Spec->curdir();
         push @$dirs, @$includes;
     }
 
@@ -4690,8 +4712,8 @@ sub find_file
     if (defined $name && defined $i && defined $a && !defined $c) {
         $label = '' unless defined $label;
         foreach my $dir (@$dirs) {
-            my @files = glob(File::Spec->catfile($dir,
-                                                 qq{$name-$i-$a-*$label.xml}));
+            my @files = File::Glob::bsd_glob(
+                File::Spec->catfile($dir, qq{$name-$i-$a-*$label.xml}));
             foreach my $file (@files) {
                 # remove directory part
                 (my $tvol, my $tdir, $file) = File::Spec->splitpath($file);
@@ -7321,10 +7343,11 @@ sub html_template
     my $path = $p->{path};
     $path = '<unknown>' unless $path;
 
-    # XXX hack to ignore ---deleted--- text when deciding whether to auto-
-    #     include template references
+    # XXX hack to ignore +++inserted+++ or ---deleted--- text when deciding
+    #     whether to auto-include template references
     my $tinval = $inval;
     $tinval =~ s|\-\-\-(.*?)\-\-\-||gs;
+    $tinval =~ s|\+\+\+(.*?)\+\+\+|$1|gs;
 
     # auto-prefix {{reference}} if the parameter is a reference (put after
     # {{list}} if already there)
@@ -7563,6 +7586,9 @@ sub html_template
             push @a, $a;
         }
         my $n = @a;
+        # when showing diffs, "name" can include deleted and inserted text
+        $name =~ s|\-\-\-(.*?)\-\-\-||g;
+        $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
         my $template = (grep {$_->{name} eq $name} @$templates)[0];
         my $text = $tref;
         $text =~ s/^../\[\[/;
@@ -9409,14 +9435,44 @@ sub htmlbbf_schema_cmp
 # based on file name
 sub htmlbbf_support_cmp
 {
-    return ($a->{name} cmp $b->{name});
+    return htmlbbf_file_name_cmp($a->{name}, $b->{name});
 }
 
 # compare component files; $allfiles elements are passed and the comparison is
 # based on file name
 sub htmlbbf_component_cmp
 {
-    return (lc($a->{name}) cmp lc($b->{name}));
+    return htmlbbf_file_name_cmp(lc($a->{name}), lc($b->{name}));
+}
+
+# compare support or component files; $allfiles elements are passed and the
+# comparison is based on tr-nnn, i, a, c then label
+sub htmlbbf_file_name_cmp
+{
+    my ($a, $b) = @_;
+
+    my ($ax, $ai, $aa, $ac, $al) =
+        $a =~ /^([^-]+-\d+)(?:-(\d+))?(?:-(\d+))?(?:-(\d+))?(-\D.*)?\.xml$/;
+    my ($bx, $bi, $ba, $bc, $bl) =
+        $b =~ /^([^-]+-\d+)(?:-(\d+))?(?:-(\d+))?(?:-(\d+))?(-\D.*)?\.xml$/;
+
+    return $a cmp $b unless $ax && $bx && $ax =~ /^tr-/ && $bx =~ /^tr-/;
+    
+    $ai = 1 unless defined $ai;
+    $aa = 0 unless defined $aa;
+    $ac = 0 unless defined $ac;
+    $al = '' unless defined $al;
+
+    $bi = 1 unless defined $bi;
+    $ba = 0 unless defined $ba;
+    $bc = 0 unless defined $bc;
+    $bl = '' unless defined $bl;
+
+    return
+        ($ax ne $bx) ? $ax cmp $bx :
+        ($ai != $bi) ? $ai <=> $bi :
+        ($aa != $ba) ? $aa <=> $ba :
+        ($ac != $bc) ? $ac <=> $bc : $al cmp $bl;
 }
 
 # compare model files; $allfiles-like elements are passed and the
@@ -9658,6 +9714,9 @@ END
     # also (for models and components) note the "no corrigendum" file name
     my $name_nc = undef;
 
+    # also (for component) note the "pseudo major model", e.g. "TR-157:1"
+    my $pmnam = undef;
+
     # for non "tr" schemas, support names of form prefix-m-n.xsd where prefix
     # contains no digits and m and n are numeric (the same for outdated XSD
     # files)
@@ -9691,6 +9750,8 @@ END
         push @names, qq{$xxnnn.$ext} if defined $xxnnn;
 
         $name_nc = qq{$xxnnn-$i-$a$label.$ext} if defined $i && defined $a;
+
+        $pmnam = uc(qq{$xxnnn:$i}) if $component && defined $i;
     }
 
     # other files aren't versioned so just push the full name
@@ -9854,7 +9915,8 @@ END
         my $fileval = undef;
         if ($filerow) {
             my $fileval_names = [];
-            push @$fileval_names, $mnam if $context->{model};
+            push @$fileval_names, $mnam if $mnam && $context->{model};
+            push @$fileval_names, $pmnam if $pmnam && $context->{component};
             push @$fileval_names, $name_nc if $name_nc;
             push @$fileval_names, $filerow if $filerow !~ /-full.xml/;
             $fileval = {text => $filerow,
@@ -12148,6 +12210,9 @@ sub sanity_node
         emsg "$path: read-only command parameter"
             if $syntax->{command} && $access eq 'readOnly';
 
+        w1msg "$path: parameter has both hidden and command attributes set"
+            if $syntax->{hidden} && $syntax->{command};
+        
         emsg "$path: useless <Empty> value for list-valued parameter"
             if $syntax->{list} && has_values($values) &&
             has_value($values, '');
