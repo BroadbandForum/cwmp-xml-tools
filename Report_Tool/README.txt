@@ -9,11 +9,11 @@ Usage:
     [--loglevel=tn(i)] [--marktemplates] [--maxchardiffs=i(5)]
     [--maxworddiffs=i(10)] [--noautomodel] [--nocomments] [--nohyphenate]
     [--nolinks] [--nologprefix] [--nomodels] [--noobjects] [--noparameters]
-    [--noprofiles] [--notemplates] [--nowarnredef] [--nowarnbibref]
-    [--nowarnenableparameter] [--nowarnnumentries] [--nowarnreport]
-    [--nowarnprofbadref] [--nowarnuniquekeys] [--nowarnwtref]
-    [--objpat=p("")] [--option=n=v]... [--outfile=s] [--pedantic[=i(1)]]
-    [--plugin=s]... [--quiet]
+    [--noprofiles] [--noshowreadonly] [--notemplates] [--nowarnredef]
+    [--nowarnbibref] [--nowarnenableparameter] [--nowarnnumentries]
+    [--nowarnreport] [--nowarnprofbadref] [--nowarnuniquekeys]
+    [--nowarnwtref] [--objpat=p("")] [--option=n=v]... [--outfile=s]
+    [--pedantic[=i(1)]] [--plugin=s]... [--quiet]
     [--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...]
     [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion]
     [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)]
@@ -348,6 +348,10 @@ Options:
     --noprofiles
         specifies that profile definitions should not be reported
 
+    --noshowreadonly
+        disables showing read-only enumeration and pattern values as
+        READONLY
+
     --notemplates
         suppresses template expansion (currently affects only html reports
 
@@ -552,8 +556,11 @@ Options:
         is implied by --compare
 
     --showreadonly
-        shows read-only enumeration and pattern values as READONLY
-        (experimental)
+        shows read-only enumeration and pattern values as READONLY; this is
+        enabled by default but can be disabled using --noshowreadonly
+
+        this is deprecated because it is enabled by default and therefore
+        has no effect
 
     --showspec
         currently affects only the html report; generates a Spec rather than
