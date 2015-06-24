@@ -57,7 +57,7 @@ README.txt: report.pl
 	-./$< --help >$@
 
 index.html: report.pl
-	pod2html5.12 <$< >$@; /bin/rm -f pod2*.tmp
+	pod2html5.18 <$< >$@; /bin/rm -f pod2*.tmp
 
 PERLMODULES = Algorithm::Diff Clone Config::IniFiles Data::Compare String::Tokenizer XML::LibXML
 
