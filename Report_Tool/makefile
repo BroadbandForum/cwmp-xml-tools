@@ -31,9 +31,9 @@ DARWINL = /usr/lib/libxml2.dylib \
           /usr/lib/libz.1.dylib
 
 # Linux-specific
-LINUXL = /usr/lib/libxml2.so \
-         /usr/lib/libiconv.2.so \
-         /usr/lib/libz.1.so
+LINUXL = /usr/lib/libxml2.so.2 \
+         /usr/lib/libiconv_hook.so.1 \
+         /lib/libz.so.1
 
 FILES = report.$(PLATFORM) report.$(PLATFORM).info
 
@@ -57,7 +57,7 @@ README.txt: report.pl
 	-./$< --help >$@
 
 index.html: report.pl
-	pod2html5.18 <$< >$@; /bin/rm -f pod2*.tmp
+	pod2html <$< >$@; /bin/rm -f pod2*.tmp
 
 PERLMODULES = Algorithm::Diff Clone Config::IniFiles Data::Compare String::Tokenizer XML::LibXML
 
