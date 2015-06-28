@@ -56,8 +56,15 @@ report.$(PLATFORM).info: report.$(PLATFORM)
 README.txt: report.pl
 	-./$< --help >$@
 
+# find pod2html in PATH
+POD2HTML = $(lastword $(wildcard \
+             $(patsubst %,%/pod2html*,$(subst :, ,$(PATH)))))
+ifeq "$(POD2HTML)" ""
+  $(error can\'t find pod2html* in PATH)
+endif
+
 index.html: report.pl
-	pod2html <$< >$@; /bin/rm -f pod2*.tmp
+	$(POD2HTML) <$< >$@; /bin/rm -f pod2*.tmp
 
 PERLMODULES = Algorithm::Diff Clone Config::IniFiles Data::Compare String::Tokenizer XML::LibXML
 
