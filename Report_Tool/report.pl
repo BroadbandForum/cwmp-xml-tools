@@ -180,8 +180,8 @@ use XML::LibXML;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2015-06-24 $};
-my $tool_id = q{$Id: report.pl 400 $};
+my $tool_vers_date = q{$Date: 2015-06-28 $};
+my $tool_id = q{$Id: report.pl 401 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -4201,8 +4201,8 @@ sub add_values
 	;
     } elsif (!$values) {
 	$description = remove_values($description);
-    } elsif ($description =~ /{{enum}}/) {
-	$description =~ s/[ \t]*{{enum}}/$values/;
+    } elsif ($description =~ /\{\{enum\}\}/) {
+	$description =~ s/[ \t]*\{\{enum\}\}/$values/;
     } else {
 	$description .= "\n" . $values;
     }
@@ -4216,7 +4216,7 @@ sub remove_values
 {
     my ($description) = @_;
 
-    $description =~ s/[ \t]*{{enum}}\n?//;
+    $description =~ s/[ \t]*\{\{enum\}\}\n?//;
 
     return $description;
 }
@@ -4228,7 +4228,7 @@ sub remove_descact
 {
     my ($description, $descact) = @_;
 
-    if ($description =~ /{{(prefix|append|replace)}}/) {
+    if ($description =~ /\{\{(prefix|append|replace)\}\}/) {
 	$descact = $1;
 	$description =~ s/{{$descact}}\n?//;
     }
@@ -6063,7 +6063,7 @@ sub clean_description
     $description =~
         s/\{\{(enum|pattern|object|param)\|([^\|\}]*)[^\}]*\}\}/$2/g;
     $description =~ s/\{\{(param|object)\}\}/$name/g;
-    $description =~ s/ *\n({{enum|pattern}})/  $1/;
+    $description =~ s/ *\n(\{\{enum|pattern\}\})/  $1/;
     $description =~ s/[\`\'\"]//g;
     $description =~ s/\{\{\{\{/\{\{/g;
     $description =~ s/\}\}\}\}/\}\}/g;
@@ -9197,18 +9197,19 @@ END
         $footcount++;
         my ($footref) = $intro =~ /$footpatt/;
         $footref = extract_bracketed($footref, '{}');
-        my ($footnote) = $footref =~ /{{footnote\|(.*)}}/;
+        my ($footnote) = $footref =~ /\{\{footnote\|(.*)\}\}/;
         $intro =~ s/\Q$footref\E/{{sup|$footcount}}/;
         push @$footnotes, $footnote;
     }
-    $intro .= qq{{{footnotes}}} if @$footnotes && $intro !~ /{{footnotes}}/;
+    $intro .= qq{{{footnotes}}}
+	if @$footnotes && $intro !~ /\{\{footnotes\}\}/;
     my $foottext = qq{};
     $footcount = 0;
     foreach my $footnote (@$footnotes) {
         $footcount++;
         $foottext .= qq{{{sup|$footcount}} $footnote\n};
     }
-    $intro =~ s/{{footnotes}}\s*/$foottext/;
+    $intro =~ s/\{\{footnotes\}\}\s*/$foottext/;
 
     # escape the introductory text
     $intro = html_escape($intro);
