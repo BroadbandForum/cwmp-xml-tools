@@ -61,8 +61,12 @@ index.html: report.pl
 
 PERLMODULES = Algorithm::Diff Clone Config::IniFiles Data::Compare String::Tokenizer XML::LibXML
 
+# XXX appear not to need to use -M under Windows... or at all?
+# XXX can't get the PATH stuff working under Windows
 report.exe: report.pl
-	(PATH=$(STRAWBC):$(STRAWBP):$(STRAWBS) pp -c -x -o $@ $(PERLMODULES:%=-M %) $(STRAWBL:%=-l %) $<)
+	cmd \/C pp -c -x -o $@ $(STRAWBL:%=-l %) $<
+
+#	(PATH=$(STRAWBC):$(STRAWBP):$(STRAWBS) pp -c -x -o $@ $(PERLMODULES:%=-M %) $(STRAWBL:%=-l %) $<)
 
 report.darwin: report.pl
 	(PATH=/usr/local/bin DYLD_LIBRARY_PATH=/usr/local/lib DYLD_FALLBACK_LIBRARY_PATH= pp -c -x -o $@ $(PERLMODULES:%=-M %) $(DARWINL:%=-l %) $<)
@@ -71,7 +75,8 @@ report.linux report.linux32: report.pl
 	(PATH=/usr/local/bin LD_LIBRARY_PATH=/usr/local/lib pp -c -x -o $@ $(PERLMODULES:%=-M %) $(LINUXL:%=-l %) $<)
 
 # this is one-off after a Strawberry Perl installation
-# XXX have removed CPAN from the list; maybe it was causing problems but
-#     there is something wrong with the environment (do in Command Prompt)
+# XXX better to do by hand using the Strawberry cpan client
 strawbinst:
-	(PATH=$(STRAWBC):$(STRAWBP):$(STRAWBS) $(WINDIR)/cmd /C cpan -f $(PERLMODULES) PAR::Packer)
+	@echo cpan -f $(PERLMODULES) PAR::Packer
+
+#	(PATH=$(STRAWBC):$(STRAWBP):$(STRAWBS) $(WINDIR)/cmd \/C cpan -f $(PERLMODULES) PAR::Packer)
