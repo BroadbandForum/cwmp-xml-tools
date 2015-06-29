@@ -180,8 +180,8 @@ use XML::LibXML;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2015-06-28 $};
-my $tool_id = q{$Id: report.pl 401 $};
+my $tool_vers_date = q{$Date: 2015-06-29 $};
+my $tool_id = q{$Id: report.pl 402 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -7620,10 +7620,7 @@ sub html_template
             #    emsg "  $a";
             #}
         }
-        # process tref to avoid problems with RE special characters
-        # XXX could/should use \Q and \E here (but won't change it now)
-        $tref =~ s/[^\{\}]/\./g;
-        $inval =~ s/$tref/$text/;
+        $inval =~ s/\Q$tref\E/$text/;
     }
 
     # remove null template references (which are used as separators)
