@@ -172,6 +172,10 @@ use Text::Balanced qw{extract_bracketed};
 use URI::Split qw(uri_split);
 use XML::LibXML;
 
+# XXX this appears to be necessary in order to include various UTF-8 related
+#     files in standalone executables report.exe etc
+use utf8;
+
 # git will not expand these; svn will, so after svn commit should merge
 # back into git; also, if further changes are made, should add a "-" or "+"
 # sign after the version number (this will be removed on the next svn commit);
@@ -180,8 +184,8 @@ use XML::LibXML;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2015-06-29 $};
-my $tool_id = q{$Id: report.pl 402 $};
+my $tool_vers_date = q{$Date: 2015-07-02 $};
+my $tool_id = q{$Id: report.pl 403 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
