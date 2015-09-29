@@ -1356,8 +1356,8 @@ sub main
     # determine which ZIP archives will be processed
     # XXX might want to make this less general, e.g. just pass the
     #     names of the ZIP archives or directories directly? 
-    my $ilarchives = matching_files($options->{ildir}, "^(IL|il).*\.zip\$");
-    my $wtarchives = matching_files($options->{wtdir}, "^(WT|wt).*\.zip\$");
+    my $ilarchives = matching_files($options->{ildir}, "^(IL|il).*\.zip\$", 1);
+    my $wtarchives = matching_files($options->{wtdir}, "^(WT|wt).*\.zip\$", 1);
     my @archives = (@$ilarchives, @$wtarchives);
 
     # XXX should detect when both archive and directory are present and
@@ -1365,8 +1365,10 @@ sub main
     #     leave it as is because get warnings
 
     # scan the directories for XML and XSD files to be processed
-    my $ildirectories = matching_directories($options->{ildir}, "^(IL|il)-");
-    my $wtdirectories = matching_directories($options->{wtdir}, "^(WT|wt)-");
+    my $ildirectories = matching_directories($options->{ildir},
+                                             "^(IL|il)-", 1);
+    my $wtdirectories = matching_directories($options->{wtdir},
+                                             "^(WT|wt)-", 1);
     my @directories = (@$ildirectories, @$wtdirectories);
     foreach my $directory (@directories) {
         scan_directory($directory, $files);
