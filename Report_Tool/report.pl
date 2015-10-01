@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2015-07-02 $};
-my $tool_id = q{$Id: report.pl 403 $};
+my $tool_vers_date = q{$Date: 2015-10-01 $};
+my $tool_id = q{$Id: report.pl 404 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -579,7 +579,12 @@ if (@$diffsexts == 0 || @$diffsexts > 2) {
     pod2usage(2);
 }
 
-if ($report =~ /html(bbf|148)/) {
+# ignore showdiffs for all but text and html reports, as documented
+if ($report !~ /^(text|html)$/) {
+    $showdiffs = 0;
+}
+
+if ($report =~ /^html(bbf|148)$/) {
     $noautomodel = 1;
 }
 
@@ -4881,6 +4886,8 @@ sub xml_node
     my $description = $node->{description};
     my $descact = $node->{descact};
 
+    my $i = "  " x $indent;
+
     # on creation, history is undef; on re-encounter it's []; on modification,
     # it's non-empty
     my $basename = ref($history) ? 'base' : 'name';
@@ -4890,7 +4897,7 @@ sub xml_node
     my $dchanged = util_node_is_modified($node) && $changed->{description};
     ($description, $descact) = get_description($description, $descact,
                                                $dchanged, $history);
-    $description = xml_escape($description);
+    $description = xml_escape($description, {indent => $i.'  '});
 
     # XXX why can status be undefined... but seemingly nothing else?
     $status = $status && $status ne 'current' ? qq{ status="$status"} : qq{};
@@ -4899,8 +4906,6 @@ sub xml_node
     # use node to maintain state (assumes that there will be only a single
     # XML report of a given node)
     $node->{xml} = {action => 'close', element => $type};
-
-    my $i = "  " x $indent;
 
     # zero indent is root element
     if (!$indent) {
@@ -5145,6 +5150,8 @@ $i             spec="$lspec">
             my $deftype = $node->{deftype};
             my $defstat = $node->{defstat};
 
+            $default = xml_escape($default, {more => 1}) if defined $default;
+            
             $base = $base ? qq{ base="$base"} : qq{};
             $ref = $ref ? qq{ ref="$ref"} : qq{};
             $hidden = $hidden ? qq{ hidden="true"} : qq{};
@@ -5193,7 +5200,8 @@ $i             spec="$lspec">
                 ($description, $descact) = get_description($description,
                                                            $descact, $dchanged,
                                                            $history);
-                $description = xml_escape($description);
+                $description = xml_escape($description,
+                                          {indent => $i.'        '});
 
                 $optional = $optional ? qq{ optional="true"} : qq{};
                 $access = $access ne 'readWrite' ? qq{ access="$access"} : qq{};
@@ -5238,7 +5246,7 @@ sub xml_datatypes
         my $maxInclusive = $dataType->{syntax}->{ranges}->[0]->{maxInclusive};
         my $values = $dataType->{values};
         
-        $description = xml_escape($description);
+        $description = xml_escape($description, {indent => $i.'    '});
         
         $base = $base ? qq{ base="$base"} : qq{};
         $minLength = defined $minLength ? qq{ minLength="$minLength"} : qq{};
@@ -5270,7 +5278,8 @@ sub xml_datatypes
                 my $optional = boolean($cvalue->{optional});
 
                 my $description = $cvalue->{description};
-                $description = xml_escape($description);
+                $description = xml_escape($description,
+                                          {indent => $j.'      '});
                 
                 $optional = $optional ? qq{ optional="true"} : qq{};
                 $access = $access ne 'readWrite'? qq{ access="$access"} : qq{};
@@ -5366,7 +5375,7 @@ sub xml_post
 
 # Escape a value suitably for exporting as XML.
 sub xml_escape {
-    my ($value) = @_;
+    my ($value, $opts) = @_;
 
     $value = util_default($value, '', '');
 
@@ -5374,7 +5383,43 @@ sub xml_escape {
     $value =~ s/\</\&lt;/g;
     $value =~ s/\>/\&gt;/g;
 
+    # replace additional predefined XML entities and selected other
+    # characters if requested
+    # XXX we do this last so the ampersands aren't escaped
+    if ($opts->{more}) {
+        $value =~ s/'/\&apos;/g;
+        $value =~ s/"/\&quot;/g;
+        $value =~ s/\r/\&#13;/g;
+        $value =~ s/\n/\&#10;/g;
+    }
+
+    $value = xml_whitespace($value, $opts->{indent}) if $opts->{indent};
+
     return $value;
+}
+
+# Insert whitespace to give conventional whitespace formatting, i.e. on
+# separate lines and indented by an additional two spaces
+#
+# Assumes that the result will be output as <tag>$value</tag> so for input $T
+# and indent $I the output will be "\n$I  $T\n$I", where each line of $T is
+# separated by "\n$I  "
+sub xml_whitespace
+{
+    my ($value, $i) = @_;
+
+    return $value unless $value;
+
+    $value = html_whitespace($value);
+
+    my $text = qq{};
+    foreach my $line (split /\n/, $value) {
+        $text .= qq{\n$i  $line};
+    }
+
+    $text .= qq{\n$i} if $text;
+
+    return $text;
 }
 
 # Form a string indicating what has changed
@@ -5460,7 +5505,7 @@ sub xml2_node
                                                    $dchanged, $history, 1);
         #$description = clean_description($description, $node->{name})
         #    if $canonical;
-        $description = xml_escape($description);     
+        $description = xml_escape($description, {indent => $i.'  '});     
 
         # XXX have to hard-code DT stuff (can't get this from input files)
         my $d = @$dtprofiles ? qq{dt} : qq{dm};
@@ -5542,7 +5587,12 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         my $syntax = $node->{syntax};
         my $majorVersion = $node->{majorVersion};
         my $minorVersion = $node->{minorVersion};
-        my $extends = $node->{extends};
+        my $extendsprofs = $node->{extendsprofs};
+
+        # use extendsprofs rather than extends because this won't contain
+        # profiles for which extends rather than base was used (in error)
+        my $extends = ($extendsprofs && @$extendsprofs) ?
+            join(' ', map {$_->{name}} @$extendsprofs) : '';
 
         my $mpref = util_full_path($node, 1);
 
@@ -5683,7 +5733,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                                                    $dchanged, $history, 1);
         #$description = clean_description($description, $node->{name})
         #    if $canonical;
-        $description = xml_escape($description);
+        $description = xml_escape($description, {indent => $i.'  '});
         my $descname = !@$dtprofiles ? qq{description} : qq{annotation};
 
         my $end_element = (@{$node->{nodes}} || $description || $syntax) ? '' : '/';
@@ -5761,6 +5811,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 qq{ maxItems="$maxListItems"} : qq{};
             $defstat = $defstat ne 'current' ? qq{ status="$defstat"} : qq{};
 
+            $default = xml_escape($default, {more => 1}) if defined $default;
+            
             my $reference = $syntax->{reference};
 
             # pathRef and instanceRef
@@ -5854,7 +5906,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                                     1);
                 #$description = clean_description($description, $node->{name})
                 #    if $canonical;
-                $description = xml_escape($description);
+                $description = xml_escape($description,
+                                          {indent => $i.'        '});
 
                 $optional = $optional ? qq{ optional="true"} : qq{};
                 $access = $access ne 'readWrite' ? qq{ access="$access"} : qq{};
@@ -6410,7 +6463,7 @@ sub html_node
     # XXX should work harder to define profile, object and parameter within
     #     profiles (so could use templates in descriptions)
     my $factory = ($node->{deftype} && $node->{deftype} eq 'factory') ?
-        html_escape(util_default($node->{default})) : undef;
+        html_escape(util_default($node->{default}, {more => 1})) : undef;
     $description =
         html_escape($description,
                     {default => '', empty => '',
@@ -6709,7 +6762,8 @@ END
             $node->{defstat} eq 'deleted' && !$showdiffs;
 	$default = html_escape($default,
                                {quote => scalar($type =~ /^string/),
-                                hyphenate => 1});
+                                hyphenate => 1,
+                                more => 1});
         # XXX just version isn't sufficient; might need also to show model
         #     name, since "1.0" could be "Device:1.0" or "X_EXAMPLE_Device:1.0"
         # XXX although there is a proposal to permit "tiny" versions in this
@@ -7215,14 +7269,28 @@ sub html_escape {
 
     $value = util_default($value, $opts->{default}, $opts->{empty});
 
-    # this is intended for string defaults
-    $value = '"' . $value . '"' if $opts->{quote} && $value !~ /^[<-]/;
+    # will quote string defaults, but not until after replacement of quotes
+    # with entities (if requested)
+    my $willquote = $opts->{quote} && $value !~ /^[<-]/;
+
+    # replace additional predefined XML entities and selected other
+    # characters if requested
+    # XXX we do this first so this is what's actually displayed
+    if ($opts->{more}) {
+        $value =~ s/'/\&apos;/g;
+        $value =~ s/"/\&quot;/g;
+        $value =~ s/\r/\&#13;/g;
+        $value =~ s/\n/\&#10;/g;
+    }
 
     # escape special characters
     # XXX do this as part of markup processing?
     $value =~ s/\&/\&amp;/g;
     $value =~ s/\</\&lt;/g;
     $value =~ s/\>/\&gt;/g;
+
+    # quote the value if requested
+    $value = '"' . $value . '"' if $willquote;
 
     # apply UPnP DM rules
     # XXX be simple-minded and do this unconditionally to begin with...
@@ -12514,7 +12582,7 @@ DM-instance...
 
 =item * the most common options are --include, --loglevel and --report=html
 
-=item * use --compare to compare files and --showdiffs to show differences
+=item * use --compare to compare files and --diffs to show differences
 
 =item * cannot specify both --report and --special
 
