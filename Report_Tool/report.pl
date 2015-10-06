@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2015-10-01 $};
-my $tool_id = q{$Id: report.pl 404 $};
+my $tool_vers_date = q{$Date: 2015-10-06 $};
+my $tool_id = q{$Id: report.pl 405 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -309,6 +309,7 @@ our $nowarnnumentries = 0;
 our $nowarnredef = 0;
 our $nowarnreport = 0;
 our $nowarnprofbadref = 0;
+our $nowarnstaticdefault = 0;
 our $nowarnuniquekeys = 0;
 our $nowarnwtref = 0;
 our $objpat = '';
@@ -383,6 +384,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'nowarnredef' => \$nowarnredef,
            'nowarnreport' => \$nowarnreport,
            'nowarnprofbadref' => \$nowarnprofbadref,
+           'nowarnstaticdefault' => \$nowarnstaticdefault,
            'nowarnuniquekeys' => \$nowarnuniquekeys,
            'nowarnwtref' => \$nowarnwtref,
 	   'objpat:s' => \$objpat,
@@ -883,7 +885,7 @@ sub expand_toplevel
 
             d0msg "referencing component: $name";
             foreach my $item ($component->findnodes('component|parameter|'.
-                                                    'object|profile')) {
+                                                    'object|command|profile')){
                 my $element = $item->findvalue('local-name()');
                 "expand_model_$element"->($context, $nnode, $nnode, $item);
             }
@@ -1558,7 +1560,7 @@ sub expand_model
     # expand nested components, objects, parameters and profiles
     my $any_profiles = 0;
     foreach my $item ($model->findnodes('component|parameter|object|'.
-                                        'profile')) {
+                                        'command|profile')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_$element"->($context, $nnode, $nnode, $item);
         $any_profiles = 1 if $element eq 'profile';
@@ -1669,7 +1671,7 @@ sub expand_model_component
 
     # expand component's nested components, parameters, objects and profiles
     foreach my $item ($component->findnodes('component|parameter|object|'.
-                                            'profile')) {
+                                            'command|profile')) {
 	my $element = $item->findvalue('local-name()');
         "expand_model_$element"->($context, $mnode, $pnode, $item);
     }
@@ -1796,7 +1798,7 @@ sub expand_model_object
 
     # expand nested components, parameters and objects
     foreach my $item ($object->findnodes('component|uniqueKey|parameter|'.
-                                         'object')) {
+                                         'object|command')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_$element"->($context, $mnode, $nnode, $item);
     }
@@ -1813,6 +1815,8 @@ sub expand_model_object
             unshift @{$nnode->{uniqueKeys}}, @$uniqueKeys;
         }
     }
+
+    return $nnode;
 }
 
 # XXX experimental (should add the full "changed" logic)
@@ -1945,6 +1949,24 @@ sub expand_model_uniqueKey
     # XXX would prefer the caller to do this
     push @{$pnode->{uniqueKeys}}, {functional => $functional,
                                    keyparams => $keyparams};
+}
+
+# Expand a data model command
+# XXX very basic...
+sub expand_model_command
+{
+    my ($context, $mnode, $pnode, $command) = @_;
+
+    my $nnode = expand_model_object $context, $mnode, $pnode, $command;
+    $nnode->{is_command} = 1;
+    return $nnode;
+}
+
+sub is_command
+{
+    my ($node) = @_;
+    return 0 unless $node->{type};
+    return ($node->{is_command} || is_command($node->{pnode})) ? 1 : 0;
 }
 
 # Expand a data model parameter.
@@ -3024,7 +3046,8 @@ sub add_object
     # XXX should this be autobase rather than compare?
     $ref = $oldname if $compare && !$ref && $oldname;
 
-    my $path = $pnode->{path} . ($ref ? $ref : $name);
+    my $fudge = $pnode->{path} && $pnode->{path} !~ /\.$/ ? '.' : '';
+    my $path = $pnode->{path} . $fudge . ($ref ? $ref : $name);
 
     msg "D", "add_object is_dt=$is_dt name=$name ref=$ref auto=$auto ".
         "spec=$spec" if $loglevel >= $LOGLEVEL_DEBUG + 1 ||
@@ -3287,7 +3310,8 @@ sub add_parameter
     # XXX should this be autobase rather than compare?
     $ref = $oldname if $compare && !$ref && $oldname;
 
-    my $path = $pnode->{path} . ($ref ? $ref : $name);
+    my $fudge = $pnode->{path} && $pnode->{path} !~ /\.$/ ? '.' : '';
+    my $path = $pnode->{path} . $fudge . ($ref ? $ref : $name);
     my $auto = 0;
 
     msg "D", "add_parameter is_dt=$is_dt, name=$name ref=$ref" if
@@ -4798,6 +4822,7 @@ sub text_node
         my $name = $node->{name} ? $node->{name} : '';
         my $base = $node->{history}->[0]->{name};
         my $type = type_string($node->{type}, $node->{syntax});
+        $type = 'command' if $node->{is_command};
         print "  "x$indent . "$type $name" .
             ($base && $base ne $name ? ('(' . $base . ')') : '') .
             ($node->{access} && $node->{access} ne 'readOnly' ? ' (W)' : '') .
@@ -6428,6 +6453,7 @@ sub html_node
     # others
     my $sup_valign = qq{vertical-align: super;};
     my $object_bg = qq{background-color: rgb(255, 255, 153);};
+    my $command_bg = qq{background-color: rgb(100, 200, 200);};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
     # foo_oc (open comment) and foo_cc (close comment) control generation of
@@ -6562,15 +6588,21 @@ $do_not_edit
       tr, tr.o { $row $font }
       tr.n { $row $font $fontnew }
       td.o { $row $font $object_bg }
+      td.c { $row $font $command_bg }
       td, td.p { $row $font }
       td.oc { $row $font $object_bg $center }
+      td.cc { $row $font $command_bg $center }
       td.pc { $row $font $center }
       td.on { $row $font $object_bg $fontnew }
+      td.cn { $row $font $command_bg $fontnew }
       td.od { $row $font $object_bg $fontdel $strike }
+      td.cd { $row $font $command_bg $fontdel $strike }
       td.pn { $row $font $fontnew }
       td.pd { $row $font $fontdel $strike }
       td.onc { $row $font $object_bg $fontnew $center }
       td.odc { $row $font $object_bg $fontdel $strike $center }
+      td.cnc { $row $font $command_bg $fontnew $center }
+      td.cdc { $row $font $command_bg $fontdel $strike $center }
       td.pnc { $row $font $fontnew $center }
       td.pdc { $row $font $fontdel $strike $center }
       $hyperlink
@@ -6800,6 +6832,7 @@ END
         $trclass = $trclass ? qq{ class="$trclass"} : qq{};
 
 	my $tdclass = ($model | $object | $profile) ? 'o' : 'p';
+        $tdclass = 'c' if $node->{is_command};
         $tdclass .= 'd' if $showdiffs && util_is_deleted($node);
 
         my $tdclasstyp = $tdclass;
@@ -6985,6 +7018,12 @@ END
         } elsif (!$html_profile_active) {
             my $anchor = html_create_anchor($node, 'path');
             $name = $anchor->{def} unless $nolinks;
+            if (is_command($node)) {
+                $name = $path;
+                $name =~ s/\Q$node->{pnode}->{path}\E\.?//;
+                $name = '# ' . $name if !$node->{is_command};
+            }
+            $type = 'command' if $node->{is_command};
             # XXX would like syntax to be a link when it's a named data type
             print <<END if $object && !$nolinks;
           <li>$anchor->{ref}</li>
@@ -12317,7 +12356,8 @@ sub sanity_node
 
         # XXX why the special case for lists?  suppressed
 	w0msg "$path: parameter within static object has a default value" if
-            !$is_dt && !$dynamic && defined($default) && $deftype eq 'object';
+            !$is_dt && !$dynamic && defined($default) && $deftype eq 'object'
+            && !$nowarnstaticdefault;
         #&& !($syntax->{list} && $default eq '');
 
         emsg "$path: weak reference parameter is not writable" if
@@ -12551,6 +12591,7 @@ B<report.pl>
 [--nowarnnumentries]
 [--nowarnreport]
 [--nowarnprofbadref]
+[--nowarnstaticdefault]
 [--nowarnuniquekeys]
 [--nowarnwtref]
 [--objpat=p("")]
@@ -12903,6 +12944,10 @@ disables warnings when a profile references an invalid object or parameter
 there are some circumstances under which it's useful to use an existing profile definition where some objects or parameters that it references have been (deliberately) deleted
 
 this is deprecated because it is no longer needed (use status="deleted" as appropriate to suppress such errors)
+
+=item B<--nowarnstaticdefault>
+
+disables "parameter within static object has a default value" warnings
 
 =item B<--nowarnuniquekeys>
 
