@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2015-10-06 $};
-my $tool_id = q{$Id: report.pl 405 $};
+my $tool_vers_date = q{$Date: 2015-10-28 $};
+my $tool_id = q{$Id: report.pl 405+ $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -9823,7 +9823,9 @@ END
     # also (for models and components) note the "no corrigendum" file name
     my $name_nc = undef;
 
-    # also (for component) note the "pseudo major model", e.g. "TR-157:1"
+    # also (for component) note the "pseudo model", e.g. "TR-157:1.1" and the
+    # "pseudo major model", e.g. "TR-157:1"
+    my $pmname = undef;
     my $pmnam = undef;
 
     # for non "tr" schemas, support names of form prefix-m-n.xsd where prefix
@@ -9860,6 +9862,8 @@ END
 
         $name_nc = qq{$xxnnn-$i-$a$label.$ext} if defined $i && defined $a;
 
+        $pmname = uc(qq{$xxnnn:$i.$a}) if $component && \
+            defined $i && defined $a;
         $pmnam = uc(qq{$xxnnn:$i}) if $component && defined $i;
     }
 
@@ -10024,7 +10028,9 @@ END
         my $fileval = undef;
         if ($filerow) {
             my $fileval_names = [];
+            push @$fileval_names, $mname if $mname && $context->{model};
             push @$fileval_names, $mnam if $mnam && $context->{model};
+            push @$fileval_names, $pmname if $pmname && $context->{component};
             push @$fileval_names, $pmnam if $pmnam && $context->{component};
             push @$fileval_names, $name_nc if $name_nc;
             push @$fileval_names, $filerow if $filerow !~ /-full.xml/;
