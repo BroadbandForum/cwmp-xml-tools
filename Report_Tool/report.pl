@@ -1958,6 +1958,8 @@ sub expand_model_command
     my ($context, $mnode, $pnode, $command) = @_;
 
     my $nnode = expand_model_object $context, $mnode, $pnode, $command;
+    my $is_async = $command->findvalue('@async');
+    $nnode->{is_async} = $is_async;
     $nnode->{is_command} = 1;
     return $nnode;
 }
@@ -1985,6 +1987,8 @@ sub expand_model_parameter
     $ref = $parameter->findvalue('@base') unless $ref;
     my $access = $parameter->findvalue('@access');
     my $status = $parameter->findvalue('@status');
+    # XXX mandatory is meaningful only for commands
+    my $is_mandatory = $parameter->findvalue('@mandatory');
     my $activeNotify = $parameter->findvalue('@activeNotify');
     my $forcedInform = $parameter->findvalue('@forcedInform');
     my $id = $parameter->findvalue('@id');
@@ -2322,6 +2326,9 @@ sub expand_model_parameter
 
     # XXX hack the id
     $nnode->{id} = $id if $id;
+
+    # XXX hack the mandatory attribute (only valid in commands)
+    $nnode->{is_mandatory} = $is_mandatory;
 }
 
 # Expand a data model profile.
@@ -6508,6 +6515,9 @@ sub html_node
                      list => $node->{syntax}->{list},
                      hidden => $node->{syntax}->{hidden},
                      command => $node->{syntax}->{command},
+                     is_command => $node->{is_command},
+                     is_async => $node->{is_async},
+                     is_mandatory => $node->{is_mandatory},
                      factory => $factory,
                      reference => $node->{syntax}->{reference},
                      uniqueKeys => $node->{uniqueKeys},
@@ -6789,7 +6799,7 @@ END
 
         my $default = $node->{default};
         undef $default if defined $node->{deftype} &&
-            $node->{deftype} ne 'object';
+            $node->{deftype} !~ /object|parameter/;
         undef $default if defined $node->{defstat} &&
             $node->{defstat} eq 'deleted' && !$showdiffs;
 	$default = html_escape($default,
@@ -7487,6 +7497,20 @@ sub html_template
         $inval = "{{datatype}}" . $sep . $inval;
     }
 
+    # auto-prefix {{async}} if this is an asynchronous command
+    if ($p->{is_async} && $tinval !~ /\{\{async/ &&
+        $tinval !~ /\{\{noasync\}\}/) {
+        my $sep = !$tinval ? "" : "  ";
+        $inval = "{{async}}" . $sep . $inval;
+    }
+
+    # auto-prefix {{asmandatoryync}} if this is a mandatory argument
+    if ($p->{is_mandatory} && $tinval !~ /\{\{mandatory/ &&
+        $tinval !~ /\{\{nomandatory\}\}/) {
+        my $sep = !$tinval ? "" : "  ";
+        $inval = "{{mandatory}}" . $sep . $inval;
+    }
+
     # auto-prefix {{showid}} if the item has an id
     if ($p->{id} &&
         $tinval !~ /\{\{showid/ &&
@@ -7608,6 +7632,12 @@ sub html_template
               q{The value of this parameter is not part of the device }.
               q{configuration and is always {{null}} when read.}},
          {name => 'nocommand', text0 => q{}},
+         {name => 'async',
+          text0 => q{{{marktemplate|async}}'''[ASYNC]'''}},
+         {name => 'noasync', text0 => q{}},
+         {name => 'mandatory',
+          text0 => q{{{marktemplate|mandatory}}'''[MANDATORY]'''}},
+         {name => 'nomandatory', text0 => q{}},
          {name => 'factory',
           text0 => q{{{marktemplate|factory}}}.
               q{The factory default value MUST be ''$p->{factory}''.}},
