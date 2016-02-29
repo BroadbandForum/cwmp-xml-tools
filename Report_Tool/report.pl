@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2015  Broadband Forum
+# Copyright (C) 2015, 2016  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2016-02-16 $};
-my $tool_id = q{$Id: report.pl 406 $};
+my $tool_vers_date = q{$Date: 2016-02-29 $};
+my $tool_id = q{$Id: report.pl 407 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -884,8 +884,9 @@ sub expand_toplevel
             next if $name =~ /^_/;
 
             d0msg "referencing component: $name";
-            foreach my $item ($component->findnodes('component|parameter|'.
-                                                    'object|command|profile')){
+            foreach my $item ($component->findnodes(
+                                  'component|parameter|'.
+                                  'object|command|notification|profile')){
                 my $element = $item->findvalue('local-name()');
                 "expand_model_$element"->($context, $nnode, $nnode, $item);
             }
@@ -1560,7 +1561,7 @@ sub expand_model
     # expand nested components, objects, parameters and profiles
     my $any_profiles = 0;
     foreach my $item ($model->findnodes('component|parameter|object|'.
-                                        'command|profile')) {
+                                        'command|notification|profile')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_$element"->($context, $nnode, $nnode, $item);
         $any_profiles = 1 if $element eq 'profile';
@@ -1671,7 +1672,7 @@ sub expand_model_component
 
     # expand component's nested components, parameters, objects and profiles
     foreach my $item ($component->findnodes('component|parameter|object|'.
-                                            'command|profile')) {
+                                            'command|notification|profile')) {
 	my $element = $item->findvalue('local-name()');
         "expand_model_$element"->($context, $mnode, $pnode, $item);
     }
@@ -1798,7 +1799,7 @@ sub expand_model_object
 
     # expand nested components, parameters and objects
     foreach my $item ($object->findnodes('component|uniqueKey|parameter|'.
-                                         'object|command')) {
+                                         'object|command|notification')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_$element"->($context, $mnode, $nnode, $item);
     }
@@ -1969,6 +1970,24 @@ sub is_command
     my ($node) = @_;
     return 0 unless $node->{type};
     return ($node->{is_command} || is_command($node->{pnode})) ? 1 : 0;
+}
+
+# Expand a data model notification
+# XXX very basic...
+sub expand_model_notification
+{
+    my ($context, $mnode, $pnode, $notification) = @_;
+
+    my $nnode = expand_model_object $context, $mnode, $pnode, $notification;
+    $nnode->{is_notification} = 1;
+    return $nnode;
+}
+
+sub is_notification
+{
+    my ($node) = @_;
+    return 0 unless $node->{type};
+    return ($node->{is_notification} || is_notification($node->{pnode})) ? 1 : 0;
 }
 
 # Expand a data model parameter.
@@ -2149,6 +2168,7 @@ sub expand_model_parameter
         my $access = $value->findvalue('@access');
         my $status = $value->findvalue('@status');
         my $optional = $value->findvalue('@optional');
+        my $action = $value->findvalue('@action');
         my $description = $value->findvalue('description');
         my $descact = $value->findvalue('description/@action');
         my $descdef = $value->findnodes('description')->size();
@@ -2161,7 +2181,7 @@ sub expand_model_parameter
         # for derivation from a named data type
 
         $tvalues->{$value} = {access => $access, status => $status,
-                              optional => $optional,
+                              optional => $optional, action => $action,
                               description => $description,
                               descact => $descact, descdef => $descdef,
                               facet => $facet,
@@ -3053,8 +3073,10 @@ sub add_object
     # XXX should this be autobase rather than compare?
     $ref = $oldname if $compare && !$ref && $oldname;
 
+    # XXX for commands and notifications
     my $fudge = $pnode->{path} && $pnode->{path} !~ /\.$/ ? '.' : '';
     my $path = $pnode->{path} . $fudge . ($ref ? $ref : $name);
+    $path .= '.' unless $path =~ /\.$/;
 
     msg "D", "add_object is_dt=$is_dt name=$name ref=$ref auto=$auto ".
         "spec=$spec" if $loglevel >= $LOGLEVEL_DEBUG + 1 ||
@@ -3543,7 +3565,16 @@ sub add_parameter
                     "$nvalue->{descact}";
             }
         }
-        if (%$values) {
+        # XXX hack to support appending values
+        my @avalues = grep {$values->{$_}->{action} eq 'append'} keys %$values;
+        if (@avalues) {
+            my $i = keys %{$nnode->{values}};
+            foreach my $value (@avalues) {
+                $values->{$value}->{i} = $i++;
+                $nnode->{values}->{$value} = $values->{$value};
+            }
+        }
+        elsif (%$values) {
             my $dvalues = {};
             foreach my $value (sort {$cvalues->{$a}->{i} <=>
                                          $cvalues->{$b}->{i}} keys %$cvalues) {
@@ -4830,6 +4861,7 @@ sub text_node
         my $base = $node->{history}->[0]->{name};
         my $type = type_string($node->{type}, $node->{syntax});
         $type = 'command' if $node->{is_command};
+        $type = 'notification' if $node->{is_notification};
         print "  "x$indent . "$type $name" .
             ($base && $base ne $name ? ('(' . $base . ')') : '') .
             ($node->{access} && $node->{access} ne 'readOnly' ? ' (W)' : '') .
@@ -6477,6 +6509,10 @@ sub html_node
     my $object = ($node->{type} =~ /object/);
     my $profile = ($node->{type} =~ /profile/);
     my $parameter = $node->{syntax}; # pretty safe? not profile params...
+    my $is_command = $node->{is_command};
+    my $is_notification = $node->{is_notification};
+    my $parameter_like = $parameter || $is_command || $is_notification;
+    $object = 0 if $parameter_like;
 
     my $changed = $node->{changed};
     my $history = $node->{history};
@@ -6502,8 +6538,9 @@ sub html_node
                     {default => '', empty => '',
                      node => $node,
                      path => $path,
-                     param => $parameter ? $name : '',
-                     object => $parameter ? $ppath : $object ? $path : undef,
+                     param => $parameter_like ? $name : '',
+                     object => $parameter_like ?
+                         $ppath : $object ? $path : undef,
                      table => $node->{table},
                      profile => $profile ? $name : '',
                      access => $node->{access},
@@ -6515,7 +6552,8 @@ sub html_node
                      list => $node->{syntax}->{list},
                      hidden => $node->{syntax}->{hidden},
                      command => $node->{syntax}->{command},
-                     is_command => $node->{is_command},
+                     is_command => $is_command,
+                     is_notification => $is_notification,
                      is_async => $node->{is_async},
                      is_mandatory => $node->{is_mandatory},
                      factory => $factory,
@@ -6842,7 +6880,7 @@ END
         $trclass = $trclass ? qq{ class="$trclass"} : qq{};
 
 	my $tdclass = ($model | $object | $profile) ? 'o' : 'p';
-        $tdclass = 'c' if $node->{is_command};
+        $tdclass = 'c' if $is_command || $is_notification;
         $tdclass .= 'd' if $showdiffs && util_is_deleted($node);
 
         my $tdclasstyp = $tdclass;
@@ -7028,12 +7066,14 @@ END
         } elsif (!$html_profile_active) {
             my $anchor = html_create_anchor($node, 'path');
             $name = $anchor->{def} unless $nolinks;
-            if (is_command($node)) {
+            if (is_command($node) || is_notification($node)) {
                 $name = $path;
+                $name =~ s/\.$//;
                 $name =~ s/\Q$node->{pnode}->{path}\E\.?//;
-                $name = '# ' . $name if !$node->{is_command};
+                $name = '# ' . $name unless $is_command || $is_notification;
             }
-            $type = 'command' if $node->{is_command};
+            $type = 'command' if $is_command;
+            $type = 'notification' if $is_notification;
             # XXX would like syntax to be a link when it's a named data type
             print <<END if $object && !$nolinks;
           <li>$anchor->{ref}</li>
