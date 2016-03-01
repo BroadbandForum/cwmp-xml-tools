@@ -34,8 +34,8 @@ REPORT = ../Report_Tool/report.pl
 # the publish tool
 PUBLISH = ../Publish_Tool/publish.pl
 PUBLISHFLAGS += --makevar REPORT="$(REPORT)"
-PUBLISHFLAGS += --makevar REPORT_FLAGS="--showdiffs"
 PUBLISHFLAGS += --od148=$(CONFIG)
+PUBLISHFLAGSNOWARN = --makevar REPORT_FLAGS="--nowarnreport"
 
 # the publish tool's "mini make" tool
 MINIMAKE = ../Publish_Tool/deps.pl
@@ -94,7 +94,8 @@ cwmpindex: $(CWMPINDEX)
 # TRs
 .PHONY: $(TRWORKDIR)
 $(TRWORKDIR): $(CWMPZIP) $(PUBDIR)
-	$(PUBLISH) $(PUBLISHFLAGS) --cwmpdir=$(CWMPZIPDIR) \
+	$(PUBLISH) $(PUBLISHFLAGS) $(PUBLISHFLAGSNOWARN) \
+		--cwmpdir=$(CWMPZIPDIR) \
 		--wtdir=$(PUBDIR) \
 		--workdir=$(TRWORKDIR) | \
 	$(TEE) $(TRMAKEFILE) | $(MINIMAKE)
