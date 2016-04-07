@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2016-02-29 $};
-my $tool_id = q{$Id: report.pl 407 $};
+my $tool_vers_date = q{$Date: 2016-04-07 $};
+my $tool_id = q{$Id: report.pl 408 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -288,6 +288,9 @@ our $includes = [];
 our $info = 0;
 our $lastonly = 0;
 our $loglevel = 'w';
+our $logoalt = 'Broadband Forum';
+our $logobase = 'http://www.broadband-forum.org/';
+our $logofile = 'images/logo-broadband-forum.gif';
 our $marktemplates = undef;
 our $maxchardiffs = 5;
 our $maxworddiffs = 10;
@@ -363,6 +366,9 @@ GetOptions('allbibrefs' => \$allbibrefs,
 	   'info' => \$info,
            'lastonly' => \$lastonly,
            'loglevel:s' => \$loglevel,
+           'logoalt:s' => \$logoalt,
+           'logobase:s' => \$logobase,
+           'logofile:s' => \$logofile,
 	   'marktemplates' => \$marktemplates,
            'maxchardiffs:i' => \$maxchardiffs,
            'maxworddiffs:i' => \$maxworddiffs,
@@ -416,6 +422,8 @@ pod2usage(1) if $help;
 
 $report = 'special' if $special;
 $report = 'null' unless $report;
+
+$logobase .= '/' if $logobase && $logobase !~ /\/$/;
 
 # loglevel constants
 my $LOGLEVEL_FATAL   = 00;
@@ -611,6 +619,8 @@ my $samename = 0;
 }
 
 *STDERR = *STDOUT if $report =~ /^(null|special)$/;
+
+$
 
 $marktemplates = '&&&&' if defined($marktemplates);
 
@@ -6566,7 +6576,6 @@ sub html_node
 
     # use indent as a first-time flag
     if (!$indent) {
-        my $bbfhome = qq{http://www.broadband-forum.org/};
         my $doctype = qq{&nbsp;&nbsp;&nbsp;&nbsp;DATA MODEL DEFINITION};
         my $filename1 = $allfiles->[0]->{name} ? $allfiles->[0]->{name} : qq{};
         my $filename2 = $allfiles->[1]->{name} ? $allfiles->[1]->{name} : qq{};
@@ -6587,7 +6596,7 @@ sub html_node
         my $title_link = $title;
         $title =~ s/%%%%/$filename1$sep$filename2/;
         $title_link =~ s/%%%%/$filelink1$sep$filelink2/;
-        my $logo = qq{<a href="${bbfhome}"><img src="${bbfhome}images/logo-broadband-forum.gif" alt="Broadband Forum" style="border:0px;"/></a>};
+        my $logo = qq{<a href="${logobase}"><img src="${logobase}${logofile}" alt="$logoalt" style="border:0px;"/></a>};
         my ($preamble, $notice) = html_notice($first_comment);
         $preamble .= qq{<br>} if $preamble;
         # XXX should use a routine for this
@@ -12647,6 +12656,9 @@ B<report.pl>
 [--info]
 [--lastonly]
 [--loglevel=tn(i)]
+[--logoalt=s()]
+[--logobase=s()]
+[--logofile=s()]
 [--marktemplates]
 [--maxchardiffs=i(5)]
 [--maxworddiffs=i(10)]
@@ -12914,6 +12926,18 @@ a log level of warning or debug also enables XML schema validation of DM instanc
 =item * URLs are treated specially; if XML catalogs were supplied (see B<--catalog>) then they govern the behavior; otherwise, the directory part is ignored and the schema is located as for a relative path (above)
 
 =back
+
+=item B<--logoalt=s("Broadband Forum")>
+
+alternative text for logo in the top left-hand corner of the HTML report
+
+=item B<--logobase=s("http://www.broadband-forum.org/")>
+
+base URL for logo in the top left-hand corner of the HTML report; this URL is visited if the logo is clicked, and is also used with B<logofile> (see below)
+
+=item B<--logofile=s("images/logo-broadband-forum.gif")>
+
+file name for logo in the top left-hand corner of the HTML report; the full URL is the concatenation of B<logobase>, a "/" character (if necessary), and B<logofile>
 
 =item B<--marktemplates>
 
