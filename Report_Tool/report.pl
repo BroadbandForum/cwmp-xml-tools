@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2016-04-07 $};
-my $tool_id = q{$Id: report.pl 408 $};
+my $tool_vers_date = q{$Date: 2016-04-14 $};
+my $tool_id = q{$Id: report.pl 409 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -288,9 +288,8 @@ our $includes = [];
 our $info = 0;
 our $lastonly = 0;
 our $loglevel = 'w';
-our $logoalt = 'Broadband Forum';
-our $logobase = 'http://www.broadband-forum.org/';
-our $logofile = 'images/logo-broadband-forum.gif';
+our $logoref = 'http://www.broadband-forum.org/';
+our $logosrc = $logoref . 'images/logo-broadband-forum.gif';
 our $marktemplates = undef;
 our $maxchardiffs = 5;
 our $maxworddiffs = 10;
@@ -366,9 +365,8 @@ GetOptions('allbibrefs' => \$allbibrefs,
 	   'info' => \$info,
            'lastonly' => \$lastonly,
            'loglevel:s' => \$loglevel,
-           'logoalt:s' => \$logoalt,
-           'logobase:s' => \$logobase,
-           'logofile:s' => \$logofile,
+           'logoref:s' => \$logoref,
+           'logosrc:s' => \$logosrc,
 	   'marktemplates' => \$marktemplates,
            'maxchardiffs:i' => \$maxchardiffs,
            'maxworddiffs:i' => \$maxworddiffs,
@@ -422,8 +420,6 @@ pod2usage(1) if $help;
 
 $report = 'special' if $special;
 $report = 'null' unless $report;
-
-$logobase .= '/' if $logobase && $logobase !~ /\/$/;
 
 # loglevel constants
 my $LOGLEVEL_FATAL   = 00;
@@ -6596,7 +6592,7 @@ sub html_node
         my $title_link = $title;
         $title =~ s/%%%%/$filename1$sep$filename2/;
         $title_link =~ s/%%%%/$filelink1$sep$filelink2/;
-        my $logo = qq{<a href="${logobase}"><img src="${logobase}${logofile}" alt="$logoalt" style="border:0px;"/></a>};
+        my $logo = qq{<a href="${logoref}"><img width="100%" src="${logosrc}" style="border:0px;"/></a>};
         my ($preamble, $notice) = html_notice($first_comment);
         $preamble .= qq{<br>} if $preamble;
         # XXX should use a routine for this
@@ -6668,8 +6664,8 @@ $do_not_edit
   <body>
     <table width="100%" border="0">
       <tr>
-        <td valign="middle">$logo<br><h3>$doctype</h3></td>
-        <td align="center" valign="middle"><h1><br>$preamble$title_link</h1></td>
+        <td width="25%" valign="middle">$logo<br><h3>$doctype</h3></td>
+        <td width="50%" align="center" valign="middle"><h1><br>$preamble$title_link</h1></td>
         <td width="25%"/>
       </tr>
     </table>
@@ -12656,9 +12652,8 @@ B<report.pl>
 [--info]
 [--lastonly]
 [--loglevel=tn(i)]
-[--logoalt=s()]
-[--logobase=s()]
-[--logofile=s()]
+[--logoref=s()]
+[--logosrc=s()]
 [--marktemplates]
 [--maxchardiffs=i(5)]
 [--maxworddiffs=i(10)]
@@ -12927,17 +12922,13 @@ a log level of warning or debug also enables XML schema validation of DM instanc
 
 =back
 
-=item B<--logoalt=s("Broadband Forum")>
+=item B<--logoref=s("http://www.broadband-forum.org/")>
 
-alternative text for logo in the top left-hand corner of the HTML report
+URL visited when the logo image in the top left-hand corner of the HTML report is clicked
 
-=item B<--logobase=s("http://www.broadband-forum.org/")>
+=item B<--logosrc=s("http://www.broadband-forum.org/images/logo-broadband-forum.gif")>
 
-base URL for logo in the top left-hand corner of the HTML report; this URL is visited if the logo is clicked, and is also used with B<logofile> (see below)
-
-=item B<--logofile=s("images/logo-broadband-forum.gif")>
-
-file name for logo in the top left-hand corner of the HTML report; the full URL is the concatenation of B<logobase>, a "/" character (if necessary), and B<logofile>
+URL of logo image in the top left-hand corner of the HTML report
 
 =item B<--marktemplates>
 
