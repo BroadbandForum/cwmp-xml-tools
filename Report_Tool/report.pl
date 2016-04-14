@@ -185,7 +185,7 @@ use utf8;
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2016-04-14 $};
-my $tool_id = q{$Id: report.pl 409 $};
+my $tool_id = q{$Id: report.pl 410 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -288,8 +288,9 @@ our $includes = [];
 our $info = 0;
 our $lastonly = 0;
 our $loglevel = 'w';
-our $logoref = 'http://www.broadband-forum.org/';
-our $logosrc = $logoref . 'images/logo-broadband-forum.gif';
+our $logoalt = '';
+our $logoref = '';
+our $logosrc = '';
 our $marktemplates = undef;
 our $maxchardiffs = 5;
 our $maxworddiffs = 10;
@@ -365,6 +366,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
 	   'info' => \$info,
            'lastonly' => \$lastonly,
            'loglevel:s' => \$loglevel,
+           'logoalt:s' => \$logoalt,
            'logoref:s' => \$logoref,
            'logosrc:s' => \$logosrc,
 	   'marktemplates' => \$marktemplates,
@@ -616,8 +618,6 @@ my $samename = 0;
 
 *STDERR = *STDOUT if $report =~ /^(null|special)$/;
 
-$
-
 $marktemplates = '&&&&' if defined($marktemplates);
 
 $warnbibref = 1 if defined($warnbibref) and !$warnbibref;
@@ -688,6 +688,14 @@ $configfile = qq{$report.ini} unless $configfile;
 
 $cwmppath .= qq{/} if $cwmppath && $cwmppath !~ /\/$/;
 $trpage .= qq{/} if $trpage && $trpage !~ /\/$/;
+
+unless ($logoalt || $logoref || $logosrc) {
+    $logoalt = 'Broadband Forum';
+    $logoref = 'http://www.broadband-forum.org/';
+    $logosrc = $logoref . 'images/logo-broadband-forum.gif';
+}
+
+tmsg "alt: $logoalt, ref: $logoref, src: $logosrc";
 
 # Globals.
 our $first_comment = undef;
@@ -6592,7 +6600,7 @@ sub html_node
         my $title_link = $title;
         $title =~ s/%%%%/$filename1$sep$filename2/;
         $title_link =~ s/%%%%/$filelink1$sep$filelink2/;
-        my $logo = qq{<a href="${logoref}"><img width="100%" src="${logosrc}" style="border:0px;"/></a>};
+        my $logo = qq{<a href="${logoref}"><img width="100%" src="${logosrc}" alt="${logoalt}" style="border:0px;"/></a>};
         my ($preamble, $notice) = html_notice($first_comment);
         $preamble .= qq{<br>} if $preamble;
         # XXX should use a routine for this
@@ -12652,6 +12660,7 @@ B<report.pl>
 [--info]
 [--lastonly]
 [--loglevel=tn(i)]
+[--logoalt=s()]
 [--logoref=s()]
 [--logosrc=s()]
 [--marktemplates]
@@ -12922,13 +12931,23 @@ a log level of warning or debug also enables XML schema validation of DM instanc
 
 =back
 
+=item B<--logoalt=s("Broadband Forum")>
+
+alternative text for the logo image in the top left-hand corner of the HTML report
+
+if any other B<--logoxxx> options are specified, the default is an empty string
+
 =item B<--logoref=s("http://www.broadband-forum.org/")>
 
 URL visited when the logo image in the top left-hand corner of the HTML report is clicked
 
+if any other B<--logoxxx> options are specified, the default is an empty string
+
 =item B<--logosrc=s("http://www.broadband-forum.org/images/logo-broadband-forum.gif")>
 
 URL of logo image in the top left-hand corner of the HTML report
+
+if any other B<--logoxxx> options are specified, the default is an empty string
 
 =item B<--marktemplates>
 
