@@ -2,6 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
+# Copyright (C) 2016  Honu Ltd
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -132,6 +133,7 @@ my $schema_version = "1-5";
 # command-line options
 my $components = 0;
 my $help = 0;
+my $namemangle = 0;
 my $noobjects = 0;
 my $nooutput = 0;
 my $noparameters = 0;
@@ -139,6 +141,7 @@ my $pedantic;
 my $verbose = 0;
 GetOptions('components' => \$components,
 	   'help' => \$help,
+	   'namemangle' => \$namemangle,
 	   'noobjects' => \$noobjects,
 	   'nooutput' => \$nooutput,
 	   'noparameters' => \$noparameters,
@@ -151,6 +154,13 @@ $pedantic = 0 unless defined($pedantic);
 
 # globals
 my $root = {};
+
+# path map that's used for component imports and shared keys
+# XXX this is heuristic; should be command-line configurable
+my $pathmap = {
+    ifIndex => {components => ['ifTable', 'ifXTable'],
+                path => 'ifTable.{i}.'}
+};
 
 # pattern that matches TR-069 primitive types
 my $primitive_patt = '(^base64|boolean|byte|dateTime|hexBinary|int|long|string|unsignedByte|unsignedInt|unsignedLong)$';
@@ -167,6 +177,7 @@ my $primitive_map = {
     Integer => 'int',
     Integer32 => 'int',
     Integer64 => 'long',
+    MacAddress => 'MACAddress',
     Null => 'int',
     ObjectIdentifier => 'string',
     OctetString => 'hexBinary',
@@ -175,10 +186,30 @@ my $primitive_map = {
     Unsigned64 => 'unsignedLong',
 };
 
+# XXX these additional entries need to be controlled by config and tied to
+#     the import of TR-069 data types
+$primitive_map->{MacAddress} = 'MACAddress';
+$primitive_map->{Counter32} = 'StatsCounter32';
+$primitive_map->{Counter64} = 'StatsCounter64';
+
+# this works with the above and indicates which SMI types should be lists
+my $list_map = {
+    Bits => 1
+};
+
+# this maps SNMP object names to the corresponding TR-069 object
+my $object_map = {
+};
+
 # parse files specified on the command line
+# XXX we really shouldn't permit multiple files; there are all sorts of
+#     assumptions that there's only one file
 foreach my $file (@ARGV) {
     parse_file($file);
 }
+
+# transform names
+transform_names();
 
 # output XML
 output_xml();
@@ -204,6 +235,7 @@ sub parse_file
 
     # XXX this assumes that the output file will be named based on the input
     #     file; should add an --outfile option
+    # XXX it also assumes that only one command line argument is supplied
     (my $vol, my $dir, $file) = File::Spec->splitpath($file);
     ($file, my $dirs, my $suff) = fileparse($file, '.xsm');
     $root->{file} = qq{$file.xml} unless $root->{file};
@@ -219,11 +251,14 @@ sub expand_module
     my $organization = findvalue($module, 'organization');
     my $contact = findvalue($module, 'contact');
     my $description = findvalue($module, 'description', {descr => 1});
-    my $reference = findvalue($module, 'reference');
+    my $reference = findvalue($module, 'reference', {descr => 1});
     my $identity_node = findvalue($module, 'identity/@node');
 
     print STDERR "expand_module name=$name organization=$organization\n"
 	if $verbose;
+
+    # XXX root is all rather ad hoc...
+    $root->{module} = $name;
 
     my $revisions = [];
     foreach my $revision ($module->findnodes('revision')) {
@@ -270,7 +305,7 @@ sub expand_revision
    my ($revision) = @_;
 
    my $date = findvalue($revision, '@date');
-   my $description = findvalue($revision, 'description');
+   my $description = findvalue($revision, 'description', {descr => 1});
 
    print STDERR "expand_revision date=$date\n" if $verbose;
 
@@ -325,7 +360,7 @@ sub expand_typedef
     my $format = findvalue($typedef, 'format');
     my $units = findvalue($typedef, 'units');
     my $description = findvalue($typedef, 'description', {descr => 1});
-    my $reference = findvalue($typedef, 'reference');
+    my $reference = findvalue($typedef, 'reference', {descr => 1});
 
     # XXX do we need to do this?
     $status = 'current' unless $status;
@@ -434,7 +469,7 @@ sub expand_scalar
     my $units = findvalue($scalar, 'units');
     my $description = findvalue($scalar, 'description',
 				{descr => 1, values => $syntax->{values}});
-    my $reference = findvalue($scalar, 'reference');
+    my $reference = findvalue($scalar, 'reference', {descr => 1});
 
     print STDERR "expand_scalar name=$name status=$status\n" if $verbose;
 
@@ -484,7 +519,7 @@ sub expand_table
 
     my ($name, $oid, $status) = get_name_oid_and_status($table);
     my $description = findvalue($table, 'description', {descr => 1});
-    my $reference = findvalue($table, 'reference');
+    my $reference = findvalue($table, 'reference', {descr => 1});
 
     print STDERR "expand_table name=$name status=$status\n" if $verbose;
 
@@ -510,7 +545,7 @@ sub expand_row
     my $create = findvalue($row, '@create', {boolean => 1});
     my $linkage = expand_linkage($row->findnodes('linkage'));
     my $description = findvalue($row, 'description', {descr => 1});
-    my $reference = findvalue($row, 'reference');
+    my $reference = findvalue($row, 'reference', {descr => 1});
 
     print STDERR "expand_row name=$name create=$create status=$status\n"
 	if $verbose;
@@ -593,7 +628,7 @@ sub expand_column
     my $units = findvalue($column, 'units');
     my $description = findvalue($column, 'description',
 				{descr => 1, values => $syntax->{values}});
-    my $reference = findvalue($column, 'reference');
+    my $reference = findvalue($column, 'reference', {descr => 1});
 
     print STDERR "expand_column name=$name status=$status access=$access\n"
 	if $verbose;
@@ -620,7 +655,7 @@ sub expand_notifications
     print STDERR "expand_notifications\n" if $verbose;
 
     foreach my $notification ($notifications->findnodes('notification')) {
-	expand_notification($notification);
+	push @{$root->{notifications}}, expand_notification($notification);
     }
 }
 
@@ -630,12 +665,21 @@ sub expand_notification
     my ($notification) = @_;
 
     my ($name, $oid, $status) = get_name_oid_and_status($notification);
-    my $description = findvalue($notification, 'description');
-    my $reference = findvalue($notification, 'reference');
+    my $description = findvalue($notification, 'description', { descr => 1});
+    my $reference = findvalue($notification, 'reference', {descr => 1});
 
     print STDERR "expand_notification name=$name status=$status\n" if $verbose;
 
-    expand_objects($notification->findnodes('objects'));
+    my $hash = {};
+    $hash->{name} = $name if $name;
+    $hash->{oid} = $oid if $oid;
+    $hash->{status} = $status if $status;
+    $hash->{description} = $description if $description;
+    $hash->{reference} = $reference if $reference;
+
+    $hash->{objects} = expand_objects($notification->findnodes('objects'));
+
+    return $hash;
 }
 
 # expand objects
@@ -645,9 +689,12 @@ sub expand_objects
 
     print STDERR "expand_objects\n" if $verbose;
 
+    my $array = [];
     foreach my $object ($objects->findnodes('object')) {
-	expand_object($object);
+	push @$array, expand_object($object);
     }
+
+    return $array;
 }
 
 # expand object
@@ -658,6 +705,8 @@ sub expand_object
     my ($module, $name) = get_module_and_name($object);
 
     print STDERR "expand_object module=$module name=$name\n" if $verbose;
+
+    return {module => $module, name => $name};
 }
 
 # expand groups
@@ -668,7 +717,7 @@ sub expand_groups
     print STDERR "expand_groups\n" if $verbose;
 
     foreach my $group ($groups->findnodes('group')) {
-	expand_group($group);
+	push @{$root->{groups}}, expand_group($group);
     }
 }
 
@@ -679,11 +728,20 @@ sub expand_group
 
     my ($name, $oid, $status) = get_name_oid_and_status($group);
     my $description = findvalue($group, 'description', {descr => 1});
-    my $reference = findvalue($group, 'reference');
+    my $reference = findvalue($group, 'reference', {descr => 1});
 
     print STDERR "expand_group name=$name status=$status\n" if $verbose;
 
-    expand_members($group->findnodes('members'));
+    my $hash = {};
+    $hash->{name} = $name if $name;
+    $hash->{oid} = $oid if $oid;
+    $hash->{status} = $status if $status;
+    $hash->{description} = $description if $description;
+    $hash->{reference} = $reference if $reference;
+
+    $hash->{members} = expand_members($group->findnodes('members'));
+
+    return $hash;
 }
 
 # expand members
@@ -693,9 +751,12 @@ sub expand_members
 
     print STDERR "expand_members\n" if $verbose;
 
+    my $array = [];
     foreach my $member ($members->findnodes('member')) {
-	expand_member($member);
+	push @$array, expand_member($member);
     }
+
+    return $array;
 }
 
 # expand member
@@ -706,6 +767,8 @@ sub expand_member
     my ($module, $name) = get_module_and_name($member);
 
     print STDERR "expand_member module=$module name=$name\n" if $verbose;
+    
+    return {module => $module, name => $name};
 }
 
 # expand compliances
@@ -716,7 +779,7 @@ sub expand_compliances
     print STDERR "expand_compliances\n" if $verbose;
 
     foreach my $compliance ($compliances->findnodes('compliance')) {
-	expand_compliance($compliance);
+	push @{$root->{compliances}}, expand_compliance($compliance);
     }
 }
 
@@ -730,10 +793,18 @@ sub expand_compliance
 
     print STDERR "expand_compliance name=$name status=$status\n" if $verbose;
 
+    my $hash = {};
+    $hash->{name} = $name if $name;
+    $hash->{oid} = $oid if $oid;
+    $hash->{status} = $status if $status;    
+    $hash->{description} = $description if $description;    
+    
     foreach my $thing ($compliance->findnodes('requires|refinements')) {
 	my $element = findvalue($thing, 'local-name()');
-	"expand_$element"->($thing);
+	push @{$hash->{$element}}, "expand_$element"->($thing);
     }
+
+    return $hash;
 }
 
 # expand requires
@@ -743,10 +814,13 @@ sub expand_requires
 
     print STDERR "expand_requires\n" if $verbose;
 
+    my $hash = {};
     foreach my $thing ($requires->findnodes('mandatory|option')) {
 	my $element = findvalue($thing, 'local-name()');
-	"expand_$element"->($thing);
+	push @{$hash->{$element}}, "expand_$element"->($thing);
     }
+
+    return $hash;
 }
 
 # expand mandatory
@@ -757,6 +831,8 @@ sub expand_mandatory
     my ($module, $name) = get_module_and_name($mandatory);
 
     print STDERR "expand_mandatory module=$module name=$name\n" if $verbose;
+
+    return {module => $module, name => $name};
 }
 
 # expand option
@@ -768,6 +844,8 @@ sub expand_option
     my $description = findvalue($option, 'description', {descr => 1});
 
     print STDERR "expand_option module=$module name=$name\n" if $verbose;
+    
+    return {module => $module, name => $name};
 }
 
 # expand refinements
@@ -777,9 +855,12 @@ sub expand_refinements
 
     print STDERR "expand_refinements\n" if $verbose;
 
+    my $array = [];
     foreach my $refinement ($refinements->findnodes('refinement')) {
-	expand_refinement($refinement);
+	push @$array, expand_refinement($refinement);
     }
+
+    return $array;
 }
 
 # expand refinement
@@ -791,11 +872,19 @@ sub expand_refinement
     my $access = findvalue($refinement, 'access');
     my $description = findvalue($refinement, 'description', {descr => 1});
 
+    my $hash = {};
+    $hash->{module} = $module if $module;
+    $hash->{name} = $name if $name;
+    $hash->{access} = $access if $access;
+    $hash->{description} = $description if $description;
+    
     print STDERR "expand_refinement module=$module name=$name access=$access\n"
 	if $verbose;
 
     my $syntax = ($refinement->findnodes('syntax'))[0];
-    expand_syntax($syntax) if $syntax;
+    $hash->{syntax} = expand_syntax($syntax) if $syntax;
+
+    return $hash;
 }
 
 # convert syntax from one of the following forms:
@@ -834,16 +923,21 @@ sub convert_syntax
 {
     my ($in) = @_;
 
+    print STDERR Dumper($in) if $in->{basetype} && $in->{basetype} eq 'Bits';
+
     # XXX should be able to leave name blank; should call it "name"?
     # XXX need to be more rigorous wrt name, base and ref
     my $name = $in->{name} ? $in->{name} : '';
     my $ref = $in->{parent}->{name} ? $in->{parent}->{name} : '';
     $ref = $in->{basetype} if !$ref && $in->{basetype};
     $name = $ref unless $name;
+    my $is_list = $list_map->{$name};
     $name = $primitive_map->{$name} if $primitive_map->{$name};
     my $out = {type => $name, base => $ref, ref => $ref};
 
+    $out->{values}->{list} = $is_list if $in->{namednumber};
     foreach my $item (@{$in->{namednumber}}) {
+        # XXX should this ucfirst be unconditional?
 	my $value = ucfirst $item->{name};
         my $code = $item->{number};
 	push @{$out->{values}->{values}}, {value => $value, code => $code};
@@ -862,7 +956,7 @@ sub convert_syntax
     #     don't really understand the ASN.1/SMI logic
     foreach my $item (@{$in->{range}}) {
         if ($out->{values} || $out->{type}
-            =~ /^(base64|hexBinary|string|DisplayString|SnmpAdminStrin)$/) {
+            =~ /^(base64|hexBinary|string|DisplayString|SnmpAdminString)$/) {
             push @{$out->{sizes}}, $item;
         } else {
             push @{$out->{ranges}}, $item;
@@ -1002,6 +1096,40 @@ sub output
     }
 }
 
+# transform names
+sub transform_names
+{
+    foreach my $scalar (@{$root->{scalars}}) {
+        $scalar->{name} = transform_name($scalar->{name}, $root);
+    }
+    
+    foreach my $table (@{$root->{tables}}) {
+        $table->{name} =~ s/Table$// if $namemangle;
+        foreach my $index (@{$table->{row}->{linkage}->{index}}) {
+            $index->{name} = transform_name($index->{name}, $table);
+        }
+        foreach my $column (@{$table->{row}->{columns}}) {
+            $column->{name} = transform_name($column->{name}, $table);
+        }
+    }
+}
+
+# transform name (name mangling)
+sub transform_name
+{
+    my ($name, $parent) = @_;
+    
+    # if the parent object and the parameter name share a common prefix,
+    # remove it from the parameter name
+    if ($namemangle) {
+        my $prefix = common_prefix($parent->{name}, $name);
+        #print STDERR "parent $parent->{name} child $name -> $prefix\n";
+        $name =~ s/^\Q$prefix//;
+    }
+
+    return $name;
+}
+
 # output XML
 sub output_xml
 {
@@ -1012,9 +1140,20 @@ sub output_xml
     my $file = $root->{file};
     output $i, qq{<?xml version="1.0" encoding="UTF-8"?>};
     output $i, qq{<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-$schema_version"};
+    output $i, qq{             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-0-1"};
     output $i, qq{             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"};
     output $i, qq{             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-$schema_version http://www.broadband-forum.org/cwmp/cwmp-datamodel-$schema_version.xsd"};
     output $i, qq{             spec="$spec" file="$file">};
+
+    # XXX this should be configurable; it introduces a TR-069 dependence and
+    #     is tied back to the earlier reference to TR-069 data types
+    $i++;
+    output $i, qq{<import file="tr-106-1-1-types.xml" spec="urn:broadband-forum-org:tr-106-1-1">};
+    output $i+1, qq{<dataType name="MACAddress"/>};
+    output $i+1, qq{<dataType name="StatsCounter32"/>};
+    output $i+1, qq{<dataType name="StatsCounter64"/>};
+    output $i, qq{</import>};
+    $i--;
 
     # output imports (need to be grouped by module)
     my $modules = {};
@@ -1028,18 +1167,32 @@ sub output_xml
     foreach my $import (@{$root->{imports}}) {
         my $module = $import->{module};
         my $name = $import->{name};
-        # XXX this is rather heuristic; how to tell which are data types to be
-        #     imported?
+        # XXX this is rather heuristic
         next if $name =~ /MODULE-COMPLIANCE|MODULE-IDENTITY|NOTIFICATION-GROUP|NOTIFICATION-TYPE|OBJECT-GROUP|OBJECT-IDENTITY|OBJECT-TYPE|TEXTUAL-CONVENTION|mib-2/;
-        next if $name =~ /^[a-z]/;
-        push @{$modules->{$module}}, {name => $name, index => $index++};
+        push @{$modules->{$module}}, {module => $module, name => $name,
+                                      index => $index++};
     }
     foreach my $module (sort {$modules->{$a}->[0]->{index} <=> $modules->{$b}->[0]->{index}} keys %$modules) {
         $i++;
         output $i, qq{<import file="$module.xml">};
         foreach my $import (@{$modules->{$module}}) {
+            my $module = $import->{module};
             my $name = $import->{name};
-            output $i+1, qq{<dataType name="$name"/>};
+            next if $module eq 'SNMPv2-TC' && $name eq 'DisplayString';
+            
+            # XXX assume that names that begin with upper-case letters are data
+            #     types to be imported, and others are nodes etc that will
+            #     be imported via components
+            if ($name =~ /^[A-Z]/) {
+                output $i+1, qq{<dataType name="$name"/>};
+            } elsif ($pathmap->{$name}) {
+                my $components = $pathmap->{$name}->{components};
+                foreach my $component (@$components) {
+                    output $i+1, qq{<component name="$component"/>};
+                }
+            } else {
+                output $i+1, qq{<!-- <node name="$name"/> -->};
+            }
         }
         output $i, qq{</import>};
         $i--;
@@ -1052,6 +1205,8 @@ sub output_xml
     # XXX overlapping logic with convert_syntax (do without convert_syntax?)
     foreach my $typedef (@{$root->{typedefs}}) {
         my $name = $typedef->{name};
+        next if $name eq 'DisplayString';
+        
         my $basetype = $typedef->{basetype};
         my $status = $typedef->{status};
         my $description = $typedef->{description};
@@ -1062,7 +1217,10 @@ sub output_xml
 
         $description = xml_escape($description);
 
-        $reference = $reference ? qq{{{bibref|$reference}}} : qq{};
+        $reference = $reference ? qq{ {{bibref|$reference}}} : qq{};
+
+        # XXX minimal list support (only for Bits)
+        my $is_list = $list_map->{$basetype};
 
         $basetype = $primitive_map->{$basetype} if $primitive_map->{$basetype};
 
@@ -1077,6 +1235,7 @@ sub output_xml
         $i++;
         output $i, qq{<dataType name="$name"$base$status>};
         output $i+1, qq{<description>$description$reference</description>} if $description;
+        output $i+1, qq{<list/>} if $is_list;
         unless ($base) {
             $i++;
             output $i, qq{<$basetype$end_element>};
@@ -1106,16 +1265,31 @@ sub output_xml
         $i--;
     }
 
+    # output modified DisplayString definition
+    # XXX should be controlled via command-line? should be a standard type?
+    $i++;
+    output $i, qq{<dataType name="DisplayString">};
+    output $i+1, qq{<description>TR-069 version of DisplayString...</description>};
+    output $i+1, qq{<string>};
+    output $i+2, qq{<size maxLength="255"/>};
+    output $i+2, qq{<pattern value="[ -~]*">};
+    output $i+3, qq{<description>Printable ASCII characters.</description>};
+    output $i+2, qq{</pattern>};
+    output $i+1, qq{</string>};
+    output $i, qq{</dataType>};
+    $i--;
+
     # determine whether will create top-level component and model
     my $scalars = defined $root->{scalars};
     my $model = $scalars || defined $root->{tables};
 
     # output top-level component or model
     $i++;
+    my $root_name = $root->{name} ? $root->{name} : "root";
     if ($components) {
-	output($i, qq{<component name="$root->{name}">}) if $scalars;
+	output($i, qq{<component name="$root_name">}) if $scalars;
     } else {
-	output($i, qq{<model name="$root->{name}:1.0">}) if $model;
+	output($i, qq{<model name="$root_name:1.0">}) if $model;
     }
 
     # output scalars (top-level parameters)
@@ -1128,7 +1302,7 @@ sub output_xml
             output($i+2, qq{</description>});
         }
         foreach my $scalar (@{$root->{scalars}}) {
-            output_parameter($scalar, $i + !$noobjects);
+            output_parameter($scalar, $i + !$noobjects, $root);
         }
         unless ($noobjects) {
             output($i+1, qq{</object>});
@@ -1156,12 +1330,15 @@ sub output_xml
     }
 
     # output tables (note we use the row OID, not the table OID)
+    my $objects = [];
     foreach my $table (@{$root->{tables}}) {
 	my $name = $table->{name};
 	my $oid = $table->{row}->{oid};
 	my $status = $table->{status};
 	my $description = $table->{description};
         my $reference = $table->{reference};
+
+        my $pathmap_entry = undef;
 
         $description = xml_escape($description);
 
@@ -1170,13 +1347,86 @@ sub output_xml
         $status =~ s/obsolete/obsoleted/;
 	$status = ($status ne 'current') ? qq{ status="$status"} : qq{};
 
-        $reference = $reference ? qq{{{bibref|$reference}}} : qq{};
+        $reference = $reference ? qq{ {{bibref|$reference}}} : qq{};
+
+        # analyse linkage
+        my $namebase = 'name';
+        my $oname = $name . '.{i}';
+        my $descact = qq{};
+        my $minEntries = qq{0};
+        my $maxEntries = qq{unbounded};
+        my $numEntries = qq{ numEntriesParameter="${name}NumberOfEntries"};
+        my $linkage = $table->{row}->{linkage};
+
+        my $augmentsdesc = '';
+        if ($linkage->{augments}) {
+            my $module = $linkage->{augments}->{module};
+            my $name = $linkage->{augments}->{name};
+            $name =~ s/Entry/Table/;
+            #$augmentsdesc = qq{\nThis table augments the ''$module }.
+            #    qq{$name'', i.e. it conceptually includes everything }.
+            #    qq{in that table and adds additional parameters.};
+            #print STDERR "$oname augments {$module}$name\n";
+            $namebase = 'base';
+            $oname = $name . '.{i}';
+            $descact = qq{ action="append"};
+            $numEntries = qq{};
+        }
+                
+        my $shareddesc = '';
+        my @unique = ();
+        if (defined $linkage->{index} && @{$linkage->{index}}) {
+            my @shared = ();
+            foreach my $index (@{$linkage->{index}}) {
+                # XXX should check module?
+                if (grep {$_->{name} eq $index->{name}}
+                    @{$table->{row}->{columns}}) {
+                    push @unique, $index->{name};
+                } else {
+                    push @shared, $index->{name};
+                }
+            }
+            # if no unique key this will be a single-instance object
+            if (!@unique) {
+                $name =~ s/Table$//;
+                $oname = $name;
+                $minEntries = qq{1};
+                $maxEntries = qq{1};
+                $numEntries = qq{};
+            }
+            # XXX for shared indices, can add the index or can embed
+            #     this table within the table that contains the
+            #     index (the latter seems least invasive)
+            if (@shared) {
+                my $list = join ', ', @shared;
+                #$shareddesc = qq{\nThis table shares the following }.
+                #    qq{keys: ''$list'', i.e. it's conceptually a }.
+                #    qq{child of the table(s) that have those keys.};
+                foreach my $key (@shared) {
+                    foreach my $module (keys %$modules) {
+                        foreach my $import (@{$modules->{$module}}) {
+                            my $temp = $import->{name};
+                            if ($temp eq $key) {
+                                #print STDERR "$oname shares {$module}$key\n";
+                                # XXX key is something like ifIndex, but the
+                                #     containing table is the table (in
+                                #     another module) that the key comes from;
+                                #     we only know that if we have parsed that
+                                #     other module; so need to provide this
+                                #     info; here it's hard-coded
+                                $pathmap_entry = $pathmap->{$key};
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
 	if ($components) {
 	    my $cname = $name;
 	    $i++;
 	    output $i, qq{<component name="$cname">};
-            unless ($noobjects) {
+            unless ($noobjects || $linkage->{augments} || !@unique) {
                 $i++;
                 output $i, qq{<parameter name="${name}NumberOfEntries" access="readOnly">};
                 output $i+1, qq{<description>{{numentries}}</description>};
@@ -1189,48 +1439,13 @@ sub output_xml
 	}
 
 	unless ($noobjects) {
-	    my $oname = $name . '.{i}';
 	    my $rowdesc = $table->{row}->{description};
 	    my $rowref = $table->{row}->{reference};
             $rowref = $rowref ? qq{{{bibref|$rowref}}} : qq{};
 	    $i++;
-	    output $i, qq{<object name="$oname." id="$oid" access="$access" minEntries="0" maxEntries="unbounded" numEntriesParameter="${name}NumberOfEntries"$status>};
-            my $augmentsdesc = '';
-	    my $linkage = $table->{row}->{linkage};
-            if ($linkage->{augments}) {
-                my $module = $linkage->{augments}->{module};
-                my $name = $linkage->{augments}->{name};
-                $name =~ s/Entry/Table/;
-                $augmentsdesc = qq{\nThis table augments the ''$module }.
-                    qq{$name'', i.e. it conceptually includes everything }.
-                    qq{in that table and adds additional parameters.};
-            }
-                
-            my $shareddesc = '';
-            my @unique = ();
-	    if (defined $linkage->{index} && @{$linkage->{index}}) {
-                my @shared = ();
-		foreach my $index (@{$linkage->{index}}) {
-		    # XXX should check module?
-		    if (grep {$_->{name} eq $index->{name}}
-                        @{$table->{row}->{columns}}) {
-                        push @unique, $index->{name};
-                    } else {
-                        push @shared, $index->{name};
-                    }
-                }
-                # XXX for shared indices, can add the index or can embed
-                #     this table within the table that contains the
-                #     index (the latter seems least invasive)
-                if (@shared) {
-                    my $list = join ', ', @shared;
-                    $shareddesc = qq{\nThis table shares the following }.
-                        qq{keys: ''$list'', i.e. it's conceptually a }.
-                        qq{child of the table(s) that have those keys.};
-                }
-            }
+	    output $i, qq{<object $namebase="$oname." id="$oid" access="$access" minEntries="$minEntries" maxEntries="$maxEntries"$numEntries$status>};
 
-	    output $i+1, qq{<description>{{section|table}}$description${reference}\n{{section|row}}$rowdesc$rowref$augmentsdesc$shareddesc</description>};
+	    output $i+1, qq{<description$descact>{{section|table}}$description${reference}\n{{section|row}}$rowdesc$rowref$augmentsdesc$shareddesc</description>};
 
             if (@unique) {
                 my $any = 0;
@@ -1244,7 +1459,9 @@ sub output_xml
 
 	unless ($noparameters) {
 	    foreach my $column (@{$table->{row}->{columns}}) {
-                output_parameter($column, $i);
+                output_parameter($column, $i, $table->{row});
+                my $prefix = $pathmap_entry ? $pathmap_entry->{path} : qq{};
+                $object_map->{$column->{name}} = $prefix . $oname . '.';
 	    }
 	}
 
@@ -1257,20 +1474,140 @@ sub output_xml
 	    output $i, qq{</component>};
 	    $i--;
 	}
+
+        push @$objects, {name => $name, pathmap_entry => $pathmap_entry};
     }
+
+    # process notifications
+    # XXX not using status
+    $i++;
+    output $i, qq{<component name="notifications">};
+    foreach my $notification (@{$root->{notifications}}) {
+        my $nname = $notification->{name};
+        my $oid = $notification->{oid};
+        my $status = $notification->{status};
+        my $description = xml_escape($notification->{description});
+
+        my $path = undef;
+        my $pname = undef;
+        foreach my $object (@{$notification->{objects}}) {
+            my $module = $object->{module};
+            my $name = $object->{name};
+
+            my $tpath = undef;
+            if ($pathmap->{$name}->{path}) {
+                $tpath = $pathmap->{$name}->{path};
+            } elsif ($module ne $root->{module}) {
+                print STDERR "$nname: $name is in different module ($module)".
+                    " and cannot be mapped to an object\n";
+            } elsif ($object_map->{$name}) {
+                $tpath = $object_map->{$name};
+            } else {
+                print STDERR "$nname: object $name cannot be mapped to an " .
+                    "object\n";
+            }
+            if ($tpath) {
+                print STDERR "$nname: object $name maps to $tpath\n";
+                if ($path && $tpath ne $path) {
+                    print STDERR "$nname: object $name maps to different " .
+                        "object $tpath (previously mapped to $path)\n";
+                }
+                $path = $tpath;
+                $pname = $name;
+            }
+        }
+        if (!$path) {
+            print STDERR "$nname: notification cannot be mapped to an " .
+                "object\n";
+            next;
+        }
+        # XXX hard-coded ifTable is a hack!
+        # XXX it's a pain to have to get hold of access, minEntries and
+        #      maxEntries; currently hard-coded
+        my $is_table = $path =~ /\.{i}\.$/;
+        my $tpath = $path !~ /^ifTable\./ ? qq{ifTable.{i}.$path} : $path;
+        my $minEntries = $is_table ? qq{0} : qq{1};
+        my $maxEntries = $is_table ? qq{unbounded} : qq{1};
+        $i++;
+        output $i, qq{<object base="$tpath" minEntries="$minEntries" maxEntries="$maxEntries" access="readOnly">};
+        output $i+1, qq{<parameter name="$nname" access="readOnly" id="$oid" dmr:previousParameter="$pname">};
+        output $i+2, qq{<description>$description</description>};
+        output $i+2, qq{<syntax>};
+        output $i+3, qq{<unsignedInt/>};
+        output $i+2, qq{</syntax>};
+        output $i+1, qq{</parameter>};
+        output $i, qq{</object>};
+        $i--;
+        $object_map->{$nname} = $tpath;
+    }
+    output $i, qq{</component>};
+    $i--;
+
+    # process compliances
+    # XXX not using status
+    $i++;
+    output $i, qq{<component name="compliances">};
+    foreach my $compliance (@{$root->{compliances}}) {
+        my $cname = $compliance->{name};
+        my $oid = $compliance->{oid};
+        my $status = $compliance->{status};
+        my $description = xml_escape($compliance->{description});
+        print STDERR "compliance $cname\n";
+        foreach my $require (@{$compliance->{requires}}) {
+            foreach my $category (('mandatory', 'option')) {
+                print STDERR "  category $category\n";
+                foreach my $group_spec (@{$require->{$category}}) {
+                    my $module = $group_spec->{module};
+                    my $gname = $group_spec->{name};
+                    my $group = (grep {$_->{name} eq $gname}
+                                 @{$root->{groups}})[0];
+                    print STDERR "    group $gname\n";
+                    $i++;
+                    output $i, qq{<profile name="$gname:1.0">};
+                    foreach my $member (@{$group->{members}}) {
+                        my $module = $member->{module};
+                        my $name = $member->{name} || 'undefined';
+                        my $path = $object_map->{$name} || 'undefined.';
+                        print STDERR "      member $name -> $path$name\n";
+                        output $i+1, qq{<object ref="$path" requirement="present">};
+                        output $i+2, qq{<parameter ref="$name" requirement="readWrite"/>};
+                        output $i+1, qq{</object>};
+                    }
+                    output $i, qq{</profile>};
+                    $i--;
+                }
+            }
+        }
+    }
+    output $i, qq{</component>};
+    $i--;
 
     # if collected components, create super-component and output model now
     if ($components) {
         $i++;
-	output($i, qq{<component name="$root->{name}All">});
-        output($i+1, qq{<component ref="$root->{name}"/>}) if $scalars;
-	foreach my $table (@{$root->{tables}}) {
-	    output($i+1, qq{<component ref="$table->{name}"/>});
+	output($i, qq{<component name="${root_name}All">});
+        output($i+1, qq{<component ref="${root_name}"/>}) if $scalars;
+        my $done = {};
+        foreach my $object (@$objects) {
+            my $path = qq{};
+            my $pathmap_entry = $object->{pathmap_entry};
+            if ($pathmap_entry) {
+                my $components = $pathmap_entry->{components};
+                foreach my $component (@$components) {
+                    output($i+1, qq{<component ref="$component"/>})
+                        if !$done->{$component}++;
+                }
+                $path = $pathmap_entry->{path};
+                $path = qq{ path="$path"};
+            }
+	    output($i+1, qq{<component ref="$object->{name}"$path/>});
 	}
+	output($i+1, qq{<component ref="notifications"/>});
+	output($i+1, qq{<component ref="compliances"/>});
 	output($i, qq{</component>});
         if ($model) {
-            output($i, qq{<model name="$root->{name}:1.0">});
-            output($i+1, qq{<component ref="$root->{name}All"/>});
+            output($i, qq{<model name="${root_name}:1.0">});
+            output($i+1, qq{<component ref="${root_name}All"/>});
         }
     }
 
@@ -1283,7 +1620,7 @@ sub output_xml
 # output parameter (either scalar or table column)
 sub output_parameter
 {
-    my ($parameter, $i) = @_;
+    my ($parameter, $i, $parent) = @_;
 
     my $name = $parameter->{name};
     my $oid = $parameter->{oid};
@@ -1293,16 +1630,20 @@ sub output_parameter
     my $units = $parameter->{units};
     my $description = xml_escape($parameter->{description});
     my $reference = $parameter->{reference};
-    
+
     $description = xml_escape($description);
     
-    # XXX for now treat 'noaccess' as 'readwrite' because it's used for table
-    #     keys
-    $access = ($access =~ 'readwrite|noaccess') ? 'readWrite' : 'readOnly';
+    # treat 'noaccess' as 'readWrite' for writeable tables and 'readOnly'
+    # for read-only tables
+    my $parent_access = $parent->{create} ? 'readWrite' : 'readOnly';
+    #print STDERR "$name: noaccess: $parent->{name} $parent_access\n"
+    #    if $access eq 'noaccess';
+    $access = ($access eq 'readwrite') ? 'readWrite' :
+        ($access eq 'noaccess') ? $parent_access : 'readOnly';
     $status =~ s/obsolete/obsoleted/;
     $status = ($status ne 'current') ? qq{ status="$status"} : qq{};
 
-    $reference = $reference ? qq{{{bibref|$reference}}} : qq{};
+    $reference = $reference ? qq{ {{bibref|$reference}}} : qq{};
 
     my $type = $syntax->{type};
     my $sizes = $syntax->{sizes};
@@ -1369,4 +1710,37 @@ sub xml_escape
     $value =~ s/\"/\&quot;/g if $opts->{attr};
 
     return $value;
+}
+
+# determine longest common prefix of two strings
+#
+# prefix is determined word by word, where words are separated by a change of
+# case from lower to upper, e.g. "thisIsWords" is treated as "this Is Words"
+sub common_prefix
+{
+    my ($a, $b) = @_;
+
+    # inspired by http://www.perlmonks.org/bare/?node_id=543407, insert
+    # spaces between lower-case and upper-case letters, then split on white
+    # space
+    my ($am, $bm) = ($a, $b);
+    $am =~ s/(?<=[a-z])(?=[A-Z])/ /g; 
+    $bm =~ s/(?<=[a-z])(?=[A-Z])/ /g; 
+    my @a = split " ", $am; 
+    my @b = split " ", $bm;
+
+    #print STDERR "$a -> " . join(":", @a) . "\n";
+    #print STDERR "$b -> " . join(":", @b) . "\n";
+
+    # build the prefix; never use the last component of either name
+    my $p = "";
+    for (my $i = 0; $i+1 < @a && $i+1 < @b; $i++) {
+        if ($a[$i] eq $b[$i]) {
+            $p .= $a[$i];
+        } else {
+            last;
+        }
+    }
+
+    return $p;
 }
