@@ -7,13 +7,12 @@
 MIBBASE = /usr/local/share/mibs
 MIBTYPES = iana ietf tubs
 
-# directories containing additional MIBs; see README.txt
+# directories containing additional MIBs
 EXTRA += cablelabs
 EXTRA += ecosMibs
 EXTRA += ieee
 EXTRA += ietf
 EXTRA += itu
-EXTRA += moca
 
 # these MIBs are so bad that we have to exclude them
 BADS += RFC1158-MIB
