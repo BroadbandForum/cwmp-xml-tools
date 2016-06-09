@@ -183,14 +183,16 @@ my $list_map = {
 # this maps SNMP object names to the corresponding object in the parse tree
 my $tree_node = {};
 
-# this maps SNMP object names to the corresponding TR-069 DM object name
-my $dm_name = {};
-
-# path map that's used for component imports and shared keys
-# XXX this is heuristic; should be command-line configurable
-my $pathmap = {
-    ifIndex => {components => ['ifTable', 'ifXTable'],
-                path => 'ifTable.{i}.'}
+# this maps SNMP object names to the corresponding TR-069 DM object info
+# XXX ideally wouldn't need to pre-populate; this saves parsing other files
+# XXX it's populated very inefficiently...
+my $dm_object_info = {
+    ifIndex => {model => 'Interfaces_Model:1.0',
+                path => 'ifTable.{i}.',
+                access => 'readOnly',
+                minEntries => '0',
+                maxEntries => 'unbounded',
+    }
 };
 
 # parse files specified on the command line
@@ -863,6 +865,7 @@ sub expand_refinements
 }
 
 # expand refinement
+# XXX need to look up name so can get its values to pass to findvalue
 sub expand_refinement
 {
     my ($refinement) = @_;
@@ -1108,7 +1111,7 @@ sub transform_name
     # remove it from the parameter name
     if ($namemangle) {
         my $prefix = common_prefix($parent->{name}, $name);
-        $name =~ s/^\Q$prefix//;
+        $name =~ s/^\Q$prefix\E//;
     }
 
     return $name;
@@ -1118,6 +1121,11 @@ sub transform_name
 sub output_xml
 {
     my $i = 0;
+
+    my $root_name = $root->{name} ? $root->{name} : "root";
+    my $Root_name = ucfirst $root_name;
+    my $mname = qq{${Root_name}_Model:1.0};
+    my $bmodel = '';
 
     # start of XML
     my $spec = $root->{spec};
@@ -1142,12 +1150,6 @@ sub output_xml
     # output imports (need to be grouped by module)
     my $modules = {};
     my $index = 0;
-    # XXX always import fundamental types (not all are needed because some are
-    #     mapped to primitive types); these should be imported from RFC 1155
-    #     (or avoid the need, by never referencing them directly?)
-    #foreach my $name (('Integer|Null|ObjectIdentifier|OctetString')) {
-    #    push @{$modules->{'SNMPv2-SMI'}}, {name => $name, index => $index++};
-    #}
     foreach my $import (@{$root->{imports}}) {
         my $module = $import->{module};
         my $name = $import->{name};
@@ -1169,11 +1171,12 @@ sub output_xml
             #     be imported via components
             if ($name =~ /^[A-Z]/) {
                 output $i+1, qq{<dataType name="$name"/>};
-            } elsif ($pathmap->{$name}) {
-                my $components = $pathmap->{$name}->{components};
-                foreach my $component (@$components) {
-                    output $i+1, qq{<component name="$component"/>};
-                }
+            } elsif ($dm_object_info->{$name}) {
+                my $mname = $dm_object_info->{$name}->{model};
+                output $i+1, qq{<model name="$mname"/>};
+                # XXX this would be bad news if there was more than one of
+                #     these
+                $bmodel = qq{ base="$mname"};
             } else {
                 output $i+1, qq{<!-- <node name="$name"/> -->};
             }
@@ -1268,27 +1271,27 @@ sub output_xml
 
     # output top-level component or model
     $i++;
-    my $root_name = $root->{name} ? $root->{name} : "root";
     if ($components) {
-	output($i, qq{<component name="$root_name">}) if $scalars;
+	output($i, qq{<component name="$Root_name">}) if $scalars;
     } else {
-	output($i, qq{<model name="$root_name:1.0">}) if $model;
+	output($i, qq{<model name="$mname"$bmodel>}) if $model;
     }
 
     # output scalars (top-level parameters)
     if ($scalars && @{$root->{scalars}} && !$noparameters) {
+        my $oname = $root_name . '.';
         unless ($noobjects) {
-            my $name = $root->{name};
-            my $Name = ucfirst $name;
-            output($i+1, qq{<object name="$name." access="readOnly" } .
+            output($i+1, qq{<object name="$oname" access="readOnly" } .
                    qq{minEntries="1" maxEntries="1">});
             output($i+2, qq{<description>});
-            output($i+3, qq{$Name scalars.});
+            output($i+3, qq{$Root_name scalars.});
             output($i+2, qq{</description>});
         }
         foreach my $scalar (@{$root->{scalars}}) {
             output_parameter($scalar, $i + !$noobjects, {parent => $root});
-            $dm_name->{$scalar->{name}} = $root->{name} . '.';
+            $dm_object_info->{$scalar->{name}} = {
+                path => $oname, access => 'readOnly', minEntries => 1,
+                maxEntries => 1};
         }
         unless ($noobjects) {
             output($i+1, qq{</object>});
@@ -1316,15 +1319,13 @@ sub output_xml
     }
 
     # output tables (note we use the row OID, not the table OID)
-    my $objects = [];
+    my $comps = [];
     foreach my $table (@{$root->{tables}}) {
 	my $name = $table->{name};
 	my $oid = $table->{row}->{oid};
 	my $status = $table->{status};
 	my $description = $table->{description};
         my $reference = $table->{reference};
-
-        my $pathmap_entry = undef;
 
         $description = xml_escape($description);
 
@@ -1334,7 +1335,10 @@ sub output_xml
 
         $reference = $reference ? qq{ {{bibref|$reference}}} : qq{};
 
+        my $cname = ucfirst $name;
+        
         # analyse linkage
+        # XXX should check module?
         my $namebase = 'name';
         my $oname = $name . '.{i}';
         my $descact = qq{};
@@ -1344,7 +1348,6 @@ sub output_xml
         my $linkage = $table->{row}->{linkage};
 
         if ($linkage->{augments}) {
-            my $module = $linkage->{augments}->{module};
             my $name = $linkage->{augments}->{name};
             $name =~ s/Entry/Table/;
             $namebase = 'base';
@@ -1354,10 +1357,9 @@ sub output_xml
         }
                 
         my @unique = ();
+        my @shared = ();
         if (defined $linkage->{index} && @{$linkage->{index}}) {
-            my @shared = ();
             foreach my $index (@{$linkage->{index}}) {
-                # XXX should check module?
                 if (grep {$_->{name} eq $index->{name}}
                     @{$table->{row}->{columns}}) {
                     push @unique, $index->{name};
@@ -1365,34 +1367,47 @@ sub output_xml
                     push @shared, $index->{name};
                 }
             }
-            # if no unique key this will be a single-instance object
-            if (!@unique) {
-                $name =~ s/Table$//;
-                $oname = $name;
-                $minEntries = qq{1};
-                $maxEntries = qq{1};
-                $numEntries = qq{};
-            }
-            if (@shared) {
-                my $list = join ', ', @shared;
-                foreach my $key (@shared) {
-                    foreach my $module (keys %$modules) {
-                        foreach my $import (@{$modules->{$module}}) {
-                            my $temp = $import->{name};
-                            if ($temp eq $key) {
-                                $pathmap_entry = $pathmap->{$key};
-                            }
-                        }
-                    }
-                }
-            }
+        }
+        
+        # if not augmenting and no unique key this will be a single-instance
+        # object
+        if (!$linkage->{augments} && !@unique) {
+            $name =~ s/Table$//;
+            $oname = $name;
+            $minEntries = qq{1};
+            $maxEntries = qq{1};
+            $numEntries = qq{};
+        }
+        
+        # if single shared key this will be a child of the table that defines
+        # the shared key
+        # XXX this behavior should be configurable; might want to create
+        #     a new table that references entries in the table with the
+        #     shared key
+        # XXX can't handle cases where there is more than one shared key;
+        #     in this case there are several options...
+        my $ppath = '';
+        my $paccess = undef;
+        my $pminEntries = undef;
+        my $pmaxEntries = undef;
+        if (@shared) {
+            my $list = join ', ', @shared;
+            print STDERR "$name: ignoring second and subsequent shared " .
+                "key $list\n" if @shared > 1;
+            my $key = $shared[0];
+            my $info = $dm_object_info->{$key};
+            $ppath = $info->{path};
+            $paccess = $info->{access};
+            $pminEntries = $info->{minEntries};
+            $pmaxEntries = $info->{maxEntries};
         }
 
 	if ($components) {
-	    my $cname = $name;
 	    $i++;
 	    output $i, qq{<component name="$cname">};
             unless ($noobjects || $linkage->{augments} || !@unique) {
+                $i++;
+                output $i, qq{<object base="$ppath" access="$paccess" minEntries="$pminEntries" maxEntries="$pmaxEntries">} if $ppath;
                 $i++;
                 output $i, qq{<parameter name="${name}NumberOfEntries" access="readOnly">};
                 output $i+1, qq{<description>{{numentries}}</description>};
@@ -1400,6 +1415,8 @@ sub output_xml
                 output $i+2, qq{<unsignedInt/>};
                 output $i+1, qq{</syntax>};
                 output $i, qq{</parameter>};
+                $i--;
+                output $i, qq{</object>} if $ppath;
                 $i--;
             }
 	}
@@ -1409,8 +1426,7 @@ sub output_xml
 	    my $rowref = $table->{row}->{reference};
             $rowref = $rowref ? qq{{{bibref|$rowref}}} : qq{};
 	    $i++;
-	    output $i, qq{<object $namebase="$oname." id="$oid" access="$access" minEntries="$minEntries" maxEntries="$maxEntries"$numEntries$status>};
-
+	    output $i, qq{<object $namebase="$ppath$oname." id="$oid" access="$access" minEntries="$minEntries" maxEntries="$maxEntries"$status$numEntries>};
 	    output $i+1, qq{<description$descact>{{section|table}}$description${reference}\n{{section|row}}$rowdesc$rowref</description>};
 
             if (@unique) {
@@ -1426,8 +1442,9 @@ sub output_xml
 	unless ($noparameters) {
 	    foreach my $column (@{$table->{row}->{columns}}) {
                 output_parameter($column, $i, {parent => $table->{row}});
-                my $prefix = $pathmap_entry ? $pathmap_entry->{path} : qq{};
-                $dm_name->{$column->{name}} = $prefix . $oname . '.';
+                $dm_object_info->{$column->{name}} = {
+                    path => $ppath . $oname . '.', access => $access,
+                    minEntries => $minEntries, maxEntries => $maxEntries};
 	    }
 	}
 
@@ -1441,35 +1458,40 @@ sub output_xml
 	    $i--;
 	}
 
-        push @$objects, {name => $name, pathmap_entry => $pathmap_entry};
+        push @$comps, $cname;
     }
 
     # process notifications
     # XXX not using status
     $i++;
-    output $i, qq{<component name="notifications">};
+    output $i, qq{<component name="${Root_name}_Notifications">};
     my $notlist = {};
     my $index2 = 0;
     foreach my $notification (@{$root->{notifications}}) {
         my $nname = $notification->{name};
-        my $oid = $notification->{oid};
-        my $status = $notification->{status};
-        my $description = xml_escape($notification->{description});
 
         my $path = undef;
-        my $pname = undef;
+        my $access = undef;
+        my $minEntries = undef;
+        my $maxEntries = undef;
+        my $previousParameter = undef;
         foreach my $object (@{$notification->{objects}}) {
             my $module = $object->{module};
             my $name = $object->{name};
 
             my $tpath = undef;
-            if ($pathmap->{$name}->{path}) {
-                $tpath = $pathmap->{$name}->{path};
+            my $taccess = undef;
+            my $tminEntries = undef;
+            my $tmaxEntries = undef;
+            if ($dm_object_info->{$name}) {
+                my $info = $dm_object_info->{$name};
+                $tpath = $info->{path};
+                $taccess = $info->{access};
+                $tminEntries = $info->{minEntries};
+                $tmaxEntries = $info->{maxEntries};
             } elsif ($module ne $root->{module}) {
                 print STDERR "$nname: $name is in different module ($module)".
                     " and cannot be mapped to an object\n";
-            } elsif ($dm_name->{$name}) {
-                $tpath = $dm_name->{$name};
             } else {
                 print STDERR "$nname: object $name cannot be mapped to an " .
                     "object\n";
@@ -1480,29 +1502,34 @@ sub output_xml
                         "object $tpath (previously mapped to $path)\n";
                 }
                 $path = $tpath;
-                $pname = $name;
+                $access = $taccess;
+                $minEntries = $tminEntries;
+                $maxEntries = $tmaxEntries;
+                $previousParameter = $name;
             }
         }
         if (!$path) {
             $path = $root->{name} . '.';
-            #print STDERR "$nname: notification cannot be mapped to an " .
-            #    "object\n";
-            #next;
+            $access = 'readOnly';
+            $minEntries = 1;
+            $maxEntries = 1;
         }
         $notlist->{$path}->{index} = $index2++ unless $notlist->{$path};
-        $notlist->{$path}->{pname} = $pname;
+        $notlist->{$path}->{access} = $access;
+        $notlist->{$path}->{minEntries} = $minEntries;
+        $notlist->{$path}->{maxEntries} = $maxEntries;
+        $notlist->{$path}->{previousParameter} = $previousParameter;
         push @{$notlist->{$path}->{notifications}}, $notification;
     }
     foreach my $path (sort {$notlist->{$a}->{index} <=>
                                 $notlist->{$b}->{index}} keys %$notlist) {
-        my $pname = $notlist->{$path}->{pname};
-        # XXX it's a pain to have to get hold of access, minEntries and
-        #      maxEntries; currently hard-coded
-        my $is_table = $path =~ /\.{i}\.$/;
-        my $minEntries = $is_table ? qq{0} : qq{1};
-        my $maxEntries = $is_table ? qq{unbounded} : qq{1};
+        my $access = $notlist->{$path}->{access};
+        my $minEntries = $notlist->{$path}->{minEntries};
+        my $maxEntries = $notlist->{$path}->{maxEntries};
+        my $previousParameter = $notlist->{$path}->{previousParameter};
         $i++;
-        output $i, qq{<object base="$path" access="readOnly" minEntries="$minEntries" maxEntries="$maxEntries">};
+        output $i, qq{<object base="$path" access="$access" minEntries="$minEntries" maxEntries="$maxEntries">};
+        my $first = 1;
         foreach my $notification (@{$notlist->{$path}->{notifications}}) {
             my $nname = $notification->{name};
             my $oid = $notification->{oid};
@@ -1516,9 +1543,14 @@ sub output_xml
                 access => 'readonly',
                 description => $description, # XXX might be double escaped?
             };
-            output_parameter($cnode, $i, {previousParameter => $pname});
-            $dm_name->{$nname} = $path;
+            my $opts = $first ? {previousParameter =>
+                                     $previousParameter} : undef;
+            output_parameter($cnode, $i, $opts);
+            $dm_object_info->{$nname} = {
+                path => $path, access => $access, minEntries => $minEntries,
+                maxEntries => $maxEntries};
             $tree_node->{$nname} = $cnode;
+            $first = 0;
         }
         output $i, qq{</object>};
         $i--;
@@ -1529,7 +1561,7 @@ sub output_xml
     # process compliances
     # XXX not using module (should always be this module?) or status
     $i++;
-    output $i, qq{<component name="compliances">};
+    output $i, qq{<component name="${Root_name}_Compliances">};
     foreach my $compliance (@{$root->{compliances}}) {
         my $cname = $compliance->{name};
         my $Cname = ucfirst $cname;
@@ -1538,7 +1570,6 @@ sub output_xml
         my $description = xml_escape($compliance->{description});
         my $overrides = {};
         foreach my $refinement (@{$compliance->{refinements}}) {
-            my $module = $refinement->{module};
             my $rname = $refinement->{name};
             my $access = $refinement->{access};
             my $description = $refinement->{description};
@@ -1549,35 +1580,46 @@ sub output_xml
             foreach my $category (('mandatory', 'option')) {
                 my $profiles = [];
                 foreach my $group_spec (@{$require->{$category}}) {
-                    my $module = $group_spec->{module};
                     my $gname = $group_spec->{name};
                     my $Gname = ucfirst $gname;
                     my $group = (grep {$_->{name} eq $gname}
                                  @{$root->{groups}})[0];
-                    my $pname = qq{$Cname-$Gname:1};
+                    my $pname = qq{${Cname}_${Gname}:1};
+                    my $complist = {};
+                    my $index3 = 0;
+                    foreach my $member (@{$group->{members}}) {
+                        my $name = $member->{name} || 'unknown';
+                        my $path = $dm_object_info->{$name}->{path} ||
+                            'unknown.';
+                        $complist->{$path}->{index} = $index3++
+                            unless $complist->{$path};
+                        push @{$complist->{$path}->{names}}, $name;
+                    }
                     $i++;
                     output $i, qq{<profile name="$pname">};
-                    foreach my $member (@{$group->{members}}) {
-                        my $module = $member->{module};
-                        my $name = $member->{name} || 'unknown';
-                        my $path = $dm_name->{$name} || 'unknown.';
-                        my $access = $tree_node->{$name}->{access};
-                        my $description = qq{};
-                        my $override = $overrides->{$name};
-                        if ($override) {
-                            $access = $override->{access};
-                            $description =
-                                xml_escape($override->{description});
-                        }
-                        $access = !$access ? 'unknown' :
-                            ($access eq 'readwrite') ? 'readWrite' :
-                            ($access eq 'noaccess') ? 'unknown' : 'readOnly';
-                        my $end_element = $description ? '' : '/';
+                    foreach my $path (sort {$complist->{$a}->{index} <=>
+                                                $complist->{$b}->{index}}
+                                      keys %$complist) {
                         output $i+1, qq{<object ref="$path" requirement="present">};
-                        output $i+2, qq{<parameter ref="$name" requirement="$access"$end_element>};
-                        if ($description) {
-                            output $i+3, qq{<description>$description</description>};
-                            output $i+2, qq{</parameter>};
+                        foreach my $name (@{$complist->{$path}->{names}}) {
+                            my $access = $tree_node->{$name}->{access};
+                            my $description = qq{};
+                            my $override = $overrides->{$name};
+                            if ($override) {
+                                $access = $override->{access};
+                                $description =
+                                    xml_escape($override->{description});
+                            }
+                            $access = !$access ? 'unknown' :
+                                ($access eq 'readwrite') ? 'readWrite' :
+                                ($access eq 'noaccess') ? 'unknown' :
+                                'readOnly';
+                            my $end_element = $description ? '' : '/';
+                            output $i+2, qq{<parameter ref="$name" requirement="$access"$end_element>};
+                            if ($description) {
+                                output $i+3, qq{<description>$description</description>};
+                                output $i+2, qq{</parameter>};
+                            }
                         }
                         output $i+1, qq{</object>};
                     }
@@ -1587,7 +1629,7 @@ sub output_xml
                 }
                 my $Category = ucfirst $category;
                 $Category =~ s/Option/Optional/;
-                my $pname = ucfirst qq{$Cname-$Category:1};
+                my $pname = ucfirst qq{${Cname}_${Category}:1};
                 $i++;
                 output $i, qq{<profile name="$pname" extends="};
                 foreach my $profile (@$profiles) {
@@ -1604,29 +1646,17 @@ sub output_xml
     # if collected components, create super-component and output model now
     if ($components) {
         $i++;
-	output($i, qq{<component name="${root_name}All">});
-        output($i+1, qq{<component ref="${root_name}"/>}) if $scalars;
-        my $done = {};
-        foreach my $object (@$objects) {
-            my $path = qq{};
-            my $pathmap_entry = $object->{pathmap_entry};
-            if ($pathmap_entry) {
-                my $components = $pathmap_entry->{components};
-                foreach my $component (@$components) {
-                    output($i+1, qq{<component ref="$component"/>})
-                        if !$done->{$component}++;
-                }
-                $path = $pathmap_entry->{path};
-                $path = qq{ path="$path"};
-            }
-	    output($i+1, qq{<component ref="$object->{name}"$path/>});
+	output($i, qq{<component name="${Root_name}_All">});
+        output($i+1, qq{<component ref="${Root_name}"/>}) if $scalars;
+        foreach my $comp (@$comps) {
+	    output($i+1, qq{<component ref="$comp"/>});
 	}
-	output($i+1, qq{<component ref="notifications"/>});
-	output($i+1, qq{<component ref="compliances"/>});
+	output($i+1, qq{<component ref="${Root_name}_Notifications"/>});
+	output($i+1, qq{<component ref="${Root_name}_Compliances"/>});
 	output($i, qq{</component>});
         if ($model) {
-            output($i, qq{<model name="${root_name}:1.0">});
-            output($i+1, qq{<component ref="${root_name}All"/>});
+            output($i, qq{<model name="$mname"$bmodel>});
+            output($i+1, qq{<component ref="${Root_name}_All"/>});
         }
     }
 
