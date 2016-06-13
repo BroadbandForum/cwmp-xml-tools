@@ -1320,6 +1320,7 @@ sub output_xml
 
     # output tables (note we use the row OID, not the table OID)
     my $comps = [];
+    my $rowstats = {};
     foreach my $table (@{$root->{tables}}) {
 	my $name = $table->{name};
 	my $oid = $table->{row}->{oid};
@@ -1441,7 +1442,11 @@ sub output_xml
 
 	unless ($noparameters) {
 	    foreach my $column (@{$table->{row}->{columns}}) {
-                output_parameter($column, $i, {parent => $table->{row}});
+                if ($column->{syntax}->{type} eq 'RowStatus') {
+                    $rowstats->{$column->{name}} = 1;
+                } else {
+                    output_parameter($column, $i, {parent => $table->{row}});
+                }
                 $dm_object_info->{$column->{name}} = {
                     path => $ppath . $oname . '.', access => $access,
                     minEntries => $minEntries, maxEntries => $maxEntries};
@@ -1462,6 +1467,7 @@ sub output_xml
     }
 
     # process notifications
+    # XXX not explicitly including the varbinds (objects)
     # XXX not using status
     $i++;
     output $i, qq{<component name="${Root_name}_Notifications">};
@@ -1567,7 +1573,7 @@ sub output_xml
         my $Cname = ucfirst $cname;
         my $oid = $compliance->{oid};
         my $status = $compliance->{status};
-        my $description = xml_escape($compliance->{description});
+        my $cdescription = xml_escape($compliance->{description});
         my $overrides = {};
         foreach my $refinement (@{$compliance->{refinements}}) {
             my $rname = $refinement->{name};
@@ -1584,24 +1590,28 @@ sub output_xml
                     my $Gname = ucfirst $gname;
                     my $group = (grep {$_->{name} eq $gname}
                                  @{$root->{groups}})[0];
+                    my $description = xml_escape($group->{description});
                     my $pname = qq{${Cname}_${Gname}:1};
                     my $complist = {};
                     my $index3 = 0;
                     foreach my $member (@{$group->{members}}) {
-                        my $name = $member->{name} || 'unknown';
+                        # XXX these can mask errors...
+                        my $name = $member->{name};
                         my $path = $dm_object_info->{$name}->{path} ||
-                            'unknown.';
+                            $name . '.';
                         $complist->{$path}->{index} = $index3++
                             unless $complist->{$path};
                         push @{$complist->{$path}->{names}}, $name;
                     }
                     $i++;
                     output $i, qq{<profile name="$pname">};
+                    output $i+1, qq{<description>$description</description>} if $description;
                     foreach my $path (sort {$complist->{$a}->{index} <=>
                                                 $complist->{$b}->{index}}
                                       keys %$complist) {
                         output $i+1, qq{<object ref="$path" requirement="present">};
                         foreach my $name (@{$complist->{$path}->{names}}) {
+                            next if $rowstats->{$name};
                             my $access = $tree_node->{$name}->{access};
                             my $description = qq{};
                             my $override = $overrides->{$name};
@@ -1635,7 +1645,10 @@ sub output_xml
                 foreach my $profile (@$profiles) {
                     output $i+1, qq{$profile}; 
                 }
-                output $i, qq{"/>};
+                my $end_element = $cdescription ? '' : '/';
+                output $i, qq{"$end_element>};
+                output $i+1, qq{<description>$cdescription ($Category)</description>} if $cdescription;
+                output $i, qq{</profile>} unless $end_element;
                 $i--;
             }
         }
