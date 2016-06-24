@@ -109,6 +109,11 @@ requests output of usage information
 =cut
 # End documentation
 
+# XXX uncomment to enable traceback on warnings and errors
+use Carp::Always;
+#sub control_c { die ""; }
+#$SIG{INT} = \&control_c;
+
 use strict;
 no strict "refs";
 
@@ -144,7 +149,10 @@ $pedantic = 1 if defined($pedantic) and !$pedantic;
 $pedantic = 0 unless defined($pedantic);
 
 # globals
-my $root = {};
+my $root = {
+    scalars => [],
+    tables => []
+};
 
 # pattern that matches TR-069 primitive types
 my $primitive_patt = '(^base64|boolean|byte|dateTime|hexBinary|int|long|string|unsignedByte|unsignedInt|unsignedLong)$';
@@ -187,12 +195,37 @@ my $tree_node = {};
 # XXX ideally wouldn't need to pre-populate; this saves parsing other files
 # XXX it's populated very inefficiently...
 my $dm_object_info = {
-    ifIndex => {model => 'Interfaces_Model:1.0',
-                path => 'ifTable.{i}.',
-                access => 'readOnly',
-                minEntries => '0',
-                maxEntries => 'unbounded',
+    ifIndex => {
+        model => 'Interfaces_Model:1.0',
+        path => 'ifTable.{i}.',
+        access => 'readOnly',
+        minEntries => '0',
+        maxEntries => 'unbounded',
     }
+};
+
+# this maps values to the corresponding SNMP object names
+my $value_map = {};
+
+# these keep track of name transformations, in order to avoid duplicates
+my $transforms = {};
+
+# XXX these should be populated via command-line options or config files
+my $forcetransforms = {
+    ifTestType => 'TestType', # otherwise ifType and ifTestType map to Type
+    mocaIfAccessEnable => 'AccessControlEnable',
+};
+
+# XXX hard-coded values
+my $hardvalues = {
+    RowStatus => [
+        {value => 'active', code => 1},
+        {value => 'notInService', code => 2},
+        {value => 'notReady', code => 3},
+        {value => 'createAndGo', code => 4},
+        {value => 'createAndWait', code => 5},
+        {value => 'destroy', code => 6}
+        ]
 };
 
 # parse files specified on the command line
@@ -204,6 +237,12 @@ foreach my $file (@ARGV) {
 
 # transform names
 transform_names();
+
+#print STDERR Dumper($value_map);
+
+# XXX could determine some heuristics for trap placement based in parameters
+#     mentioned in their descriptions and parameters that reference them in
+#     their descriptions
 
 # output XML
 output_xml();
@@ -251,7 +290,7 @@ sub expand_module
     print STDERR "expand_module name=$name organization=$organization\n"
 	if $verbose;
 
-    # XXX root is all rather ad hoc...
+    # XXX root is all rather ad hoc
     $root->{module} = $name;
 
     my $revisions = [];
@@ -261,7 +300,7 @@ sub expand_module
 
     # try to derive meaningful spec from name, organization and latest
     # (lexically first) revision date
-    # XXX there are various heuristics...
+    # XXX there are various heuristics
 
     # these are gen-delims and sub-delims from RFC 3986 (plus double quote,
     # which is omitted, maybe because single and double quote are elsewhere
@@ -274,6 +313,7 @@ sub expand_module
     $name =~ s/\.//g;
     $name =~ s/$delims//g;
 
+    $organization =~ s/\n/ /g;
     $organization = lc $organization;
     $organization =~ s/.*\bcable television laboratories\b.*/cablelabs-org/;
     $organization =~ s/.*\bcablelabs\b.*/cablelabs-org/;
@@ -466,6 +506,7 @@ sub expand_scalar
     print STDERR "expand_scalar name=$name status=$status\n" if $verbose;
 
     my $snode = {
+        refobj => $root,
 	name => $name,
         oid => $oid,
 	syntax => $syntax,
@@ -557,7 +598,7 @@ sub expand_row
     $tree_node->{$name} = $rnode;
 
     foreach my $column ($row->findnodes('column')) {
-	expand_column($rnode, $column);
+	expand_column($tnode, $rnode, $column);
     }
 }
 
@@ -612,7 +653,7 @@ sub expand_augments
 # expand column
 sub expand_column
 {
-    my ($rnode, $column) = @_;
+    my ($tnode, $rnode, $column) = @_;
 
     my ($name, $oid, $status) = get_name_oid_and_status($column);
     my $syntax = expand_syntax($column->findnodes('syntax'));
@@ -628,6 +669,7 @@ sub expand_column
 	if $verbose;
 
     my $cnode = {
+        refobj => $tnode,
 	name => $name,
         oid => $oid,
 	syntax => $syntax,
@@ -937,7 +979,7 @@ sub convert_syntax
 
     $out->{values}->{list} = $is_list if $in->{namednumber};
     foreach my $item (@{$in->{namednumber}}) {
-	my $value = ucfirst $item->{name};
+	my $value = $item->{name};
         my $code = $item->{number};
 	push @{$out->{values}->{values}}, {value => $value, code => $code};
     }
@@ -994,6 +1036,8 @@ sub get_name_oid_and_status
 # here are:
 #  - boolean: convert to boolean 0/1
 #  - descr: special processing for descriptions
+# XXX need to be cleverer, e.g. to preserve additional indentation; will need
+#     to use logic similar to report.pl
 sub findvalue
 {
     my ($node, $xpath, $opts) = @_;
@@ -1019,14 +1063,18 @@ sub findvalue
         #     determine when it's the end of a paragraph
 	$string =~ s/([^\n])\n/$1 /g;
 	$string =~ s/\n-/\n*/g;
-	foreach my $tvalue (@{$opts->{values}->{values}}) {
-	    my $value = $tvalue->{value};
-	    $string =~ s/(\s+)$value\(\d+\)/$1\"$value\"/ig;
-	    $string =~ s/[\'\"]$value[\'\"]/\"$value\"/ig;
-	}
+	#foreach my $tvalue (@{$opts->{values}->{values}}) {
+	#    my $value = $tvalue->{value};
+	#    $string =~ s/(\s+)$value\(\d+\)/$1\"$value\"/ig;
+	#    $string =~ s/[\'\"]$value[\'\"]/\"$value\"/ig;
+	#}
+
         # change `word' and 'word' to "word"
         # XXX doesn't catch 'on top of' (for example)
         $string =~ s/(\W)[\`\'](\S+)\'(\W)/$1\"$2\"$3/g;
+
+        # fix things like "character- oriented"
+        $string =~ s/(\w)- (\w)/$1-$2/g;
 
 	$string =~ s/(false|true)\(\d+\)/$1/g;
 	$string =~ s/\bdeprecated\b/DEPRECATED/g;
@@ -1085,36 +1133,129 @@ sub output
 }
 
 # transform names
+# XXX for convenience, also populates dm_object_info (path) and value_map
+# XXX need to include referenced data types enumerations in value_map
 sub transform_names
 {
+    # XXX this is duplicate logic
+    my $root_name = $root->{name} ? $root->{name} : "root";
+
     foreach my $scalar (@{$root->{scalars}}) {
-        $scalar->{name} = transform_name($scalar->{name}, $root);
+        my $name = $scalar->{name};
+        transform_parameter_name($name);
+        set_object_path($name, $root_name . '.');
+        add_values($name, $scalar->{syntax});
     }
     
     foreach my $table (@{$root->{tables}}) {
-        $table->{name} =~ s/Table$// if $namemangle;
-        foreach my $index (@{$table->{row}->{linkage}->{index}}) {
-            $index->{name} = transform_name($index->{name}, $table);
-        }
+        my $name = $table->{name};
+        my $path = analyse_linkage($table);
+        set_object_path($name, $path);
         foreach my $column (@{$table->{row}->{columns}}) {
-            $column->{name} = transform_name($column->{name}, $table);
+            my $name = $column->{name};
+            transform_parameter_name($name);
+            set_object_path($name, $path);
+            add_values($name, $column->{syntax});
         }
+    }
+    
+    foreach my $notification (@{$root->{notifications}}) {
+        my $name = $notification->{name};
+        my $path = analyse_notification($notification);
+        transform_parameter_name($name);
+        set_object_path($name, $path);
+        print STDERR "notification $name -> $path\n";
     }
 }
 
-# transform name (name mangling)
-sub transform_name
+# transform table name
+# XXX not currently used; needs to be integrated into XML generation
+sub transform_table_name {
+    my ($name) = @_;
+
+    my $tname = $name;
+    $tname =~ s/Table$// if $namemangle;
+    return $tname;
+}
+
+# transform parameter name
+sub transform_parameter_name
 {
-    my ($name, $parent) = @_;
-    
-    # if the parent object and the parameter name share a common prefix,
-    # remove it from the parameter name
-    if ($namemangle) {
-        my $prefix = common_prefix($parent->{name}, $name);
-        $name =~ s/^\Q$prefix\E//;
+    my ($name, $refobj) = @_;
+
+    if ($transforms->{$name}) {
+        return $transforms->{$name};
+    } elsif (!$namemangle) {
+        $transforms->{$name} = $name;
+        return $name;
     }
 
-    return $name;
+    # reference object is either the root (for scalars) or table (for columns)
+    $refobj = $tree_node->{$name}->{refobj} unless $refobj;
+
+    # if the reference object and the parameter name share a common prefix,
+    # remove it from the parameter name
+    my $tname = $name;
+    if ($refobj) {
+        my $fname = $forcetransforms->{$name};
+        if ($fname) {
+            $tname = $fname;
+        } else {
+            my $prefix = common_prefix($refobj->{name}, $name);
+            $tname =~ s/^\Q$prefix\E//;
+        }
+    }
+
+    $transforms->{$name} = $tname;
+    return $tname;
+}
+
+# set dm_object_info path
+sub set_object_path
+{
+    my ($name, $path) = @_;
+
+    $dm_object_info->{$name}->{path} = $path;
+    #print STDERR "set dm_object_info $name path = $path\n";
+}
+
+# add values to value_map
+sub add_values
+{
+    my ($name, $syntax) = @_;
+
+    my $type = $syntax->{type};
+    my $values = $syntax->{values};
+
+    # if there are no values, use those from the type (if any)
+    my $tvalues = {};
+    if (!$values && $type) {
+        my ($typedef) = grep {$_->{name} eq $type} @{$root->{typedefs}};
+
+        # local typedef
+        if ($typedef) {
+            foreach my $item (@{$typedef->{namednumber}}) {
+                my $value = $item->{name};
+                my $code = $item->{number};
+                push @{$tvalues->{values}}, {value => $value, code => $code};
+            }
+        }
+
+        # imported type
+        # XXX not parsing imported files so use hard-coded values
+        elsif ($type !~ /$primitive_patt/) {
+            if ($hardvalues->{$type}) {
+                $tvalues->{values} = $hardvalues->{$type};
+            }
+        }
+        
+        $values = $tvalues;
+    }
+
+    foreach my $value (@{$values->{values}}) {
+        my $key = qq{$value->{value}($value->{code})};
+        push @{$value_map->{$key}}, $name;
+    }
 }
 
 # output XML
@@ -1171,7 +1312,7 @@ sub output_xml
             #     be imported via components
             if ($name =~ /^[A-Z]/) {
                 output $i+1, qq{<dataType name="$name"/>};
-            } elsif ($dm_object_info->{$name}) {
+            } elsif ($dm_object_info->{$name}->{model}) {
                 my $mname = $dm_object_info->{$name}->{model};
                 output $i+1, qq{<model name="$mname"/>};
                 # XXX this would be bad news if there was more than one of
@@ -1186,7 +1327,6 @@ sub output_xml
     }
 
     # output typedefs
-    # XXX need to add status to the DM schema
     # XXX ignoring default, format and parent
     # XXX shouldn't ignore default, here or on parameters
     # XXX overlapping logic with convert_syntax (do without convert_syntax?)
@@ -1236,7 +1376,7 @@ sub output_xml
         }
         foreach my $item (@$namednumber) {
             # XXX duplicate code; not handling optional
-            my $value = ucfirst $item->{name};
+            my $value = $item->{name};
             my $code = $item->{number};
             output $i+1, qq{<enumeration value="$value" code="$code"/>};
         }
@@ -1255,7 +1395,7 @@ sub output_xml
     # XXX should be controlled via command-line? should be a standard type?
     $i++;
     output $i, qq{<dataType name="DisplayString">};
-    output $i+1, qq{<description>TR-069 version of DisplayString...</description>};
+    output $i+1, qq{<description>TR-069 version of DisplayString.</description>};
     output $i+1, qq{<string>};
     output $i+2, qq{<size maxLength="255"/>};
     output $i+2, qq{<pattern value="[ -~]*">};
@@ -1288,7 +1428,7 @@ sub output_xml
             output($i+2, qq{</description>});
         }
         foreach my $scalar (@{$root->{scalars}}) {
-            output_parameter($scalar, $i + !$noobjects, {parent => $root});
+            output_parameter($scalar, $i + !$noobjects);
             $dm_object_info->{$scalar->{name}} = {
                 path => $oname, access => 'readOnly', minEntries => 1,
                 maxEntries => 1};
@@ -1319,8 +1459,9 @@ sub output_xml
     }
 
     # output tables (note we use the row OID, not the table OID)
+    # XXX RowStatus logic is temporarily suspended; need to think further
     my $comps = [];
-    my $rowstats = {};
+    #my $rowstats = {};
     foreach my $table (@{$root->{tables}}) {
 	my $name = $table->{name};
 	my $oid = $table->{row}->{oid};
@@ -1328,17 +1469,11 @@ sub output_xml
 	my $description = $table->{description};
         my $reference = $table->{reference};
 
-        $description = xml_escape($description);
-
-	my $access = $table->{row}->{create} ? 'readWrite' : 'readOnly';
-        $status =~ s/obsolete/obsoleted/;
-	$status = ($status ne 'current') ? qq{ status="$status"} : qq{};
-
-        $reference = $reference ? qq{ {{bibref|$reference}}} : qq{};
-
-        my $cname = ucfirst $name;
+        my $rowdesc = $table->{row}->{description};
+        my $rowref = $table->{row}->{reference};
         
         # analyse linkage
+        # XXX need to use analyse_linkage() routine
         # XXX should check module?
         my $namebase = 'name';
         my $oname = $name . '.{i}';
@@ -1353,7 +1488,15 @@ sub output_xml
             $name =~ s/Entry/Table/;
             $namebase = 'base';
             $oname = $name . '.{i}';
-            $descact = qq{ action="append"};
+            if ($status =~ /deprecated|obsolete/) {
+                $status = 'current';
+                $description = qq{};
+                $reference = qq{};
+                $rowdesc = qq{};
+                $rowref = qq{};
+            } else {
+                $descact = qq{ action="append"};
+            }
             $numEntries = qq{};
         }
                 
@@ -1403,6 +1546,16 @@ sub output_xml
             $pmaxEntries = $info->{maxEntries};
         }
 
+        my $cname = ucfirst $name;
+        
+	my $access = $table->{row}->{create} ? 'readWrite' : 'readOnly';
+        $status =~ s/obsolete/obsoleted/;
+	$status = ($status ne 'current') ? qq{ status="$status"} : qq{};
+
+        $description = xml_escape($description, $name);
+
+        $reference = $reference ? qq{ {{bibref|$reference}}} : qq{};
+
 	if ($components) {
 	    $i++;
 	    output $i, qq{<component name="$cname">};
@@ -1423,8 +1576,6 @@ sub output_xml
 	}
 
 	unless ($noobjects) {
-	    my $rowdesc = $table->{row}->{description};
-	    my $rowref = $table->{row}->{reference};
             $rowref = $rowref ? qq{{{bibref|$rowref}}} : qq{};
 	    $i++;
 	    output $i, qq{<object $namebase="$ppath$oname." id="$oid" access="$access" minEntries="$minEntries" maxEntries="$maxEntries"$status$numEntries>};
@@ -1433,8 +1584,9 @@ sub output_xml
             if (@unique) {
                 my $any = 0;
                 foreach my $name (@unique) {
+                    my $lname = transform_parameter_name($name);
                     output $i+1, qq{<uniqueKey>} unless $any++;
-                    output $i+2, qq{<parameter ref="$name"/>};
+                    output $i+2, qq{<parameter ref="$lname"/>};
 		}
 		output $i+1, qq{</uniqueKey>} if $any;
 	    }
@@ -1442,11 +1594,11 @@ sub output_xml
 
 	unless ($noparameters) {
 	    foreach my $column (@{$table->{row}->{columns}}) {
-                if ($column->{syntax}->{type} eq 'RowStatus') {
-                    $rowstats->{$column->{name}} = 1;
-                } else {
+                #if ($column->{syntax}->{type} eq 'RowStatus') {
+                #    $rowstats->{$column->{name}} = 1;
+                #} else {
                     output_parameter($column, $i, {parent => $table->{row}});
-                }
+                #}
                 $dm_object_info->{$column->{name}} = {
                     path => $ppath . $oname . '.', access => $access,
                     minEntries => $minEntries, maxEntries => $maxEntries};
@@ -1467,8 +1619,8 @@ sub output_xml
     }
 
     # process notifications
+    # XXX should use the analyse_notification routine
     # XXX not explicitly including the varbinds (objects)
-    # XXX not using status
     $i++;
     output $i, qq{<component name="${Root_name}_Notifications">};
     my $notlist = {};
@@ -1540,14 +1692,14 @@ sub output_xml
             my $nname = $notification->{name};
             my $oid = $notification->{oid};
             my $status = $notification->{status};
-            my $description = xml_escape($notification->{description});
+            my $description = $notification->{description};
             my $cnode = {
                 name => $nname,
                 oid => $oid,
                 syntax => {type => 'unsignedInt'},
-                status => 'current',
+                status => $status,
                 access => 'readonly',
-                description => $description, # XXX might be double escaped?
+                description => $description,
             };
             my $opts = $first ? {previousParameter =>
                                      $previousParameter} : undef;
@@ -1611,21 +1763,23 @@ sub output_xml
                                       keys %$complist) {
                         output $i+1, qq{<object ref="$path" requirement="present">};
                         foreach my $name (@{$complist->{$path}->{names}}) {
-                            next if $rowstats->{$name};
+                            #next if $rowstats->{$name};
+                            my $lname = transform_parameter_name($name);
                             my $access = $tree_node->{$name}->{access};
                             my $description = qq{};
                             my $override = $overrides->{$name};
                             if ($override) {
                                 $access = $override->{access};
                                 $description =
-                                    xml_escape($override->{description});
+                                    xml_escape($override->{description},
+                                               $name);
                             }
                             $access = !$access ? 'unknown' :
                                 ($access eq 'readwrite') ? 'readWrite' :
                                 ($access eq 'noaccess') ? 'unknown' :
                                 'readOnly';
                             my $end_element = $description ? '' : '/';
-                            output $i+2, qq{<parameter ref="$name" requirement="$access"$end_element>};
+                            output $i+2, qq{<parameter ref="$lname" requirement="$access"$end_element>};
                             if ($description) {
                                 output $i+3, qq{<description>$description</description>};
                                 output $i+2, qq{</parameter>};
@@ -1639,7 +1793,7 @@ sub output_xml
                 }
                 my $Category = ucfirst $category;
                 $Category =~ s/Option/Optional/;
-                my $pname = ucfirst qq{${Cname}_${Category}:1};
+                my $pname = qq{${Cname}_${Category}:1};
                 $i++;
                 output $i, qq{<profile name="$pname" extends="};
                 foreach my $profile (@$profiles) {
@@ -1647,7 +1801,7 @@ sub output_xml
                 }
                 my $end_element = $cdescription ? '' : '/';
                 output $i, qq{"$end_element>};
-                output $i+1, qq{<description>$cdescription ($Category)</description>} if $cdescription;
+                output $i+1, qq{<description>$Category. $cdescription</description>} if $cdescription;
                 output $i, qq{</profile>} unless $end_element;
                 $i--;
             }
@@ -1679,6 +1833,99 @@ sub output_xml
     output $i, qq{</dm:document>};
 }
 
+# analyse linkage to determine object path
+# XXX should check module?
+sub analyse_linkage
+{
+    my ($table) = @_;
+
+    my $name = $table->{name};
+    my $linkage = $table->{row}->{linkage};
+    
+    my $ppath = '';
+    my $oname = $name . '.{i}';
+
+    if ($linkage->{augments}) {
+        my $name = $linkage->{augments}->{name};
+        $name =~ s/Entry/Table/;
+        $oname = $name . '.{i}';
+    }
+                
+    my @unique = ();
+    my @shared = ();
+    if (defined $linkage->{index} && @{$linkage->{index}}) {
+        foreach my $index (@{$linkage->{index}}) {
+            if (grep {$_->{name} eq $index->{name}}
+                @{$table->{row}->{columns}}) {
+                push @unique, $index->{name};
+            } else {
+                push @shared, $index->{name};
+            }
+        }
+    }
+        
+    # if not augmenting and no unique key this will be a single-instance
+    # object
+    if (!$linkage->{augments} && !@unique) {
+        $name =~ s/Table$//;
+        $oname = $name;
+    }
+        
+    # if single shared key this will be a child of the table that defines
+    # the shared key
+    # XXX this behavior should be configurable; might want to create
+    #     a new table that references entries in the table with the
+    #     shared key
+    # XXX can't handle cases where there is more than one shared key;
+    #     in this case there are several options...
+    # XXX this assumes that the $dm_object_info path is already defined
+    if (@shared) {
+        my $list = join ', ', @shared;
+        print STDERR "$name: ignoring second and subsequent shared " .
+            "key $list\n" if @shared > 1;
+        $ppath = $dm_object_info->{$shared[0]}->{path};
+    }
+
+    return $ppath . $oname . '.';
+}
+
+# analyse notification to determine object path
+sub analyse_notification
+{
+    my ($notification) = @_;
+
+    my $nname = $notification->{name};
+
+    my $path = undef;
+    foreach my $object (@{$notification->{objects}}) {
+        my $module = $object->{module};
+        my $name = $object->{name};
+
+        my $tpath = undef;
+        if ($dm_object_info->{$name}->{path}) {
+            $tpath = $dm_object_info->{$name}->{path};
+        } elsif ($module ne $root->{module}) {
+            print STDERR "$nname: $name is in different module ($module)".
+                " and cannot be mapped to an object\n";
+        } else {
+            print STDERR "$nname: object $name cannot be mapped to an " .
+                "object\n";
+        }
+        if ($tpath) {
+            if ($path && $tpath ne $path) {
+                print STDERR "$nname: object $name maps to different " .
+                    "object $tpath (previously mapped to $path)\n";
+            }
+            $path = $tpath;
+        }
+    }
+    if (!$path) {
+        $path = $root->{name} . '.';
+    }
+
+    return $path;
+}
+
 # output parameter (either scalar or table column)
 sub output_parameter
 {
@@ -1690,13 +1937,15 @@ sub output_parameter
     my $syntax = $parameter->{syntax};
     my $access = $parameter->{access};
     my $units = $parameter->{units};
-    my $description = xml_escape($parameter->{description});
+    my $description = $parameter->{description};
     my $reference = $parameter->{reference};
 
     my $parent = $opts->{parent};
     my $previousParameter = $opts->{previousParameter};
 
-    $description = xml_escape($description);
+    my $lname = transform_parameter_name($name);
+
+    $description = xml_escape($description, $name);
     
     # treat 'noaccess' as 'readWrite' for writeable tables and 'readOnly'
     # for read-only tables
@@ -1724,7 +1973,7 @@ sub output_parameter
     my $dataType = ($type =~ /$primitive_patt/) ? $type : 'dataType';
     $baseref = ($dataType eq 'dataType') ? qq{ $baseref="$type"} : qq{}; 
 
-    output $i+1, qq{<parameter name="$name" id="$oid" access="$access"$status$previousParameter>};
+    output $i+1, qq{<parameter name="$lname" id="$oid" access="$access"$status$previousParameter>};
     output $i+2, qq{<description>$description$reference</description>};
     output $i+2, qq{<syntax>};
     output $i+3, qq{<list/>} if $list;
@@ -1760,9 +2009,16 @@ sub output_parameter
 }
 
 # escape characters that are special to XML
+# XXX also do various additional transformations; not really the right place to
+#     do this? and/or should do some of the findvalue() transformations here
+# XXX need to simplify {{param}} as appropriate, e.g. use plain {{param}}
+# XXX when is $dm_object_info not defined? what is right thing to do?
+# XXX note that absolute {{param}} scope is non-standard
 sub xml_escape
 {
-    my ($value, $opts) = @_;
+    my ($value, $name) = @_;
+
+    my $uname = $name ? $name : 'unknown';
 
     # XXX probably needing to do this implies a bug elsewhere?
     $value = '' unless $value;
@@ -1771,9 +2027,62 @@ sub xml_escape
     $value =~ s/\</\&lt;/g;
     $value =~ s/\>/\&gt;/g;
 
-    # only quote quotes in attribute values
-    $value =~ s/\"/\&quot;/g if $opts->{attr};
+    # XXX should use {{param}} when possible
+    # XXX try to protect against nested {{param}} by ignoring strings preceded
+    #     by periods
+    while (my ($from, $to) = each $transforms) {
+        next unless $value =~ /\b\Q$from\E\b/;
+        ($to, my $rel) = relative_path($name, $from, $to);
+        my $scope = $rel ? '' : '|absolute';
+        $value =~ s/(\A|[^\.])['`"]?\b\Q$from\E\b['`"]?/${1}{{param|$to$scope}}/g;
+    }
 
+    # XXX note that comparisons are case-blind; probably not a good idea but
+    #     done because a particular MIB was lax about case
+    #foreach my $enum (sort {length($b) <=> length($a)} keys %$value_map) {
+    #    my $objects = $value_map->{$enum};
+    while (my ($enum, $objects) = each $value_map) {    
+        # split $enum - value(code) - into value and code
+        my ($val, $cod) = $enum =~ /^(.*)\((\d+)\)$/;
+
+        # enum(n) strings can reference values in other objects regardless of
+        # $name
+        # XXX could also allow "complex" strings such as "thisIsSeveralWords"
+        if ($value =~ /\Q$enum\E/i) {
+            my $rname = $name ? $name : $objects->[0];
+            if (!$rname) {
+                print STDERR "$uname: can't map $enum to object\n";
+            } else {
+                print STDERR "$uname: associated $enum with $rname but " .
+                  "ambiguous: " . join(",", @$objects) . "\n" if @$objects > 1;
+            }
+            my $template;
+            if ($name && $rname eq $name) {
+                $template = qq{{{enum|$val}}};
+            } else {
+                my $sep = qq{|};
+                my $path = $dm_object_info->{$rname}->{path} || '';
+                my $scope = $path ? '|absolute' : '';
+                $sep = '' unless $path;
+                $template = qq{{{enum|$val$sep$path$scope}}};
+            }
+            $value =~ s/['`"]?\b\Q$enum\E\b['`"]?(\(\d+\))?/$template/ig;
+            #print STDERR "$uname: replaced enum $enum with $template\n";
+        }
+
+        # enum strings (no number) can only reference values in this object
+        elsif ($value =~ /\Q$val\E/i) {
+            # XXX could warn here where decide not to replace
+            next unless $name && grep {$_ eq $name} @$objects;
+            my $template = qq{{{enum|$val}}};
+            $value =~ s/['`"]?\b\Q$val\E\b['`"]?/$template/ig;
+            #print STDERR "$uname: replaced enum $val with $template\n";
+        }
+    }
+
+    $value =~ s/"?\bfalse\b\"/{{false}}/g;
+    $value =~ s/"?\btrue\b\"/{{true}}/g;
+    
     return $value;
 }
 
@@ -1805,4 +2114,58 @@ sub common_prefix
     }
 
     return $p;
+}
+
+# version of the above that splits on dots etc
+sub common_prefix_dots
+{
+    my ($a, $b) = @_;
+
+    $a =~ s/\Q.{i}\E/{i}/g;
+    $b =~ s/\Q.{i}\E/{i}/g;
+
+    my @a = split /\./, $a;
+    my @b = split /\./, $b;
+
+    my $p = "";
+    my $i;
+    for ($i = 0; $i+1 < @a && $i+1 < @b; $i++) {
+        if ($a[$i] eq $b[$i]) {
+            $a[$i] =~ s/\Q{i}\E/.{i}/g;
+            $p .= $a[$i];
+        } else {
+            last;
+        }        
+    }
+
+    return ($p, $i);
+}
+
+# 
+sub relative_path
+{
+    my ($name, $from, $to) = @_;
+
+    $name = '' unless $name;
+    
+    my $name_object_path = $dm_object_info->{$name}->{path} || '';
+    my $to_object_path = $dm_object_info->{$from}->{path} || '';
+
+    return ($to, 1) if $to_object_path eq $name_object_path;
+
+    my $name_param_path = $name_object_path . $name;
+    my $to_param_path = $to_object_path . $to;
+
+    my ($common_prefix, $num_comps) =
+        common_prefix_dots($name_param_path, $to_param_path);
+    print STDERR "$name_param_path -> $to_param_path " .
+        "($common_prefix $num_comps)\n" if $name;
+
+    my $relative = $num_comps > 0;
+    if ($relative) {
+        my $hashes = '#' x ($num_comps - 1);
+        $to_param_path =~ s/^\Q$common_prefix\E/$hashes/;
+    }
+
+    return ($to_param_path, $relative);
 }
