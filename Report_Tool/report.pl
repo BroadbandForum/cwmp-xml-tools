@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2016-04-14 $};
-my $tool_id = q{$Id: report.pl 410 $};
+my $tool_vers_date = q{$Date: 2016-06-30 $};
+my $tool_id = q{$Id: report.pl 411 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -695,8 +695,6 @@ unless ($logoalt || $logoref || $logosrc) {
     $logosrc = $logoref . 'images/logo-broadband-forum.gif';
 }
 
-tmsg "alt: $logoalt, ref: $logoref, src: $logosrc";
-
 # Globals.
 our $first_comment = undef;
 our $allfiles = [];
@@ -1171,6 +1169,8 @@ sub expand_dataType
     my $description = $dataType->findvalue('description');
     my $descact = $dataType->findvalue('description/@action');
     my $descdef = $dataType->findnodes('description')->size();
+    # XXX not getting any list attributes
+    my $list = $dataType->findnodes('list')->size();
     # XXX this won't handle multiple sizes or ranges
     my $minLength = $dataType->findvalue('.//size/@minLength');
     my $maxLength = $dataType->findvalue('.//size/@maxLength');
@@ -1282,8 +1282,8 @@ sub expand_dataType
 
         $node = {name => $name, base => $base, prim => $prim, spec => $spec,
                  status => $status, description => $description,
-                 descact => $descact, descdef => $descdef, syntax => $syntax,
-                 values => $values, specs => []};
+                 descact => $descact, descdef => $descdef, list => $list,
+                 syntax => $syntax, values => $values, specs => []};
 
         push @{$pnode->{dataTypes}}, $node;
 
@@ -1936,9 +1936,7 @@ sub adjust_level
     my @fcomps = split /\./, $first;
     my @scomps = split /\./, $second;
 
-    $first =~ s/\{/\.\{/g;
-
-    return $first if $#scomps >= $#fcomps;
+    return '' if $#scomps >= $#fcomps;
 
     my $temp = (join '.', @fcomps[0..$#scomps]) . '.';
     $temp =~ s/\{/\.\{/g;
@@ -2542,10 +2540,10 @@ sub expand_model_profile
                 }
             }
         } elsif ($extends) {
-            # XXX this always puts the profile right after the profile that
-            #     it extends, so if more than one profile extends another,
+            # XXX this always puts the profile right after the last profile
+            #     that it extends, so if more than one profile extends another,
             #     they end up in reverse order
-            EXTEND: foreach my $extend (split /\s+/, $extends) {
+            EXTEND: foreach my $extend (reverse split /\s+/, $extends) {
                 for (0..$index-1) {
                     if (@{$mnode->{nodes}}[$_]->{name} eq $extend) {
                         $index = $_+1;
@@ -6744,6 +6742,9 @@ END
                 my $baseref = ($base =~ /^[A-Z]/ && !$nolinks) ?
                     $base_anchor->{ref} : $base;
 
+                # XXX not getting any list attributes
+                my $list = $datatype->{list};
+                
                 my $sizerange = '';
                 $sizerange .= add_size(base_syntax($name));
                 $sizerange .= add_range(base_syntax($name));
@@ -6752,7 +6753,11 @@ END
                 #     description with full template expansion
                 # XXX more generally, a data type report should be quite like
                 #     a parameter report (c.f. UPnP relatedStateVariable)
-                $description = html_escape($description, {values => $values});
+                $description = html_escape($description,
+                                           {type => $base,
+                                            list => $list,
+                                            syntax => base_syntax($name),
+                                            values => $values});
 
                 $html_buffer .= <<END;
       <tr>
@@ -8608,7 +8613,19 @@ sub html_template_valueref
         $invalid = (has_values($values) && has_value($values, $value)) ?
             '' : '?';
         $invalid = '' if $upnpdm;
-        # XXX don't warn further if this item has been deleted
+        # XXX experimental: check for dataType's enumeration values; no link
+        #     is generated
+        if ($invalid) {
+            my $type = $node->{type};
+            my $syntax = $node->{syntax};
+            my $typeinfo = get_typeinfo($type, $syntax);
+            my $dtname = $typeinfo->{value};
+            my ($dtdef) = grep {$_->{name} eq $dtname} @{$root->{dataTypes}};
+            if ($dtdef && $dtdef->{values}) {
+                $values = $dtdef->{values};
+                $invalid = '' if $values->{$value};
+            }
+        }
         if (!util_is_deleted($opts->{node})) {
             emsg "$object$param: reference to invalid value $value"
                 if $invalid && !$automodel;
@@ -8917,7 +8934,9 @@ sub relative_path
     my $parp = $upnpdm ? q{\!} : q{\#};
     my $instp = $upnpdm ? q{\#} : q{\{};
 
-    if ($scope eq 'normal' && $name =~ /^(Device|InternetGatewayDevice)\./) {
+    # XXX absolute scope is non-standard
+    if ($scope eq 'absolute' ||
+        ($scope eq 'normal' && $name =~ /^(Device|InternetGatewayDevice)\./)) {
         $path = $name;
     } elsif (($scope eq 'normal' && $name =~ /^$sepp/) || $scope eq 'model') {
         if ($name =~ /^${sepp}Services${sepp}/) {
@@ -13027,7 +13046,7 @@ disables bibliographic reference warnings
 
 see also B<--warnbibref>
 
-=item B<--nowarnnableparameter>
+=item B<--nowarnenableparameter>
 
 disables warnings when a writable table has no enable parameter
 
