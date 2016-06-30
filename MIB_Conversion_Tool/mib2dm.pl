@@ -129,6 +129,7 @@ my $schema_version = "1-5";
 # command-line options
 my $components = 0;
 my $help = 0;
+my $ignorerowstatus = 0;
 my $namemangle = 0;
 my $noobjects = 0;
 my $nooutput = 0;
@@ -137,6 +138,7 @@ my $pedantic;
 my $verbose = 0;
 GetOptions('components' => \$components,
 	   'help' => \$help,
+	   'ignorerowstatus' => \$ignorerowstatus,
 	   'namemangle' => \$namemangle,
 	   'noobjects' => \$noobjects,
 	   'nooutput' => \$nooutput,
@@ -228,6 +230,17 @@ my $hardvalues = {
         ]
 };
 
+# XXX hard-coded bibrefs
+my $bibrefs = {
+    'MoCA MAC/PHY Specification 1.1' => {
+        regex => qr{MoCA MAC/PHY Specification v?1\.1},
+        id => 'MOCA1.1' },
+    'MoCA MAC/PHY Specification 2.0' => {
+        regex => qr{MoCA MAC/PHY Specification( v?2\.0)?},
+        id => 'MOCA2.0',
+    },
+};
+
 # parse files specified on the command line
 # XXX various things don't work if there is more than one file, so should 
 #     forbid this
@@ -237,8 +250,6 @@ foreach my $file (@ARGV) {
 
 # transform names
 transform_names();
-
-#print STDERR Dumper($value_map);
 
 # XXX could determine some heuristics for trap placement based in parameters
 #     mentioned in their descriptions and parameters that reference them in
@@ -1038,6 +1049,8 @@ sub get_name_oid_and_status
 #  - descr: special processing for descriptions
 # XXX need to be cleverer, e.g. to preserve additional indentation; will need
 #     to use logic similar to report.pl
+# XXX currently have a lot commented out because html_whitespace will be
+#     called later
 sub findvalue
 {
     my ($node, $xpath, $opts) = @_;
@@ -1061,8 +1074,9 @@ sub findvalue
 	#     in another parameter's description
         # XXX also newline handling needs to be cleverer; need heuristic to
         #     determine when it's the end of a paragraph
-	$string =~ s/([^\n])\n/$1 /g;
-	$string =~ s/\n-/\n*/g;
+        # XXX these regexes deserve a comment!
+	$string =~ s/([^\n])([ \t]*)\n((?!-)|(?=-\d))/$1$2 /g;
+	$string =~ s/\n([ \t]*)-([^\d])/\n$1*$2/g;
 	#foreach my $tvalue (@{$opts->{values}->{values}}) {
 	#    my $value = $tvalue->{value};
 	#    $string =~ s/(\s+)$value\(\d+\)/$1\"$value\"/ig;
@@ -1071,13 +1085,15 @@ sub findvalue
 
         # change `word' and 'word' to "word"
         # XXX doesn't catch 'on top of' (for example)
-        $string =~ s/(\W)[\`\'](\S+)\'(\W)/$1\"$2\"$3/g;
+        $string =~ s/(\W)[\`\'](\S+)\'(\W?)/$1\"$2\"$3/g;
 
         # fix things like "character- oriented"
         $string =~ s/(\w)- (\w)/$1-$2/g;
 
-	$string =~ s/(false|true)\(\d+\)/$1/g;
+	#$string =~ s/(false|true)\(\d+\)/$1/g;
 	$string =~ s/\bdeprecated\b/DEPRECATED/g;
+
+        $string .= '.' if $string && $string !~ /[.!?]$/s;
     }
 
     return $string;
@@ -1089,25 +1105,25 @@ sub white_strip
     my ($string, $opts) = @_;
 
     # always remove leading and trailing white space
-    $string =~ s/^\s*//g;
-    $string =~ s/\s*$//g;
+    #$string =~ s/^\s*//g;
+    $string =~ s/\s*$//gs;
 
     # also any spaces or tabs after newlines
     $string =~ s/\n[ \t]*/\n/g;
 
     # optionally ignore multiple blank lines (usually a formatting error)
-    $string =~ s/\n([ \t]*\n){2,}/ /gs if $opts->{ignoremultiblank};
+    #$string =~ s/\n([ \t]*\n){2,}/ /gs if $opts->{ignoremultiblank};
 
     # optionally collapse multiple spaces
-    $string =~ s/\s+/ /g if $opts->{collapse};
+    #$string =~ s/\s+/ /g if $opts->{collapse};
 
     # optionally remove all white space
-    if ($opts->{black}) {
-	my $orig = $string;
-	$string =~ s/\s+//g;
-	print STDERR "white_strip: had to remove extra spaces in $orig\n" if
-	    $pedantic && $opts->{blackwarn} && $string ne $orig;
-    }
+    #if ($opts->{black}) {
+    #	my $orig = $string;
+    #	$string =~ s/\s+//g;
+    #	print STDERR "white_strip: had to remove extra spaces in $orig\n" if
+    #	    $pedantic && $opts->{blackwarn} && $string ne $orig;
+    #}
 
     return $string;
 }
@@ -1164,7 +1180,6 @@ sub transform_names
         my $path = analyse_notification($notification);
         transform_parameter_name($name);
         set_object_path($name, $path);
-        print STDERR "notification $name -> $path\n";
     }
 }
 
@@ -1216,7 +1231,6 @@ sub set_object_path
     my ($name, $path) = @_;
 
     $dm_object_info->{$name}->{path} = $path;
-    #print STDERR "set dm_object_info $name path = $path\n";
 }
 
 # add values to value_map
@@ -1342,9 +1356,10 @@ sub output_xml
         my $namednumber = $typedef->{namednumber};
         my $units = $typedef->{units};
 
-        $description = xml_escape($description);
-
-        $reference = $reference ? qq{ {{bibref|$reference}}} : qq{};
+        $reference = process_reference($reference);
+        $description = xml_escape($description, {indent => $i+2,
+                                                 addenum => $namednumber,
+                                                 append => $reference});
 
         # XXX minimal list support (only for Bits)
         my $is_list = $list_map->{$basetype};
@@ -1361,7 +1376,7 @@ sub output_xml
 
         $i++;
         output $i, qq{<dataType name="$name"$base$status>};
-        output $i+1, qq{<description>$description$reference</description>} if $description;
+        output $i+1, qq{<description>$description</description>} if $description;
         output $i+1, qq{<list/>} if $is_list;
         unless ($base) {
             $i++;
@@ -1404,6 +1419,22 @@ sub output_xml
     output $i+1, qq{</string>};
     output $i, qq{</dataType>};
     $i--;
+
+    # output bibliography
+    if ($bibrefs) {
+        output $i, qq{<bibliography>};
+        $i++;
+        foreach my $name (sort keys %$bibrefs) {
+            my $id = $bibrefs->{$name}->{id};
+            my $title = $bibrefs->{$name}->{title};
+            output $i, qq{<reference id="$id">};
+            output $i+1, qq{<name>$name</name>};
+            output $i+1, qq{<title>$title</title>} if $title;
+            output $i, qq{</reference>};
+        }
+        $i--;
+        output $i, qq{</bibliography>};
+    }
 
     # determine whether will create top-level component and model
     my $scalars = defined $root->{scalars};
@@ -1459,9 +1490,8 @@ sub output_xml
     }
 
     # output tables (note we use the row OID, not the table OID)
-    # XXX RowStatus logic is temporarily suspended; need to think further
     my $comps = [];
-    #my $rowstats = {};
+    my $rowstats = {};
     foreach my $table (@{$root->{tables}}) {
 	my $name = $table->{name};
 	my $oid = $table->{row}->{oid};
@@ -1552,9 +1582,21 @@ sub output_xml
         $status =~ s/obsolete/obsoleted/;
 	$status = ($status ne 'current') ? qq{ status="$status"} : qq{};
 
-        $description = xml_escape($description, $name);
+        $description = html_whitespace($description);
+        $reference = process_reference($reference);
+        $rowdesc = html_whitespace($rowdesc);
+        $rowref = process_reference($rowref);
 
-        $reference = $reference ? qq{ {{bibref|$reference}}} : qq{};
+        my $alldesc = qq{};
+        $alldesc .= qq{{{section|table}}$description} if $description;
+        $alldesc .= qq{\n} if $alldesc && $rowdesc;
+        $alldesc .= qq{{{section|row}}$rowdesc} if $rowdesc;
+        $alldesc .= qq{\n} if $alldesc && $reference;
+        $alldesc .= qq{$reference} if $reference;
+        $alldesc .= qq{ } if $alldesc && $rowref;
+        $alldesc .= qq{$rowref} if $rowref;
+        
+        $description = xml_escape($alldesc, {indent => $i+3, name => $name});
 
 	if ($components) {
 	    $i++;
@@ -1579,7 +1621,7 @@ sub output_xml
             $rowref = $rowref ? qq{{{bibref|$rowref}}} : qq{};
 	    $i++;
 	    output $i, qq{<object $namebase="$ppath$oname." id="$oid" access="$access" minEntries="$minEntries" maxEntries="$maxEntries"$status$numEntries>};
-	    output $i+1, qq{<description$descact>{{section|table}}$description${reference}\n{{section|row}}$rowdesc$rowref</description>};
+	    output $i+1, qq{<description$descact>$description</description>};
 
             if (@unique) {
                 my $any = 0;
@@ -1594,11 +1636,12 @@ sub output_xml
 
 	unless ($noparameters) {
 	    foreach my $column (@{$table->{row}->{columns}}) {
-                #if ($column->{syntax}->{type} eq 'RowStatus') {
-                #    $rowstats->{$column->{name}} = 1;
-                #} else {
+                if ($ignorerowstatus &&
+                    $column->{syntax}->{type} eq 'RowStatus') {
+                    $rowstats->{$column->{name}} = 1;
+                } else {
                     output_parameter($column, $i, {parent => $table->{row}});
-                #}
+                }
                 $dm_object_info->{$column->{name}} = {
                     path => $ppath . $oname . '.', access => $access,
                     minEntries => $minEntries, maxEntries => $maxEntries};
@@ -1725,7 +1768,8 @@ sub output_xml
         my $Cname = ucfirst $cname;
         my $oid = $compliance->{oid};
         my $status = $compliance->{status};
-        my $cdescription = xml_escape($compliance->{description});
+        my $cdescription = xml_escape($compliance->{description},
+                                      {indent => $i+1});
         my $overrides = {};
         foreach my $refinement (@{$compliance->{refinements}}) {
             my $rname = $refinement->{name};
@@ -1742,7 +1786,8 @@ sub output_xml
                     my $Gname = ucfirst $gname;
                     my $group = (grep {$_->{name} eq $gname}
                                  @{$root->{groups}})[0];
-                    my $description = xml_escape($group->{description});
+                    my $description = xml_escape($group->{description},
+                                                 {indent => $i+2});
                     my $pname = qq{${Cname}_${Gname}:1};
                     my $complist = {};
                     my $index3 = 0;
@@ -1763,7 +1808,7 @@ sub output_xml
                                       keys %$complist) {
                         output $i+1, qq{<object ref="$path" requirement="present">};
                         foreach my $name (@{$complist->{$path}->{names}}) {
-                            #next if $rowstats->{$name};
+                            next if $rowstats->{$name};
                             my $lname = transform_parameter_name($name);
                             my $access = $tree_node->{$name}->{access};
                             my $description = qq{};
@@ -1772,7 +1817,8 @@ sub output_xml
                                 $access = $override->{access};
                                 $description =
                                     xml_escape($override->{description},
-                                               $name);
+                                               {indent => $i+3,
+                                                name => $name});
                             }
                             $access = !$access ? 'unknown' :
                                 ($access eq 'readwrite') ? 'readWrite' :
@@ -1945,7 +1991,10 @@ sub output_parameter
 
     my $lname = transform_parameter_name($name);
 
-    $description = xml_escape($description, $name);
+    $reference = process_reference($reference);
+    $description = xml_escape($description, {indent => $i+2, name => $name,
+                                             addenum => $syntax->{values},
+                                             append => $reference});
     
     # treat 'noaccess' as 'readWrite' for writeable tables and 'readOnly'
     # for read-only tables
@@ -1957,8 +2006,6 @@ sub output_parameter
     $status = ($status ne 'current') ? qq{ status="$status"} : qq{};
     $previousParameter = $previousParameter ? qq{ dmr:previousParameter="$previousParameter"} : qq{};
     
-    $reference = $reference ? qq{ {{bibref|$reference}}} : qq{};
-
     my $type = $syntax->{type};
     my $sizes = $syntax->{sizes};
     my $ranges = $syntax->{ranges};
@@ -1974,7 +2021,7 @@ sub output_parameter
     $baseref = ($dataType eq 'dataType') ? qq{ $baseref="$type"} : qq{}; 
 
     output $i+1, qq{<parameter name="$lname" id="$oid" access="$access"$status$previousParameter>};
-    output $i+2, qq{<description>$description$reference</description>};
+    output $i+2, qq{<description>$description</description>};
     output $i+2, qq{<syntax>};
     output $i+3, qq{<list/>} if $list;
     output $i+3, qq{<$dataType$baseref$end_element>};
@@ -2008,6 +2055,32 @@ sub output_parameter
     output $i+1, qq{</parameter>};
 }
 
+# process a reference to give either an empty string (if no reference) or else
+# a "See {{bibref|myref}}." string ready to be appended to a description
+sub process_reference
+{
+    my ($reference) = @_;
+
+    return qq{} unless $reference;
+
+    # look for a trailing "section a.b.c" with appropriate laxity
+    # XXX should check for special characters, e.g. "|"
+    my ($doc, $sec) = 
+        $reference =~ /^\s*(.*?)[,;\s]*([sS]ection\s*.*?)?\.*\s*$/;
+
+    # if no match, return input
+    return $reference unless $doc;
+
+    # try to translate doc to id
+    my $id = $doc;
+    while (my ($name, $bibref) = each $bibrefs) {
+        $id = $bibref->{id} if $doc =~ /$bibref->{regex}/;
+    }
+
+    $sec = $sec ? qq{|$sec} : qq{};
+    return qq{See {{bibref|$id$sec}}.};
+}
+
 # escape characters that are special to XML
 # XXX also do various additional transformations; not really the right place to
 #     do this? and/or should do some of the findvalue() transformations here
@@ -2016,9 +2089,16 @@ sub output_parameter
 # XXX note that absolute {{param}} scope is non-standard
 sub xml_escape
 {
-    my ($value, $name) = @_;
+    my ($value, $opts) = @_;
 
+    my $indent = $opts->{indent};    
+    my $name = $opts->{name};
+    my $addenum = $opts->{addenum};
+    my $append = $opts->{append};
+    
     my $uname = $name ? $name : 'unknown';
+
+    my $quotes = qq{'`"};
 
     # XXX probably needing to do this implies a bug elsewhere?
     $value = '' unless $value;
@@ -2034,7 +2114,7 @@ sub xml_escape
         next unless $value =~ /\b\Q$from\E\b/;
         ($to, my $rel) = relative_path($name, $from, $to);
         my $scope = $rel ? '' : '|absolute';
-        $value =~ s/(\A|[^\.])['`"]?\b\Q$from\E\b['`"]?/${1}{{param|$to$scope}}/g;
+        $value =~ s/(\A|[^\.])[$quotes]?\b\Q$from\E\b[$quotes]?/${1}{{param|$to$scope}}/g;
     }
 
     # XXX note that comparisons are case-blind; probably not a good idea but
@@ -2054,7 +2134,8 @@ sub xml_escape
                 print STDERR "$uname: can't map $enum to object\n";
             } else {
                 print STDERR "$uname: associated $enum with $rname but " .
-                  "ambiguous: " . join(",", @$objects) . "\n" if @$objects > 1;
+                  "ambiguous: " . join(",", @$objects) . "\n"
+                  if @$objects > 1 && $verbose;
             }
             my $template;
             if ($name && $rname eq $name) {
@@ -2066,8 +2147,8 @@ sub xml_escape
                 $sep = '' unless $path;
                 $template = qq{{{enum|$val$sep$path$scope}}};
             }
-            $value =~ s/['`"]?\b\Q$enum\E\b['`"]?(\(\d+\))?/$template/ig;
-            #print STDERR "$uname: replaced enum $enum with $template\n";
+            my $tvalue = $value;
+            $value =~ s/[$quotes]?\b\Q$enum\E[$quotes]?(\(\d+\))?/$template/ig;
         }
 
         # enum strings (no number) can only reference values in this object
@@ -2075,15 +2156,83 @@ sub xml_escape
             # XXX could warn here where decide not to replace
             next unless $name && grep {$_ eq $name} @$objects;
             my $template = qq{{{enum|$val}}};
-            $value =~ s/['`"]?\b\Q$val\E\b['`"]?/$template/ig;
-            #print STDERR "$uname: replaced enum $val with $template\n";
+            $value =~ s/[$quotes]?\b\Q$val\E\b[$quotes]?/$template/ig;
         }
     }
 
-    $value =~ s/"?\bfalse\b\"/{{false}}/g;
-    $value =~ s/"?\btrue\b\"/{{true}}/g;
+    $value =~ s/[$quotes]?\bfalse\b[$quotes]?/{{false}}/g;
+    $value =~ s/[$quotes]?\btrue\b[$quotes]?/{{true}}/g;
+
+    $value = html_whitespace($value);
+    $value .= qq{ {{enum}}} if $addenum && $append;
+    $value .= qq{\n$append} if $append;
+    $value = xml_whitespace($value, $indent) if $indent;
     
     return $value;
+}
+
+# this taken from report.pl (html_whitespace is a misnomer)
+sub html_whitespace
+{
+    my ($inval) = @_;
+
+    return $inval unless $inval;
+
+    # remove any leading whitespace up to and including the first line break
+    $inval =~ s/^[ \t]*\n//;
+
+    # remove any trailing whitespace (necessary to avoid polluting the prefix
+    # length)
+    $inval =~ s/\s*$//;
+
+    # determine longest common whitespace prefix
+    my $len = undef;
+    my @lines = split /\n/, $inval;
+    foreach my $line (@lines) {
+        # ignore lines consisting only of whitespace (they never make any
+        # difference)
+        next if $line =~ /^\s*$/;
+        my ($pre) = $line =~ /^(\s*)/;
+        $len = length($pre) if !defined($len) || length($pre) < $len;
+        if ($line =~ /\t/) {
+            my $tline = $line;
+            $tline =~ s/\t/\\t/g;
+            print STDERR "replace tab(s) in \"$tline\" with spaces!";
+        }
+    }
+    $len = 0 unless defined $len;
+
+    # remove it
+    my $outval = '';
+    foreach my $line (@lines) {
+        next if $line =~ /^\s*$/;
+        $line = substr($line, $len);
+        $outval .= $line . "\n";
+    }
+
+    # remove trailing newline
+    chomp $outval;
+    return $outval;
+}
+
+# this is derived from report.pl
+# XXX assumes 2 space identation
+sub xml_whitespace
+{
+    my ($value, $i) = @_;
+
+    $i = '  ' x $i;
+
+    return $value unless $value;
+
+    my $text = qq{};
+    foreach my $line (split /\n/, $value) {
+        $text .= qq{\n$i  $line};
+    }
+
+    $text .= qq{\n$i} if $text;
+
+    return $text;
 }
 
 # determine longest common prefix of two strings
@@ -2141,7 +2290,7 @@ sub common_prefix_dots
     return ($p, $i);
 }
 
-# 
+# XXX add a comment here!
 sub relative_path
 {
     my ($name, $from, $to) = @_;
@@ -2158,13 +2307,15 @@ sub relative_path
 
     my ($common_prefix, $num_comps) =
         common_prefix_dots($name_param_path, $to_param_path);
-    print STDERR "$name_param_path -> $to_param_path " .
-        "($common_prefix $num_comps)\n" if $name;
+    #print STDERR "$name_param_path -> $to_param_path " .
+    #    "($common_prefix $num_comps)\n" if $name;
 
     my $relative = $num_comps > 0;
     if ($relative) {
         my $hashes = '#' x ($num_comps - 1);
         $to_param_path =~ s/^\Q$common_prefix\E/$hashes/;
+        # XXX this can leave a leading period, which works (at least sometimes)
+        #     but this was lucky; it should be fixed!
     }
 
     return ($to_param_path, $relative);
