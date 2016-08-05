@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2016-06-30 $};
-my $tool_id = q{$Id: report.pl 411 $};
+my $tool_vers_date = q{$Date: 2016-08-05 $};
+my $tool_id = q{$Id: report.pl 412 $};
 
 my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
 
@@ -1812,8 +1812,10 @@ sub expand_model_object
     $nnode->{uniqueKeys} = [];
 
     # expand nested components, parameters and objects
+    # XXX this might be a command, so also expand input and output elements
     foreach my $item ($object->findnodes('component|uniqueKey|parameter|'.
-                                         'object|command|notification')) {
+                                         'object|command|input|output|'.
+                                         'notification')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_$element"->($context, $mnode, $nnode, $item);
     }
@@ -1972,7 +1974,9 @@ sub expand_model_command
 
     my $nnode = expand_model_object $context, $mnode, $pnode, $command;
     my $is_async = $command->findvalue('@async');
+    my $notify = $command->findvalue('@notify') || 'OperationComplete';
     $nnode->{is_async} = $is_async;
+    $nnode->{notify} = $notify;
     $nnode->{is_command} = 1;
     return $nnode;
 }
@@ -1984,8 +1988,45 @@ sub is_command
     return ($node->{is_command} || is_command($node->{pnode})) ? 1 : 0;
 }
 
-# Expand a data model notification
+# Expand a data model command's input and output arguments
 # XXX very basic...
+sub expand_model_input
+{
+    my ($context, $mnode, $pnode, $input) = @_;
+    return expand_model_arguments($context, $mnode, $pnode, $input, 'input');
+}
+
+sub expand_model_output
+{
+    my ($context, $mnode, $pnode, $output) = @_;
+    return expand_model_arguments($context, $mnode, $pnode, $output, 'output');
+}
+
+# $which is 'input' or 'output'
+sub expand_model_arguments
+{
+    my ($context, $mnode, $pnode, $arguments, $which) = @_;
+
+    my $name = ucfirst($which) . '.';
+    my $path = $pnode->{path} . $name;
+    my $type = 'object';
+    my $access = 'readOnly';
+    my $description = ucfirst($which) . ' arguments.';
+    my $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
+                 path => $path, type => $type, is_arguments => 1,
+                 access => $access, description => $description};
+    push @{$pnode->{nodes}}, $nnode;
+    
+    foreach my $item ($arguments->findnodes('component|parameter|object')) {
+	my $element = $item->findvalue('local-name()');
+	"expand_model_$element"->($context, $mnode, $nnode, $item);
+    }
+
+    return $nnode;
+}
+
+# Expand a data model notification
+# XXX very basic; will be removing this?
 sub expand_model_notification
 {
     my ($context, $mnode, $pnode, $notification) = @_;
@@ -4873,6 +4914,7 @@ sub text_node
         my $base = $node->{history}->[0]->{name};
         my $type = type_string($node->{type}, $node->{syntax});
         $type = 'command' if $node->{is_command};
+        $type = 'arguments' if $node->{is_arguments};
         $type = 'notification' if $node->{is_notification};
         print "  "x$indent . "$type $name" .
             ($base && $base ne $name ? ('(' . $base . ')') : '') .
@@ -6522,6 +6564,7 @@ sub html_node
     my $profile = ($node->{type} =~ /profile/);
     my $parameter = $node->{syntax}; # pretty safe? not profile params...
     my $is_command = $node->{is_command};
+    my $is_arguments = $node->{is_arguments};
     my $is_notification = $node->{is_notification};
     my $parameter_like = $parameter || $is_command || $is_notification;
     $object = 0 if $parameter_like;
@@ -6567,6 +6610,7 @@ sub html_node
                      is_command => $is_command,
                      is_notification => $is_notification,
                      is_async => $node->{is_async},
+                     notify => $node->{notify},
                      is_mandatory => $node->{is_mandatory},
                      factory => $factory,
                      reference => $node->{syntax}->{reference},
@@ -7091,6 +7135,7 @@ END
                 $name = '# ' . $name unless $is_command || $is_notification;
             }
             $type = 'command' if $is_command;
+            $type = 'arguments' if $is_arguments;
             $type = 'notification' if $is_notification;
             # XXX would like syntax to be a link when it's a named data type
             print <<END if $object && !$nolinks;
@@ -7562,7 +7607,7 @@ sub html_template
         $inval = "{{async}}" . $sep . $inval;
     }
 
-    # auto-prefix {{asmandatoryync}} if this is a mandatory argument
+    # auto-prefix {{mandatory}} if this is a mandatory argument
     if ($p->{is_mandatory} && $tinval !~ /\{\{mandatory/ &&
         $tinval !~ /\{\{nomandatory\}\}/) {
         my $sep = !$tinval ? "" : "  ";
@@ -7691,7 +7736,7 @@ sub html_template
               q{configuration and is always {{null}} when read.}},
          {name => 'nocommand', text0 => q{}},
          {name => 'async',
-          text0 => q{{{marktemplate|async}}'''[ASYNC]'''}},
+          text0 => q{{{marktemplate|async}}'''[ASYNC &rarr; $p->{notify}]'''}},
          {name => 'noasync', text0 => q{}},
          {name => 'mandatory',
           text0 => q{{{marktemplate|mandatory}}'''[MANDATORY]'''}},
