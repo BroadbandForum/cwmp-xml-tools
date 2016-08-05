@@ -215,7 +215,6 @@ my $transforms = {};
 # XXX these should be populated via command-line options or config files
 my $forcetransforms = {
     ifTestType => 'TestType', # otherwise ifType and ifTestType map to Type
-    mocaIfAccessEnable => 'AccessControlEnable',
 };
 
 # XXX hard-coded values
@@ -234,10 +233,10 @@ my $hardvalues = {
 my $bibrefs = {
     'MoCA MAC/PHY Specification 1.1' => {
         regex => qr{MoCA MAC/PHY Specification v?1\.1},
-        id => 'MOCA1.1' },
+        id => 'MOCA11-MIB-IGNORE' },
     'MoCA MAC/PHY Specification 2.0' => {
         regex => qr{MoCA MAC/PHY Specification( v?2\.0)?},
-        id => 'MOCA2.0',
+        id => 'MOCA20-MIB',
     },
 };
 
@@ -1501,6 +1500,9 @@ sub output_xml
 
         my $rowdesc = $table->{row}->{description};
         my $rowref = $table->{row}->{reference};
+
+        # keep unchanged name for use in id
+        my $idname = $name;
         
         # analyse linkage
         # XXX need to use analyse_linkage() routine
@@ -1620,7 +1622,7 @@ sub output_xml
 	unless ($noobjects) {
             $rowref = $rowref ? qq{{{bibref|$rowref}}} : qq{};
 	    $i++;
-	    output $i, qq{<object $namebase="$ppath$oname." id="$oid" access="$access" minEntries="$minEntries" maxEntries="$maxEntries"$status$numEntries>};
+	    output $i, qq{<object $namebase="$ppath$oname." id="$idname/$oid" access="$access" minEntries="$minEntries" maxEntries="$maxEntries"$status$numEntries>};
 	    output $i+1, qq{<description$descact>$description</description>};
 
             if (@unique) {
@@ -2020,7 +2022,7 @@ sub output_parameter
     my $dataType = ($type =~ /$primitive_patt/) ? $type : 'dataType';
     $baseref = ($dataType eq 'dataType') ? qq{ $baseref="$type"} : qq{}; 
 
-    output $i+1, qq{<parameter name="$lname" id="$oid" access="$access"$status$previousParameter>};
+    output $i+1, qq{<parameter name="$lname" id="$name/$oid" access="$access"$status$previousParameter>};
     output $i+2, qq{<description>$description</description>};
     output $i+2, qq{<syntax>};
     output $i+3, qq{<list/>} if $list;
