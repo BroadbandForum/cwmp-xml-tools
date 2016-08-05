@@ -204,11 +204,6 @@
     InternetGatewayDevice.UserInterface.LocalDisplay.Height -> Device.UserInterface.LocalDisplay.Height
     InternetGatewayDevice.UserInterface.LocalDisplay.DisplayWidth -> Device.UserInterface.LocalDisplay.DisplayWidth
     InternetGatewayDevice.UserInterface.LocalDisplay.DisplayHeight -> Device.UserInterface.LocalDisplay.DisplayHeight
-  InternetGatewayDevice.CaptivePortal. -> Device.CaptivePortal.
-    InternetGatewayDevice.CaptivePortal.Enable -> Device.CaptivePortal.Enable
-    InternetGatewayDevice.CaptivePortal.Status -> Device.CaptivePortal.Status
-    InternetGatewayDevice.CaptivePortal.AllowedList -> Device.CaptivePortal.AllowedList
-    InternetGatewayDevice.CaptivePortal.CaptivePortalURL -> Device.CaptivePortal.URL
 ! InternetGatewayDevice.Layer3Forwarding. ->
   InternetGatewayDevice.Layer3Forwarding.Forwarding.{i}. -> Device.Routing.Router.{i}.IPv4Forwarding.{i}.
     InternetGatewayDevice.Layer3Forwarding.Forwarding.{i}.Enable -> Device.Routing.Router.{i}.IPv4Forwarding.{i}.Enable
@@ -467,21 +462,6 @@
     InternetGatewayDevice.IPPingDiagnostics.AverageResponseTime -> Device.IP.Diagnostics.IPPing.AverageResponseTime
     InternetGatewayDevice.IPPingDiagnostics.MinimumResponseTime -> Device.IP.Diagnostics.IPPing.MinimumResponseTime
     InternetGatewayDevice.IPPingDiagnostics.MaximumResponseTime -> Device.IP.Diagnostics.IPPing.MaximumResponseTime
-  InternetGatewayDevice.TraceRouteDiagnostics. -> Device.IP.Diagnostics.TraceRoute.
-    InternetGatewayDevice.TraceRouteDiagnostics.DiagnosticsState -> Device.IP.Diagnostics.TraceRoute.DiagnosticsState
-    InternetGatewayDevice.TraceRouteDiagnostics.Interface -> Device.IP.Diagnostics.TraceRoute.Interface
-    InternetGatewayDevice.TraceRouteDiagnostics.Host -> Device.IP.Diagnostics.TraceRoute.Host
-    InternetGatewayDevice.TraceRouteDiagnostics.NumberOfTries -> Device.IP.Diagnostics.TraceRoute.NumberOfTries
-    InternetGatewayDevice.TraceRouteDiagnostics.Timeout -> Device.IP.Diagnostics.TraceRoute.Timeout
-    InternetGatewayDevice.TraceRouteDiagnostics.DataBlockSize -> Device.IP.Diagnostics.TraceRoute.DataBlockSize
-    InternetGatewayDevice.TraceRouteDiagnostics.DSCP -> Device.IP.Diagnostics.TraceRoute.DSCP
-    InternetGatewayDevice.TraceRouteDiagnostics.MaxHopCount -> Device.IP.Diagnostics.TraceRoute.MaxHopCount
-    InternetGatewayDevice.TraceRouteDiagnostics.ResponseTime -> Device.IP.Diagnostics.TraceRoute.ResponseTime
-  InternetGatewayDevice.TraceRouteDiagnostics.RouteHops.{i}. -> Device.IP.Diagnostics.TraceRoute.RouteHops.{i}.
-    InternetGatewayDevice.TraceRouteDiagnostics.RouteHops.{i}.HopHost -> Device.IP.Diagnostics.TraceRoute.RouteHops.{i}.Host
-    InternetGatewayDevice.TraceRouteDiagnostics.RouteHops.{i}.HopHostAddress -> Device.IP.Diagnostics.TraceRoute.RouteHops.{i}.HostAddress
-    InternetGatewayDevice.TraceRouteDiagnostics.RouteHops.{i}.HopErrorCode -> Device.IP.Diagnostics.TraceRoute.RouteHops.{i}.ErrorCode
-    InternetGatewayDevice.TraceRouteDiagnostics.RouteHops.{i}.HopRTTimes -> Device.IP.Diagnostics.TraceRoute.RouteHops.{i}.RTTimes
   InternetGatewayDevice.DownloadDiagnostics. -> Device.IP.Diagnostics.DownloadDiagnostics.
     InternetGatewayDevice.DownloadDiagnostics.DiagnosticsState -> Device.IP.Diagnostics.DownloadDiagnostics.DiagnosticsState
     InternetGatewayDevice.DownloadDiagnostics.Interface -> Device.IP.Diagnostics.DownloadDiagnostics.Interface
@@ -528,7 +508,7 @@
     InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.{i}.Alias -> Device.IP.Interface.{i}.IPv4Address.{i}.Alias
     InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.{i}.IPInterfaceIPAddress -> Device.IP.Interface.{i}.IPv4Address.{i}.IPAddress #types IPAddress,IPv4Address
     InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.{i}.IPInterfaceSubnetMask -> Device.IP.Interface.{i}.IPv4Address.{i}.SubnetMask #types IPAddress,IPv4Address
-    InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.{i}.IPInterfaceAddressingType -> Device.IP.Interface.{i}.IPv4Address.{i}.AddressingType
+    InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.{i}.IPInterfaceAddressingType -> Device.IP.Interface.{i}.IPv4Address.{i}.AddressingType #access readWrite,readOnly
   InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.DHCPStaticAddress.{i}. -> Device.DHCPv4.Server.Pool.{i}.StaticAddress.{i}.
     InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.DHCPStaticAddress.{i}.Enable -> Device.DHCPv4.Server.Pool.{i}.StaticAddress.{i}.Enable
     InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.DHCPStaticAddress.{i}.Alias -> Device.DHCPv4.Server.Pool.{i}.StaticAddress.{i}.Alias
@@ -634,25 +614,25 @@
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.Alias -> Device.WiFi.Radio.{i}.Alias,Device.WiFi.SSID.{i}.Alias,Device.WiFi.AccessPoint.{i}.Alias
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.Name -> Device.WiFi.Radio.{i}.Name,Device.WiFi.SSID.{i}.Name #types string(16),string(64),string(64)
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.BSSID -> Device.WiFi.SSID.{i}.BSSID #types string,MACAddress
-    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.MaxBitRate -> Device.WiFi.Radio.{i}.MaxBitRate #types string(4),unsignedInt
+    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.MaxBitRate -> Device.WiFi.Radio.{i}.MaxBitRate #types string(4),unsignedInt #access readWrite,readOnly
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.Channel -> Device.WiFi.Radio.{i}.Channel #types unsignedInt[0:255],unsignedInt[1:255]
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AutoChannelEnable -> Device.WiFi.Radio.{i}.AutoChannelEnable
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.SSID -> Device.WiFi.SSID.{i}.SSID
-    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.BeaconType -> Device.WiFi.AccessPoint.{i}.Security.ModesSupported,Device.WiFi.AccessPoint.{i}.Security.ModeEnabled #types string,list of string,string
+    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.BeaconType -> Device.WiFi.AccessPoint.{i}.Security.ModesSupported,Device.WiFi.AccessPoint.{i}.Security.ModeEnabled #types string,list of string,string #access readWrite,readOnly,readWrite
 !   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.MACAddressControlEnabled ->
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.Standard -> Device.WiFi.Radio.{i}.SupportedStandards #types string,list of string
 !   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.WEPKeyIndex ->
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.KeyPassphrase -> Device.WiFi.AccessPoint.{i}.Security.KeyPassphrase #types string(63),string(8:63)
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.WEPEncryptionLevel -> Device.WiFi.AccessPoint.{i}.Security.ModesSupported #types list(64) of string,list of string
-    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.BasicEncryptionModes -> Device.WiFi.AccessPoint.{i}.Security.ModesSupported #types string,list of string
+    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.BasicEncryptionModes -> Device.WiFi.AccessPoint.{i}.Security.ModesSupported #types string,list of string #access readWrite,readOnly
 !   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.BasicAuthenticationMode ->
-    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.WPAEncryptionModes -> Device.WiFi.AccessPoint.{i}.Security.ModesSupported #types string,list of string
+    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.WPAEncryptionModes -> Device.WiFi.AccessPoint.{i}.Security.ModesSupported #types string,list of string #access readWrite,readOnly
 !   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.WPAAuthenticationMode ->
-    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.IEEE11iEncryptionModes -> Device.WiFi.AccessPoint.{i}.Security.ModesSupported #types string,list of string
+    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.IEEE11iEncryptionModes -> Device.WiFi.AccessPoint.{i}.Security.ModesSupported #types string,list of string #access readWrite,readOnly
 !   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.IEEE11iAuthenticationMode ->
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.PossibleChannels -> Device.WiFi.Radio.{i}.PossibleChannels
-    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.BasicDataTransmitRates -> Device.WiFi.Radio.{i}.MaxBitRate #types list(256) of string,unsignedInt
-    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.OperationalDataTransmitRates -> Device.WiFi.Radio.{i}.MaxBitRate #types list(256) of string,unsignedInt
+    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.BasicDataTransmitRates -> Device.WiFi.Radio.{i}.MaxBitRate #types list(256) of string,unsignedInt #access readWrite,readOnly
+    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.OperationalDataTransmitRates -> Device.WiFi.Radio.{i}.MaxBitRate #types list(256) of string,unsignedInt #access readWrite,readOnly
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.PossibleDataTransmitRates -> Device.WiFi.Radio.{i}.MaxBitRate #types list(256) of string,unsignedInt
 !   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.InsecureOOBAccessEnabled ->
 !   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.BeaconAdvertisementEnabled ->
@@ -678,6 +658,16 @@
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.TotalBytesReceived -> Device.WiFi.Radio.{i}.Stats.BytesReceived,Device.WiFi.SSID.{i}.Stats.BytesReceived #types unsignedInt,unsignedLong,unsignedLong
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.TotalPacketsSent -> Device.WiFi.Radio.{i}.Stats.PacketsSent,Device.WiFi.SSID.{i}.Stats.PacketsSent #types unsignedInt,unsignedLong,unsignedLong
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.TotalPacketsReceived -> Device.WiFi.Radio.{i}.Stats.PacketsReceived,Device.WiFi.SSID.{i}.Stats.PacketsReceived #types unsignedInt,unsignedLong,unsignedLong
+  InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}. -> Device.WiFi.AccessPoint.{i}.AssociatedDevice.{i}.
+    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.AssociatedDeviceMACAddress -> Device.WiFi.AccessPoint.{i}.AssociatedDevice.{i}.MACAddress
+!   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.AssociatedDeviceIPAddress ->
+    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.AssociatedDeviceAuthenticationState -> Device.WiFi.AccessPoint.{i}.AssociatedDevice.{i}.AuthenticationState
+!   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.LastRequestedUnicastCipher ->
+!   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.LastRequestedMulticastCipher ->
+!   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.LastPMKId ->
+    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.LastDataTransmitRate -> Device.WiFi.AccessPoint.{i}.AssociatedDevice.{i}.LastDataDownlinkRate #types string(4),unsignedInt[1000:600000]
+  InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.WEPKey.{i}. -> Device.WiFi.AccessPoint.{i}.Security.WEPKey
+  InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.PreSharedKey.{i}. -> Device.WiFi.AccessPoint.{i}.Security.PreSharedKey
   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.Stats. -> Device.WiFi.Radio.{i}.Stats.,Device.WiFi.SSID.{i}.Stats.
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.Stats.ErrorsSent -> Device.WiFi.Radio.{i}.Stats.ErrorsSent,Device.WiFi.SSID.{i}.Stats.ErrorsSent
     InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.Stats.ErrorsReceived -> Device.WiFi.Radio.{i}.Stats.ErrorsReceived,Device.WiFi.SSID.{i}.Stats.ErrorsReceived
@@ -704,16 +694,6 @@
 !   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.WPS.LastConfigurationError ->
 !   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.WPS.RegistrarEstablished ->
 ! InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.WPS.Registrar.{i}. ->
-  InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}. -> Device.WiFi.AccessPoint.{i}.AssociatedDevice.{i}.
-    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.AssociatedDeviceMACAddress -> Device.WiFi.AccessPoint.{i}.AssociatedDevice.{i}.MACAddress
-!   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.AssociatedDeviceIPAddress ->
-    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.AssociatedDeviceAuthenticationState -> Device.WiFi.AccessPoint.{i}.AssociatedDevice.{i}.AuthenticationState
-!   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.LastRequestedUnicastCipher ->
-!   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.LastRequestedMulticastCipher ->
-!   InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.LastPMKId ->
-    InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.AssociatedDevice.{i}.LastDataTransmitRate -> Device.WiFi.AccessPoint.{i}.AssociatedDevice.{i}.LastDataDownlinkRate #types string(4),unsignedInt[1000:600000]
-  InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.WEPKey.{i}. -> Device.WiFi.AccessPoint.{i}.Security.WEPKey
-  InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.PreSharedKey.{i}. -> Device.WiFi.AccessPoint.{i}.Security.PreSharedKey
 ! InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.APWMMParameter.{i}. -> #comment new object is proposed
 ! InternetGatewayDevice.LANDevice.{i}.WLANConfiguration.{i}.STAWMMParameter.{i}. -> #comment new object is proposed
   InternetGatewayDevice.LANDevice.{i}.Hosts. -> Device.Hosts.
@@ -815,29 +795,6 @@
     InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.LastShowtimeStart -> Device.DSL.Line.{i}.Stats.LastShowtimeStart,Device.DSL.Channel.{i}.Stats.LastShowtimeStart
     InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.CurrentDayStart -> Device.DSL.Line.{i}.Stats.CurrentDayStart,Device.DSL.Channel.{i}.Stats.CurrentDayStart
     InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.QuarterHourStart -> Device.DSL.Line.{i}.Stats.QuarterHourStart,Device.DSL.Channel.{i}.Stats.QuarterHourStart
-  InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams. -> Device.DSL.Line.{i}.TestParams.
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGGds -> Device.DSL.Line.{i}.TestParams.HLOGGds
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGGus -> Device.DSL.Line.{i}.TestParams.HLOGGus
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGpsds -> Device.DSL.Line.{i}.TestParams.HLOGpsds
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGpsus -> Device.DSL.Line.{i}.TestParams.HLOGpsus
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGMTds -> Device.DSL.Line.{i}.TestParams.HLOGMTds
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGMTus -> Device.DSL.Line.{i}.TestParams.HLOGMTus
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNGds -> Device.DSL.Line.{i}.TestParams.QLNGds
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNGus -> Device.DSL.Line.{i}.TestParams.QLNGus
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNpsds -> Device.DSL.Line.{i}.TestParams.QLNpsds
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNpsus -> Device.DSL.Line.{i}.TestParams.QLNpsus
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNMTds -> Device.DSL.Line.{i}.TestParams.QLNMTds
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNMTus -> Device.DSL.Line.{i}.TestParams.QLNMTus
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRGds -> Device.DSL.Line.{i}.TestParams.SNRGds
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRGus -> Device.DSL.Line.{i}.TestParams.SNRGus
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRpsds -> Device.DSL.Line.{i}.TestParams.SNRpsds
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRpsus -> Device.DSL.Line.{i}.TestParams.SNRpsus
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRMTds -> Device.DSL.Line.{i}.TestParams.SNRMTds
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRMTus -> Device.DSL.Line.{i}.TestParams.SNRMTus
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.LATNds -> Device.DSL.Line.{i}.TestParams.LATNds
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.LATNus -> Device.DSL.Line.{i}.TestParams.LATNus
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SATNds -> Device.DSL.Line.{i}.TestParams.SATNds
-    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SATNus -> Device.DSL.Line.{i}.TestParams.SATNus
   InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.Stats. -> Device.DSL.Line.{i}.Stats.,Device.DSL.Channel.{i}.Stats.
   InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.Stats.Total. -> Device.DSL.Line.{i}.Stats.Total.,Device.DSL.Channel.{i}.Stats.Total.
 !   InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.Stats.Total.LInit ->
@@ -909,6 +866,29 @@
     InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.Stats.QuarterHour.ATUCHECErrors -> Device.DSL.Channel.{i}.Stats.QuarterHour.XTUCHECErrors
     InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.Stats.QuarterHour.CRCErrors -> Device.DSL.Channel.{i}.Stats.QuarterHour.XTURCRCErrors
     InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.Stats.QuarterHour.ATUCCRCErrors -> Device.DSL.Channel.{i}.Stats.QuarterHour.XTUCCRCErrors
+  InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams. -> Device.DSL.Line.{i}.TestParams.
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGGds -> Device.DSL.Line.{i}.TestParams.HLOGGds
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGGus -> Device.DSL.Line.{i}.TestParams.HLOGGus
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGpsds -> Device.DSL.Line.{i}.TestParams.HLOGpsds
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGpsus -> Device.DSL.Line.{i}.TestParams.HLOGpsus
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGMTds -> Device.DSL.Line.{i}.TestParams.HLOGMTds
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.HLOGMTus -> Device.DSL.Line.{i}.TestParams.HLOGMTus
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNGds -> Device.DSL.Line.{i}.TestParams.QLNGds
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNGus -> Device.DSL.Line.{i}.TestParams.QLNGus
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNpsds -> Device.DSL.Line.{i}.TestParams.QLNpsds
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNpsus -> Device.DSL.Line.{i}.TestParams.QLNpsus
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNMTds -> Device.DSL.Line.{i}.TestParams.QLNMTds
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.QLNMTus -> Device.DSL.Line.{i}.TestParams.QLNMTus
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRGds -> Device.DSL.Line.{i}.TestParams.SNRGds
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRGus -> Device.DSL.Line.{i}.TestParams.SNRGus
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRpsds -> Device.DSL.Line.{i}.TestParams.SNRpsds
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRpsus -> Device.DSL.Line.{i}.TestParams.SNRpsus
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRMTds -> Device.DSL.Line.{i}.TestParams.SNRMTds
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SNRMTus -> Device.DSL.Line.{i}.TestParams.SNRMTus
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.LATNds -> Device.DSL.Line.{i}.TestParams.LATNds
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.LATNus -> Device.DSL.Line.{i}.TestParams.LATNus
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SATNds -> Device.DSL.Line.{i}.TestParams.SATNds
+    InternetGatewayDevice.WANDevice.{i}.WANDSLInterfaceConfig.TestParams.SATNus -> Device.DSL.Line.{i}.TestParams.SATNus
   InternetGatewayDevice.WANDevice.{i}.WANEthernetInterfaceConfig. -> Device.Ethernet.Interface.{i}.,Device.QoS.Queue.{i}.
     InternetGatewayDevice.WANDevice.{i}.WANEthernetInterfaceConfig.Enable -> Device.Ethernet.Interface.{i}.Enable,Device.QoS.Queue.{i}.Enable
     InternetGatewayDevice.WANDevice.{i}.WANEthernetInterfaceConfig.Status -> Device.Ethernet.Interface.{i}.Status,Device.QoS.Queue.{i}.Status
@@ -1021,7 +1001,7 @@
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.ConnectionStatus ->
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.PossibleConnectionTypes ->
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.ConnectionType ->
-    InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.Name -> Device.IP.Interface.{i}.Name,Device.Ethernet.Link.{i}.Name #types string(256),string(64),string(64)
+    InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.Name -> Device.IP.Interface.{i}.Name,Device.Ethernet.Link.{i}.Name #types string(256),string(64),string(64) #access readWrite,readOnly,readOnly
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.Uptime -> Device.IP.Interface.{i}.LastChange
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.LastConnectionError ->
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.AutoDisconnectTime ->
@@ -1029,7 +1009,7 @@
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.WarnDisconnectDelay ->
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.RSIPAvailable ->
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.NATEnabled -> Device.NAT.InterfaceSetting.{i}.Enable
-    InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.AddressingType -> Device.IP.Interface.{i}.IPv4Address.{i}.AddressingType
+    InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.AddressingType -> Device.IP.Interface.{i}.IPv4Address.{i}.AddressingType #access readWrite,readOnly
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.ExternalIPAddress -> Device.IP.Interface.{i}.IPv4Address.{i}.IPAddress #types IPAddress,IPv4Address
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.SubnetMask -> Device.IP.Interface.{i}.IPv4Address.{i}.SubnetMask #types IPAddress,IPv4Address
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.DefaultGateway ->
@@ -1037,7 +1017,7 @@
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.DNSOverrideAllowed ->
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.DNSServers -> Device.DNS.Client.Server.{i}.DNSServer #types list(64) of IPAddress,IPAddress
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.MaxMTUSize -> Device.IP.Interface.{i}.MaxMTUSize #types unsignedInt[1:1540],unsignedInt[64:65535]
-    InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.MACAddress -> Device.Ethernet.Link.{i}.MACAddress
+    InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.MACAddress -> Device.Ethernet.Link.{i}.MACAddress #access readWrite,readOnly
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.MACAddressOverride ->
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.ConnectionTrigger ->
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANIPConnection.{i}.RouteProtocolRx ->
@@ -1091,7 +1071,7 @@
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.ConnectionType ->
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.PPPoESessionID -> Device.PPP.Interface.{i}.PPPoE.SessionID
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.DefaultGateway ->
-    InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.Name -> Device.IP.Interface.{i}.Name,Device.Ethernet.Link.{i}.Name,Device.PPP.Interface.{i}.Name #types string(256),string(64),string(64),string(64)
+    InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.Name -> Device.IP.Interface.{i}.Name,Device.Ethernet.Link.{i}.Name,Device.PPP.Interface.{i}.Name #types string(256),string(64),string(64),string(64) #access readWrite,readOnly,readOnly,readOnly
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.Uptime -> Device.IP.Interface.{i}.LastChange,Device.PPP.Interface.{i}.LastChange
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.LastConnectionError -> Device.PPP.Interface.{i}.LastConnectionError
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.AutoDisconnectTime -> Device.PPP.Interface.{i}.AutoDisconnectTime
@@ -1111,7 +1091,7 @@
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.DNSEnabled -> Device.DNS.Client.Server.{i}.Enable
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.DNSOverrideAllowed ->
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.DNSServers -> Device.DNS.Client.Server.{i}.DNSServer #types list(64) of IPAddress,IPAddress
-    InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.MACAddress -> Device.Ethernet.Link.{i}.MACAddress
+    InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.MACAddress -> Device.Ethernet.Link.{i}.MACAddress #access readWrite,readOnly
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.MACAddressOverride ->
 !   InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.TransportType ->
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.PPPoEACName -> Device.PPP.Interface.{i}.PPPoE.ACName
@@ -1149,6 +1129,26 @@
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.Stats.EthernetBroadcastPacketsSent -> Device.PPP.Interface.{i}.Stats.BroadcastPacketsSent #types unsignedInt,unsignedLong
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.Stats.EthernetBroadcastPacketsReceived -> Device.PPP.Interface.{i}.Stats.BroadcastPacketsReceived #types unsignedInt,unsignedLong
     InternetGatewayDevice.WANDevice.{i}.WANConnectionDevice.{i}.WANPPPConnection.{i}.Stats.EthernetUnknownProtoPacketsReceived -> Device.PPP.Interface.{i}.Stats.UnknownProtoPacketsReceived
+  InternetGatewayDevice.CaptivePortal. -> Device.CaptivePortal.
+    InternetGatewayDevice.CaptivePortal.Enable -> Device.CaptivePortal.Enable
+    InternetGatewayDevice.CaptivePortal.Status -> Device.CaptivePortal.Status
+    InternetGatewayDevice.CaptivePortal.AllowedList -> Device.CaptivePortal.AllowedList
+    InternetGatewayDevice.CaptivePortal.CaptivePortalURL -> Device.CaptivePortal.URL
+  InternetGatewayDevice.TraceRouteDiagnostics. -> Device.IP.Diagnostics.TraceRoute.
+    InternetGatewayDevice.TraceRouteDiagnostics.DiagnosticsState -> Device.IP.Diagnostics.TraceRoute.DiagnosticsState
+    InternetGatewayDevice.TraceRouteDiagnostics.Interface -> Device.IP.Diagnostics.TraceRoute.Interface
+    InternetGatewayDevice.TraceRouteDiagnostics.Host -> Device.IP.Diagnostics.TraceRoute.Host
+    InternetGatewayDevice.TraceRouteDiagnostics.NumberOfTries -> Device.IP.Diagnostics.TraceRoute.NumberOfTries
+    InternetGatewayDevice.TraceRouteDiagnostics.Timeout -> Device.IP.Diagnostics.TraceRoute.Timeout
+    InternetGatewayDevice.TraceRouteDiagnostics.DataBlockSize -> Device.IP.Diagnostics.TraceRoute.DataBlockSize
+    InternetGatewayDevice.TraceRouteDiagnostics.DSCP -> Device.IP.Diagnostics.TraceRoute.DSCP
+    InternetGatewayDevice.TraceRouteDiagnostics.MaxHopCount -> Device.IP.Diagnostics.TraceRoute.MaxHopCount
+    InternetGatewayDevice.TraceRouteDiagnostics.ResponseTime -> Device.IP.Diagnostics.TraceRoute.ResponseTime
+  InternetGatewayDevice.TraceRouteDiagnostics.RouteHops.{i}. -> Device.IP.Diagnostics.TraceRoute.RouteHops.{i}.
+    InternetGatewayDevice.TraceRouteDiagnostics.RouteHops.{i}.HopHost -> Device.IP.Diagnostics.TraceRoute.RouteHops.{i}.Host
+    InternetGatewayDevice.TraceRouteDiagnostics.RouteHops.{i}.HopHostAddress -> Device.IP.Diagnostics.TraceRoute.RouteHops.{i}.HostAddress
+    InternetGatewayDevice.TraceRouteDiagnostics.RouteHops.{i}.HopErrorCode -> Device.IP.Diagnostics.TraceRoute.RouteHops.{i}.ErrorCode
+    InternetGatewayDevice.TraceRouteDiagnostics.RouteHops.{i}.HopRTTimes -> Device.IP.Diagnostics.TraceRoute.RouteHops.{i}.RTTimes
   InternetGatewayDevice.User.{i}. -> Device.Users.User.{i}.
     InternetGatewayDevice.User.{i}.Alias -> Device.Users.User.{i}.Alias
     InternetGatewayDevice.User.{i}.Enable -> Device.Users.User.{i}.Enable
@@ -1784,7 +1784,6 @@
 # BridgeL3L4Filter:1 -> Device.Bridging.Filter.{i}.DestPort
 # BridgeL3L4Filter:1 -> Device.Bridging.Filter.{i}.DestPortExclude
 # QoSStats:1 -> Device.QoS.QueueStatsNumberOfEntries
-# TraceRoute:1 -> Device.IP.Diagnostics.TraceRoute.RouteHopsNumberOfEntries
 # IPInterface:1 -> Device.IP.
 # IPInterface:1 -> Device.IP.InterfaceNumberOfEntries
 # IPInterface:1 -> Device.IP.Interface.{i}.Status
@@ -2016,6 +2015,7 @@
 # PPPInterface:2 -> Device.PPP.Interface.{i}.IPv6CP.
 # PPPInterface:2 -> Device.PPP.Interface.{i}.IPv6CP.LocalInterfaceIdentifier
 # PPPInterface:2 -> Device.PPP.Interface.{i}.IPv6CP.RemoteInterfaceIdentifier
+# TraceRoute:1 -> Device.IP.Diagnostics.TraceRoute.RouteHopsNumberOfEntries
 # User:1 -> Device.Users.UserNumberOfEntries
 # UPnPDev:1 -> Device.UPnP.Device.UPnPQoSDevice 
 # UPnPDiscBasic:1 -> Device.UPnP.Discovery.RootDeviceNumberOfEntries
