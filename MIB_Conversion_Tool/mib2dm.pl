@@ -1738,6 +1738,8 @@ sub output_xml
             my $oid = $notification->{oid};
             my $status = $notification->{status};
             my $description = $notification->{description};
+            $description .= qq{\nThis parameter is a counter that is } .
+                qq{incremented whenever the event occurs.};
             my $cnode = {
                 name => $nname,
                 oid => $oid,
