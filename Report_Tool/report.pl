@@ -184,10 +184,10 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2016-08-05 $};
-my $tool_id = q{$Id: report.pl 412 $};
+my $tool_vers_date = q{$Date: 2016-08-08 $};
+my $tool_id = q{$Id: report.pl 413 $};
 
-my $tool_url = q{https://tr69xmltool.iol.unh.edu/repos/cwmp-xml-tools/Report_Tool};
+my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
 # extract author from Author keyword (assumes SVN)
 my ($tool_author_only) = ($tool_author =~ /\$Author:\s+(\S+)/);
@@ -8310,6 +8310,7 @@ sub html_template_pattern
 }
 
 # report an object or parameter id
+# XXX the id is always shown as change text; this shouldn't be unconditional
 sub html_template_showid
 {
     my ($opts) = @_;
@@ -8320,7 +8321,7 @@ sub html_template_showid
     # XXX would like to generate a link, but this fights with the auto-link
     #     logic; need to support a more mediawiki-like link syntax
     #my $text = qq{'''[http://oid-info.com/get/$id]'''};
-    my $text = qq{'''[$id]'''};
+    my $text = qq{'''+++[$id]+++'''};
 
     return $text;
 }
