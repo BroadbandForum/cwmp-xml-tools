@@ -503,7 +503,8 @@ sub map_end {
                         oper => 'ExistingParameter',
                         root => $root,
                         old  => $child,
-                        new  => $f,
+                        new  => $f->{path},
+                        acc  => $f->{access},
                         rem  => "$comment$types$accesses"
                     };
                 }
@@ -926,7 +927,8 @@ sub action {
 
     # modify an existing parameter
     elsif ($oper eq 'ExistingParameter') {
-        action_existing_parameter($opts->{old}, $opts->{new}, $opts->{rem});
+        action_existing_parameter($opts->{old}, $opts->{new}, $opts->{acc},
+                                  $opts->{rem});
     }
 
     # end generating the XML
@@ -1084,7 +1086,7 @@ sub action_new_parameter
     #main::tmsg "action_new_parameter: $name $remark";
 
     # find object
-    my $object_name = get_object_name($node, $name);
+    (my $object_name, $name) = get_object_name($node, $name);
     my ($object) = grep {$_->{path} eq $object_name} @$output_objects;
     if (!$object) {
         main::emsg "$object_name not in list of candidate parents for $name";
@@ -1154,19 +1156,14 @@ sub action_new_parameter
 }
 
 # modify an existing parameter
-# XXX note that the second argument is the existing parameter node, not name;
-#     this is so that other attributes can be accessed
 sub action_existing_parameter
 {
-    my ($node, $existing, $remark) = @_;
-
-    my $name = $existing->{name};
-    my $access = $existing->{access};
+    my ($node, $name, $access, $remark) = @_;
 
     #main::tmsg "action_existing_parameter: $node->{name} -> $name $remark";
 
     # find object
-    my $object_name = get_object_name($node, $name);
+    (my $object_name, $name) = get_object_name($node, $name);
     my ($object) = grep {$_->{path} eq $object_name} @$output_objects;
     if (!$object) {
         main::emsg "$object_name not in list of candidate parents for $name";
@@ -1175,7 +1172,6 @@ sub action_existing_parameter
 
     my $path = qq{$object_name$name};
     my $id = $node->{id};
-    $remark .= qq{ #id added to existing parameter};
 
     # XXX this is minimal; currently just the id and remark are propagated
     my $parameter = {
@@ -1190,19 +1186,22 @@ sub get_object_name
 {
     my ($node, $name) = @_;
 
+    main::tmsg "get_object_name: node $node->{path} name $name";
+
     # XXX name can start with a pattern, which can be followed by a list;
-    #     for now, ignore (and note) such cases
+    #     for now, ignore (and note) such cases; IS THIS STILL TRUE?
     main::w0msg "ignoring pattern/list in $name"
         if $name =~ /^\(/ || $name =~ /,/;
 
     # name might be full path (where there are multiple candidate parents)
     my ($object_name, $tname) = $name =~ /(.*\.)(.*)/;
     $name = $tname if $tname;
+    main::tmsg "  -> $object_name + $name" if $tname;
 
     # if name was not a full path (so $object_name is undefined), determine
     # which object should be the parent
     # XXX a parameter should be created in each such object, but for
-    #     now we just warn when this should happen
+    #     now we just warn when this should happen; IS THIS STILL A PROBLEM?
     if (!$object_name) {
         my $notpaths = [];
         foreach my $parent (@$current_parents) {
@@ -1220,7 +1219,7 @@ sub get_object_name
         }
     }
 
-    return $object_name;
+    return ($object_name, $name);
 }
 
 # end generating the XML
