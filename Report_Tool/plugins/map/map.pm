@@ -488,15 +488,33 @@ sub map_end {
                 my @types = map {
                     main::syntax_string($_->{type}, $_->{syntax})
                 } ($child, @$found);
-                my @utypes = uniq sort @types;
+                my @utypes = @types;
+                @utypes = map {s/StatsCounter32/unsignedInt/r} @utypes;
+                @utypes = map {s/StatsCounter64/unsignedLong/r} @utypes;
+                @utypes = map {s/DisplayString/string/r} @utypes;
+                @utypes = uniq sort @utypes;
                 my $types = (@utypes > 1) ? ' #types '.join(',', @types) : '';
                 my @accesses = map {$_->{access}} ($child, @$found);
                 my @uaccesses = uniq sort @accesses;
                 my $accesses = (@uaccesses > 1) ?
                     ' #access '.join(',', @accesses) : '';
+                my $has_default = grep {
+                    defined $_->{default}} ($child, @$found);
+                my @defaults = map {$_->{default}} ($child, @$found);
+                my @sdefaults = map {
+                    !defined $_->{default} ? '<undef>' : !$_->{default} ?
+                        '<empty>' : $_->{default}} ($child, @$found);
+                my $defaults = $has_default ?
+                    ' #default '.join(',', @sdefaults) : '';
+                #if ($has_default) {
+                #    main::tmsg "  cpath $cpath name $name status $status";
+                #    main::tmsg "    defaults ", Dumper(\@defaults);
+                #    main::tmsg "    defaults(2)", $defaults;
+                #}
                 action {
                     warn => 0,
-                    text => "  $cpath -> $where$comment$types$accesses"
+                    text => "  $cpath -> $where$comment$types$accesses" .
+                        "$defaults"
                 };
                 foreach my $f (@$found) {
                     action {
@@ -505,7 +523,7 @@ sub map_end {
                         old  => $child,
                         new  => $f->{path},
                         acc  => $f->{access},
-                        rem  => "$comment$types$accesses"
+                        rem  => "$comment$types$accesses$defaults"
                     };
                 }
 
@@ -1186,7 +1204,7 @@ sub get_object_name
 {
     my ($node, $name) = @_;
 
-    main::tmsg "get_object_name: node $node->{path} name $name";
+    #main::tmsg "get_object_name: node $node->{path} name $name";
 
     # XXX name can start with a pattern, which can be followed by a list;
     #     for now, ignore (and note) such cases; IS THIS STILL TRUE?
@@ -1196,7 +1214,7 @@ sub get_object_name
     # name might be full path (where there are multiple candidate parents)
     my ($object_name, $tname) = $name =~ /(.*\.)(.*)/;
     $name = $tname if $tname;
-    main::tmsg "  -> $object_name + $name" if $tname;
+    #main::tmsg "  -> $object_name + $name" if $tname;
 
     # if name was not a full path (so $object_name is undefined), determine
     # which object should be the parent
