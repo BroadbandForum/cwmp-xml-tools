@@ -407,6 +407,7 @@ sub expand_typedef
     my $reference = findvalue($typedef, 'reference', {descr => 1});
 
     $status = 'current' unless $status;
+    $default = $default eq "" ? undef : $default eq '""' ? "" : $default;
 
     print STDERR "expand_typedef name=$name basetype=$basetype " .
 	"status=$status format=$format\n" if $verbose;
@@ -513,6 +514,8 @@ sub expand_scalar
 				{descr => 1, values => $syntax->{values}});
     my $reference = findvalue($scalar, 'reference', {descr => 1});
 
+    $default = $default eq "" ? undef : $default eq '""' ? "" : $default;
+    
     print STDERR "expand_scalar name=$name status=$status\n" if $verbose;
 
     my $snode = {
@@ -675,6 +678,8 @@ sub expand_column
 				{descr => 1, values => $syntax->{values}});
     my $reference = findvalue($column, 'reference', {descr => 1});
 
+    $default = $default eq "" ? undef : $default eq '""' ? "" : $default;
+    
     print STDERR "expand_column name=$name status=$status access=$access\n"
 	if $verbose;
 
@@ -1984,6 +1989,7 @@ sub output_parameter
     my $name = $parameter->{name};
     my $oid = $parameter->{oid};
     my $status = $parameter->{status};
+    my $default = $parameter->{default};
     my $syntax = $parameter->{syntax};
     my $access = $parameter->{access};
     my $units = $parameter->{units};
@@ -2055,6 +2061,8 @@ sub output_parameter
     }
     output $i+4, qq{<units value="$units"/>} if $units;
     output $i+3, qq{</$dataType>} unless $end_element;
+    output $i+3, qq{<default type="factory" value="$default"/>} if 
+        defined $default;
     output $i+2, qq{</syntax>};
     output $i+1, qq{</parameter>};
 }
