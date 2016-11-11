@@ -416,7 +416,7 @@ sub expand_typedef
     $hash->{name} = $name if $name;
     $hash->{basetype} = $basetype if $basetype;
     $hash->{status} = $status if $status;
-    $hash->{default} = $default if $default;
+    $hash->{default} = $default if defined $default;
     $hash->{format} = $format if $format;
     $hash->{units} = $units if $units;
     $hash->{description} = $description if $description;
