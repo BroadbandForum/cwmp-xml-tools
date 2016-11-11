@@ -502,7 +502,7 @@ sub map_end {
                     defined $_->{default}} ($child, @$found);
                 my @defaults = map {$_->{default}} ($child, @$found);
                 my @sdefaults = map {
-                    !defined $_->{default} ? '<undef>' : !$_->{default} ?
+                    !defined $_->{default} ? '<undef>' : $_->{default} eq "" ?
                         '<empty>' : $_->{default}} ($child, @$found);
                 my $defaults = $has_default ?
                     ' #default '.join(',', @sdefaults) : '';
