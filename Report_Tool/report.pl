@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2016-08-08 $};
-my $tool_id = q{$Id: report.pl 413 $};
+my $tool_vers_date = q{$Date: 2016-11-11 $};
+my $tool_id = q{$Id: report.pl 414 $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -2420,6 +2420,7 @@ sub expand_model_profile
     # XXX model no longer used
     my $model = $profile->findvalue('@model');
     my $status = $profile->findvalue('@status');
+    my $id = $profile->findvalue('@id');
     my $description = $profile->findvalue('description');
     # XXX descact too
 
@@ -2557,7 +2558,7 @@ sub expand_model_profile
                   name => $name, base => $base, extends => $extends,
                   file => $file, lfile => $Lfile, spec => $spec,
                   lspec => $Lspec, type => 'profile', access => '',
-                  status => $status, description => $description,
+                  status => $status, id => $id, description => $description,
                   model => $model, nodes => [], baseprof => $baseprof,
                   extendsprofs => $extendsprofs,
                   majorVersion => $mversion_major,
