@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2016-11-11 $};
-my $tool_id = q{$Id: report.pl 414 $};
+my $tool_vers_date = q{$Date: 2016-12-08 $};
+my $tool_id = q{$Id: report.pl 415 $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -280,7 +280,7 @@ our $diffs = 0;
 our $diffsexts = ['diffs'];
 our $dtspec = 'urn:example-com:device-1-0-0';
 our $dtuuid = '00000000-0000-0000-0000-000000000000';
-our $exitcode = 0;
+our $exitcode = undef;
 our $help = 0;
 our $ignore = undef;
 our $importsuffix = '';
@@ -358,7 +358,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'dtprofile:s@' => \$dtprofiles,
            'dtspec:s' => \$dtspec,
            'dtuuid:s' => \$dtuuid,
-           'exitcode' => \$exitcode,
+           'exitcode:s' => \$exitcode,
 	   'help' => \$help,
            'ignore:s' => \$ignore,
            'importsuffix:s' => \$importsuffix,
@@ -433,6 +433,7 @@ my $LOGLEVEL_DEBUG   = 40;
 # msg helpers (use parsed loglevel; see below)
 sub msg;
 sub tmsg  { msg 'T', @_; } # used for temporary debug output
+sub fmsg  { msg 'F', @_ if $loglevel >= $LOGLEVEL_FATAL;       }
 sub emsg  { msg 'E', @_ if $loglevel >= $LOGLEVEL_ERROR;       }
 sub imsg  { msg 'I', @_ if $loglevel >= $LOGLEVEL_INFO;        }
 sub w0msg { msg 'W', @_ if $loglevel >= $LOGLEVEL_WARNING;     }
@@ -443,6 +444,7 @@ sub d1msg { msg 'D', @_ if $loglevel >= $LOGLEVEL_DEBUG + 1;   }
 sub d2msg { msg 'D', @_ if $loglevel >= $LOGLEVEL_DEBUG + 2;   }
 
 my $msgs = []; # warnings and errors logged via msg()
+my $num_fatals = 0;
 my $num_errors = 0;
 
 # parse loglevel (can't use the msg routines until have set it)
@@ -620,6 +622,13 @@ my $samename = 0;
 
 $marktemplates = '&&&&' if defined($marktemplates);
 
+# XXX allow abbreviation? move this earlier? add documentation!
+$exitcode = 'errors' if defined($exitcode) and $exitcode eq '';
+if (defined $exitcode && $exitcode !~ /^(errors|fatals)$/) {
+    emsg "--exitcode must be followed by nothing, 'errors' or 'fatals'";
+    pod2usage(2);
+}
+    
 $warnbibref = 1 if defined($warnbibref) and !$warnbibref;
 $warnbibref = 0 unless defined($warnbibref);
 $warnbibref = -1 if $nowarnbibref;
@@ -662,7 +671,7 @@ $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
     foreach my $catalog (@$catalogs) {
         my ($dir, $file) = find_file($catalog, '');
         if (!$dir) {
-            emsg "XML catalog $file not found";
+            fmsg "XML catalog $file not found";
         } else {
             my $tfile = $dir ? File::Spec->catfile($dir, $file) : $file;
             d0msg "loading XML catalog $tfile";
@@ -1103,7 +1112,7 @@ sub expand_import
         my ($elem) = grep {$_->{element} eq $element && $_->{name} eq $ref}
         @{$imports->{$file}->{imports}};
         if (!$elem) {
-            emsg "{$file}$ref: $element not found";
+            fmsg "{$file}$ref: $element not found";
             next;
         }
         my $ddir  = $elem->{dir};
@@ -1127,7 +1136,7 @@ sub expand_import
             next unless $dtoplevel;
             ($fitem) = $dtoplevel->findnodes(qq{$element\[\@name="$ref"\]});
         }
-        emsg "{$file}$ref: $element not found in $dfile" unless $fitem;
+        fmsg "{$file}$ref: $element not found in $dfile" unless $fitem;
 
         # XXX update regardless; will get another error if try to use it
         update_imports($cfile, $cspec, $file, $fspec, $element, $name, $ref,
@@ -4646,7 +4655,7 @@ sub parse_file
     my $parser = XML::LibXML->new(line_numbers => 1);
     my $tree = eval { $parser->parse_file($tfile) };
     if ($@) {
-        emsg $@;
+        fmsg $@;
         return undef;
     }
     my $toplevel = $tree->getDocumentElement;
@@ -4854,10 +4863,11 @@ sub find_file
         $ffile = qq{$name-$i-$a$c$label.xml};
     }
 
-    # otherwise no need to look for highest corrigendum number, either because
-    # file name doesn't match pattern, e.g. it's unversioned, or because
-    # corrigendum number is defined; still need to search directories though
-    else {
+    # otherwise, or if file with corrigendum number not found above, no need
+    # to look for highest corrigendum number, either because file name doesn't
+    # match pattern, e.g. it's unversioned, or because corrigendum number is
+    # defined; still need to search directories though
+    if (!$fdir) {
         foreach my $dir (@$dirs) {
             if (-r File::Spec->catfile($dir, $ffile)) {
                 $fdir = $dir;
@@ -10046,6 +10056,27 @@ END
     # if description undefined, set to "TBD"
     $description = q{'''TBD'''} unless $description;
 
+    # XXX as an experiment, if the description consists entire of a bulleted
+    #     list, remove the bullets; ignore blank lines and lines that begin
+    #     with templates
+    {
+        my $all_bullets = 1;
+        my @lines = split /\n/, $description;
+        foreach my $line (@lines) {
+            my ($text) = $line =~ /^\s*(.*?)\s*$/;
+            $all_bullets = 0
+                if $text && $text !~ /^\{\{/ && $text !~ /^\*\s+/;
+        }
+        if ($all_bullets) {
+            $description = qq{};
+            foreach my $line (@lines) {
+                $line =~ s/^(\s*)\*\s+/$1/;
+                $description .= qq{\n} if $description ne '';
+                $description .= $line;
+            }
+        }
+    }
+
     # escape the description
     $description = html_escape($description, {
         xmlrefmap => $htmlbbf_xmlrefmap, file => $name, latest => $latest,
@@ -11463,9 +11494,10 @@ sub msg
     my $pfx = $nologprefix ? qq{} : qq{($cat) };
     my $text = join '', @_;
     $text = $pfx . $text;
-    push @$msgs, $text if $cat =~ /E|W/;
+    push @$msgs, $text if $cat =~ /F|E|W/;
     print STDERR $text, $nl ? qq{} : qq{\n};
-    $num_errors++ if $cat eq 'E';
+    $num_fatals++ if $cat =~ /F/;
+    $num_errors++ if $cat =~ /F|E/;
 }
 
 # Clean the command line by discarding all but the final component from path
@@ -12684,9 +12716,10 @@ foreach my $spec (sort @$specs) {
         if !$quiet && defined $spectotal->{$spec};
 }
 
-# The exit code is the negative of the number of reported errors, which will
-# probably be masked to 8 bits, e.g. -2 will probably be reported as 254
-exit -$num_errors if $exitcode;
+# The exit code will probably be masked to 8 bits, e.g. -2 will probably be
+# reported as 254
+exit (!defined $exitcode ? 0 :
+      $exitcode eq 'fatals' ? -$num_fatals : -$num_errors);
 
 # this allows the file to be included as a module
 1;
