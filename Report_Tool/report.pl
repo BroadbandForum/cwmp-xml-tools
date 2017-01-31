@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2016-12-08 $};
-my $tool_id = q{$Id: report.pl 415 $};
+my $tool_vers_date = q{$Date: 2017-01-31 $};
+my $tool_id = q{$Id: report.pl 416 $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -208,7 +208,7 @@ $tool_id_only = q{report.pl} unless $tool_id_only;
 # the date and version were last set
 my $tool_checked_out = q{};
 if ($tool_id_only =~ /[\-\+]$/) {
-    $tool_checked_out = q{ (TOOL CURRENTLY CHECKED OUT)};
+    $tool_checked_out = q{ (INTERIM VERSION)};
     # XXX let's leave the "-" or "+" as a reminder
     #$tool_id_only =~ s/[\-\+]$//;
 }
@@ -4843,7 +4843,9 @@ sub find_file
 
     # if name, issue (i) and amendment (a) are defined but corrigendum number
     # (c) is undefined, search for the highest corrigendum number
-    if (defined $name && defined $i && defined $a && !defined $c) {
+    # note: this is only done if the supplied file doesn't exist; this is to
+    #       ensure that existing "no corrigendum" files can be specified
+    if (!-r $file && defined $name && defined $i && defined $a && !defined $c){
         $label = '' unless defined $label;
         foreach my $dir (@$dirs) {
             my @files = File::Glob::bsd_glob(
@@ -9640,11 +9642,6 @@ END
     }
     htmlbbf_file(undef, {context => $outdatedcontext, contents => 1});
 
-    # downloads (table of contents)
-    print <<END;
-      <b><a href="#Downloads">Downloads</a></b>
-END
-
     # close the table of contents
     print <<END;
     </ul>
@@ -9657,12 +9654,6 @@ END
                           $outdatedcontext)) {
         htmlbbf_file(undef, {context => $context, footer => 1});
     }
-
-    # downloads (content)
-    print <<END;
-    <a name="Downloads"><h1>Downloads</h1></a>
-    <a href="cwmp.zip">cwmp.zip</a>: directory contents<br>
-END
 
     # footer
     print <<END;
