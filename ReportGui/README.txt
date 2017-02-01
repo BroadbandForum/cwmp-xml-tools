@@ -5,21 +5,29 @@ This utility provides a graphical frontend for the "report.exe" tool to generate
 xml data files.
 
 The windows installer includes the frontend and the report.exe tool. For installation please 
-execute the ReportGuiSetup and follow the instructions. The tool runs under Windows (XP, Vista, 7)
+execute the ReportGuiSetup and follow the instructions. The tool runs under Windows (XP, Vista, 7, 10)
 and with some effort under MACOS with Wine
 
-For questions and comments please contact klaus.wich@axiros.com
+For questions and comments please contact klaus.wich@aim.com
 
 
 History
 --------
+
+01/31/2017 ReportGuiSetup 3.0, ReportGui 3.0, report.exe#404 (report.pl#404)
+    new version of report.exe (report.pl#404) included in installer
+    new ReportGui version 3.0
+    - adapted to work wih new BBF webpage layout
+    - Log limit increased
+    - Unused options "use old xml" removed
+
 09/11/2013 ReportGuiSetup 2.6, ReportGui 2.6, report.exe#277 (report.pl#277)
     new version of report.exe (report.pl#277) included in installer
     new ReportGui version 2.6
     - xml download aadapted to new BBF web page
     - publish options adapted to new format
     - publishing without warnings report as default 
-    
+
 11/11/2013 ReportGuiSetup 2.5, ReportGui 2.5, report.exe#251 (report.pl#251)
     new version of report.exe (report.pl#251) included in installer
     new ReportGui version 2.5
