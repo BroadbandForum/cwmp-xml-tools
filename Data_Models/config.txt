@@ -1,4 +1,4 @@
-# OD-148_Rev-20.txt
+# OD-148_Rev-21.txt
 #
 # BBF report tool CWMP index page configuration file (htmlbbf report type)
 #
@@ -70,6 +70,13 @@
 #      * Added reference to the CWMP Tools and Resources page to the
 #        introductory text
 #      * Fixed minor problems with the tr-157-1-9-0.xml settings
+#    November 2016, January 2017: OD-148_Rev-21:
+#      * Reversed order of support file history prior to versioned files (so
+#        all history is latest first)
+#      * Added support file history for versioned files (it's not in the files)
+#      * Commented out tr-181-2-0-1.xml entry to work around report tool
+#        problem/feature
+#      * In line with discussion, deleted last two lines from preamble text
 
 ###############################################################################
 # global settings, e.g. HTML style values
@@ -85,8 +92,6 @@ Service data models describe modular functionality that allow the extension of t
 Each data model is defined by a ''Name:Version'' syntax. A device defines its data model by defining a [file://#TR-069%20Device%20Type%20Schema%20%28DT%20Schema%29 device type], an XML document that maps to (imports) BBF official data model objects and/or vendor specific objects. A full explanation of how to develop compliant CWMP data models can be found in {{trref|TR-154}}.
 {{footnotes}}
 Note: All the files below are directly reachable via: ''http://www.broadband-forum.org/cwmp/''<''filename''>.
-Note: See the [http://www.broadband-forum.org/cwmptools.php CWMP Tools and Resources] page for further information.
-Below you will find:
 .
 
 # remaining entries are file names; values can come from two places,
@@ -284,37 +289,73 @@ description = Original
 
 [tr-069-biblio.xml]
 document    = TR-069 Data Model Bibliographic References
-trname 	    = tr-104-2-0
 appdate     = 2014-03
 description = <<.
-Mar 2009: Original
-Sep 2009: Minor changes, e.g. added missing dates
-May 2010: Added ''Device:2.0'' references
-Nov 2010: Added ''Device:2.1'' references
-Mar 2011: Added ''Device:2.2'' references
-May 2011: Added ''FAPService:1.1'' references
-Jul 2011: Added Alias-based addressing and proxy management references
-Dec 2011: Added ''Device:2.4'', ''FAPService:2.0'' and TR-262 references
-May 2012: Added ''Device:2.5'' references
-Nov 2012: Added TR-157a7 references
-Nov 2013: Added ''Device:2.7'' and TR-157a8 references
 Mar 2014: Added TR-104i2 references
+Nov 2013: Added ''Device:2.7'' and TR-157a8 references
+Nov 2012: Added TR-157a7 references
+May 2012: Added ''Device:2.5'' references
+Dec 2011: Added ''Device:2.4'', ''FAPService:2.0'' and TR-262 references
+Jul 2011: Added Alias-based addressing and proxy management references
+May 2011: Added ''FAPService:1.1'' references
+Mar 2011: Added ''Device:2.2'' references
+Nov 2010: Added ''Device:2.1'' references
+May 2010: Added ''Device:2.0'' references
+Sep 2009: Minor changes, e.g. added missing dates
+Mar 2009: Original
+.
+
+[tr-069-1-1-biblio.xml]
+appdate     = 2014-09
+description = <<.
+Added ''Device:2.8'', TR-143a1 and TR-157a9 references
+.
+
+[tr-069-1-2-biblio.xml]
+appdate     = 2014-12
+description = <<.
+Added ''Device:2.9'' references
+.
+
+[tr-069-1-3-biblio.xml]
+appdate     = 2015-08
+description = <<.
+Added TR-196i2a1 references
+.
+
+[tr-069-1-4-biblio.xml]
+appdate     = 2015-11
+description = <<.
+Added ''Device:2.10'' references
+.
+
+[tr-069-1-5-biblio.xml]
+appdate     = 2016-07
+description = <<.
+Added ''Device:2.11'' references
 .
 
 [tr-106-types.xml]
 document    = TR-069 Data Model Data Types
-trname 	    = tr-181-2-7
+
+[tr-106-1-0-types.xml]
 appdate     = 2013-11
 description = <<.
-Nov 2008: Original
-Sep 2009: Minor changes, e.g. imported ''tr-069-biblio.xml''
-May 2010: Added ''IPPrefix'' and ''IPAddress''
-Nov 2010: Added IPv6 and statistics counter types
-Jul 2011: Added ''Alias''
-Nov 2011: Added ''Dbm1000'' and updated statistics counter types
-Nov 2012: Added ''UUID'' and updated ''IPPrefix'' and ''IPv4Prefix''
-Sep 2013: Clarified use of the ''Alias'' ''cpe-'' prefix
 Nov 2013: Added ''IEEE_EUI64'' and ''ZigBeeNetworkAddress''
+Sep 2013: Clarified use of the ''Alias'' ''cpe-'' prefix
+Nov 2012: Added ''UUID'' and updated ''IPPrefix'' and ''IPv4Prefix''
+Nov 2011: Added ''Dbm1000'' and updated statistics counter types
+Jul 2011: Added ''Alias''
+Nov 2010: Added IPv6 and statistics counter types
+May 2010: Added ''IPPrefix'' and ''IPAddress''
+Sep 2009: Minor changes, e.g. imported ''tr-069-biblio.xml''
+Nov 2008: Original
+.
+
+[tr-106-1-1-types.xml]
+appdate	    = 2015-11
+description = <<.
+Added ''DiagnosticsState''
 .
 
 ###############################################################################
@@ -633,16 +674,18 @@ Incorporated new components from TR-157 Amendment 9
 # Issue 2
 
 # Device:2.0
-[tr-181-2-0-1.xml]
-trname	    = tr-181-2-0
+# XXX commented out Corrigendum 1 because otherwise get duplicate info for
+#     later Corrigenda
+#[tr-181-2-0-1.xml]
+#trname	    = tr-181-2-0
 # this is the XML publication date, not the PDF publication date (2010-05)
-appdate     = 2010-11
-description = <<.
-May 2010: {{xmlref|tr-181-2-0-0|Original}}
-Nov 2010: {{xmlref|tr-181-2-0-1|Corrigendum 1}}
-* Fixed various ranges and defaults
-* Removed non interface object ''Alias'' parameters from profiles
-.
+#appdate     = 2010-11
+#description = <<.
+#May 2010: {{xmlref|tr-181-2-0-0|Original}}
+#Nov 2010: {{xmlref|tr-181-2-0-1|Corrigendum 1}}
+#* Fixed various ranges and defaults
+#* Removed non interface object ''Alias'' parameters from profiles
+#.
 
 # Device:2.1
 [tr-181-2-1-0.xml]
