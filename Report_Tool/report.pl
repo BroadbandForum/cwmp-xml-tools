@@ -185,7 +185,7 @@ use utf8;
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2017-02-10 $};
-my $tool_id = q{$Id: report.pl 417 $};
+my $tool_id = q{$Id: report.pl 417+ $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -906,8 +906,8 @@ sub expand_toplevel
 
             d0msg "referencing component: $name";
             foreach my $item ($component->findnodes(
-                                  'component|parameter|'.
-                                  'object|command|notification|profile')){
+                                  'component|parameter|object|'.
+                                  'command|event|notification|profile')){
                 my $element = $item->findvalue('local-name()');
                 "expand_model_$element"->($context, $nnode, $nnode, $item);
             }
@@ -1584,7 +1584,7 @@ sub expand_model
     # expand nested components, objects, parameters and profiles
     my $any_profiles = 0;
     foreach my $item ($model->findnodes('component|parameter|object|'.
-                                        'command|notification|profile')) {
+                                        'command|event|notification|profile')){
 	my $element = $item->findvalue('local-name()');
 	"expand_model_$element"->($context, $nnode, $nnode, $item);
         $any_profiles = 1 if $element eq 'profile';
@@ -1695,7 +1695,8 @@ sub expand_model_component
 
     # expand component's nested components, parameters, objects and profiles
     foreach my $item ($component->findnodes('component|parameter|object|'.
-                                            'command|notification|profile')) {
+                                            'command|event|notification|'.
+                                            'profile')) {
 	my $element = $item->findvalue('local-name()');
         "expand_model_$element"->($context, $mnode, $pnode, $item);
     }
@@ -1824,7 +1825,7 @@ sub expand_model_object
     # XXX this might be a command, so also expand input and output elements
     foreach my $item ($object->findnodes('component|uniqueKey|parameter|'.
                                          'object|command|input|output|'.
-                                         'notification')) {
+                                         'event|notification')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_$element"->($context, $mnode, $nnode, $item);
     }
@@ -2034,22 +2035,36 @@ sub expand_model_arguments
     return $nnode;
 }
 
-# Expand a data model notification
+# Expand a data model event
 # XXX very basic; will be removing this?
+sub expand_model_event
+{
+    my ($context, $mnode, $pnode, $event) = @_;
+
+    my $nnode = expand_model_object $context, $mnode, $pnode, $event;
+    my $path = $nnode->{path};
+    my $fpath = util_full_path($nnode);
+    $fpath =~ s/\.$//;
+    $objects->{$fpath} = $nnode;
+    $nnode->{is_event} = 1;
+    return $nnode;
+}
+
+# Expand a data model notification
+# XXX very basic; will be removing this! especially as they're now called
+#     events
 sub expand_model_notification
 {
     my ($context, $mnode, $pnode, $notification) = @_;
 
-    my $nnode = expand_model_object $context, $mnode, $pnode, $notification;
-    $nnode->{is_notification} = 1;
-    return $nnode;
+    return expand_model_event $context, $mnode, $pnode, $notification;
 }
 
-sub is_notification
+sub is_event
 {
     my ($node) = @_;
     return 0 unless $node->{type};
-    return ($node->{is_notification} || is_notification($node->{pnode})) ? 1 : 0;
+    return ($node->{is_event} || is_event($node->{pnode})) ? 1 : 0;
 }
 
 # Expand a data model parameter.
@@ -2626,7 +2641,8 @@ sub expand_model_profile
     }
 
     # expand nested parameters and objects
-    foreach my $item ($profile->findnodes('parameter|object')) {
+    foreach my $item ($profile->findnodes('parameter|object'.
+                                          'command|event')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_profile_$element"->($context, $mnode,
                                           $nnode, $nnode, $item);
@@ -2837,6 +2853,18 @@ sub expand_model_profile_parameter
         my $fpath = util_full_path($Pnode);
         $profiles->{$fpath}->{$path} = $access;
     }
+}
+
+# Expand a data model profile event
+# XXX very basic; will be removing this?
+sub expand_model_profile_event
+{
+    my ($context, $mnode, $Pnode, $pnode, $event) = @_;
+    
+    my $nnode = expand_model_profile_object $context, $mnode, $Pnode, $pnode,
+        $event;
+    $nnode->{is_event} = 1;
+    return $nnode;
 }
 
 # Helper to add a data model if it doesn't already exist (if it does exist then
@@ -3136,7 +3164,7 @@ sub add_object
     # XXX should this be autobase rather than compare?
     $ref = $oldname if $compare && !$ref && $oldname;
 
-    # XXX for commands and notifications
+    # XXX for commands and events/notifications
     my $fudge = $pnode->{path} && $pnode->{path} !~ /\.$/ ? '.' : '';
     my $path = $pnode->{path} . $fudge . ($ref ? $ref : $name);
     $path .= '.' unless $path =~ /\.$/;
@@ -4927,7 +4955,7 @@ sub text_node
         my $type = type_string($node->{type}, $node->{syntax});
         $type = 'command' if $node->{is_command};
         $type = 'arguments' if $node->{is_arguments};
-        $type = 'notification' if $node->{is_notification};
+        $type = 'event' if $node->{is_event};
         print "  "x$indent . "$type $name" .
             ($base && $base ne $name ? ('(' . $base . ')') : '') .
             ($node->{access} && $node->{access} ne 'readOnly' ? ' (W)' : '') .
@@ -6577,8 +6605,8 @@ sub html_node
     my $parameter = $node->{syntax}; # pretty safe? not profile params...
     my $is_command = $node->{is_command};
     my $is_arguments = $node->{is_arguments};
-    my $is_notification = $node->{is_notification};
-    my $parameter_like = $parameter || $is_command || $is_notification;
+    my $is_event = $node->{is_event};
+    my $parameter_like = $parameter || $is_command || $is_event;
     $object = 0 if $parameter_like;
 
     my $changed = $node->{changed};
@@ -6620,7 +6648,7 @@ sub html_node
                      hidden => $node->{syntax}->{hidden},
                      command => $node->{syntax}->{command},
                      is_command => $is_command,
-                     is_notification => $is_notification,
+                     is_event => $is_event,
                      is_async => $node->{is_async},
                      notify => $node->{notify},
                      is_mandatory => $node->{is_mandatory},
@@ -6954,7 +6982,7 @@ END
         $trclass = $trclass ? qq{ class="$trclass"} : qq{};
 
 	my $tdclass = ($model | $object | $profile) ? 'o' : 'p';
-        $tdclass = 'c' if $is_command || $is_notification;
+        $tdclass = 'c' if $is_command || $is_event;
         $tdclass .= 'd' if $showdiffs && util_is_deleted($node);
 
         my $tdclasstyp = $tdclass;
@@ -7140,15 +7168,16 @@ END
         } elsif (!$html_profile_active) {
             my $anchor = html_create_anchor($node, 'path');
             $name = $anchor->{def} unless $nolinks;
-            if (is_command($node) || is_notification($node)) {
+            # XXX this deletes anchors for commands and events!
+            if (is_command($node) || is_event($node)) {
                 $name = $path;
                 $name =~ s/\.$//;
                 $name =~ s/\Q$node->{pnode}->{path}\E\.?//;
-                $name = '# ' . $name unless $is_command || $is_notification;
+                $name = '# ' . $name unless $is_command || $is_event;
             }
             $type = 'command' if $is_command;
             $type = 'arguments' if $is_arguments;
-            $type = 'notification' if $is_notification;
+            $type = 'event' if $is_event;
             # XXX would like syntax to be a link when it's a named data type
             print <<END if $object && !$nolinks;
           <li>$anchor->{ref}</li>
