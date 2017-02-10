@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2017-01-31 $};
-my $tool_id = q{$Id: report.pl 416 $};
+my $tool_vers_date = q{$Date: 2017-02-10 $};
+my $tool_id = q{$Id: report.pl 417 $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -4831,6 +4831,17 @@ sub find_file
     my $ffile = $file;
     my $fdir = '';
 
+    # first search for files with exactly the supplied name; if not found, and
+    # if the file name matches the requisite pattern, will search for the
+    # highest corrigendum number
+    foreach my $dir (@$dirs) {
+        if (-r File::Spec->catfile($dir, $ffile)) {
+            $fdir = $dir;
+            #tmsg "file=$file fdir=$fdir";
+            last;
+        }
+    }
+
     # support names of form name-i-a[-c][label].xml where name is of the form
     # "xx-nnn", i, a and c are numeric and label can't begin with a digit
     # XXX as experiment allow label to start with digit as long as it contains
@@ -4845,7 +4856,7 @@ sub find_file
     # (c) is undefined, search for the highest corrigendum number
     # note: this is only done if the supplied file doesn't exist; this is to
     #       ensure that existing "no corrigendum" files can be specified
-    if (!-r $file && defined $name && defined $i && defined $a && !defined $c){
+    if (!$fdir && defined $name && defined $i && defined $a && !defined $c){
         $label = '' unless defined $label;
         foreach my $dir (@$dirs) {
             my @files = File::Glob::bsd_glob(
@@ -4858,24 +4869,12 @@ sub find_file
                 if (defined $n && (!defined $c || $n > $c)) {
                     $c = $n;
                     $fdir = $dir;
+                    #tmsg "file=$file fdir=$dir c=$c";
                 }
             }
         }
         $c = defined($c) ? ('-' . $c) : '';
         $ffile = qq{$name-$i-$a$c$label.xml};
-    }
-
-    # otherwise, or if file with corrigendum number not found above, no need
-    # to look for highest corrigendum number, either because file name doesn't
-    # match pattern, e.g. it's unversioned, or because corrigendum number is
-    # defined; still need to search directories though
-    if (!$fdir) {
-        foreach my $dir (@$dirs) {
-            if (-r File::Spec->catfile($dir, $ffile)) {
-                $fdir = $dir;
-                last;
-            }
-        }
     }
 
     # form full path and convert to relative path
