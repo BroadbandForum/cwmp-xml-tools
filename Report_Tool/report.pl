@@ -2045,7 +2045,7 @@ sub expand_model_event
     my $path = $nnode->{path};
     my $fpath = util_full_path($nnode);
     $fpath =~ s/\.$//;
-    $objects->{$fpath} = $nnode;
+    $parameters->{$fpath} = $nnode;
     $nnode->{is_event} = 1;
     return $nnode;
 }
@@ -2641,7 +2641,7 @@ sub expand_model_profile
     }
 
     # expand nested parameters and objects
-    foreach my $item ($profile->findnodes('parameter|object'.
+    foreach my $item ($profile->findnodes('parameter|object|'.
                                           'command|event')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_profile_$element"->($context, $mnode,
@@ -2731,7 +2731,7 @@ sub expand_model_profile_object
     # XXX this isn't quite right; should use profile equivalent of add_path()
     #     to create intervening nodes; currently top-level parameters are in
     #     the wrong place in the hierarchy
-    foreach my $item ($object->findnodes('parameter|object')) {
+    foreach my $item ($object->findnodes('parameter|object|event')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_profile_$element"->($context, $mnode,
                                           $Pnode, $nnode, $item);
@@ -2789,7 +2789,7 @@ sub expand_model_profile_parameter
         }
         delete $Pnode->{errors}->{$path} if $status eq 'deleted';
         return;
-    } elsif ($access ne 'readOnly' &&
+    } elsif ($access && $access ne 'readOnly' &&
              $parameters->{$fpath}->{access} eq 'readOnly') {
 	emsg "profile $Pnode->{name} has invalid requirement ".
             "($access) for $path ($parameters->{$fpath}->{access})";
@@ -2855,14 +2855,14 @@ sub expand_model_profile_parameter
     }
 }
 
-# Expand a data model profile event
+# Expand a data model profile event.
 # XXX very basic; will be removing this?
 sub expand_model_profile_event
 {
     my ($context, $mnode, $Pnode, $pnode, $event) = @_;
     
-    my $nnode = expand_model_profile_object $context, $mnode, $Pnode, $pnode,
-        $event;
+    my $nnode = expand_model_profile_parameter $context, $mnode, $Pnode,
+        $pnode, $event;
     $nnode->{is_event} = 1;
     return $nnode;
 }
@@ -4865,7 +4865,6 @@ sub find_file
     foreach my $dir (@$dirs) {
         if (-r File::Spec->catfile($dir, $ffile)) {
             $fdir = $dir;
-            #tmsg "file=$file fdir=$fdir";
             last;
         }
     }
@@ -4897,7 +4896,6 @@ sub find_file
                 if (defined $n && (!defined $c || $n > $c)) {
                     $c = $n;
                     $fdir = $dir;
-                    #tmsg "file=$file fdir=$dir c=$c";
                 }
             }
         }
