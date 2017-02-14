@@ -1978,11 +1978,16 @@ sub expand_model_uniqueKey
 
 # Expand a data model command
 # XXX very basic...
+# XXX need to remove @notify support
 sub expand_model_command
 {
     my ($context, $mnode, $pnode, $command) = @_;
 
     my $nnode = expand_model_object $context, $mnode, $pnode, $command;
+    my $path = $nnode->{path};
+    my $fpath = util_full_path($nnode);
+    $fpath =~ s/\.$//;
+    $parameters->{$fpath} = $nnode;
     my $is_async = $command->findvalue('@async');
     my $notify = $command->findvalue('@notify') || 'OperationComplete';
     $nnode->{is_async} = $is_async;
@@ -2021,7 +2026,8 @@ sub expand_model_arguments
     my $path = $pnode->{path} . $name;
     my $type = 'object';
     my $access = 'readOnly';
-    my $description = ucfirst($which) . ' arguments.';
+    my $description = $arguments->findvalue('description');
+    $description = (ucfirst($which) . ' arguments.') unless $description;
     my $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
                  path => $path, type => $type, is_arguments => 1,
                  access => $access, description => $description};
@@ -2731,7 +2737,7 @@ sub expand_model_profile_object
     # XXX this isn't quite right; should use profile equivalent of add_path()
     #     to create intervening nodes; currently top-level parameters are in
     #     the wrong place in the hierarchy
-    foreach my $item ($object->findnodes('parameter|object|event')) {
+    foreach my $item ($object->findnodes('parameter|object|command|event')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_profile_$element"->($context, $mnode,
                                           $Pnode, $nnode, $item);
@@ -2853,6 +2859,18 @@ sub expand_model_profile_parameter
         my $fpath = util_full_path($Pnode);
         $profiles->{$fpath}->{$path} = $access;
     }
+}
+
+# Expand a data model profile command.
+# XXX very basic; will be removing this?
+sub expand_model_profile_command
+{
+    my ($context, $mnode, $Pnode, $pnode, $command) = @_;
+    
+    my $nnode = expand_model_profile_parameter $context, $mnode, $Pnode,
+        $pnode, $command;
+    $nnode->{is_command} = 1;
+    return $nnode;
 }
 
 # Expand a data model profile event.
@@ -7774,8 +7792,9 @@ sub html_template
               q{The value of this parameter is not part of the device }.
               q{configuration and is always {{null}} when read.}},
          {name => 'nocommand', text0 => q{}},
+         # XXX async used to include p->{notify} but this is being removed
          {name => 'async',
-          text0 => q{{{marktemplate|async}}'''[ASYNC &rarr; $p->{notify}]'''}},
+          text0 => q{{{marktemplate|async}}'''[ASYNC]'''}},
          {name => 'noasync', text0 => q{}},
          {name => 'mandatory',
           text0 => q{{{marktemplate|mandatory}}'''[MANDATORY]'''}},
