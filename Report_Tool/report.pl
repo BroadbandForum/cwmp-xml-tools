@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2015, 2016  Broadband Forum
+# Copyright (C) 2015, 2016, 2017  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -284,6 +284,7 @@ our $exitcode = undef;
 our $help = 0;
 our $ignore = undef;
 our $importsuffix = '';
+our $ignoreinputoutputinpaths = 0;
 our $includes = [];
 our $info = 0;
 our $lastonly = 0;
@@ -361,6 +362,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'exitcode:s' => \$exitcode,
 	   'help' => \$help,
            'ignore:s' => \$ignore,
+           'ignoreinputoutputinpaths' => \$ignoreinputoutputinpaths,
            'importsuffix:s' => \$importsuffix,
            'include:s@' => \$includes,
 	   'info' => \$info,
@@ -825,8 +827,10 @@ sub expand_toplevel
     # from an external file; this avoids special cases)
     # XXX need to keep track of context in which the import was performed,
     #     so can reproduce import statements when generating XML
-    foreach my $item ($toplevel->findnodes('dataType|component|model')) {
+    foreach my $item ($toplevel->findnodes('dataType|.//Component|component|'.
+                                           'model')) {
         my $element = $item->findvalue('local-name()');
+        $element = 'component' if $element eq 'Component';
         my $name = $item->findvalue('@name');
 
         if ($element eq 'model' && !model_matches($name)) {
@@ -990,8 +994,10 @@ sub expand_import
 
     # if already read file, just add the imports to the current namespace
     if ($files->{$file}) {
-        foreach my $item ($import->findnodes('dataType|component|model')) {
+        foreach my $item ($import->findnodes('dataType|.//Component|'.
+                                             'component|model')) {
             my $element = $item->findvalue('local-name()');
+            $element = 'component' if $element eq 'Component';
             my $name = $item->findvalue('@name');
             my $ref = $item->findvalue('@ref');
             $ref = $name unless $ref;
@@ -1052,8 +1058,10 @@ sub expand_import
 
     # collect top-level item declarations
     my @models = ();
-    foreach my $item ($toplevel->findnodes('dataType|component|model')) {
+    foreach my $item ($toplevel->findnodes('dataType|.//Component|component|'.
+                                           'model')) {
         my $element = $item->findvalue('local-name()');
+        $element = 'component' if $element eq 'Component';
         my $name = $item->findvalue('@name');
         my $ref = $item->findvalue('@base');
         # DO NOT default ref to name here; empty ref indicates an initial
@@ -1094,8 +1102,10 @@ sub expand_import
     expand_bibliography($context, $root, $bibliography) if $bibliography;
 
     # find imported items in the imported file
-    foreach my $item ($import->findnodes('dataType|component|model')) {
+    foreach my $item ($import->findnodes('dataType|.//Component|component|'.
+                                         'model')) {
         my $element = $item->findvalue('local-name()');
+        $element = 'component' if $element eq 'Component';
 	my $name = $item->findvalue('@name');
 	my $ref = $item->findvalue('@ref');
         $ref = $name unless $ref;
@@ -1125,7 +1135,7 @@ sub expand_import
         if ($fitem) {
             d0msg "{$file}$ref: $element already found in $dfile";
         } elsif ($dfile eq $file) {
-            ($fitem) = $toplevel->findnodes(qq{$element\[\@name="$ref"\]});
+            ($fitem) = $toplevel->findnodes(qq{.//$element\[\@name="$ref"\]});
         } else {
             (my $ddir, $dfile, my $corr) = find_file($dfile.'.xml', $ddir);
             # XXX not sure that we want $depth here; we are already one level
@@ -2023,14 +2033,20 @@ sub expand_model_arguments
     my ($context, $mnode, $pnode, $arguments, $which) = @_;
 
     my $name = ucfirst($which) . '.';
-    my $path = $pnode->{path} . $name;
+    # XXX if requested, ignore "Input." and "Output." in the path names;
+    #     this allows existing parameter and object references to continue to
+    #     work but means that there can't be an input and an output argument
+    #     with the same name
+    my $path = $pnode->{path};
+    $path .= $name unless $ignoreinputoutputinpaths;
     my $type = 'object';
     my $access = 'readOnly';
     my $description = $arguments->findvalue('description');
     $description = (ucfirst($which) . ' arguments.') unless $description;
     my $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
                  path => $path, type => $type, is_arguments => 1,
-                 access => $access, description => $description};
+                 access => $access, description => $description,
+                 dynamic => 0};
     push @{$pnode->{nodes}}, $nnode;
     
     foreach my $item ($arguments->findnodes('component|parameter|object')) {
@@ -2859,6 +2875,9 @@ sub expand_model_profile_parameter
         my $fpath = util_full_path($Pnode);
         $profiles->{$fpath}->{$path} = $access;
     }
+
+    #XXX this is just for expand_model_profile_(command|event)
+    return $nnode;
 }
 
 # Expand a data model profile command.
@@ -2869,8 +2888,7 @@ sub expand_model_profile_command
     
     my $nnode = expand_model_profile_parameter $context, $mnode, $Pnode,
         $pnode, $command;
-    $nnode->{is_command} = 1;
-    return $nnode;
+    $nnode->{is_command} = 1 if $nnode;
 }
 
 # Expand a data model profile event.
@@ -2881,8 +2899,7 @@ sub expand_model_profile_event
     
     my $nnode = expand_model_profile_parameter $context, $mnode, $Pnode,
         $pnode, $event;
-    $nnode->{is_event} = 1;
-    return $nnode;
+    $nnode->{is_event} = 1 if $nnode;
 }
 
 # Helper to add a data model if it doesn't already exist (if it does exist then
@@ -6600,9 +6617,14 @@ sub html_node
     my $fontdel = qq{color: red;};
 
     # others
+    # XXX command, argobject and argparam are also used by events ("arguments"
+    #     is only used for commands)
     my $sup_valign = qq{vertical-align: super;};
     my $object_bg = qq{background-color: rgb(255, 255, 153);};
-    my $command_bg = qq{background-color: rgb(100, 200, 200);};
+    my $command_bg = qq{background-color: rgb(0, 150, 200);};
+    my $arguments_bg = qq{background-color: rgb(75, 125, 225);};
+    my $argobject_bg = qq{background-color: rgb(50, 200, 255);};
+    my $argparam_bg = qq{background-color: rgb(50, 225, 255);};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
     # foo_oc (open comment) and foo_cc (close comment) control generation of
@@ -6619,10 +6641,12 @@ sub html_node
     my $object = ($node->{type} =~ /object/);
     my $profile = ($node->{type} =~ /profile/);
     my $parameter = $node->{syntax}; # pretty safe? not profile params...
-    my $is_command = $node->{is_command};
-    my $is_arguments = $node->{is_arguments};
-    my $is_event = $node->{is_event};
+    my $is_command = $node->{is_command} ? 1 : 0;
+    my $is_arguments = $node->{is_arguments} ? 1 : 0;
+    my $is_event = $node->{is_event} ? 1 : 0;
+    # XXX experiment: commands and events are more object-like!
     my $parameter_like = $parameter || $is_command || $is_event;
+    $parameter_like = $parameter;
     $object = 0 if $parameter_like;
 
     my $changed = $node->{changed};
@@ -6748,20 +6772,38 @@ $do_not_edit
       tr.n { $row $font $fontnew }
       td.o { $row $font $object_bg }
       td.c { $row $font $command_bg }
+      td.d { $row $font $arguments_bg }
+      td.e { $row $font $argobject_bg }
+      td.f { $row $font $argparam_bg }
       td, td.p { $row $font }
       td.oc { $row $font $object_bg $center }
       td.cc { $row $font $command_bg $center }
+      td.dc { $row $font $arguments_bg $center }
+      td.ec { $row $font $argobject_bg $center }
+      td.fc { $row $font $argparam_bg $center }
       td.pc { $row $font $center }
       td.on { $row $font $object_bg $fontnew }
       td.cn { $row $font $command_bg $fontnew }
+      td.dn { $row $font $arguments_bg $fontnew }
+      td.en { $row $font $argobject_bg $fontnew }
+      td.fn { $row $font $argparam_bg $fontnew }
       td.od { $row $font $object_bg $fontdel $strike }
       td.cd { $row $font $command_bg $fontdel $strike }
+      td.dd { $row $font $arguments_bg $fontdel $strike }
+      td.ed { $row $font $argobject_bg $fontdel $strike }
+      td.fd { $row $font $argparam_bg $fontdel $strike }
       td.pn { $row $font $fontnew }
       td.pd { $row $font $fontdel $strike }
       td.onc { $row $font $object_bg $fontnew $center }
       td.odc { $row $font $object_bg $fontdel $strike $center }
       td.cnc { $row $font $command_bg $fontnew $center }
       td.cdc { $row $font $command_bg $fontdel $strike $center }
+      td.dnc { $row $font $arguments_bg $fontnew $center }
+      td.ddc { $row $font $arguments_bg $fontdel $strike $center }
+      td.edc { $row $font $argobject_bg $fontdel $strike $center }
+      td.enc { $row $font $argobject_bg $fontnew $center }
+      td.fdc { $row $font $argparam_bg $fontdel $strike $center }
+      td.fnc { $row $font $argparam_bg $fontnew $center }
       td.pnc { $row $font $fontnew $center }
       td.pdc { $row $font $fontdel $strike $center }
       $hyperlink
@@ -6998,7 +7040,21 @@ END
         $trclass = $trclass ? qq{ class="$trclass"} : qq{};
 
 	my $tdclass = ($model | $object | $profile) ? 'o' : 'p';
-        $tdclass = 'c' if $is_command || $is_event;
+
+        # XXX so horrible; need to redo class/style support! currently:
+        #     - c : the actual command or event
+        #     - d : input/output container
+        #     - e : object argument
+        #     - f : parameter argument
+        if ($is_command || $is_event) {
+            $tdclass = 'c';
+        } elsif (is_command($node) || is_event($node)) {
+            if ($tdclass eq 'o') {
+                $tdclass = $is_arguments ? 'd' : 'e';
+            } else {
+                $tdclass = 'f';
+            }
+        }
         $tdclass .= 'd' if $showdiffs && util_is_deleted($node);
 
         my $tdclasstyp = $tdclass;
@@ -12471,6 +12527,7 @@ sub sanity_node
         $numEntriesParameter = $parameters->{$fppath.$numEntriesParameter} if
             $numEntriesParameter;
         if (!$is_dt && $multi && !$fixed && !$nowarnnumentries &&
+            !is_command($node) && !is_event($node) &&
             (!$numEntriesParameter ||
              (!$hidden && $numEntriesParameter->{hidden}))) {
             emsg "$path: missing or invalid numEntriesParameter ($temp)";
@@ -12584,6 +12641,7 @@ sub sanity_node
         #&& !($syntax->{list} && $default eq '');
 
         emsg "$path: weak reference parameter is not writable" if
+            !is_command($node) && !is_event($node) &&
             $syntax->{refType} && $syntax->{refType} eq 'weak' && 
             $access eq 'readOnly';
 
@@ -12594,9 +12652,13 @@ sub sanity_node
     }
 
     # profile sanity checks
+    # XXX allow "abstract profiles" that reference objects that aren't defined
+    #     when the profile is defined, but are defined later
     if ($profile && !$automodel) {
         foreach my $path (sort keys %{$node->{errors}}) {
-            emsg "profile $name references invalid $path";
+            my $fpath = util_full_path($node, 1) . $path;
+            emsg "profile $name references invalid $path"
+                unless $objects->{$fpath};
         }
     }
 }
@@ -12637,13 +12699,15 @@ sub report_node
     # 2. parameter (and parameterRef)
     # 3. object (and objectRef)
     # 4. profile
+    # XXX commands and events are honorary parameters here
     my $sorted = {};
     foreach my $child (@{$node->{nodes}}) {
         my $type = $child->{type};
         if ($type eq 'model') {
             push @{$sorted->{model}}, $child if !$nomodels ||
                 ($autogenerated && $child->{name} =~ /^$autogenerated/);
-        } elsif ($type =~ /^object/) {
+        } elsif ($type =~ /^object/ &&
+                 !$child->{is_command} && !$child->{is_event}) {
             push @{$sorted->{object}}, $child;
         } elsif ($type eq 'profile') {
             push @{$sorted->{profile}}, $child unless $noprofiles;
