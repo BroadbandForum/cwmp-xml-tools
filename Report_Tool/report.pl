@@ -2505,14 +2505,9 @@ sub expand_model_profile
 
     # XXX the above logic was breaking when generating "flattened" XML, so
     #     disable when base or extends is defined
-    $previous = undef if $base || $extends;
-
-    # if the context contains "previousProfile", it's from a component
-    # reference, and applies only to the first profile
-    if ($context->[0]->{previousProfile}) {
-        $previous = $context->[0]->{previousProfile};
-        undef $context->[0]->{previousProfile};
-    }
+    # XXX well disabling might have fixed something, but it broke something
+    #     else, and sent lots of profiles to the end! so disabled it again
+    #$previous = undef if $base || $extends;
 
     # XXX use mnode rather than pnode, because of problems when expanding
     #     profile components with paths (need to explain this!)
@@ -2535,6 +2530,13 @@ sub expand_model_profile
         #     enough
         #return;
     } else {
+        # if the context contains "previousProfile", it's from a component
+        # reference, and applies only to the first new profile
+        if ($context->[0]->{previousProfile}) {
+            $previous = $context->[0]->{previousProfile} unless $previous;
+            undef $context->[0]->{previousProfile};
+        }
+
         # if base specified, find base profile
         my $baseprof;
         my $baseauto = 0;
@@ -3180,13 +3182,6 @@ sub add_object
     my $Lfile = $context->[0]->{lfile};
     my $Lspec = $context->[0]->{lspec};
 
-    # if the context contains "previousObject", it's from a component
-    # reference, and applies only to the first object
-    if ($context->[0]->{previousObject}) {
-        $previous = $context->[0]->{previousObject};
-        undef $context->[0]->{previousObject};
-    }
-
     $ref = '' unless $ref;
     $auto = 0 unless $auto;
     $access = 'readOnly' unless $access;
@@ -3350,6 +3345,13 @@ sub add_object
         # XXX unconditionally keep track of files in which node was seen
         $nnode->{sfile} = $Lfile;
     } else {
+        # if the context contains "previousObject", it's from a component
+        # reference, and applies only to the first new object
+        if ($context->[0]->{previousObject}) {
+            $previous = $context->[0]->{previousObject} unless $previous;
+            undef $context->[0]->{previousObject};
+        }
+
         emsg "unnamed object (after $previouspath)" unless $name;
         w0msg "$name: invalid description action: $descact"
             if !$autobase && $descact && $descact ne 'create';
@@ -3438,13 +3440,6 @@ sub add_parameter
     my $spec = $context->[0]->{spec};
     my $Lfile = $context->[0]->{lfile};
     my $Lspec = $context->[0]->{lspec};
-
-    # if the context contains "previousParameter", it's from a component
-    # reference, and applies only to the first parameter
-    if ($context->[0]->{previousParameter}) {
-        $previous = $context->[0]->{previousParameter};
-        undef $context->[0]->{previousParameter};
-    }
 
     $ref = '' unless $ref;
     # don't default data type
@@ -3839,6 +3834,13 @@ sub add_parameter
         # XXX unconditionally keep track of files in which node was seen
         $nnode->{sfile} = $Lfile;
     } else {
+        # if the context contains "previousParameter", it's from a component
+        # reference, and applies only to the first new parameter
+        if ($context->[0]->{previousParameter}) {
+            $previous = $context->[0]->{previousParameter} unless $previous;
+            undef $context->[0]->{previousParameter};
+        }
+
         emsg "$path: unnamed parameter" unless $name;
         emsg "$path: untyped parameter" unless $type || $auto;
         w0msg "$path: invalid description action: $descact"
@@ -6429,6 +6431,7 @@ sub html_create_anchor
     # model-specific anchors, i.e. heading, path, value, profile and profoot
 
     my $node = $opts->{node};
+    my $text = $opts->{text};
 
     # validate type (any error is a programming error)
     my $types = ['heading', 'datatype', 'bibref', 'path', 'value',
@@ -6480,6 +6483,9 @@ sub html_create_anchor
         # XXX nor is this
         $label = ++$Pnode->{html_profoot_num};
     }
+
+    # override label if requested
+    $label = $text if $text;
 
     # form the anchor name
     my $aname = qq{$namespace_prefix$name};
@@ -6621,8 +6627,8 @@ sub html_node
     #     is only used for commands)
     my $sup_valign = qq{vertical-align: super;};
     my $object_bg = qq{background-color: rgb(255, 255, 153);};
-    my $command_bg = qq{background-color: rgb(0, 150, 200);};
-    my $arguments_bg = qq{background-color: rgb(75, 125, 225);};
+    my $command_bg = qq{background-color: rgb(75, 125, 225);};
+    my $arguments_bg = qq{background-color: rgb(0, 150, 200);};
     my $argobject_bg = qq{background-color: rgb(50, 200, 255);};
     my $argparam_bg = qq{background-color: rgb(50, 225, 255);};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
@@ -6644,10 +6650,7 @@ sub html_node
     my $is_command = $node->{is_command} ? 1 : 0;
     my $is_arguments = $node->{is_arguments} ? 1 : 0;
     my $is_event = $node->{is_event} ? 1 : 0;
-    # XXX experiment: commands and events are more object-like!
     my $parameter_like = $parameter || $is_command || $is_event;
-    $parameter_like = $parameter;
-    $object = 0 if $parameter_like;
 
     my $changed = $node->{changed};
     my $history = $node->{history};
@@ -7238,20 +7241,30 @@ END
 
         if ($model || $profile) {
         } elsif (!$html_profile_active) {
-            my $anchor = html_create_anchor($node, 'path');
-            $name = $anchor->{def} unless $nolinks;
-            # XXX this deletes anchors for commands and events!
-            if (is_command($node) || is_event($node)) {
-                $name = $path;
-                $name =~ s/\.$//;
-                $name =~ s/\Q$node->{pnode}->{path}\E\.?//;
-                $name = '# ' . $name unless $is_command || $is_event;
+            my $tname = '';
+            my $core = is_command($node) || is_event($node);
+            # modify displayed name for commands and event arguments (just the
+            # name, not the full path)
+            if ($core) {
+                $tname = $node->{name};
+                $tname = '&mdash; ' . $tname unless $is_command || $is_event;
             }
+            # account for --ignoreinputoutputinpaths, which means that
+            # arguments 'input'/'output' path is the same as its parent
+            my $anchor;
+            if ($node->{path} ne $node->{pnode}->{path}) {
+                $anchor = html_create_anchor($node, 'path',
+                                                {text => $tname});
+            } else {
+                # the logic dictates that this ref will never be used
+                $anchor = {def => ($tname ? $tname : $name), ref => 'ignore'};
+            }
+            $name = $anchor->{def} unless $nolinks;
             $type = 'command' if $is_command;
             $type = 'arguments' if $is_arguments;
             $type = 'event' if $is_event;
             # XXX would like syntax to be a link when it's a named data type
-            print <<END if $object && !$nolinks;
+            print <<END if $object && !$core && !$nolinks;
           <li>$anchor->{ref}</li>
 END
             my $tspecs = $specs;
@@ -8607,10 +8620,29 @@ sub html_template_paramref
     w0msg "$object$param: {{param}} argument is unnecessary when ".
         "referring to current parameter" if $name eq $param;
 
+    my $oname = $name;
     (my $path, $name) = relative_path($object, $name, $scope);
     my $mpref = util_full_path($opts->{node}, 1);
     my $fpath = $mpref . $path;
     my $invalid = util_is_defined($parameters, $fpath) ? '' : '?';
+    # XXX special case for commands and events: they are parameter-like but
+    #     also object-like, in that they have argument children; so if failed
+    #     to find peer parameter, look for argument child; THIS INTRODUCES AN
+    #     AMBIGUITY
+    if ($invalid) {
+        foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
+            my $tobject = qq{$object$param$suffix.};
+            my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
+            my $tfpath = $mpref . $tpath;
+            if (util_is_defined($parameters, $tfpath)) {
+                $path = $tpath;
+                $name = $tname;
+                $fpath = $tfpath;
+                $invalid = '';
+                last;
+            }
+        }
+    }
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
     # XXX don't warn further if this item has been deleted
@@ -8665,6 +8697,7 @@ sub html_template_objectref
     w0msg "$object$param: {{object}} argument unnecessary when ".
         "referring to current object" if $name && $name eq $object;
 
+    my $oname = $name;
     (my $path, $name) = relative_path($object, $name, $scope);
     my $path1 = $path;
     $path1 .= '.' if $path1 !~ /\.$/;
@@ -8683,6 +8716,30 @@ sub html_template_objectref
     return qq{''$name''} if $path =~ /^\.Services\./;
 
     my $invalid = util_is_defined($objects, $fpath) ? '' : '?';
+    # XXX special case for commands and events: they are parameter-like but
+    #     also object-like, in that they have argument children; so if failed
+    #     to find peer parameter, look for argument child; THIS INTRODUCES AN
+    #     AMBIGUITY
+    if ($invalid) {
+        foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
+            my $tobject = qq{$object$param$suffix.};
+            my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
+            my $tpath1 = $tpath;
+            $tpath1 .= '.' if $tpath1 !~ /\.$/;
+            my $tpath2 = $tpath1;
+            $tpath2 .= '{i}.' if $tpath2 !~ /\{i\}\.$/;
+            $tpath = $tpath1 if util_is_defined($objects, $mpref.$tpath1);
+            $tpath = $tpath2 if util_is_defined($objects, $mpref.$tpath2);
+            my $tfpath = $mpref . $tpath;
+            if (util_is_defined($objects, $tfpath)) {
+                $path = $tpath;
+                $name = $tname;
+                $fpath = $tfpath;
+                $invalid = '';
+                last;
+            }
+        }
+    }
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
     # XXX don't warn further if this item has been deleted
