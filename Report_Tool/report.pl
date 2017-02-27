@@ -268,6 +268,7 @@ our $automodel = 0;
 our $bibrefdocfirst = 0;
 our $canonical = 0;
 our $catalogs = [];
+our $commandcolors = [];
 our $compare = 0;
 our $components = 0;
 our $configfile = '';
@@ -347,6 +348,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'bibrefdocfirst' => \$bibrefdocfirst,
            'canonical' => \$canonical,
            'catalog:s@' => \$catalogs,
+           'commandcolor:s@' => \$commandcolors,
            'compare' => \$compare,
            'components' => \$components,
            'configfile:s' => \$configfile,
@@ -684,6 +686,14 @@ $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
         }
     }
 }
+
+# XXX temporary commandcolors are the background colors for commands,
+#     arguments (i.e. "Input" and "Output"), argument objects and argument
+#     parameters respectively (also apply to events)
+push @$commandcolors, "rgb(75, 125, 225)" if @$commandcolors < 1;
+push @$commandcolors, "rgb(0, 150, 200)"  if @$commandcolors < 2;
+push @$commandcolors, "rgb(50, 200, 255)" if @$commandcolors < 3;
+push @$commandcolors, "rgb(50, 225, 255)" if @$commandcolors < 4;
 
 # configfile used to be set via $options->{configfile} but now can be set via
 # $configfile; if both are set, the newer $configfile wins, but warn
@@ -2055,6 +2065,14 @@ sub expand_model_arguments
     }
 
     return $nnode;
+}
+
+sub is_arginput
+{
+    my ($node) = @_;
+    return 0 unless $node->{type};
+    return ($node->{name} eq 'Input.') if $node->{is_arguments};
+    return is_arginput($node->{pnode});
 }
 
 # Expand a data model event
@@ -6627,10 +6645,10 @@ sub html_node
     #     is only used for commands)
     my $sup_valign = qq{vertical-align: super;};
     my $object_bg = qq{background-color: rgb(255, 255, 153);};
-    my $command_bg = qq{background-color: rgb(75, 125, 225);};
-    my $arguments_bg = qq{background-color: rgb(0, 150, 200);};
-    my $argobject_bg = qq{background-color: rgb(50, 200, 255);};
-    my $argparam_bg = qq{background-color: rgb(50, 225, 255);};
+    my $command_bg = qq{background-color: $commandcolors->[0];};
+    my $arguments_bg = qq{background-color: $commandcolors->[1];};
+    my $argobject_bg = qq{background-color: $commandcolors->[2];};
+    my $argparam_bg = qq{background-color: $commandcolors->[3];};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
     # foo_oc (open comment) and foo_cc (close comment) control generation of
@@ -7246,8 +7264,9 @@ END
             # modify displayed name for commands and event arguments (just the
             # name, not the full path)
             if ($core) {
+                my $arrow = is_arginput($node) ? '&rArr;' : '&lArr;';
                 $tname = $node->{name};
-                $tname = '&mdash; ' . $tname unless $is_command || $is_event;
+                $tname = "$arrow " . $tname unless $is_command || $is_event;
             }
             # account for --ignoreinputoutputinpaths, which means that
             # arguments 'input'/'output' path is the same as its parent
