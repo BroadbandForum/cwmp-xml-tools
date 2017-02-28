@@ -2067,12 +2067,13 @@ sub expand_model_arguments
     return $nnode;
 }
 
-sub is_arginput
+# returns False for event arguments, so they are correctly treated as inputs
+sub is_argoutput
 {
     my ($node) = @_;
     return 0 unless $node->{type};
-    return ($node->{name} eq 'Input.') if $node->{is_arguments};
-    return is_arginput($node->{pnode});
+    return ($node->{name} eq 'Output.') if $node->{is_arguments};
+    return is_argoutput($node->{pnode});
 }
 
 # Expand a data model event
@@ -7264,7 +7265,7 @@ END
             # modify displayed name for commands and event arguments (just the
             # name, not the full path)
             if ($core) {
-                my $arrow = is_arginput($node) ? '&rArr;' : '&lArr;';
+                my $arrow = is_argoutput($node) ? '&lArr;' : '&rArr;';
                 $tname = $node->{name};
                 $tname = "$arrow " . $tname unless $is_command || $is_event;
             }
