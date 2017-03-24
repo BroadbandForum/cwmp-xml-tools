@@ -2053,9 +2053,13 @@ sub expand_model_arguments
     my $access = 'readOnly';
     my $description = $arguments->findvalue('description');
     $description = (ucfirst($which) . ' arguments.') unless $description;
+    my ($majorVersion, $minorVersion) = dmr_version($arguments);
+    $majorVersion = $mnode->{majorVersion} unless defined $majorVersion;
+    $minorVersion = $mnode->{minorVersion} unless defined $minorVersion;
     my $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
                  path => $path, type => $type, is_arguments => 1,
                  access => $access, description => $description,
+                 majorVersion => $majorVersion, minorVersion => $minorVersion,
                  dynamic => 0};
     push @{$pnode->{nodes}}, $nnode;
     
