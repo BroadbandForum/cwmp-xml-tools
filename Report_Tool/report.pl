@@ -185,7 +185,7 @@ use utf8;
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2017-02-10 $};
-my $tool_id = q{$Id: report.pl 417 $};
+my $tool_id = q{$Id: report.pl 417+ $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -338,6 +338,7 @@ our $upnpdm = 0;
 our $verbose = undef;
 our $warnbibref = undef;
 our $warndupbibref = 0;
+our $noxmllink = 0;
 our $writonly = 0;
 GetOptions('allbibrefs' => \$allbibrefs,
            'autobase' => \$autobase,
@@ -416,6 +417,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
 	   'verbose:i' => \$verbose,
            'warnbibref:i' => \$warnbibref,
            'warndupbibref' => \$warndupbibref,
+           'noxmllink' => \$noxmllink,
 	   'writonly' => \$writonly) or pod2usage(2);
 pod2usage(2) if $report && $special;
 pod2usage(1) if $help;
@@ -6643,7 +6645,7 @@ sub html_node
         my $title = qq{%%%%};
         my $any = $objpat || $lastonly || $showdiffs || $canonical;
         $title .= qq{ (} if $any;
-	$title .= qq{$objpat, } if $objpat;
+        $title .= qq{$objpat, } if $objpat;
         $title .= qq{changes, } if $lastonly;
         $title .= qq{differences, } if $showdiffs;
         $title .= qq{canonical, } if $canonical;
@@ -6653,7 +6655,11 @@ sub html_node
         my $sep = $filename2 ? qq{ -> } : qq{};
         my $title_link = $title;
         $title =~ s/%%%%/$filename1$sep$filename2/;
-        $title_link =~ s/%%%%/$filelink1$sep$filelink2/;
+        if ($noxmllink) {
+            $title_link = qq{};
+        } else {
+            $title_link =~ s/%%%%/$filelink1$sep$filelink2/;
+        }
         my $logo = qq{<a href="${logoref}"><img width="100%" src="${logosrc}" alt="${logoalt}" style="border:0px;"/></a>};
         my ($preamble, $notice) = html_notice($first_comment);
         $preamble .= qq{<br>} if $preamble;
