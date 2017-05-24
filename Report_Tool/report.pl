@@ -7503,9 +7503,11 @@ sub html_notice
     # returned to the caller); text following the notice is taken until the
     # next "[\w\s]+:" line
     # (process line by line so can format paragraphs)
+    # XXX a "Copyright " line is also permitted and is handled similarly
     my $in_list = 0;
     my $in_list_ever = 0;
     my $seen_notice = 0;
+    my $seen_copyright = 0;
     my $seen_terminator = 0;
     foreach my $line (split /\n/, $comment) {
 
@@ -7514,22 +7516,29 @@ sub html_notice
         $line =~ s/\s*//;
 
         # look for start of text to be used
-        if (!$seen_notice) {
+        if (!$seen_notice && !$seen_copyright) {
             $seen_notice = ($line =~ /^Notice:$/);
-            if (!$seen_notice) {
+            $seen_copyright = ($line =~ /^Copyright /);
+            if (!$seen_notice && !$seen_copyright) {
                 my $sep = $preamble ? qq{<br>} : qq{};
                 $preamble .= qq{$sep$line} if $line;
-            } else {
+            } elsif ($seen_notice) {
                 $text .= qq{<h1>Notice</h1>\n};
+            } else {
+                $text .= qq{<h1>License</h1>\n};
+                $text .= qq{$line\n};
             }
         }
 
         # look for end of text to be used
         elsif (!$seen_terminator) {
             $seen_terminator = ($line =~ /^[\w\s]+:$/);
+            # XXX horrible hack for the new BSD license
+            $seen_terminator = 0 if $line =~ / met:$/;
             if (!$seen_terminator) {
 
                 # using this text; look for list item
+                # XXX doesn't yet handle numbered lists in new BSD license
                 my ($item) = ($line =~ /^\((\w)\)/);
 
                 # blank line is end of list (if active) and of paragraph
