@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2015, 2016  Broadband Forum
+# Copyright (C) 2015, 2016, 2017  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -268,6 +268,7 @@ our $automodel = 0;
 our $bibrefdocfirst = 0;
 our $canonical = 0;
 our $catalogs = [];
+our $commandcolors = [];
 our $compare = 0;
 our $components = 0;
 our $configfile = '';
@@ -284,6 +285,7 @@ our $exitcode = undef;
 our $help = 0;
 our $ignore = undef;
 our $importsuffix = '';
+our $ignoreinputoutputinpaths = 0;
 our $includes = [];
 our $info = 0;
 our $lastonly = 0;
@@ -347,6 +349,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'bibrefdocfirst' => \$bibrefdocfirst,
            'canonical' => \$canonical,
            'catalog:s@' => \$catalogs,
+           'commandcolor:s@' => \$commandcolors,
            'compare' => \$compare,
            'components' => \$components,
            'configfile:s' => \$configfile,
@@ -362,6 +365,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'exitcode:s' => \$exitcode,
 	   'help' => \$help,
            'ignore:s' => \$ignore,
+           'ignoreinputoutputinpaths' => \$ignoreinputoutputinpaths,
            'importsuffix:s' => \$importsuffix,
            'include:s@' => \$includes,
 	   'info' => \$info,
@@ -685,6 +689,14 @@ $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
     }
 }
 
+# XXX temporary commandcolors are the background colors for commands,
+#     arguments (i.e. "Input" and "Output"), argument objects and argument
+#     parameters respectively (also apply to events)
+push @$commandcolors, "rgb(75, 125, 225)" if @$commandcolors < 1;
+push @$commandcolors, "rgb(0, 150, 200)"  if @$commandcolors < 2;
+push @$commandcolors, "rgb(50, 200, 255)" if @$commandcolors < 3;
+push @$commandcolors, "rgb(50, 225, 255)" if @$commandcolors < 4;
+
 # configfile used to be set via $options->{configfile} but now can be set via
 # $configfile; if both are set, the newer $configfile wins, but warn
 if ($options->{configfile}) {
@@ -827,8 +839,10 @@ sub expand_toplevel
     # from an external file; this avoids special cases)
     # XXX need to keep track of context in which the import was performed,
     #     so can reproduce import statements when generating XML
-    foreach my $item ($toplevel->findnodes('dataType|component|model')) {
+    foreach my $item ($toplevel->findnodes('dataType|.//Component|component|'.
+                                           'model')) {
         my $element = $item->findvalue('local-name()');
+        $element = 'component' if $element eq 'Component';
         my $name = $item->findvalue('@name');
 
         if ($element eq 'model' && !model_matches($name)) {
@@ -908,8 +922,8 @@ sub expand_toplevel
 
             d0msg "referencing component: $name";
             foreach my $item ($component->findnodes(
-                                  'component|parameter|'.
-                                  'object|command|notification|profile')){
+                                  'component|parameter|object|'.
+                                  'command|event|notification|profile')){
                 my $element = $item->findvalue('local-name()');
                 "expand_model_$element"->($context, $nnode, $nnode, $item);
             }
@@ -992,8 +1006,10 @@ sub expand_import
 
     # if already read file, just add the imports to the current namespace
     if ($files->{$file}) {
-        foreach my $item ($import->findnodes('dataType|component|model')) {
+        foreach my $item ($import->findnodes('dataType|.//Component|'.
+                                             'component|model')) {
             my $element = $item->findvalue('local-name()');
+            $element = 'component' if $element eq 'Component';
             my $name = $item->findvalue('@name');
             my $ref = $item->findvalue('@ref');
             $ref = $name unless $ref;
@@ -1054,8 +1070,10 @@ sub expand_import
 
     # collect top-level item declarations
     my @models = ();
-    foreach my $item ($toplevel->findnodes('dataType|component|model')) {
+    foreach my $item ($toplevel->findnodes('dataType|.//Component|component|'.
+                                           'model')) {
         my $element = $item->findvalue('local-name()');
+        $element = 'component' if $element eq 'Component';
         my $name = $item->findvalue('@name');
         my $ref = $item->findvalue('@base');
         # DO NOT default ref to name here; empty ref indicates an initial
@@ -1096,8 +1114,10 @@ sub expand_import
     expand_bibliography($context, $root, $bibliography) if $bibliography;
 
     # find imported items in the imported file
-    foreach my $item ($import->findnodes('dataType|component|model')) {
+    foreach my $item ($import->findnodes('dataType|.//Component|component|'.
+                                         'model')) {
         my $element = $item->findvalue('local-name()');
+        $element = 'component' if $element eq 'Component';
 	my $name = $item->findvalue('@name');
 	my $ref = $item->findvalue('@ref');
         $ref = $name unless $ref;
@@ -1127,7 +1147,7 @@ sub expand_import
         if ($fitem) {
             d0msg "{$file}$ref: $element already found in $dfile";
         } elsif ($dfile eq $file) {
-            ($fitem) = $toplevel->findnodes(qq{$element\[\@name="$ref"\]});
+            ($fitem) = $toplevel->findnodes(qq{.//$element\[\@name="$ref"\]});
         } else {
             (my $ddir, $dfile, my $corr) = find_file($dfile.'.xml', $ddir);
             # XXX not sure that we want $depth here; we are already one level
@@ -1586,7 +1606,7 @@ sub expand_model
     # expand nested components, objects, parameters and profiles
     my $any_profiles = 0;
     foreach my $item ($model->findnodes('component|parameter|object|'.
-                                        'command|notification|profile')) {
+                                        'command|event|notification|profile')){
 	my $element = $item->findvalue('local-name()');
 	"expand_model_$element"->($context, $nnode, $nnode, $item);
         $any_profiles = 1 if $element eq 'profile';
@@ -1697,7 +1717,8 @@ sub expand_model_component
 
     # expand component's nested components, parameters, objects and profiles
     foreach my $item ($component->findnodes('component|parameter|object|'.
-                                            'command|notification|profile')) {
+                                            'command|event|notification|'.
+                                            'profile')) {
 	my $element = $item->findvalue('local-name()');
         "expand_model_$element"->($context, $mnode, $pnode, $item);
     }
@@ -1826,7 +1847,7 @@ sub expand_model_object
     # XXX this might be a command, so also expand input and output elements
     foreach my $item ($object->findnodes('component|uniqueKey|parameter|'.
                                          'object|command|input|output|'.
-                                         'notification')) {
+                                         'event|notification')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_$element"->($context, $mnode, $nnode, $item);
     }
@@ -1979,11 +2000,16 @@ sub expand_model_uniqueKey
 
 # Expand a data model command
 # XXX very basic...
+# XXX need to remove @notify support
 sub expand_model_command
 {
     my ($context, $mnode, $pnode, $command) = @_;
 
     my $nnode = expand_model_object $context, $mnode, $pnode, $command;
+    my $path = $nnode->{path};
+    my $fpath = util_full_path($nnode);
+    $fpath =~ s/\.$//;
+    $parameters->{$fpath} = $nnode;
     my $is_async = $command->findvalue('@async');
     my $notify = $command->findvalue('@notify') || 'OperationComplete';
     $nnode->{is_async} = $is_async;
@@ -2019,13 +2045,24 @@ sub expand_model_arguments
     my ($context, $mnode, $pnode, $arguments, $which) = @_;
 
     my $name = ucfirst($which) . '.';
-    my $path = $pnode->{path} . $name;
+    # XXX if requested, ignore "Input." and "Output." in the path names;
+    #     this allows existing parameter and object references to continue to
+    #     work but means that there can't be an input and an output argument
+    #     with the same name
+    my $path = $pnode->{path};
+    $path .= $name unless $ignoreinputoutputinpaths;
     my $type = 'object';
     my $access = 'readOnly';
-    my $description = ucfirst($which) . ' arguments.';
+    my $description = $arguments->findvalue('description');
+    $description = (ucfirst($which) . ' arguments.') unless $description;
+    my ($majorVersion, $minorVersion) = dmr_version($arguments);
+    $majorVersion = $mnode->{majorVersion} unless defined $majorVersion;
+    $minorVersion = $mnode->{minorVersion} unless defined $minorVersion;
     my $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
                  path => $path, type => $type, is_arguments => 1,
-                 access => $access, description => $description};
+                 access => $access, description => $description,
+                 majorVersion => $majorVersion, minorVersion => $minorVersion,
+                 dynamic => 0};
     push @{$pnode->{nodes}}, $nnode;
     
     foreach my $item ($arguments->findnodes('component|parameter|object')) {
@@ -2036,22 +2073,45 @@ sub expand_model_arguments
     return $nnode;
 }
 
-# Expand a data model notification
+# returns False for event arguments, so they are correctly treated as inputs
+sub is_argoutput
+{
+    my ($node) = @_;
+    return 0 unless $node->{type};
+    return ($node->{name} eq 'Output.') if $node->{is_arguments};
+    return is_argoutput($node->{pnode});
+}
+
+# Expand a data model event
 # XXX very basic; will be removing this?
+sub expand_model_event
+{
+    my ($context, $mnode, $pnode, $event) = @_;
+
+    my $nnode = expand_model_object $context, $mnode, $pnode, $event;
+    my $path = $nnode->{path};
+    my $fpath = util_full_path($nnode);
+    $fpath =~ s/\.$//;
+    $parameters->{$fpath} = $nnode;
+    $nnode->{is_event} = 1;
+    return $nnode;
+}
+
+# Expand a data model notification
+# XXX very basic; will be removing this! especially as they're now called
+#     events
 sub expand_model_notification
 {
     my ($context, $mnode, $pnode, $notification) = @_;
 
-    my $nnode = expand_model_object $context, $mnode, $pnode, $notification;
-    $nnode->{is_notification} = 1;
-    return $nnode;
+    return expand_model_event $context, $mnode, $pnode, $notification;
 }
 
-sub is_notification
+sub is_event
 {
     my ($node) = @_;
     return 0 unless $node->{type};
-    return ($node->{is_notification} || is_notification($node->{pnode})) ? 1 : 0;
+    return ($node->{is_event} || is_event($node->{pnode})) ? 1 : 0;
 }
 
 # Expand a data model parameter.
@@ -2470,14 +2530,9 @@ sub expand_model_profile
 
     # XXX the above logic was breaking when generating "flattened" XML, so
     #     disable when base or extends is defined
-    $previous = undef if $base || $extends;
-
-    # if the context contains "previousProfile", it's from a component
-    # reference, and applies only to the first profile
-    if ($context->[0]->{previousProfile}) {
-        $previous = $context->[0]->{previousProfile};
-        undef $context->[0]->{previousProfile};
-    }
+    # XXX well disabling might have fixed something, but it broke something
+    #     else, and sent lots of profiles to the end! so disabled it again
+    #$previous = undef if $base || $extends;
 
     # XXX use mnode rather than pnode, because of problems when expanding
     #     profile components with paths (need to explain this!)
@@ -2500,6 +2555,13 @@ sub expand_model_profile
         #     enough
         #return;
     } else {
+        # if the context contains "previousProfile", it's from a component
+        # reference, and applies only to the first new profile
+        if ($context->[0]->{previousProfile}) {
+            $previous = $context->[0]->{previousProfile} unless $previous;
+            undef $context->[0]->{previousProfile};
+        }
+
         # if base specified, find base profile
         my $baseprof;
         my $baseauto = 0;
@@ -2628,7 +2690,8 @@ sub expand_model_profile
     }
 
     # expand nested parameters and objects
-    foreach my $item ($profile->findnodes('parameter|object')) {
+    foreach my $item ($profile->findnodes('parameter|object|'.
+                                          'command|event')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_profile_$element"->($context, $mnode,
                                           $nnode, $nnode, $item);
@@ -2717,7 +2780,7 @@ sub expand_model_profile_object
     # XXX this isn't quite right; should use profile equivalent of add_path()
     #     to create intervening nodes; currently top-level parameters are in
     #     the wrong place in the hierarchy
-    foreach my $item ($object->findnodes('parameter|object')) {
+    foreach my $item ($object->findnodes('parameter|object|command|event')) {
 	my $element = $item->findvalue('local-name()');
 	"expand_model_profile_$element"->($context, $mnode,
                                           $Pnode, $nnode, $item);
@@ -2775,7 +2838,7 @@ sub expand_model_profile_parameter
         }
         delete $Pnode->{errors}->{$path} if $status eq 'deleted';
         return;
-    } elsif ($access ne 'readOnly' &&
+    } elsif ($access && $access ne 'readOnly' &&
              $parameters->{$fpath}->{access} eq 'readOnly') {
 	emsg "profile $Pnode->{name} has invalid requirement ".
             "($access) for $path ($parameters->{$fpath}->{access})";
@@ -2839,6 +2902,31 @@ sub expand_model_profile_parameter
         my $fpath = util_full_path($Pnode);
         $profiles->{$fpath}->{$path} = $access;
     }
+
+    #XXX this is just for expand_model_profile_(command|event)
+    return $nnode;
+}
+
+# Expand a data model profile command.
+# XXX very basic; will be removing this?
+sub expand_model_profile_command
+{
+    my ($context, $mnode, $Pnode, $pnode, $command) = @_;
+    
+    my $nnode = expand_model_profile_parameter $context, $mnode, $Pnode,
+        $pnode, $command;
+    $nnode->{is_command} = 1 if $nnode;
+}
+
+# Expand a data model profile event.
+# XXX very basic; will be removing this?
+sub expand_model_profile_event
+{
+    my ($context, $mnode, $Pnode, $pnode, $event) = @_;
+    
+    my $nnode = expand_model_profile_parameter $context, $mnode, $Pnode,
+        $pnode, $event;
+    $nnode->{is_event} = 1 if $nnode;
 }
 
 # Helper to add a data model if it doesn't already exist (if it does exist then
@@ -3119,13 +3207,6 @@ sub add_object
     my $Lfile = $context->[0]->{lfile};
     my $Lspec = $context->[0]->{lspec};
 
-    # if the context contains "previousObject", it's from a component
-    # reference, and applies only to the first object
-    if ($context->[0]->{previousObject}) {
-        $previous = $context->[0]->{previousObject};
-        undef $context->[0]->{previousObject};
-    }
-
     $ref = '' unless $ref;
     $auto = 0 unless $auto;
     $access = 'readOnly' unless $access;
@@ -3138,7 +3219,7 @@ sub add_object
     # XXX should this be autobase rather than compare?
     $ref = $oldname if $compare && !$ref && $oldname;
 
-    # XXX for commands and notifications
+    # XXX for commands and events/notifications
     my $fudge = $pnode->{path} && $pnode->{path} !~ /\.$/ ? '.' : '';
     my $path = $pnode->{path} . $fudge . ($ref ? $ref : $name);
     $path .= '.' unless $path =~ /\.$/;
@@ -3289,6 +3370,13 @@ sub add_object
         # XXX unconditionally keep track of files in which node was seen
         $nnode->{sfile} = $Lfile;
     } else {
+        # if the context contains "previousObject", it's from a component
+        # reference, and applies only to the first new object
+        if ($context->[0]->{previousObject}) {
+            $previous = $context->[0]->{previousObject} unless $previous;
+            undef $context->[0]->{previousObject};
+        }
+
         emsg "unnamed object (after $previouspath)" unless $name;
         w0msg "$name: invalid description action: $descact"
             if !$autobase && $descact && $descact ne 'create';
@@ -3377,13 +3465,6 @@ sub add_parameter
     my $spec = $context->[0]->{spec};
     my $Lfile = $context->[0]->{lfile};
     my $Lspec = $context->[0]->{lspec};
-
-    # if the context contains "previousParameter", it's from a component
-    # reference, and applies only to the first parameter
-    if ($context->[0]->{previousParameter}) {
-        $previous = $context->[0]->{previousParameter};
-        undef $context->[0]->{previousParameter};
-    }
 
     $ref = '' unless $ref;
     # don't default data type
@@ -3778,6 +3859,13 @@ sub add_parameter
         # XXX unconditionally keep track of files in which node was seen
         $nnode->{sfile} = $Lfile;
     } else {
+        # if the context contains "previousParameter", it's from a component
+        # reference, and applies only to the first new parameter
+        if ($context->[0]->{previousParameter}) {
+            $previous = $context->[0]->{previousParameter} unless $previous;
+            undef $context->[0]->{previousParameter};
+        }
+
         emsg "$path: unnamed parameter" unless $name;
         emsg "$path: untyped parameter" unless $type || $auto;
         w0msg "$path: invalid description action: $descact"
@@ -4839,7 +4927,6 @@ sub find_file
     foreach my $dir (@$dirs) {
         if (-r File::Spec->catfile($dir, $ffile)) {
             $fdir = $dir;
-            #tmsg "file=$file fdir=$fdir";
             last;
         }
     }
@@ -4871,7 +4958,6 @@ sub find_file
                 if (defined $n && (!defined $c || $n > $c)) {
                     $c = $n;
                     $fdir = $dir;
-                    #tmsg "file=$file fdir=$dir c=$c";
                 }
             }
         }
@@ -4929,7 +5015,7 @@ sub text_node
         my $type = type_string($node->{type}, $node->{syntax});
         $type = 'command' if $node->{is_command};
         $type = 'arguments' if $node->{is_arguments};
-        $type = 'notification' if $node->{is_notification};
+        $type = 'event' if $node->{is_event};
         print "  "x$indent . "$type $name" .
             ($base && $base ne $name ? ('(' . $base . ')') : '') .
             ($node->{access} && $node->{access} ne 'readOnly' ? ' (W)' : '') .
@@ -6370,6 +6456,7 @@ sub html_create_anchor
     # model-specific anchors, i.e. heading, path, value, profile and profoot
 
     my $node = $opts->{node};
+    my $text = $opts->{text};
 
     # validate type (any error is a programming error)
     my $types = ['heading', 'datatype', 'bibref', 'path', 'value',
@@ -6421,6 +6508,9 @@ sub html_create_anchor
         # XXX nor is this
         $label = ++$Pnode->{html_profoot_num};
     }
+
+    # override label if requested
+    $label = $text if $text;
 
     # form the anchor name
     my $aname = qq{$namespace_prefix$name};
@@ -6558,9 +6648,14 @@ sub html_node
     my $fontdel = qq{color: red;};
 
     # others
+    # XXX command, argobject and argparam are also used by events ("arguments"
+    #     is only used for commands)
     my $sup_valign = qq{vertical-align: super;};
     my $object_bg = qq{background-color: rgb(255, 255, 153);};
-    my $command_bg = qq{background-color: rgb(100, 200, 200);};
+    my $command_bg = qq{background-color: $commandcolors->[0];};
+    my $arguments_bg = qq{background-color: $commandcolors->[1];};
+    my $argobject_bg = qq{background-color: $commandcolors->[2];};
+    my $argparam_bg = qq{background-color: $commandcolors->[3];};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
     # foo_oc (open comment) and foo_cc (close comment) control generation of
@@ -6577,11 +6672,10 @@ sub html_node
     my $object = ($node->{type} =~ /object/);
     my $profile = ($node->{type} =~ /profile/);
     my $parameter = $node->{syntax}; # pretty safe? not profile params...
-    my $is_command = $node->{is_command};
-    my $is_arguments = $node->{is_arguments};
-    my $is_notification = $node->{is_notification};
-    my $parameter_like = $parameter || $is_command || $is_notification;
-    $object = 0 if $parameter_like;
+    my $is_command = $node->{is_command} ? 1 : 0;
+    my $is_arguments = $node->{is_arguments} ? 1 : 0;
+    my $is_event = $node->{is_event} ? 1 : 0;
+    my $parameter_like = $parameter || $is_command || $is_event;
 
     my $changed = $node->{changed};
     my $history = $node->{history};
@@ -6622,7 +6716,7 @@ sub html_node
                      hidden => $node->{syntax}->{hidden},
                      command => $node->{syntax}->{command},
                      is_command => $is_command,
-                     is_notification => $is_notification,
+                     is_event => $is_event,
                      is_async => $node->{is_async},
                      notify => $node->{notify},
                      is_mandatory => $node->{is_mandatory},
@@ -6710,20 +6804,38 @@ $do_not_edit
       tr.n { $row $font $fontnew }
       td.o { $row $font $object_bg }
       td.c { $row $font $command_bg }
+      td.d { $row $font $arguments_bg }
+      td.e { $row $font $argobject_bg }
+      td.f { $row $font $argparam_bg }
       td, td.p { $row $font }
       td.oc { $row $font $object_bg $center }
       td.cc { $row $font $command_bg $center }
+      td.dc { $row $font $arguments_bg $center }
+      td.ec { $row $font $argobject_bg $center }
+      td.fc { $row $font $argparam_bg $center }
       td.pc { $row $font $center }
       td.on { $row $font $object_bg $fontnew }
       td.cn { $row $font $command_bg $fontnew }
+      td.dn { $row $font $arguments_bg $fontnew }
+      td.en { $row $font $argobject_bg $fontnew }
+      td.fn { $row $font $argparam_bg $fontnew }
       td.od { $row $font $object_bg $fontdel $strike }
       td.cd { $row $font $command_bg $fontdel $strike }
+      td.dd { $row $font $arguments_bg $fontdel $strike }
+      td.ed { $row $font $argobject_bg $fontdel $strike }
+      td.fd { $row $font $argparam_bg $fontdel $strike }
       td.pn { $row $font $fontnew }
       td.pd { $row $font $fontdel $strike }
       td.onc { $row $font $object_bg $fontnew $center }
       td.odc { $row $font $object_bg $fontdel $strike $center }
       td.cnc { $row $font $command_bg $fontnew $center }
       td.cdc { $row $font $command_bg $fontdel $strike $center }
+      td.dnc { $row $font $arguments_bg $fontnew $center }
+      td.ddc { $row $font $arguments_bg $fontdel $strike $center }
+      td.edc { $row $font $argobject_bg $fontdel $strike $center }
+      td.enc { $row $font $argobject_bg $fontnew $center }
+      td.fdc { $row $font $argparam_bg $fontdel $strike $center }
+      td.fnc { $row $font $argparam_bg $fontnew $center }
       td.pnc { $row $font $fontnew $center }
       td.pdc { $row $font $fontdel $strike $center }
       $hyperlink
@@ -6960,7 +7072,21 @@ END
         $trclass = $trclass ? qq{ class="$trclass"} : qq{};
 
 	my $tdclass = ($model | $object | $profile) ? 'o' : 'p';
-        $tdclass = 'c' if $is_command || $is_notification;
+
+        # XXX so horrible; need to redo class/style support! currently:
+        #     - c : the actual command or event
+        #     - d : input/output container
+        #     - e : object argument
+        #     - f : parameter argument
+        if ($is_command || $is_event) {
+            $tdclass = 'c';
+        } elsif (is_command($node) || is_event($node)) {
+            if ($tdclass eq 'o') {
+                $tdclass = $is_arguments ? 'd' : 'e';
+            } else {
+                $tdclass = 'f';
+            }
+        }
         $tdclass .= 'd' if $showdiffs && util_is_deleted($node);
 
         my $tdclasstyp = $tdclass;
@@ -7144,19 +7270,31 @@ END
 
         if ($model || $profile) {
         } elsif (!$html_profile_active) {
-            my $anchor = html_create_anchor($node, 'path');
-            $name = $anchor->{def} unless $nolinks;
-            if (is_command($node) || is_notification($node)) {
-                $name = $path;
-                $name =~ s/\.$//;
-                $name =~ s/\Q$node->{pnode}->{path}\E\.?//;
-                $name = '# ' . $name unless $is_command || $is_notification;
+            my $tname = '';
+            my $core = is_command($node) || is_event($node);
+            # modify displayed name for commands and event arguments (just the
+            # name, not the full path)
+            if ($core) {
+                my $arrow = is_argoutput($node) ? '&lArr;' : '&rArr;';
+                $tname = $node->{name};
+                $tname = "$arrow " . $tname unless $is_command || $is_event;
             }
+            # account for --ignoreinputoutputinpaths, which means that
+            # arguments 'input'/'output' path is the same as its parent
+            my $anchor;
+            if ($node->{path} ne $node->{pnode}->{path}) {
+                $anchor = html_create_anchor($node, 'path',
+                                                {text => $tname});
+            } else {
+                # the logic dictates that this ref will never be used
+                $anchor = {def => ($tname ? $tname : $name), ref => 'ignore'};
+            }
+            $name = $anchor->{def} unless $nolinks;
             $type = 'command' if $is_command;
             $type = 'arguments' if $is_arguments;
-            $type = 'notification' if $is_notification;
+            $type = 'event' if $is_event;
             # XXX would like syntax to be a link when it's a named data type
-            print <<END if $object && !$nolinks;
+            print <<END if $object && !$core && !$nolinks;
           <li>$anchor->{ref}</li>
 END
             my $tspecs = $specs;
@@ -7753,8 +7891,9 @@ sub html_template
               q{The value of this parameter is not part of the device }.
               q{configuration and is always {{null}} when read.}},
          {name => 'nocommand', text0 => q{}},
+         # XXX async used to include p->{notify} but this is being removed
          {name => 'async',
-          text0 => q{{{marktemplate|async}}'''[ASYNC &rarr; $p->{notify}]'''}},
+          text0 => q{{{marktemplate|async}}'''[ASYNC]'''}},
          {name => 'noasync', text0 => q{}},
          {name => 'mandatory',
           text0 => q{{{marktemplate|mandatory}}'''[MANDATORY]'''}},
@@ -8511,10 +8650,29 @@ sub html_template_paramref
     w0msg "$object$param: {{param}} argument is unnecessary when ".
         "referring to current parameter" if $name eq $param;
 
+    my $oname = $name;
     (my $path, $name) = relative_path($object, $name, $scope);
     my $mpref = util_full_path($opts->{node}, 1);
     my $fpath = $mpref . $path;
     my $invalid = util_is_defined($parameters, $fpath) ? '' : '?';
+    # XXX special case for commands and events: they are parameter-like but
+    #     also object-like, in that they have argument children; so if failed
+    #     to find peer parameter, look for argument child; THIS INTRODUCES AN
+    #     AMBIGUITY
+    if ($invalid) {
+        foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
+            my $tobject = qq{$object$param$suffix.};
+            my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
+            my $tfpath = $mpref . $tpath;
+            if (util_is_defined($parameters, $tfpath)) {
+                $path = $tpath;
+                $name = $tname;
+                $fpath = $tfpath;
+                $invalid = '';
+                last;
+            }
+        }
+    }
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
     # XXX don't warn further if this item has been deleted
@@ -8569,6 +8727,7 @@ sub html_template_objectref
     w0msg "$object$param: {{object}} argument unnecessary when ".
         "referring to current object" if $name && $name eq $object;
 
+    my $oname = $name;
     (my $path, $name) = relative_path($object, $name, $scope);
     my $path1 = $path;
     $path1 .= '.' if $path1 !~ /\.$/;
@@ -8587,6 +8746,30 @@ sub html_template_objectref
     return qq{''$name''} if $path =~ /^\.Services\./;
 
     my $invalid = util_is_defined($objects, $fpath) ? '' : '?';
+    # XXX special case for commands and events: they are parameter-like but
+    #     also object-like, in that they have argument children; so if failed
+    #     to find peer parameter, look for argument child; THIS INTRODUCES AN
+    #     AMBIGUITY
+    if ($invalid) {
+        foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
+            my $tobject = qq{$object$param$suffix.};
+            my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
+            my $tpath1 = $tpath;
+            $tpath1 .= '.' if $tpath1 !~ /\.$/;
+            my $tpath2 = $tpath1;
+            $tpath2 .= '{i}.' if $tpath2 !~ /\{i\}\.$/;
+            $tpath = $tpath1 if util_is_defined($objects, $mpref.$tpath1);
+            $tpath = $tpath2 if util_is_defined($objects, $mpref.$tpath2);
+            my $tfpath = $mpref . $tpath;
+            if (util_is_defined($objects, $tfpath)) {
+                $path = $tpath;
+                $name = $tname;
+                $fpath = $tfpath;
+                $invalid = '';
+                last;
+            }
+        }
+    }
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
     # XXX don't warn further if this item has been deleted
@@ -12431,6 +12614,7 @@ sub sanity_node
         $numEntriesParameter = $parameters->{$fppath.$numEntriesParameter} if
             $numEntriesParameter;
         if (!$is_dt && $multi && !$fixed && !$nowarnnumentries &&
+            !is_command($node) && !is_event($node) &&
             (!$numEntriesParameter ||
              (!$hidden && $numEntriesParameter->{hidden}))) {
             emsg "$path: missing or invalid numEntriesParameter ($temp)";
@@ -12544,6 +12728,7 @@ sub sanity_node
         #&& !($syntax->{list} && $default eq '');
 
         emsg "$path: weak reference parameter is not writable" if
+            !is_command($node) && !is_event($node) &&
             $syntax->{refType} && $syntax->{refType} eq 'weak' && 
             $access eq 'readOnly';
 
@@ -12554,9 +12739,13 @@ sub sanity_node
     }
 
     # profile sanity checks
+    # XXX allow "abstract profiles" that reference objects that aren't defined
+    #     when the profile is defined, but are defined later
     if ($profile && !$automodel) {
         foreach my $path (sort keys %{$node->{errors}}) {
-            emsg "profile $name references invalid $path";
+            my $fpath = util_full_path($node, 1) . $path;
+            emsg "profile $name references invalid $path"
+                unless $objects->{$fpath};
         }
     }
 }
@@ -12597,13 +12786,15 @@ sub report_node
     # 2. parameter (and parameterRef)
     # 3. object (and objectRef)
     # 4. profile
+    # XXX commands and events are honorary parameters here
     my $sorted = {};
     foreach my $child (@{$node->{nodes}}) {
         my $type = $child->{type};
         if ($type eq 'model') {
             push @{$sorted->{model}}, $child if !$nomodels ||
                 ($autogenerated && $child->{name} =~ /^$autogenerated/);
-        } elsif ($type =~ /^object/) {
+        } elsif ($type =~ /^object/ &&
+                 !$child->{is_command} && !$child->{is_event}) {
             push @{$sorted->{object}}, $child;
         } elsif ($type eq 'profile') {
             push @{$sorted->{profile}}, $child unless $noprofiles;
