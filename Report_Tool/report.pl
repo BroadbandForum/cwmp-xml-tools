@@ -2530,9 +2530,7 @@ sub expand_model_profile
 
     # XXX the above logic was breaking when generating "flattened" XML, so
     #     disable when base or extends is defined
-    # XXX well disabling might have fixed something, but it broke something
-    #     else, and sent lots of profiles to the end! so disabled it again
-    #$previous = undef if $base || $extends;
+    $previous = undef if $base || $extends;
 
     # XXX use mnode rather than pnode, because of problems when expanding
     #     profile components with paths (need to explain this!)
