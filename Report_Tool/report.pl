@@ -185,7 +185,7 @@ use utf8;
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2017-05-26 $};
-my $tool_id = q{$Id: report.pl 418 $};
+my $tool_id = q{$Id: report.pl 418+ $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -7524,7 +7524,7 @@ sub html_notice
                 $text .= qq{<h1>Notice</h1>\n};
             } else {
                 $text .= qq{<h1>License</h1>\n};
-                $text .= qq{$line\n};
+                $text .= qq{$line<br/>\n};
             }
         }
 
@@ -7565,7 +7565,10 @@ sub html_notice
                 }
 
                 # append text (and newline)
-                $text .= qq{$line\n};
+                # XXX also force line break after "Copyright " lines
+                my $is_copyright = ($line =~ /^Copyright /);
+                my $br = $is_copyright ? qq{<br/>} : qq{};
+                $text .= qq{$line$br\n};
             }
         }
     }
