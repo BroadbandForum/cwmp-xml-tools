@@ -7564,6 +7564,9 @@ sub html_notice
                     }
                 }
 
+                # replace <text> with <a href="text">text</a>
+                $line =~ s/<([^>]*)>/&lt;<a href="$1">$1<\/a>&gt;/g;
+
                 # append text (and newline)
                 # XXX also force line break after "Copyright " lines
                 my $is_copyright = ($line =~ /^Copyright /);
