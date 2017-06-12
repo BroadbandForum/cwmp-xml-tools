@@ -7532,7 +7532,10 @@ sub html_notice
         elsif (!$seen_terminator) {
             $seen_terminator = ($line =~ /^[\w\s]+:$/);
             # XXX horrible hack for the new BSD license
-            $seen_terminator = 0 if $line =~ / met:$/;
+            # XXX similar horrible hack for 'used in this software:' text
+            $seen_terminator = 0 if
+                $line =~ /conditions are met:$/ ||
+                $line =~ /used in this software:$/;
             if (!$seen_terminator) {
 
                 # using this text; look for list item
@@ -7565,8 +7568,9 @@ sub html_notice
                 }
 
                 # append text (and newline)
-                # XXX also force line break after "Copyright " lines
-                my $is_copyright = ($line =~ /^Copyright /);
+                # XXX also force line break after "Copyright " lines or lines
+                #     that end with colons
+                my $is_copyright = ($line =~ /^Copyright / || $line =~ /:$/);
                 my $br = $is_copyright ? qq{<br/>} : qq{};
                 $text .= qq{$line$br\n};
             }
