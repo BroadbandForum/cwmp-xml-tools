@@ -185,7 +185,7 @@ use utf8;
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2017-06-09 $};
-my $tool_id = q{$Id: report.pl 419 $};
+my $tool_id = q{$Id: report.pl 419+ $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -2053,6 +2053,7 @@ sub expand_model_arguments
     $path .= $name unless $ignoreinputoutputinpaths;
     my $type = 'object';
     my $access = 'readOnly';
+    my $status = 'current';
     my $description = $arguments->findvalue('description');
     $description = (ucfirst($which) . ' arguments.') unless $description;
     my ($majorVersion, $minorVersion) = dmr_version($arguments);
@@ -2060,7 +2061,8 @@ sub expand_model_arguments
     $minorVersion = $mnode->{minorVersion} unless defined $minorVersion;
     my $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
                  path => $path, type => $type, is_arguments => 1,
-                 access => $access, description => $description,
+                 access => $access, status => $status,
+                 description => $description,
                  majorVersion => $majorVersion, minorVersion => $minorVersion,
                  dynamic => 0};
     push @{$pnode->{nodes}}, $nnode;
@@ -5668,6 +5670,7 @@ sub xml_changed
 
 my $xml2_dtprofiles = [];
 my $xml2_ucprofiles = [];
+my $xml2_objlevel = 0;
 
 sub xml2_node
 {
@@ -5677,9 +5680,24 @@ sub xml2_node
 
     my $type = $node->{type};
     my $element = $type;
+    $element = 'command' if $node->{is_command};
+    $element = 'input' if
+        $node->{is_arguments} && $node->{name} eq 'Input.';
+    $element = 'output' if
+        $node->{is_arguments} && $node->{name} eq 'Output.';
+    $element = 'event' if $node->{is_event};
     $node->{xml2}->{element} = $element;
 
-    my $i = "  " x $indent;
+    my $core = is_command($node) || is_event($node);
+
+    # this is the object nesting level (relative to the root object) and is
+    # necessary because all 'object' elements (apart from in arguments) are 
+    # defined at the same level
+    $xml2_objlevel = 0 if $indent == 0;
+    $node->{xml2}->{objlevel_inc} =
+        !$core && $element eq 'object' && $node->{pnode}->{type} eq 'object';
+    $xml2_objlevel++ if $node->{xml2}->{objlevel_inc};
+    my $i = "  " x ($indent - $xml2_objlevel);
 
     # use indent as a first-time flag
     if (!$indent) {
@@ -5783,7 +5801,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         my $changed = $node->{changed};
         my $history = $node->{history};
         my $path = $node->{path};
-        my $name = $type eq 'object' ? $path : $node->{name};
+        my $name = $element eq 'object' ? $path : $node->{name};
         my $base = $node->{base};
         my $ref = $node->{ref};
         my $isService = $node->{isService};
@@ -5829,7 +5847,6 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             }
             return if $components;
         } elsif ($element eq 'object') {
-            $i = '    ';
             if ($components) {
                 my $cname = $name;
                 $cname =~ s/\{i\}/i/g;
@@ -5870,8 +5887,16 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $description = '';
                 $descact = 'replace';
             }
+            $name = $node->{name} if $core;
+            undef $access if $core;
+        } elsif ($element eq 'command' || $element eq 'event') {
+            undef $access;
+            undef $minEntries;
+            undef $maxEntries;
+        } elsif ($element eq 'input' || $element eq 'output') {
+            undef $name;
+            undef $access;
         } elsif ($syntax) {
-            $i = $node->{pnode}->{type} eq 'object' ? '      ' : '    ';
             $element = 'parameter';
             $node->{xml2}->{element} = $element;
             if (@$dtprofiles) {
@@ -5908,6 +5933,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $descact = 'replace';
                 $syntax = undef;
             }
+            undef $access if $core;
         } elsif ($element eq 'profile') {
             unless ($name) {
                 $node->{xml2}->{element} = '';
@@ -6153,13 +6179,13 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
 # this is called (for objects and objectRefs only) after all parameters
 sub xml2_postpar
 {
-    my ($node) = @_;
+    my ($node, $indent) = @_;
+
+    $indent = 0 unless $indent;
+    my $i = "  " x ($indent - $xml2_objlevel);
 
     my $element = $node->{xml2}->{element};
-    return if !$element;
-
-    # XXX wrong for profiles?
-    my $i = $node->{type} eq 'object' ? '    ' : '      ';;
+    return if !$element || $element ne 'object';
 
     print qq{$i<!--\n} if $noobjects;
     print qq{$i</object>\n};
@@ -6175,10 +6201,15 @@ sub xml2_post
 {
     my ($node, $indent) = @_;
 
+    $indent = 0 unless $indent;
+    my $i = "  " x ($indent - $xml2_objlevel);
+    # XXX the logic should prevent $xml2_objlevel from going negative, but
+    #     (defensively) prevent it anyway
+    $xml2_objlevel-- if $xml2_objlevel > 0 && $node->{xml2}->{objlevel_inc};
+
     my $element = $node->{xml2}->{element};
     return if !$element || $element eq 'object';
 
-    $indent = 0 unless $indent;
     return if $node->{name} eq 'object';
 
     # XXX this is a hack (I hate this logic)
@@ -6187,7 +6218,6 @@ sub xml2_post
     # XXX this catches model
     return if $components && $indent > 0;
 
-    my $i = "  " x $indent;
     print qq{$i</$element>\n};
 }
 
