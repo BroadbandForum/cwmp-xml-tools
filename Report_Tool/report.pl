@@ -4894,13 +4894,13 @@ sub parse_file
 #     tr-069-i-a-c-biblio.xml would continue to find tr-069-biblio.xml)
 sub find_file
 {
-    my ($file, $predir) = @_;
+    my ($file, $predir, $always_exact) = @_;
 
     # XXX $predir must always be supplied; an empty value means the current
     #     directory; warn if undefined because this indicates that the caller
     #     has made a mistake (still need to add dir to some data structures)
     w0msg "find_file: $file: predir is undefined" unless defined $predir;
-    
+
     # search path
     my $dirs = [];
 
@@ -4924,10 +4924,15 @@ sub find_file
     # first search for files with exactly the supplied name; if not found, and
     # if the file name matches the requisite pattern, will search for the
     # highest corrigendum number
-    foreach my $dir (@$dirs) {
-        if (-r File::Spec->catfile($dir, $ffile)) {
-            $fdir = $dir;
-            last;
+    # XXX for the htmlbbf report, only do this for non XML files or if
+    #     explicitly requested (this is so the htmlbbf report will always
+    #     search for the highest corrigendum number
+    if ($report ne 'htmlbbf' || $ffile !~ /\.xml$/ || $always_exact) {
+        foreach my $dir (@$dirs) {
+            if (-r File::Spec->catfile($dir, $ffile)) {
+                $fdir = $dir;
+                last;
+            }
         }
     }
 
@@ -9620,7 +9625,7 @@ sub htmlbbf_init
 
     require Config::IniFiles;
 
-    my ($dir, $file) = main::find_file($configfile, '');
+    my ($dir, $file) = main::find_file($configfile, '', 1);
     $configfile = File::Spec->catfile($dir, $file) if $dir;
 
     my %config;
@@ -10725,7 +10730,7 @@ END
                     $link && $link !~ /^\#/ && $link !~ /^http/) {
                     my ($ovol, $odir, $ofile) = File::Spec->splitpath($outfile);
                     if (defined $odir) {
-                        my ($dir) = find_file($link, $odir);
+                        my ($dir) = find_file($link, $odir, 1);
                         emsg "hyperlink to non-existent $link" unless $dir;
                     }
                 }
