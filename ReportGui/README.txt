@@ -13,6 +13,11 @@ For questions and comments please contact klaus.wich@aim.com
 
 History
 --------
+06/14/2017 ReportGuiSetup 3.2, ReportGui 3.2, report.exe#420 (report.pl#420)
+    new version of report.exe (report.pl#420) included in installer
+    new ReportGui version 3.2
+    - fix wrong link in upgrade procedure
+    
 01/31/2017 ReportGuiSetup 3.0, ReportGui 3.1, report.exe#404 (report.pl#404)
     new ReportGui version 3.1
     - uses BBF GITHUB repository instead of UNH repository for update checks
