@@ -1202,6 +1202,7 @@ sub expand_dataType
     my $descdef = $dataType->findnodes('description')->size();
     # XXX not getting any list attributes
     my $list = $dataType->findnodes('list')->size();
+    my $map = $dataType->findnodes('map')->size();
     # XXX this won't handle multiple sizes or ranges
     my $minLength = $dataType->findvalue('.//size/@minLength');
     my $maxLength = $dataType->findvalue('.//size/@maxLength');
@@ -1314,7 +1315,8 @@ sub expand_dataType
         $node = {name => $name, base => $base, prim => $prim, spec => $spec,
                  status => $status, description => $description,
                  descact => $descact, descdef => $descdef, list => $list,
-                 syntax => $syntax, values => $values, specs => []};
+                 map => $map, syntax => $syntax, values => $values,
+                 specs => []};
 
         push @{$pnode->{dataTypes}}, $node;
 
@@ -2139,7 +2141,8 @@ sub expand_model_parameter
     my $id = $parameter->findvalue('@id');
     # XXX lots of hackery here...
     my @types = $parameter->findnodes('syntax/*');
-    my $type = !@types ? undef : $types[0]->findvalue('local-name()') eq 'list' ? $types[1] : $types[0];
+    my $type = !@types ? undef : $types[0]->findvalue('local-name()') =~
+        /list|map/ ? $types[1] : $types[0];
     # XXX this next line is presumably from the depths of history
     #my $values = $parameter->findnodes('syntax/enumeration/value');
     # we permit enumeration and pattern to match at any depth, because
@@ -2274,6 +2277,30 @@ sub expand_model_parameter
         if (defined $minLength || defined $maxLength) {
             push @{$syntax->{listSizes}}, {minLength => $minLength,
                                            maxLength => $maxLength};
+        }
+    }
+
+    # XXX this exactly duplicates the logic for 'list', even though 'map' might
+    #     support fewer attributes (this does no harm)
+    $syntax->{map} = defined(($parameter->findnodes('syntax/map'))[0]);
+    if ($syntax->{map}) {
+        my $status = $parameter->findvalue('syntax/map/@status');
+        my $minItems = $parameter->findvalue('syntax/map/@minItems');
+        my $maxItems = $parameter->findvalue('syntax/map/@maxItems');
+        $syntax->{mapstatus} = $status;
+        $minItems = undef if $minItems eq '';
+        $maxItems = undef if $maxItems eq '';
+        if (defined $minItems || defined $maxItems) {
+            push @{$syntax->{mapRanges}}, {minInclusive => $minItems,
+                                            maxInclusive => $maxItems};
+        }
+        my $minLength = $parameter->findvalue('syntax/map/size/@minLength');
+        my $maxLength = $parameter->findvalue('syntax/map/size/@maxLength');
+        $minLength = undef if $minLength eq '';
+        $maxLength = undef if $maxLength eq '';
+        if (defined $minLength || defined $maxLength) {
+            push @{$syntax->{mapSizes}}, {minLength => $minLength,
+                                          maxLength => $maxLength};
         }
     }
 
@@ -3801,12 +3828,18 @@ sub add_parameter
             $nnode->{units} = $units;
             $changed->{units} = 1;
         }
-        # XXX this is a special case for deleting list facets
+        # XXX this is a special case for deleting list and map facets
         if ($nnode->{syntax}->{list} && $nnode->{syntax}->{liststatus} &&
             $nnode->{syntax}->{liststatus} eq 'deleted') {
             d0msg "$path: list: $nnode->{syntax}->{list} -> <deleted>";
             undef $nnode->{syntax}->{list};
             $changed->{syntax}->{list} = 1;
+        }
+        if ($nnode->{syntax}->{map} && $nnode->{syntax}->{mapstatus} &&
+            $nnode->{syntax}->{mapstatus} eq 'deleted') {
+            d0msg "$path: map: $nnode->{syntax}->{map} -> <deleted>";
+            undef $nnode->{syntax}->{map};
+            $changed->{syntax}->{map} = 1;
         }
         if (defined $default &&
             (!defined $nnode->{default} || $default ne $nnode->{default})) {
@@ -3993,19 +4026,15 @@ sub has_maxlength
         return 1 if $size->{maxLength};
     }
 
+    foreach my $size (@{$syntax->{mapSizes}}) {
+        return 1 if $size->{maxLength};
+    }
+
     foreach my $size (@{$syntax->{sizes}}) {
         return 1 if $size->{maxLength};
     }
 
     return 0;
-}
-
-# Determine whether a parameter is list-valued
-sub is_list
-{
-    my ($syntax) = @_;
-
-    return $syntax->{list};
 }
 
 # Determine whether enumerated values are appropriate for this parameter
@@ -4099,18 +4128,23 @@ sub valid_value
 sub valid_values
 {
     my ($node, $values) = @_;
-
+    
     my $syntax = $node->{syntax};
 
-    if (!$syntax->{list}) {
-        return valid_value($node, $values);
-    } else {
+    if ($syntax->{list}) {
         $values =~ s/^\s*//;
         $values =~ s/\s*$//;
         foreach my $value (split /\s*,\s*/, $values) {
             return 0 unless valid_value($node, $value);
         }
         return 1;
+    } elsif ($syntax->{map}) {
+        # XXX suppress the 'not implemented' warning to avoid worrying anyone
+        #wmsg("$node->{path}: valid_values not yet implemented for maps " .
+        #     "(will assume valid)");
+        return 1;
+    } else {
+        return valid_value($node, $values);
     }
 }
 
@@ -4478,10 +4512,13 @@ sub type_string
         $value = base_type($value, 1);
     }
 
-    # lists are always strings at the CWMP level
+    # lists and maps are always strings at the CWMP level
     if ($psyntax->{list}) {
         $value = 'string';
         $value .= add_size($psyntax, {list => 1});
+    } elsif ($psyntax->{map}) {
+        $value = 'string';
+        $value .= add_size($psyntax, {map => 1});
     } else {
         $value .= add_size($syntax);
         $value .= add_range($syntax);
@@ -4533,6 +4570,7 @@ sub syntax_string
     my ($type, $syntax, $human) = @_;
 
     my $list = $syntax->{list};
+    my $map = $syntax->{map};
 
     my $typeinfo = get_typeinfo($type, $syntax, {human => $human});
     my ($value, $unsigned) = ($typeinfo->{value}, $typeinfo->{unsigned});
@@ -4545,6 +4583,11 @@ sub syntax_string
             add_size($syntax, {human => $human, list => 1}) .
             add_range($syntax, {human => $human, unsigned => $unsigned,
                                 list => 1}) . ' of ' . $value;
+    } elsif ($map) {
+        $value = 'map' .
+            add_size($syntax, {human => $human, map => 1}) .
+            add_range($syntax, {human => $human, unsigned => $unsigned,
+                                map => 1}) . ' of ' . $value;
     }
 
     return $value;
@@ -4573,7 +4616,7 @@ sub get_typeinfo
         $value =~ s/^unsignedLong$/unsigned long/;
         # XXX could try to split multi-word type names, e.g. IPAddress?
         # XXX this is heuristic (it works for IPAddress etc)
-        if ($syntax->{list}) {
+        if ($syntax->{list} || $syntax->{map}) {
             $value .= 'e' if $value =~ /s$/;
             $value .= 's';
         }
@@ -4582,14 +4625,15 @@ sub get_typeinfo
     return {value => $value, dataType => $dataType, unsigned => $unsigned};
 }
 
-# Add size or list size to type / value string
+# Add size or list/map size to type / value string
 # XXX need better wording for case where a single maximum is specified?
 # XXX should check for overlapping sizes
 sub add_size
 {
     my ($syntax, $opts) = @_;
 
-    my $sizes = $opts->{list} ? 'listSizes' : 'sizes';
+    my $sizes = $opts->{list} ? 'listSizes' :
+        $opts->{map} ? 'mapSizes' : 'sizes';
     return '' unless defined $syntax->{$sizes} && @{$syntax->{$sizes}};
 
     my $value = '';
@@ -4603,7 +4647,7 @@ sub add_size
 
     # special case where there is only a single size and no minLength (mostly
     # to avoid changing what people are already used to)
-    my $thing = $opts->{list} ? 'list' : 'item';
+    my $thing = $opts->{list} ? 'list' : $opts->{map} ? 'map' : 'item';
     if (@{$syntax->{$sizes}} == 1 &&
         !$syntax->{$sizes}->[0]->{minLength} &&
         $syntax->{$sizes}->[0]->{maxLength}) {
@@ -4646,13 +4690,14 @@ sub add_size
     return $value;
 }
 
-# Add ranges or list ranges to type / value string
+# Add ranges or list/map ranges to type / value string
 # XXX should check for overlapping ranges
 sub add_range
 {
     my ($syntax, $opts) = @_;
 
-    my $ranges = $opts->{list} ? 'listRanges' : 'ranges';
+    my $ranges = $opts->{list} ? 'listRanges' :
+        $opts->{map} ? 'mapRanges' : 'ranges';
     return '' unless defined $syntax->{$ranges} && @{$syntax->{$ranges}};
 
     my $value = '';
@@ -4661,7 +4706,7 @@ sub add_range
 
     $value .= ' ' if $opts->{human};
     $value .= $opts->{human} ? '(' : '[';
-    $value .= 'value ' if $opts->{human} && !$opts->{list};
+    $value .= 'value ' if $opts->{human} && !$opts->{list} && !$opts->{map};
 
     my $first = 1;
     foreach my $range (@{$syntax->{$ranges}}) {
@@ -4699,7 +4744,7 @@ sub add_range
                 $add_step = 1;
             }
             $value .= ' stepping by ' . $step if $add_step && $step != 1;
-            $value .= ' items' if $opts->{list};
+            $value .= ' items' if $opts->{list} || $opts->{map};
         }
         $first = 0;
     }
@@ -5361,7 +5406,8 @@ $i             spec="$lspec">
             my $base = $syntax->{base};
             my $ref = $syntax->{ref};
             my $list = $syntax->{list};
-            # XXX notsupport ing multiple sizes
+            # XXX not supporting maps
+            # XXX not supporting multiple sizes
             my $minLength = $syntax->{sizes}->[0]->{minLength};
             my $maxLength = $syntax->{sizes}->[0]->{maxLength};
             # XXX not supporting multiple ranges
@@ -5405,6 +5451,7 @@ $i             spec="$lspec">
                 $minLength || $maxLength;
             print qq{$i      <range$minInclusive$maxInclusive$step/>\n} if
                 $minInclusive || $maxInclusive || $step;
+            # XXX not supporting maps
             foreach my $value (sort {$values->{$a}->{i} <=>
                                      $values->{$b}->{i}} keys %$values) {
                 my $evalue = xml_escape($value);
@@ -6027,12 +6074,13 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             my $command = $syntax->{command};
             my $base = $syntax->{base};
             my $ref = $syntax->{ref};
-            my $list = $syntax->{list};
-            # XXX not supporting multiple list sizes or ranges
-            my $minListLength = $syntax->{listSizes}->[0]->{minLength};
-            my $maxListLength = $syntax->{listSizes}->[0]->{maxLength};
-            my $minListItems = $syntax->{listRanges}->[0]->{minInclusive};
-            my $maxListItems = $syntax->{listRanges}->[0]->{maxInclusive};
+            my $listmap = $syntax->{list} ? 'list' :
+                $syntax->{map} ? 'map' : '';
+            # XXX not supporting multiple list/map sizes or ranges
+            my $minLMLength = $syntax->{${listmap}.'Sizes'}->[0]->{minLength};
+            my $maxLMLength = $syntax->{${listmap}.'Sizes'}->[0]->{maxLength};
+            my $minLMItems = $syntax->{${listmap}.'Ranges'}->[0]->{minInclusive};
+            my $maxLMItems = $syntax->{${listmap}.'Ranges'}->[0]->{maxInclusive};
             my $sizes = $syntax->{sizes};
             my $ranges = $syntax->{ranges};
             my $values = $node->{values};
@@ -6048,14 +6096,14 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             $ref = $ref ? qq{ ref="$ref"} : qq{};
             $hidden = $hidden ? qq{ hidden="true"} : qq{};
             $command = $command ? qq{ command="true"} : qq{};
-            $minListLength = defined $minListLength && $minListLength ne '' ?
-                qq{ minLength="$minListLength"} : qq{};
-            $maxListLength = defined $maxListLength && $maxListLength ne '' ?
-                qq{ maxLength="$maxListLength"} : qq{};
-            $minListItems = defined $minListItems && $minListItems ne '' ?
-                qq{ minItems="$minListItems"} : qq{};
-            $maxListItems = defined $maxListItems && $maxListItems ne '' ?
-                qq{ maxItems="$maxListItems"} : qq{};
+            $minLMLength = defined $minLMLength && $minLMLength ne '' ?
+                qq{ minLength="$minLMLength"} : qq{};
+            $maxLMLength = defined $maxLMLength && $maxLMLength ne '' ?
+                qq{ maxLength="$maxLMLength"} : qq{};
+            $minLMItems = defined $minLMItems && $minLMItems ne '' ?
+                qq{ minItems="$minLMItems"} : qq{};
+            $maxLMItems = defined $maxLMItems && $maxLMItems ne '' ?
+                qq{ maxItems="$maxLMItems"} : qq{};
             $defstat = $defstat ne 'current' ? qq{ status="$defstat"} : qq{};
 
             $default = xml_escape($default, {more => 1}) if defined $default;
@@ -6092,13 +6140,12 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 qq{ nullValue="$nullValue"} : qq{};
 
             print qq{$i  <syntax$hidden$command>\n};
-            if ($list) {
-                my $ended = ($minListLength || $maxListLength ||
-                             $minListItems || $maxListItems) ? '' : '/';
-                print qq{$i    <list$minListItems$maxListItems$ended>\n};
-                print qq{$i      <size$minListLength$maxListLength/>\n} unless
+            if ($listmap) {
+                my $ended = ($minLMLength || $maxLMLength) ? '' : '/';
+                print qq{$i    <$listmap$minLMItems$maxLMItems$ended>\n};
+                print qq{$i      <size$minLMLength$maxLMLength/>\n} unless
                     $ended;
-                print qq{$i    </list>\n} unless $ended;
+                print qq{$i    </$listmap>\n} unless $ended;
             }
             my $ended = (($sizes && @$sizes) || ($ranges && @$ranges) ||
                          $reference || %$values || $units) ? '' : '/';
@@ -6746,6 +6793,7 @@ sub html_node
                      type => $node->{type},
                      syntax => $node->{syntax},
                      list => $node->{syntax}->{list},
+                     map => $node->{syntax}->{map},
                      hidden => $node->{syntax}->{hidden},
                      command => $node->{syntax}->{command},
                      is_command => $is_command,
@@ -6949,8 +6997,9 @@ END
                 my $baseref = ($base =~ /^[A-Z]/ && !$nolinks) ?
                     $base_anchor->{ref} : $base;
 
-                # XXX not getting any list attributes
+                # XXX not getting any list or map attributes
                 my $list = $datatype->{list};
+                my $map = $datatype->{map};
                 
                 my $sizerange = '';
                 $sizerange .= add_size(base_syntax($name));
@@ -6963,6 +7012,7 @@ END
                 $description = html_escape($description,
                                            {type => $base,
                                             list => $list,
+                                            map => $map,
                                             syntax => base_syntax($name),
                                             values => $values});
 
@@ -7782,13 +7832,14 @@ sub html_template
     $tinval =~ s|\+\+\+(.*?)\+\+\+|$1|gs;
 
     # auto-prefix {{reference}} if the parameter is a reference (put after
-    # {{list}} if already there)
+    # {{list}} or {{map}} if already there)
     if ($p->{reference} && $tinval !~ /\{\{reference/ &&
         $tinval !~ /\{\{noreference\}\}/) {
         my $sep = !$tinval ? "" : "  ";
-        if ($tinval =~ /\{\{list\}\}/) {
-            $inval =~ s/(\{\{list\}\})/$1$sep\{\{reference\}\}/;
+        if ($tinval =~ /\{\{(?:list|map)\}\}/) {
+            $inval =~ s/(\{\{(?:list|map)\}\})/$1$sep\{\{reference\}\}/;
         } else {
+            $sep = "  " if !$sep && $inval;
             $inval = "{{reference}}" . $sep . $inval;
         }
     }
@@ -7797,7 +7848,16 @@ sub html_template
     if ($p->{list} && $tinval !~ /\{\{list/ &&
         $tinval !~ /\{\{nolist\}\}/) {
         my $sep = !$tinval ? "" : "  ";
+        $sep = "  " if !$sep && $inval;
         $inval = "{{list}}" . $sep . $inval;
+    }
+
+    # auto-prefix {{map}} if the parameter is map-valued
+    if ($p->{map} && $tinval !~ /\{\{map/ &&
+        $tinval !~ /\{\{nomap\}\}/) {
+        my $sep = !$tinval ? "" : "  ";
+        $sep = "  " if !$sep && $inval;
+        $inval = "{{map}}" . $sep . $inval;
     }
 
     # auto-prefix {{datatype}} if the parameter has a named data type
@@ -7805,6 +7865,7 @@ sub html_template
         $tinval !~ /\{\{datatype/ &&
         $tinval !~ /\{\{nodatatype\}\}/) {
         my $sep = !$tinval ? "" : "  ";
+        $sep = "  " if !$sep && $inval;
         $inval = "{{datatype}}" . $sep . $inval;
     }
 
@@ -7812,6 +7873,7 @@ sub html_template
     if ($p->{is_async} && $tinval !~ /\{\{async/ &&
         $tinval !~ /\{\{noasync\}\}/) {
         my $sep = !$tinval ? "" : "  ";
+        $sep = "  " if !$sep && $inval;
         $inval = "{{async}}" . $sep . $inval;
     }
 
@@ -7819,6 +7881,7 @@ sub html_template
     if ($p->{is_mandatory} && $tinval !~ /\{\{mandatory/ &&
         $tinval !~ /\{\{nomandatory\}\}/) {
         my $sep = !$tinval ? "" : "  ";
+        $sep = "  " if !$sep && $inval;
         $inval = "{{mandatory}}" . $sep . $inval;
     }
 
@@ -7827,12 +7890,14 @@ sub html_template
         $tinval !~ /\{\{showid/ &&
         $tinval !~ /\{\{noshowid\}\}/) {
         my $sep = !$tinval ? "" : "  ";
+        $sep = "  " if !$sep && $inval;
         $inval = "{{showid}}" . $sep . $inval;
     }
 
     # auto-prefix {{profdesc}} if it's a profile
     if ($p->{profile} && $tinval !~ /\{\{noprofdesc\}\}/) {
         my $sep = !$tinval ? "" : "\n";
+        $sep = "  " if !$sep && $inval;
         $inval = "{{profdesc}}" . $sep . $inval;
     }
 
@@ -7851,6 +7916,7 @@ sub html_template
             !$tinval ? "" :
             $tinval =~ /(^|\n)\s*[\*\#\:][^\n]*$/s ? "\n{{}}" :
             $tinval =~ /[\.\?\!]\'*$/ ? "  " : "\n{{}}";
+        $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{enum}}" if $facet eq 'enumeration' &&
             $tinval !~ /\{\{enum\}\}/ && $tinval !~ /\{\{noenum\}\}/;
         $inval .= $sep . "{{pattern}}" if $facet eq 'pattern' &&
@@ -7862,16 +7928,19 @@ sub html_template
     if ($p->{hidden} && $tinval !~ /\{\{hidden/ &&
         $tinval !~ /\{\{nohidden\}\}/) {
         my $sep = !$tinval ? "" : "\n";
+        $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{hidden}}";
     }
     if ($p->{command} && $tinval !~ /\{\{command/ &&
         $tinval !~ /\{\{nocommand\}\}/) {
         my $sep = !$tinval ? "" : "\n";
+        $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{command}}";
     }
     if (defined($p->{factory}) && $tinval !~ /\{\{factory/ &&
         $tinval !~ /\{\{nofactory\}\}/) {
         my $sep = !$tinval ? "" : "\n";
+        $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{factory}}";
     }
     my ($multi, $fixed_ignore, $union) = 
@@ -7879,14 +7948,16 @@ sub html_template
     if (($multi || $union) &&
         $tinval !~ /\{\{entries/ && $tinval !~ /\{\{noentries\}\}/) {
         my $sep = !$tinval ? "" : "\n";
+        $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{entries}}";
     }
     if ($p->{uniqueKeys} && @{$p->{uniqueKeys}}&&
         $tinval !~ /\{\{keys/ && $tinval !~ /\{\{nokeys\}\}/) {
         my $sep = !$tinval ? "" : "\n";
+        $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{keys}}";
     }
-
+    
     # in template expansions, the @a array is arguments and the %p hash is
     # parameters (options)
     my $templates =
@@ -7918,9 +7989,14 @@ sub html_template
          {name => 'entries', text0 => \&html_template_entries},
          {name => 'noentries', text0 => q{}},
          {name => 'list',
-          text0 => \&html_template_list,
-          text1 => \&html_template_list},
+          text0 => \&html_template_listmap,
+          text1 => \&html_template_listmap},
          {name => 'nolist',
+          text0 => q{}},
+         {name => 'map',
+          text0 => \&html_template_listmap,
+          text1 => \&html_template_listmap},
+         {name => 'nomap',
           text0 => q{}},
          {name => 'numentries', text0 => \&html_template_numentries},
          {name => 'datatype',
@@ -8196,17 +8272,29 @@ sub html_template_units
 }
 
 # XXX want to be able to control level of generated info?
-sub html_template_list
+# XXX this is called for both lists and maps; can't tell which so can't detect
+#     some error cases
+sub html_template_listmap
 {
     my ($opts, $arg) = @_;
 
     my $type = $opts->{type};
     my $syntax = $opts->{syntax};
 
+    my $listmap = $syntax->{list} ? 'list' :
+        $syntax->{map} ? 'map' : '';
+
     $type = get_typeinfo($type, $syntax)->{value} if $type eq 'dataType';
 
-    my $text = qq{{{marktemplate|list-$type}}Comma-separated };
-    $text .= syntax_string($type, $syntax, 1);
+    my $prefix = qq{};
+    $prefix .= qq{Comma-separated } if $listmap eq 'list';
+    
+    my $syntax_string = syntax_string($type, $syntax, 1);
+    $syntax_string = ucfirst $syntax_string if $listmap eq 'map';
+
+    my $text = qq{{{marktemplate|$listmap-$type}}};
+    $text .= $prefix;
+    $text .= $syntax_string;
     $text .= qq{, $arg} if $arg;
     $text .= '.';
 
@@ -8368,11 +8456,12 @@ sub html_template_keys
     my $is_deleted = util_is_deleted($node);
 
     # warn if there is a unique key parameter that's a list (this has been
-    # banned since TR-106a7)
+    # banned since TR-106a7) or a map
     # XXX experimental: warn is there is a unique key parameter that's a
     #     strong reference (this is a candidate for additional auto-text)
     my $anystrong = 0;
     my $anylist = 0;
+    my $anymap = 0;
     my $mpref = util_full_path($opts->{node}, 1);
     foreach my $uniqueKey (@$uniqueKeys) {
         my $keyparams = $uniqueKey->{keyparams};
@@ -8386,12 +8475,18 @@ sub html_template_keys
             my $list = util_is_defined($parameters, $fpath) ?
                 $parameters->{$fpath}->{syntax}->{list} : undef;
             $anylist = 1 if $list;
+
+            my $map = util_is_defined($parameters, $fpath) ?
+                $parameters->{$fpath}->{syntax}->{map} : undef;
+            $anymap = 1 if $map;
         }
     }
     d0msg "$object: unique key parameter is a strong reference ($access)"
         if $anystrong && !$is_deleted;
     w1msg "$object: unique key parameter is list-valued"
         if $anylist && !$is_deleted;
+    w1msg "$object: unique key parameter is map-valued"
+        if $anymap && !$is_deleted;
 
     # for tables with enable parameters, need to generate separate text for
     # non-functional (not affected by enable) and functional keys (affected
@@ -8500,7 +8595,8 @@ sub html_template_enum
 
     # XXX not using atstart (was "atstart or newline")
     my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
-        "Each list item is an enumeration of:\n" : "Enumeration of:\n";
+        "Each list item is an enumeration of:\n"  : $opts->{map} ?
+        "Each map item value is an enumeration of:\n" : "Enumeration of:\n";
     return $pref . xml_escape(get_values($node_or_values, !$nolinks));
 }
 
@@ -8513,8 +8609,8 @@ sub html_template_pattern
 
     # XXX not using atstart (was "atstart or newline")
     my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
-        "Each list item matches one of:\n" :
-        "Possible patterns:\n";
+        "Each list item matches one of:\n" : $opts->{map} ?
+        "Each map item value matches one of:\n" : "Possible patterns:\n";
     return $pref . xml_escape(get_values($node_or_values, !$nolinks));
 }
 
@@ -8976,9 +9072,10 @@ sub html_template_reference
     my $object = $opts->{object};
     my $path = $opts->{path};
     my $type = $opts->{type};
-    my $list = $opts->{list};
     my $reference = $opts->{reference};
     my $syntax = $opts->{syntax};
+
+    my $listmap = $opts->{list} ? 'list' : $opts->{map} ? 'map' : '';
 
     # if the second arg is supplied, it is a comma-separated list of keywords;
     # currently supported keywords are:
@@ -9014,14 +9111,13 @@ sub html_template_reference
     my $refType = $syntax->{refType} || '';
     $text .= qq{\{\{marktemplate|$reference};
     $text .= qq{-$refType} if $refType;
-    $text .= qq{-list} if $list;
+    $text .= qq{-$listmap} if $listmap;
     $text .= qq{\}\}};
 
-    # XXX it is assumed that this text will be generated after the {{list}}
-    #     expansion (if a list)
-    $text .= $list ?
-        qq{Each list item } :
-        qq{The value };
+    # XXX it is assumed that this text will be generated after the {{list}} or
+    #     {{map}} expansion (if a list or map)
+    $text .= $listmap ? qq{Each $listmap item } : qq{The value };
+    $text .= qq{value } if $listmap eq 'map';
 
     if ($reference eq 'pathRef') {
         my $targetParent = $syntax->{targetParent};
@@ -9134,7 +9230,7 @@ sub html_template_reference
             $targetType =~ s/single.*/object/;
             $targetType =~ s/parameter or object/item/;
             if ($targetParentFixed) {
-                $text .= $list ?
+                $text .= $listmap ?
                     qq{, or {{empty}}.} :
                     qq{.};
             } else {
@@ -9145,9 +9241,10 @@ sub html_template_reference
                         qq{parameter value will never be {{empty}}).};
                 } else {
                     $text .= qq{the };
-                    $text .= $list ?
-                        qq{corresponding item MUST be removed from the list.} :
-                        qq{parameter value MUST be set to {{empty}}.};
+                    $text .= $listmap ?
+                        qq{corresponding item MUST be removed from the } .
+                               qq{$listmap.} :
+                               qq{parameter value MUST be set to {{empty}}.};
                 }
             }
         }
@@ -9167,7 +9264,7 @@ sub html_template_reference
             qq{$targetParent table$s};
         # XXX pathRef has no equivalent of the following text
         $text .= qq{, or else be $nullValue if no row is currently } .
-            qq{referenced} unless $delete || $list;
+            qq{referenced} unless $delete || $listmap;
         $text .= qq{.};
         if ($refType eq 'strong') {
             $text .= qq{  If the referenced row is deleted, };
@@ -9176,8 +9273,8 @@ sub html_template_reference
                     qq{parameter value will never be $nullValue).};
             } else {
                 $text .= qq{the };
-                $text .= $list ?
-                    qq{corresponding item MUST be removed from the list.} :
+                $text .= $listmap ?
+                    qq{corresponding item MUST be removed from the $listmap.} :
                     qq{parameter value MUST be set to $nullValue.};
             }
         }
@@ -11541,6 +11638,7 @@ sub special_end
             my $srcfixed = $srcobj->{fixedObject};
             next unless $srcaccess eq 'readOnly' && !$srcfixed;
             my $list = $syntax->{list};
+            my $map = $syntax->{map};
 
             # target (referenced) object(s); we are interested only if the
             # targets are specified, are rows, and all are CPE-managed
@@ -11561,7 +11659,8 @@ sub special_end
                 if $tgtobj->{access} eq 'readOnly' && !$tgtobj->{fixedObject};
             }
             $list = $list ? qq{ (list)} : qq{};
-            print "$item->{path}$list\t$tgtobjs\n" if $tgtobjs;
+            $map = $map ? qq{ (map)} : qq{};
+            print "$item->{path}$list$map\t$tgtobjs\n" if $tgtobjs;
         }
     }
 
