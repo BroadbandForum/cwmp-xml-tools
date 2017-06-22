@@ -185,7 +185,7 @@ use utf8;
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2017-06-12 $};
-my $tool_id = q{$Id: report.pl 420 $};
+my $tool_id = q{$Id: report.pl 420+ $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -692,10 +692,10 @@ $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
 # XXX temporary commandcolors are the background colors for commands,
 #     arguments (i.e. "Input" and "Output"), argument objects and argument
 #     parameters respectively (also apply to events)
-push @$commandcolors, "rgb(75, 125, 225)" if @$commandcolors < 1;
-push @$commandcolors, "rgb(0, 150, 200)"  if @$commandcolors < 2;
-push @$commandcolors, "rgb(50, 200, 255)" if @$commandcolors < 3;
-push @$commandcolors, "rgb(50, 225, 255)" if @$commandcolors < 4;
+push @$commandcolors, "#66CDAA" if @$commandcolors < 1;
+push @$commandcolors, "silver"  if @$commandcolors < 2;
+push @$commandcolors, "pink"    if @$commandcolors < 3;
+push @$commandcolors, "#FFE4E1" if @$commandcolors < 4;
 
 # configfile used to be set via $options->{configfile} but now can be set via
 # $configfile; if both are set, the newer $configfile wins, but warn
