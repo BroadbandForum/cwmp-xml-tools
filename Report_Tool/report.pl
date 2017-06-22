@@ -12720,6 +12720,7 @@ sub sanity_node
         #     keys
         w0msg "$path: no unique keys are defined"
             if $multi && !$nowarnuniquekeys &&
+            !is_command($node) && !is_event($node) &&
             !$node->{noUniqueKeys} && !@{$node->{uniqueKeys}};
     }
 
