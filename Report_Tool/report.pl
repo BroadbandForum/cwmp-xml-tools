@@ -5685,12 +5685,12 @@ sub xml2_node
 
     my $type = $node->{type};
     my $element = $type;
-    $element = 'command' if $node->{is_command};
+    $element = 'command' if $node->{is_command} && $type !~ /Ref$/;
     $element = 'input' if
         $node->{is_arguments} && $node->{name} eq 'Input.';
     $element = 'output' if
         $node->{is_arguments} && $node->{name} eq 'Output.';
-    $element = 'event' if $node->{is_event};
+    $element = 'event' if $node->{is_event} && $type !~ /Ref$/;
     $node->{xml2}->{element} = $element;
 
     my $core = is_command($node) || is_event($node);
@@ -5944,12 +5944,14 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $node->{xml2}->{element} = '';
                 return;
             }
-        } elsif ($element =~ /(\w+)Ref/) {
+        } elsif ($element =~ /(\w+)Ref$/) {
             $ref = $name;
             $name = '';
             $requirement = $access;
             $access = '';
             $element = $1; # parameter or object
+            $element = 'command' if $node->{is_command};
+            $element = 'event' if $node->{is_event};
             $node->{xml2}->{element} = ($element eq 'object') ? $element : '';
         }
 
