@@ -8286,6 +8286,12 @@ sub html_template_listmap
     my $listmap = $syntax->{list} ? 'list' :
         $syntax->{map} ? 'map' : '';
 
+    # XXX for list/map-valued data types, this will be indicated via options
+    #     rather than syntax?
+    if (!$listmap) {
+        $listmap = $opts->{list} ? 'list' : $opts->{map} ? 'map' : '';
+    }
+
     $type = get_typeinfo($type, $syntax)->{value} if $type eq 'dataType';
 
     my $prefix = qq{};
