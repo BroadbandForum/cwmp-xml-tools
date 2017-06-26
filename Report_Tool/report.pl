@@ -4830,7 +4830,7 @@ sub parse_file
             my $nsn = $comps[$i];
             my $loc = $comps[$i+1];
             $loc = qq{http://www.broadband-forum.org/cwmp/$loc} unless
-                $loc =~ /^https?:/;
+                $loc =~ /^https?:/ || $loc =~ /^\./;
 
             $root->{schemaLocation} .= qq{$nsn $loc };
         }
