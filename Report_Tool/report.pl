@@ -6057,6 +6057,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         }
         $name .= ' async="true"' if ($node->{is_command} && $type !~ /Ref$/ && $node->{is_async});
         
+        $name .= ' mandatory="true"' if ($node->{is_mandatory});
+        
         print qq{$i<$element$name$base$ref$isService$extends$access$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$noUniqueKeys$fixedObject$end_element>\n};
         if ($tlpp) {
             $i = $isave;
