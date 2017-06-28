@@ -5887,6 +5887,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
 
         my $origelem = $element;
 
+        my $usp_flag = 0;
+        
         if ($element eq 'model') {
             $version = '';
             if (@$dtprofiles) {
@@ -5945,9 +5947,11 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             undef $access;
             undef $minEntries;
             undef $maxEntries;
+            $usp_flag = 1;
         } elsif ($element eq 'input' || $element eq 'output') {
             undef $name;
             undef $access;
+            $usp_flag = 1;
         } elsif ($syntax) {
             $element = 'parameter';
             $node->{xml2}->{element} = $element;
@@ -6010,8 +6014,11 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         $numEntriesParameter = $numEntriesParameter ? qq{ numEntriesParameter="$numEntriesParameter"} : qq{};
         $enableParameter = $enableParameter ? qq{ enableParameter="$enableParameter"} : qq{};
         $status = $status ne 'current' ? qq{ status="$status"} : qq{};
+        
         $activeNotify = (defined $activeNotify && $activeNotify ne 'normal') ?
             qq{ activeNotify="$activeNotify"} : qq{};
+        $activeNotify = qq{} if (defined $activeNotify && "" ne $activeNotify && ($usp_flag || $path =~ /\(\)\.(In|Out)put/));
+        
         $forcedInform = $forcedInform ? qq{ forcedInform="true"} : qq{};
         $requirement = $requirement ? qq{ requirement="$requirement"} : qq{};
         $minEntries = defined $minEntries ?
