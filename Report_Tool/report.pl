@@ -6048,6 +6048,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             print qq{$i<object ref="$tpath" requirement="present">\n};
             $i .= '  ';
         }
+        $name .= ' async="true"' if ($node->{is_command} && $type !~ /Ref$/ && $node->{is_async});
+        
         print qq{$i<$element$name$base$ref$isService$extends$access$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$noUniqueKeys$fixedObject$end_element>\n};
         if ($tlpp) {
             $i = $isave;
