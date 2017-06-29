@@ -6055,11 +6055,12 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             print qq{$i<object ref="$tpath" requirement="present">\n};
             $i .= '  ';
         }
-        $name .= ' async="true"' if ($node->{is_command} && $type !~ /Ref$/ && $node->{is_async});
         
-        $name .= ' mandatory="true"' if ($node->{is_mandatory});
+        # add additional parameters if necessary:
+        my $addPsrams = ($node->{is_command} && $type !~ /Ref$/ && $node->{is_async}) ?  qq{ async="true"} : qq{};      
+        $addPsrams .= ' mandatory="true"' if ($node->{is_mandatory});
         
-        print qq{$i<$element$name$base$ref$isService$extends$access$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$noUniqueKeys$fixedObject$end_element>\n};
+        print qq{$i<$element$name$base$ref$isService$extends$addPsrams$access$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$noUniqueKeys$fixedObject$end_element>\n};
         if ($tlpp) {
             $i = $isave;
             print qq{$i</object>\n};
