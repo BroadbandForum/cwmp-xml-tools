@@ -1,6 +1,6 @@
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2016  Honu Ltd
+# Copyright (C) 2016, 2017  Honu Ltd
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -1903,10 +1903,16 @@ sub remove_corrigendum
 {
     my ($text) = @_;
 
+    #main::tmsg "remove_corrigendum from $text";
+
     # don't try to remove corrigendum number on non-BBF specs
-    $text =~ s/-\d+(-[^-\d]*)?(\.\w+)?$/$1$2/
+    # in tr-nnn-i-a-c-label.ext,
+    # $1=-nnn, $2=-i, $3=-a, $4=-c, $5=-label, $6=.ext
+    $text =~ s/(-\d+)(-\d+)(-\d+)(-\d+)(-[^-\d]*)?(\.\w+)?$/$1$2$3$5$6/
         unless $text =~ /^urn:/ && $text !~ /^urn:broadband-forum-org/;
 
+    #main::tmsg " --> $text";
+    
     return $text;
 }
 
