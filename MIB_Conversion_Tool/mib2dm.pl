@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2016  Honu Ltd
+# Copyright (C) 2016, 2017  Honu Ltd
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -328,6 +328,7 @@ sub expand_module
     $organization =~ s/.*\bcable television laboratories\b.*/cablelabs-org/;
     $organization =~ s/.*\bcablelabs\b.*/cablelabs-org/;
     $organization =~ s/.*\bieee\b.*/ieee-org/;
+    $organization =~ s/.*\biana\b.*/iana-org/;
     $organization =~ s/.*\bietf\b.*/ietf-org/;
     $organization =~ s/.*\bmultimedia over coax\b.*/mocalliance-org/;
     $organization =~ s/_/-/g;
