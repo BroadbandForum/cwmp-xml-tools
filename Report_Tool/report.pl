@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2017-06-12 $};
-my $tool_id = q{$Id: report.pl 420+ $};
+my $tool_vers_date = q{$Date: 2017-09-07 $};
+my $tool_id = q{$Id: report.pl 421 $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 

@@ -12,8 +12,8 @@ For questions and comments please contact klaus.wich@aim.com
 
 History
 --------
-09/07/2017 ReportGuiSetup 3.3, ReportGui 3.3, report.exe#420+ (report.pl#420+)
-    new version of report.exe (report.pl#420+) included in installer
+09/07/2017 ReportGuiSetup 3.3, ReportGui 3.3, report.exe#421 (report.pl#421)
+    new version of report.exe (report.pl#421) included in installer
     new ReportGui version 3.3
     - Drag n Drop of XML Files into Selection file
     - Generated files are now in central output directory (Setting - "Select output directory") 
