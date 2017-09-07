@@ -5,14 +5,19 @@ This utility provides a graphical frontend for the "report.exe" tool to generate
 xml data files.
 
 The windows installer includes the frontend and the report.exe tool. For installation please 
-execute the ReportGuiSetup and follow the instructions. The tool runs under Windows (XP, Vista, 7, 10)
-and with some effort under MACOS with Wine
+execute the ReportGuiSetup and follow the instructions. The tool runs under Windows (XP, Vista, 7, 8, 10)
 
 For questions and comments please contact klaus.wich@aim.com
 
 
 History
 --------
+09/07/2017 ReportGuiSetup 3.3, ReportGui 3.3, report.exe#420+ (report.pl#420+)
+    new version of report.exe (report.pl#420+) included in installer
+    new ReportGui version 3.3
+    - Drag n Drop of XML Files into Selection file
+    - Generated files are now in central output directory (Setting - "Select output directory") 
+    
 06/14/2017 ReportGuiSetup 3.2, ReportGui 3.2, report.exe#420 (report.pl#420)
     new version of report.exe (report.pl#420) included in installer
     new ReportGui version 3.2
