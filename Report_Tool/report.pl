@@ -8876,6 +8876,26 @@ sub html_template_paramref
     my $mpref = util_full_path($opts->{node}, 1);
     my $fpath = $mpref . $path;
     my $invalid = util_is_defined($parameters, $fpath) ? '' : '?';
+    
+    # XXX special case for commands and events: allow things like
+    #     {{param|Fred}} when:
+    #     - Fred() is a command, so {{command|Fred()}} would be correct
+    #     - Fred! is an event, so {{event|Fred!}} would be correct
+    if ($invalid) {
+        foreach my $suffix ((qq{()}, qq{!})) {
+            my $oname2 = qq{$oname$suffix};
+            my ($tpath, $tname) = relative_path($object, $oname2, $scope);
+            my $tfpath = $mpref . $tpath;
+            if (util_is_defined($parameters, $tfpath)) {
+                $path = $tpath;
+                $name = $tname;
+                $fpath = $tfpath;
+                $invalid = '';
+                last;
+            }
+        }
+    }
+    
     # XXX special case for commands and events: they are parameter-like but
     #     also object-like, in that they have argument children; so if failed
     #     to find peer parameter, look for argument child; THIS INTRODUCES AN
@@ -8894,8 +8914,10 @@ sub html_template_paramref
             }
         }
     }
+    
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
+    
     # XXX don't warn further if this item has been deleted
     if (!util_is_deleted($opts->{node})) {
         emsg "$object$param: reference to invalid $entity $path"
