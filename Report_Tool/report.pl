@@ -8451,18 +8451,31 @@ sub html_template_entries
             qq{it is a member of a group of objects of which only one } .
             qq{can exist at a given time.} : qq{}) if $union;
 
-    # don't say anything in the common (0,unbounded) case
-    return qq{} if $min == 0 && $max eq 'unbounded';
-
+    # otherwise output (min, max) constraints
+    my $text = qq{};
     my $minEntries = ($min > 1) ? 'entries' : 'entry';
-    return qq{This table MUST contain exactly $min $minEntries.} if $fixed;
+    if ($min == 0 && $max eq 'unbounded') {
+        # don't say anything in the common (0,unbounded) case
+    } elsif ($fixed) {
+        $text .= qq{This table MUST contain exactly $min $minEntries.};
+    } elsif ($max eq 'unbounded') {
+        $text .= qq{This table MUST contain at least $min $minEntries.};
+    } else {
+        my $maxEntries = ($max > 1) ? 'entries' : 'entry'; 
+        $text .= qq{This table MUST contain at least $min and }.
+            qq{at most $max $maxEntries.};
+    }
+    
+    # if this is a command or event argument table, indicate that the instance
+    # numbers must be 1, 2, ...
+    my $core = is_command($opts->{node}) || is_event($opts->{node});
+    if ($core) {
+        $text .= qq{ } if $text;
+        $text .= qq{This table's Instance Numbers MUST be 1, 2, 3... } .
+            qq{(assigned sequentially without gaps).};
+    }
 
-    return qq{This table MUST contain at least $min $minEntries.} if
-        $max eq 'unbounded';
-
-    my $maxEntries = ($max > 1) ? 'entries' : 'entry'; 
-    return qq{This table MUST contain at least $min and }.
-        qq{at most $max $maxEntries.};
+    return $text;
 }
 
 sub html_template_keys
