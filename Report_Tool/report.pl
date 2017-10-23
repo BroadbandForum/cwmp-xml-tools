@@ -185,7 +185,7 @@ use utf8;
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2017-09-07 $};
-my $tool_id = q{$Id: report.pl 421 $};
+my $tool_id = q{$Id: report.pl 421+ $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -7995,6 +7995,17 @@ sub html_template
           text0 => \&html_template_objectref,
           text1 => \&html_template_objectref,
           text2 => \&html_template_objectref},
+         # {{command}} and {{nocommand}} templates already existed (for
+         # <param command="true"> before adding USP commands
+         {name => 'command',
+          text0 => \&html_template_commandref,
+          text1 => \&html_template_commandref,
+          text2 => \&html_template_commandref},
+         {name => 'nocommand', text0 => q{}},
+         {name => 'event',
+          text0 => \&html_template_eventref,
+          text1 => \&html_template_eventref,
+          text2 => \&html_template_eventref},
          {name => 'profile',
           text0 => \&html_template_profileref,
           text1 => \&html_template_profileref},
@@ -8028,11 +8039,6 @@ sub html_template
               q{regardless of the actual value.}},
          {name => 'nohidden',
           text0 => q{}},
-         {name => 'command',
-          text0 => q{{{marktemplate|command}}}.
-              q{The value of this parameter is not part of the device }.
-              q{configuration and is always {{null}} when read.}},
-         {name => 'nocommand', text0 => q{}},
          # XXX async used to include p->{notify} but this is being removed
          {name => 'async',
           text0 => q{{{marktemplate|async}}'''[ASYNC]'''}},
@@ -8799,24 +8805,38 @@ sub html_template_paramref
     my $object = $opts->{object};
     my $param = $opts->{param};
 
-    # if no param (e.g. in data type description) return literal "parameter"
+    # this routine is used for parameters, commands and events, so use
+    # variables to ensure that the correct terms are used in messages
+    my $template = $opts->{is_commandref} ? '{{command}}' :
+        $opts->{is_eventref} ? '{{event}}' : '{{param}}';
+    my $entity = $opts->{is_commandref} ? 'command' :
+        $opts->{is_eventref} ? 'event' : 'parameter';
+
+    # if no param (e.g. in data type description) return literal "parameter",
+    # "command" or "event"
     unless ($param || $name) {
-        return qq{parameter};
+        return $entity;
     }
 
     # parameterless case (no "name") is special
     unless ($name) {
-        emsg "$object: {{param}} is appropriate only within a ".
-            "parameter description" unless $param;
+        emsg "$object: $template is appropriate only within a ".
+            "$entity description" unless $param;
         return qq{''$param''};
     }
+
+    # warn if {{param}} is used to reference a command or event
+    w0msg "$object$param: should use {{command}} to reference a command"
+        if $name =~ /\(\)$/ && !$opts->{is_commandref};
+    w0msg "$object$param: should use {{event}} to reference an event"
+        if $name =~ /!$/ && !$opts->{is_eventref};
 
     # when showing diffs, "name" can include deleted and inserted text
     $name =~ s|\-\-\-(.*?)\-\-\-||g;
     $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
-    w0msg "$object$param: {{param}} argument is unnecessary when ".
-        "referring to current parameter" if $name eq $param;
+    w0msg "$object$param: $template argument is unnecessary when ".
+        "referring to current $entity" if $name eq $param;
 
     my $oname = $name;
     (my $path, $name) = relative_path($object, $name, $scope);
@@ -8845,13 +8865,13 @@ sub html_template_paramref
     $invalid = '' if $upnpdm;
     # XXX don't warn further if this item has been deleted
     if (!util_is_deleted($opts->{node})) {
-        emsg "$object$param: reference to invalid parameter $path"
+        emsg "$object$param: reference to invalid $entity $path"
             if $invalid && !$automodel;
         # XXX make this nicer (not sure why test of status is needed here but
         #     upnpdm triggers "undefined" errors otherwise
         if (!$invalid && $parameters->{$fpath}->{status} &&
             $parameters->{$fpath}->{status} eq 'deleted') {
-            w0msg "$object$param: reference to deleted parameter ".
+            w0msg "$object$param: reference to deleted $entity ".
                 "$path" if !$showdiffs;
             $invalid = '!';
         }
@@ -8861,6 +8881,39 @@ sub html_template_paramref
     $name = html_get_anchor($fpath, 'path', $name) unless $nolinks;
 
     return $name;
+}
+
+# generates reference to command: arguments are command name and optional
+# scope
+sub html_template_commandref
+{
+    my ($opts, $name, $scope) = @_;
+
+    my $object = $opts->{object};
+    my $param = $opts->{param};
+
+    # return the original text if this is a command parameter (as opposed to a
+    # USP command) 
+    if ($opts->{command}) {
+        return q{{{marktemplate|command}}}.
+            q{The value of this parameter is not part of the device }.
+            q{configuration and is always {{null}} when read.};
+    }
+
+    # otherwise use the {{param}} logic
+    $opts->{is_commandref} = 1;
+    return html_template_paramref($opts, $name, $scope);
+}
+
+# generates reference to event: arguments are event name and optional
+# scope
+sub html_template_eventref
+{
+    my ($opts, $name, $scope) = @_;
+
+    # use the {{param}} logic
+    $opts->{is_eventref} = 1;
+    return html_template_paramref($opts, $name, $scope);
 }
 
 # generates reference to object: arguments are object name and optional
