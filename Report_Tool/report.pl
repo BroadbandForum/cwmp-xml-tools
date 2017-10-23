@@ -2077,7 +2077,17 @@ sub expand_model_arguments
     return $nnode;
 }
 
-# returns False for event arguments, so they are correctly treated as inputs
+# returns False for event arguments
+sub is_arginput
+{
+    my ($node) = @_;
+    return 0 unless $node->{type};
+    return ($node->{name} eq 'Input.') if $node->{is_arguments};
+    return is_arginput($node->{pnode});
+}
+
+# returns False for event arguments, so if this is used to distinguish input
+# and output arguments it will treat them as input arguments
 sub is_argoutput
 {
     my ($node) = @_;
@@ -5740,14 +5750,15 @@ sub xml2_node
     $element = 'event' if $node->{is_event} && $type !~ /Ref$/;
     $node->{xml2}->{element} = $element;
 
-    my $core = is_command($node) || is_event($node);
+    my $command_or_event = is_command($node) || is_event($node);
 
     # this is the object nesting level (relative to the root object) and is
     # necessary because all 'object' elements (apart from in arguments) are 
     # defined at the same level
     $xml2_objlevel = 0 if $indent == 0;
     $node->{xml2}->{objlevel_inc} =
-        !$core && $element eq 'object' && $node->{pnode}->{type} eq 'object';
+        !$command_or_event && $element eq 'object' &&
+        $node->{pnode}->{type} eq 'object';
     $xml2_objlevel++ if $node->{xml2}->{objlevel_inc};
     my $i = "  " x ($indent - $xml2_objlevel);
 
@@ -5941,8 +5952,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $description = '';
                 $descact = 'replace';
             }
-            $name = $node->{name} if $core;
-            undef $access if $core;
+            $name = $node->{name} if $command_or_event;
+            undef $access if $command_or_event;
         } elsif ($element eq 'command' || $element eq 'event') {
             undef $access;
             undef $minEntries;
@@ -5989,7 +6000,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $descact = 'replace';
                 $syntax = undef;
             }
-            undef $access if $core;
+            undef $access if $command_or_event;
         } elsif ($element eq 'profile') {
             unless ($name) {
                 $node->{xml2}->{element} = '';
@@ -6771,6 +6782,8 @@ sub html_node
     my $is_event = $node->{is_event} ? 1 : 0;
     my $parameter_like = $parameter || $is_command || $is_event;
 
+    my $command_or_event = is_command($node) || is_event($node);
+
     my $changed = $node->{changed};
     my $history = $node->{history};
     my $description = $node->{description};
@@ -7123,6 +7136,12 @@ END
             $access eq 'create' ? 'A' :
             $access eq 'delete' ? 'D' :
             $access eq 'createDelete' ? 'C' : '-';
+        # override for commands, events and their arguments: most things use
+        # '-', but all command input arguments (not 'Input' itself) use 'W'
+        if ($command_or_event) {
+            $write = is_arginput($node) && $node->{name} ne 'Input.' ?
+                'W' : '-';
+        }
 
         my $default = $node->{default};
         undef $default if defined $node->{deftype} &&
@@ -7177,7 +7196,7 @@ END
         #     - f : parameter argument
         if ($is_command || $is_event) {
             $tdclass = 'c';
-        } elsif (is_command($node) || is_event($node)) {
+        } elsif ($command_or_event) {
             if ($tdclass eq 'o') {
                 $tdclass = $is_arguments ? 'd' : 'e';
             } else {
@@ -7368,10 +7387,10 @@ END
         if ($model || $profile) {
         } elsif (!$html_profile_active) {
             my $tname = '';
-            my $core = is_command($node) || is_event($node);
+            my $command_or_event = is_command($node) || is_event($node);
             # modify displayed name for commands and event arguments (just the
             # name, not the full path)
-            if ($core) {
+            if ($command_or_event) {
                 my $arrow = is_argoutput($node) ? '&lArr;' : '&rArr;';
                 $tname = $node->{name};
                 $tname = "$arrow " . $tname unless $is_command || $is_event;
@@ -7391,7 +7410,7 @@ END
             $type = 'arguments' if $is_arguments;
             $type = 'event' if $is_event;
             # XXX would like syntax to be a link when it's a named data type
-            print <<END if $object && !$core && !$nolinks;
+            print <<END if $object && !$command_or_event && !$nolinks;
           <li>$anchor->{ref}</li>
 END
             my $tspecs = $specs;
@@ -8468,8 +8487,9 @@ sub html_template_entries
     
     # if this is a command or event argument table, indicate that the instance
     # numbers must be 1, 2, ...
-    my $core = is_command($opts->{node}) || is_event($opts->{node});
-    if ($core) {
+    my $command_or_event = is_command($opts->{node}) ||
+        is_event($opts->{node});
+    if ($command_or_event) {
         $text .= qq{ } if $text;
         $text .= qq{This table's Instance Numbers MUST be 1, 2, 3... } .
             qq{(assigned sequentially without gaps).};
