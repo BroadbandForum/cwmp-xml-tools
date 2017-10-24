@@ -8871,50 +8871,11 @@ sub html_template_paramref
     w0msg "$object$param: $template argument is unnecessary when ".
         "referring to current $entity" if $name eq $param;
 
-    my $oname = $name;
-    (my $path, $name) = relative_path($object, $name, $scope);
     my $mpref = util_full_path($opts->{node}, 1);
-    my $fpath = $mpref . $path;
-    my $invalid = util_is_defined($parameters, $fpath) ? '' : '?';
-    
-    # XXX special case for commands and events: allow things like
-    #     {{param|Fred}} when:
-    #     - Fred() is a command, so {{command|Fred()}} would be correct
-    #     - Fred! is an event, so {{event|Fred!}} would be correct
-    if ($invalid) {
-        foreach my $suffix ((qq{()}, qq{!})) {
-            my $oname2 = qq{$oname$suffix};
-            my ($tpath, $tname) = relative_path($object, $oname2, $scope);
-            my $tfpath = $mpref . $tpath;
-            if (util_is_defined($parameters, $tfpath)) {
-                $path = $tpath;
-                $name = $tname;
-                $fpath = $tfpath;
-                $invalid = '';
-                last;
-            }
-        }
-    }
-    
-    # XXX special case for commands and events: they are parameter-like but
-    #     also object-like, in that they have argument children; so if failed
-    #     to find peer parameter, look for argument child; THIS INTRODUCES AN
-    #     AMBIGUITY
-    if ($invalid) {
-        foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
-            my $tobject = qq{$object$param$suffix.};
-            my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
-            my $tfpath = $mpref . $tpath;
-            if (util_is_defined($parameters, $tfpath)) {
-                $path = $tpath;
-                $name = $tname;
-                $fpath = $tfpath;
-                $invalid = '';
-                last;
-            }
-        }
-    }
-    
+    (my $path, $name, my $fpath, my $valid) =
+        relative_path_helper($object, $param, $name, $scope, $mpref);
+    my $invalid = $valid ? '' : '?';
+
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
     
@@ -9016,12 +8977,16 @@ sub html_template_objectref
     $path = $path1 if util_is_defined($objects, $mpref.$path1);
     $path = $path2 if util_is_defined($objects, $mpref.$path2);
     my $fpath = $mpref . $path;
-
+    
     # XXX if path starts ".Services." this is a reference to another data
     #     model, so no checks and no link
     return qq{''$name''} if $path =~ /^\.Services\./;
 
     my $invalid = util_is_defined($objects, $fpath) ? '' : '?';
+
+    # XXX the various tests below should be moved to relative_path_helper(),
+    #     which is currently rather parameter-specific
+    
     # XXX special case for commands and events: they are parameter-like but
     #     also object-like, in that they have argument children; so if failed
     #     to find peer parameter, look for argument child; THIS INTRODUCES AN
@@ -9046,6 +9011,60 @@ sub html_template_objectref
             }
         }
     }
+
+    # XXX similar to the above, allow references from input to output
+    #     arguments, and vice versa
+    if ($invalid) {
+        my $match = $object =~ /\(\)\.(In|Out)put\./;
+        if ($match) {
+            my $other = $1 eq 'In' ? 'Out' : 'In';
+            my $xname = $oname;
+            $xname =~ s/^(#*)/$1#.${other}put./;
+            $xname =~ s/\.\././;
+            my ($tpath, $tname) = relative_path($object, $xname, $scope);
+            my $tpath1 = $tpath;
+            $tpath1 .= '.' if $tpath1 !~ /\.$/;
+            my $tpath2 = $tpath1;
+            $tpath2 .= '{i}.' if $tpath2 !~ /\{i\}\.$/;
+            $tpath = $tpath1 if util_is_defined($objects, $mpref.$tpath1);
+            $tpath = $tpath2 if util_is_defined($objects, $mpref.$tpath2);
+            my $tfpath = $mpref . $tpath;
+            if (util_is_defined($objects, $tfpath)) {
+                $path = $tpath;
+                $name = $tname;
+                $fpath = $tfpath;
+                $invalid = '';
+            }
+         }
+    }
+
+    # XXX somewhat similarly, allow references from outside a command to its
+    #     arguments
+    # XXX NOTE: this case isn't currently covered by relative_path_helper()
+    if ($invalid) {
+        if ($oname =~ /\(\)\./) {
+            foreach my $suffix ((qq{Input.}, qq{Output.})) {
+                my $toname = $oname;
+                $toname =~ s/\(\)\./().$suffix/;
+                my ($tpath, $tname) = relative_path($object, $toname, $scope);
+                my $tpath1 = $tpath;
+                $tpath1 .= '.' if $tpath1 !~ /\.$/;
+                my $tpath2 = $tpath1;
+                $tpath2 .= '{i}.' if $tpath2 !~ /\{i\}\.$/;
+                $tpath = $tpath1 if util_is_defined($objects, $mpref.$tpath1);
+                $tpath = $tpath2 if util_is_defined($objects, $mpref.$tpath2);
+                my $tfpath = $mpref . $tpath;
+                if (util_is_defined($objects, $tfpath)) {
+                    $path = $tpath;
+                    $name = $tname;
+                    $fpath = $tfpath;
+                    $invalid = '';
+                    last;
+                }
+            }
+        }
+    }
+    
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
     # XXX don't warn further if this item has been deleted
@@ -9092,14 +9111,13 @@ sub html_template_valueref
     $name =~ s|\-\-\-(.*?)\-\-\-||g;
     $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
-    (my $path, $name) = relative_path($object, $name, $scope);
-
-    my $invalid = '';
-    # XXX don't warn of invalid references for UPnP DM (need to fix!)
     my $mpref = util_full_path($opts->{node}, 1);
-    my $fpath = $mpref . $path;
-    if (!util_is_defined($parameters, $fpath)) {
-        $invalid = '?';
+    (my $path, $name, my $fpath, my $valid) =
+        relative_path_helper($object, $param, $name, $scope, $mpref);
+    my $invalid = $valid ? '' : '?';
+    
+    # XXX don't warn of invalid references for UPnP DM (need to fix!)
+    if ($invalid) {
         $invalid = '' if $upnpdm;
         # XXX don't warn further if this item has been deleted
         if (!util_is_deleted($opts->{node})) {
@@ -9504,6 +9522,65 @@ sub relative_path
     return ($path, $name);
 }
 
+# relative_path() helper that supports various special cases for commands and
+# events; returns additional fpath (full path) and valid (0/1) results
+sub relative_path_helper
+{
+    my ($object, $param, $name, $scope, $mpref) = @_;
+
+    # save the original $name
+    my $oname = $name;
+
+    # process the relative path
+    (my $path, $name) = relative_path($object, $name, $scope);
+
+    # check whether the parameter (or command or event) exists
+    my $fpath = $mpref . $path;
+    return ($path, $name, $fpath, 1)
+        if util_is_defined($parameters, $fpath);
+
+    # special cases for commands and events
+    # XXX should return now if special case logic can't apply...
+
+    # allow things like {{param|Fred}} when:
+    # - Fred() is a command, so {{command|Fred()}} would be correct
+    # - Fred! is an event, so {{event|Fred!}} would be correct
+    foreach my $suffix ((qq{()}, qq{!})) {
+        my $toname = qq{$oname$suffix};
+        my ($tpath, $tname) = relative_path($object, $toname, $scope);
+        my $tfpath = $mpref . $tpath;
+        return ($tpath, $tname, $tfpath, 1)
+            if util_is_defined($parameters, $tfpath);
+    }
+    
+    # if failed to find peer parameter, look for argument child; THIS
+    # INTRODUCES AN AMBIGUITY
+    foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
+        my $tobject = qq{$object$param$suffix.};
+        my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
+        my $tfpath = $mpref . $tpath;
+        return ($tpath, $tname, $tfpath, 1)
+            if util_is_defined($parameters, $tfpath);
+    }
+
+    # similar to the above, allow references from input to output arguments,
+    # and vice versa
+    my $match = $object =~ /\(\)\.(In|Out)put\./;
+    if ($match) {
+        my $other = $1 eq 'In' ? 'Out' : 'In';
+        my $xname = $oname;
+        $xname =~ s/^(#*)/$1#.${other}put./;
+        $xname =~ s/\.\././;
+        my ($tpath, $tname) = relative_path($object, $xname, $scope);
+        my $tfpath = $mpref . $tpath;
+        return ($tpath, $tname, $tfpath, 1)
+            if util_is_defined($parameters, $tfpath);
+    }
+
+    # ran out of options; invalid
+    return ($path, $name, $fpath, 0);
+}
+    
 # Generate appropriate {{object}} references from an XML list
 sub object_references
 {
