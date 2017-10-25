@@ -185,7 +185,7 @@ use utf8;
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2017-09-07 $};
-my $tool_id = q{$Id: report.pl 421 $};
+my $tool_id = q{$Id: report.pl 421+ $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -1748,6 +1748,9 @@ sub expand_model_object
     my $maxEntries = $object->findvalue('@maxEntries');
     my $numEntriesParameter = $object->findvalue('@numEntriesParameter');
     my $enableParameter = $object->findvalue('@enableParameter');
+    # XXX it's currently called 'mounttype' but will be proposing change to
+    #     'mountType' so this is future-proofing
+    my $mountType = $object->findvalue('@mountType|@mounttype');
     my $status = $object->findvalue('@status');
     my $id = $object->findvalue('@id');
     my $description = $object->findvalue('description');
@@ -1831,6 +1834,7 @@ sub expand_model_object
     check_and_update($path, $nnode,
                      'numEntriesParameter', $numEntriesParameter);
     check_and_update($path, $nnode, 'enableParameter', $enableParameter);
+    check_and_update($path, $nnode, 'mountType', $mountType);
 
     # XXX these are slightly different (just take first definition seen)
     $nnode->{noUniqueKeys} = $noUniqueKeys unless
@@ -6819,6 +6823,7 @@ sub html_node
                      reference => $node->{syntax}->{reference},
                      uniqueKeys => $node->{uniqueKeys},
                      enableParameter => $node->{enableParameter},
+                     mountType => $node->{mountType},
                      values => $node->{values},
                      units => $node->{units},
                      nbsp => $object || $parameter});
@@ -7937,8 +7942,8 @@ sub html_template
             $tinval !~ /\{\{pattern\}\}/ && $tinval !~ /\{\{nopattern\}\}/;
     }
 
-    # similarly auto-append {{hidden}}, {{command}}, {{factory}}, {{entries}}
-    # and {{keys}} if appropriate
+    # similarly auto-append {{hidden}}, {{command}}, {{factory}}, {{mount}},
+    # {{entries}} and {{keys}} if appropriate
     if ($p->{hidden} && $tinval !~ /\{\{hidden/ &&
         $tinval !~ /\{\{nohidden\}\}/) {
         my $sep = !$tinval ? "" : "\n";
@@ -7957,6 +7962,12 @@ sub html_template
         $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{factory}}";
     }
+    if ($p->{mountType} &&
+        $tinval !~ /\{\{mount/ && $tinval !~ /\{\{nomount\}\}/) {
+        my $sep = !$tinval ? "" : "\n";
+        $sep = "  " if !$sep && $inval;
+        $inval .= $sep . "{{mount}}";
+    }        
     my ($multi, $fixed_ignore, $union) = 
         util_is_multi_instance($p->{minEntries}, $p->{maxEntries});
     if (($multi || $union) &&
@@ -7965,7 +7976,7 @@ sub html_template
         $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{entries}}";
     }
-    if ($p->{uniqueKeys} && @{$p->{uniqueKeys}}&&
+    if ($p->{uniqueKeys} && @{$p->{uniqueKeys}} &&
         $tinval !~ /\{\{keys/ && $tinval !~ /\{\{nokeys\}\}/) {
         my $sep = !$tinval ? "" : "\n";
         $sep = "  " if !$sep && $inval;
@@ -8065,6 +8076,8 @@ sub html_template
           text1 => \&html_template_reference,
           text2 => \&html_template_reference},
          {name => 'noreference', text0 => q{}},
+         {name => 'mount', text0 => \&html_template_mount},
+         {name => 'nomount', text0 => q{}},
          {name => 'units', text0 => \&html_template_units},
          {name => 'empty', text0 => q{an empty string}, ucfirst => 1},
          {name => 'false', text0 => q{''false''}},
@@ -9323,6 +9336,19 @@ sub html_template_reference
     $text .= qq{  } if $text;
 
     return $text;
+}
+
+sub html_template_mount
+{
+    my ($opts) = @_;
+
+    my $mountType = $opts->{mountType};
+    my $mountmap = {
+        'mountable' => qq{Mountable as a child of Mount Points},
+            'mountpoint' => qq{a Mount Point, under which Mountable Objects } .
+            qq{can be Mounted}
+    };
+    return qq{This Object is $mountmap->{$mountType}.};
 }
 
 # Generate relative path given...
