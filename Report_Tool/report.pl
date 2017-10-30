@@ -761,12 +761,14 @@ our $htmlbbf_info = {};
 my $firstautomodel = undef;
 sub expand_toplevel
 {
-    my ($file)= @_;
+    my ($file, $xml)= @_;
 
-    (my $dir, $file, my $rpath) = find_file($file, '');
+    # if XML is supplied directly, use it rather than reading the file
+    my ($dir, $rpath) = (undef, undef);
+    ($dir, $file, $rpath) = find_file($file, '') unless $xml;    
 
-    # parse file
-    my $toplevel = parse_file($dir, $file);
+    # parse file / XML
+    my $toplevel = parse_file($dir, $file, $xml);
     return unless $toplevel;
 
     # for XSD files, just track the target namespace then return
@@ -776,8 +778,10 @@ sub expand_toplevel
         my $targetNamespace = $toplevel->findvalue('@targetNamespace');
         my $hash = {name => $file, spec => $targetNamespace,
                     appdate => $appdate, schema => 1};
-        push @$allfiles, $hash;
-        push @$files2, $hash unless grep { $_->{name} eq $file} @$files2;
+        if (!$xml) {
+            push @$allfiles, $hash;
+            push @$files2, $hash unless grep { $_->{name} eq $file} @$files2;
+        }
         return;
     }
     else {
@@ -787,8 +791,10 @@ sub expand_toplevel
         my @models = $toplevel->findnodes('model');
         my $hash = {name => $file, spec => $spec, appdate => $appdate,
                     description => $description, models => \@models};
-        push @$allfiles, $hash;
-        push @$files2, $hash unless grep { $_->{name} eq $file} @$files2;
+        if (!$xml) {
+            push @$allfiles, $hash;
+            push @$files2, $hash unless grep { $_->{name} eq $file} @$files2;
+        }
     }
 
     # if one or more top-level file has the same name, use the final directory
@@ -1226,8 +1232,11 @@ sub expand_dataType
         }
     }
 
+    # XXX if the name begins with an underscore this is a primitive type
+    #     definition, so no error
     if (!$base && !$prim) {
-        emsg "$name: data type is not derived from anything (string assumed)";
+        emsg "$name: data type is not derived from anything (string " .
+            "assumed)" unless $name =~ /^_/;
         $prim = 'string';
     }
 
@@ -4793,24 +4802,32 @@ sub version
 # Parse a data model definition file.
 sub parse_file
 {
-    my ($dir, $file)= @_;
+    my ($dir, $file, $xml)= @_;
 
-    # XXX only use dir if non-blank ('' can be interpreted as '/')
-    my $tfile = $dir ? File::Spec->catfile($dir, $file) : $file;
-
-    d0msg "parse_file: parsing $tfile";
-
-    # parse file
+    # if XML is supplied directly, use it rather than reading the file
     my $parser = XML::LibXML->new(line_numbers => 1);
-    my $tree = eval { $parser->parse_file($tfile) };
+    my $tfile = undef;
+    my $tree = undef;
+    if ($xml) {
+        $tfile = $file;
+        d0msg "parse_file: parsing from supplied XML string";
+        $tree = eval { $parser->parse_string($xml) };
+    } else {
+        # XXX only use dir if non-blank ('' can be interpreted as '/')
+        $tfile = $dir ? File::Spec->catfile($dir, $file) : $file;
+        d0msg "parse_file: parsing $tfile";
+        $tree = eval { $parser->parse_file($tfile) };
+    }
+    
     if ($@) {
         fmsg $@;
         return undef;
     }
     my $toplevel = $tree->getDocumentElement;
 
-    # for XSD files, pick up target namespace and return
-    return $toplevel if $tfile =~ /\.xsd$/;
+    # if parsing directly from XML, and for XSD files, return now (don't want
+    # to inadvertently pick up first comment from it!)
+    return $toplevel if $xml || $tfile =~ /\.xsd$/;
 
     # XXX expect these all to be the same if processing multiple documents,
     #     but should check; really should keep separate for each document
@@ -4866,7 +4883,7 @@ sub parse_file
         $first_comment = $text unless defined $first_comment;
     }
     
-    # if no comment in first file, don't look in sunbsequent files
+    # if no comment in first file, don't look in subsequent files
     $first_comment = '' if not defined $first_comment;
 
     # validate file if requested
@@ -5518,7 +5535,10 @@ sub xml_datatypes
     # XXX status and descact are ignored
 
     foreach my $dataType (@$dataTypes) {
+        # ignore primitive data types
         my $name = $dataType->{name};
+        next if $name =~ /^_[a-z]/;
+        
         my $base = $dataType->{base};
         my $prim = $dataType->{prim};
         my $spec = $dataType->{spec};
@@ -6985,10 +7005,9 @@ END
             print <<END;
       <li>$anchor->{ref}</li>
 END
-            my $tr106section = $tr106 lt 'TR-106a6' ?
-                                      'Section 3.2' : 'Appendix I.4';
             my $preamble = <<END;
-The parameters defined in this specification make use of a limited subset of the default SOAP data types {{bibref|SOAP1.1}}.  The complete set of data types, along with the notation used to represent these types, is listed in {{bibref|$tr106|$tr106section}}.  The following named data types are used by this specification.
+The Parameters defined in this specification make use of a limited subset of the default SOAP data types {{bibref|SOAP1.1}}. These data types and the named data types used by this specification are described below.
+Note: A Parameter that is defined to be one of the named data types is reported as such at the beginning of the Parameter's description via a reference back to the associated data type definition (e.g. ''[MacAddress]''). However, such parameters still indicate their SOAP data type.
 END
             update_bibrefs($preamble, $node->{file}, $node->{spec});
             # XXX sanity_node only detects invalid bibrefs in node and value
@@ -7003,31 +7022,43 @@ END
     <table $tabopts> <!-- Data Types -->
     <tr>
       <th class="g">Data Type</th>
-      <th class="g">Base Type</th>
+      <th class="gc">Base Type</th>
       <th class="g">Description</th>
     </tr>
 END
             # XXX this is still very basic; no ranges, lengths etc;
             foreach my $datatype (sort {$a->{name} cmp $b->{name}}
                                   @$datatypes) {
+                # primitive data type names begin with an underscore (to get
+                # around the fact that the DM Schema doesn't allow data type
+                # names to begin with a lower-case character
+                my $name = $datatype->{name};
+                my $prim = $name =~ /^_[a-z]/;
+
                 # XXX this is the wrong criterion; the test should be whether
                 #     any of the parameters in the report use the data type
-                next if $lastonly &&
+                next if $lastonly && !$prim &&
                     !grep {$_ eq $lspec} @{$datatype->{specs}};
 
-                my $name = $datatype->{name};
+                # get the base type
                 my $base = base_type($name, 0);
+
+                # for primitive types, ignore the underscore and the base type
+                # for display purposes
+                my $mname = $prim ? substr($name, 1) : $name;
+                my $mbase = $prim ? '-' : $base;
+                
                 my $description = $datatype->{description};
                 # XXX not using this yet
                 my $descact = $datatype->{descact};
                 my $values = $datatype->{values};
 
-                my $name_anchor = html_create_anchor($name, 'datatype');
-                my $base_anchor = html_create_anchor($base, 'datatype');
+                my $name_anchor = html_create_anchor($mname, 'datatype');
+                my $base_anchor = html_create_anchor($mbase, 'datatype');
 
-                # want hyperlinks only for named data types
-                my $baseref = ($base =~ /^[A-Z]/ && !$nolinks) ?
-                    $base_anchor->{ref} : $base;
+                # don't want hyperlinks for primitive types
+                my $baseref = ($prim || $nolinks) ?
+                    $mbase : $base_anchor->{ref};
 
                 # XXX not getting any list or map attributes
                 my $list = $datatype->{list};
@@ -7051,7 +7082,7 @@ END
                 $html_buffer .= <<END;
       <tr>
         <td>$name_anchor->{def}</td>
-        <td>$baseref$sizerange</td>
+        <td class="pc">$baseref$sizerange</td>
         <td>$description</td>
       </tr>
 END
@@ -13241,6 +13272,91 @@ sub spec_node
 }
 
 # Main program
+
+# Primitive data types; this is a DM instance that's parsed from a string; the
+# type names begin with an underscore because they can't begin with a lower-
+# case letter (the underscore will be removed in the report)
+my $primitive_types_spec ="urn:broadband-forum-org:tr-106-1-0-primitive-types";
+my $primitive_types_file = "tr-106-1-0-primitive-types.xml";
+my $primitive_types_xml = <<END;
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-6" 
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-6
+                                   http://www.broadband-forum.org/cwmp/cwmp-datamodel-1-6.xsd" 
+             spec="$primitive_types_spec" file="$primitive_types_file">
+
+  <dataType name="_object">
+    <description>
+      A container for parameters and/or other objects. The full Path Name of a parameter is given by the parameter name appended to the full Path Name of the object it is contained within.
+    </description>
+  </dataType>
+
+  <dataType name="_string">
+    <description>
+      For strings, a minimum and maximum allowed length can be indicated using the form string(''Min'':''Max''), where ''Min'' and ''Max'' are the minimum and maximum string length in characters. If either ''Min'' or ''Max'' are missing, this indicates no limit, and if ''Min'' is missing the colon can also be omitted, as in string(''Max''). Multiple comma-separated ranges can be specified, in which case the string length will be in one of the ranges.
+    </description>
+  </dataType>
+  
+  <dataType name="_int">
+    <description>
+      Integer in the range -2147483648 to +2147483647, inclusive.
+      For some int types, a value range is given using the form int[''Min'':''Max''] or int[''Min'':''Max'' step ''Step''] where the ''Min'' and ''Max'' values are inclusive. If either ''Min'' or ''Max'' are missing, this indicates no limit. If ''Step'' is missing, this indicates a step of 1. Multiple comma-separated ranges can be specified, in which case the value will be in one of the ranges.
+    </description>
+  </dataType>
+
+  <dataType name="_long">
+    <description>
+      Long integer in the range -9223372036854775808 to 9223372036854775807, inclusive.
+      For some long types, a value range is given using the form long[''Min'':''Max''] or long[''Min'':''Max'' step ''Step''], where the ''Min'' and ''Max'' values are inclusive. If either ''Min'' or ''Max'' are missing, this indicates no limit. If ''Step'' is missing, this indicates a step of 1. Multiple comma-separated ranges can be specified, in which case the value will be in one of the ranges.
+    </description>
+  </dataType>
+
+  <dataType name="_unsignedInt">
+    <description>
+      Unsigned integer in the range 0 to 4294967295, inclusive.
+      For some unsignedInt types, a value range is given using the form unsignedInt[''Min'':''Max''] or unsigned[''Min'':''Max'' step ''Step''], where the ''Min'' and ''Max'' values are inclusive. If either ''Min'' or ''Max'' are missing, this indicates no limit. If ''Step'' is missing, this indicates a step of 1. Multiple comma-separated ranges can be specified, in which case the value will be in one of the ranges.
+    </description>
+  </dataType>
+  
+  <dataType name="_unsignedLong">
+    <description>
+      Unsigned long integer in the range 0 to 18446744073709551615, inclusive.
+      For some unsignedLong types, a value range is given using the form unsignedLong[''Min'':''Max''] or unsignedLong[''Min'':''Max'' step ''Step''], where the ''Min'' and ''Max'' values are inclusive. If either ''Min'' or ''Max'' are missing, this indicates no limit. If ''Step'' is missing, this indicates a step of 1. Multiple comma-separated ranges can be specified, in which case the value will be in one of the ranges.
+    </description>
+  </dataType>
+  
+  <dataType name="_boolean">
+    <description>
+      Boolean, where the allowed values are ''0'' or ''1'' (or equivalently, {{true}} or {{false}}).
+    </description>
+  </dataType>
+  
+  <dataType name="_dateTime">
+    <description>
+      The subset of the ISO 8601 date-time format defined by the SOAP dateTime type.
+    </description>
+  </dataType>
+  
+  <dataType name="_base64">
+    <description>
+      Base64 encoded binary (no line-length limitation).
+      A minimum and maximum allowed length can be indicated using the form base64(''Min'':''Max''), where ''Min'' and ''Max'' are the minimum and maximum length in characters before Base64 encoding. If either ''Min'' or ''Max'' are missing, this indicates no limit, and if ''Min'' is missing the colon can also be omitted, as in base64(''Max''). Multiple comma-separated ranges can be specified, in which case the length MUST be in one of the ranges.
+    </description>
+  </dataType>
+  
+  <dataType name="_hexBinary">
+    <description>
+      Hex encoded binary.
+      A minimum and maximum allowed length can be indicated using the form hexBinary(''Min'':''Max''), where ''Min'' and ''Max'' are the minimum and maximum length in characters before Hex Binary encoding. If either ''Min'' or ''Max'' are missing, this indicates no limit, and if ''Min'' is missing the colon can also be omitted, as in hexBinary(''Max''). Multiple comma-separated ranges can be specified, in which case the length MUST be in one of the ranges.
+    </description>
+  </dataType>
+  
+</dm:document>
+END
+
+# Parse primitive data type definitions
+expand_toplevel($primitive_types_file, $primitive_types_xml);
 
 # Invoke report init routine (if defined)
 my $initfunc = $reports->{$report}->{init};
