@@ -185,7 +185,7 @@ use utf8;
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
 my $tool_vers_date = q{$Date: 2017-09-07 $};
-my $tool_id = q{$Id: report.pl 421 $};
+my $tool_id = q{$Id: report.pl 421+ $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -2077,7 +2077,17 @@ sub expand_model_arguments
     return $nnode;
 }
 
-# returns False for event arguments, so they are correctly treated as inputs
+# returns False for event arguments
+sub is_arginput
+{
+    my ($node) = @_;
+    return 0 unless $node->{type};
+    return ($node->{name} eq 'Input.') if $node->{is_arguments};
+    return is_arginput($node->{pnode});
+}
+
+# returns False for event arguments, so if this is used to distinguish input
+# and output arguments it will treat them as input arguments
 sub is_argoutput
 {
     my ($node) = @_;
@@ -5740,14 +5750,15 @@ sub xml2_node
     $element = 'event' if $node->{is_event} && $type !~ /Ref$/;
     $node->{xml2}->{element} = $element;
 
-    my $core = is_command($node) || is_event($node);
+    my $command_or_event = is_command($node) || is_event($node);
 
     # this is the object nesting level (relative to the root object) and is
     # necessary because all 'object' elements (apart from in arguments) are 
     # defined at the same level
     $xml2_objlevel = 0 if $indent == 0;
     $node->{xml2}->{objlevel_inc} =
-        !$core && $element eq 'object' && $node->{pnode}->{type} eq 'object';
+        !$command_or_event && $element eq 'object' &&
+        $node->{pnode}->{type} eq 'object';
     $xml2_objlevel++ if $node->{xml2}->{objlevel_inc};
     my $i = "  " x ($indent - $xml2_objlevel);
 
@@ -5941,8 +5952,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $description = '';
                 $descact = 'replace';
             }
-            $name = $node->{name} if $core;
-            undef $access if $core;
+            $name = $node->{name} if $command_or_event;
+            undef $access if $command_or_event;
         } elsif ($element eq 'command' || $element eq 'event') {
             undef $access;
             undef $minEntries;
@@ -5989,7 +6000,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $descact = 'replace';
                 $syntax = undef;
             }
-            undef $access if $core;
+            undef $access if $command_or_event;
         } elsif ($element eq 'profile') {
             unless ($name) {
                 $node->{xml2}->{element} = '';
@@ -6771,6 +6782,8 @@ sub html_node
     my $is_event = $node->{is_event} ? 1 : 0;
     my $parameter_like = $parameter || $is_command || $is_event;
 
+    my $command_or_event = is_command($node) || is_event($node);
+
     my $changed = $node->{changed};
     my $history = $node->{history};
     my $description = $node->{description};
@@ -7123,6 +7136,12 @@ END
             $access eq 'create' ? 'A' :
             $access eq 'delete' ? 'D' :
             $access eq 'createDelete' ? 'C' : '-';
+        # override for commands, events and their arguments: most things use
+        # '-', but all command input arguments (not 'Input' itself) use 'W'
+        if ($command_or_event) {
+            $write = is_arginput($node) && $node->{name} ne 'Input.' ?
+                'W' : '-';
+        }
 
         my $default = $node->{default};
         undef $default if defined $node->{deftype} &&
@@ -7177,7 +7196,7 @@ END
         #     - f : parameter argument
         if ($is_command || $is_event) {
             $tdclass = 'c';
-        } elsif (is_command($node) || is_event($node)) {
+        } elsif ($command_or_event) {
             if ($tdclass eq 'o') {
                 $tdclass = $is_arguments ? 'd' : 'e';
             } else {
@@ -7368,10 +7387,10 @@ END
         if ($model || $profile) {
         } elsif (!$html_profile_active) {
             my $tname = '';
-            my $core = is_command($node) || is_event($node);
+            my $command_or_event = is_command($node) || is_event($node);
             # modify displayed name for commands and event arguments (just the
             # name, not the full path)
-            if ($core) {
+            if ($command_or_event) {
                 my $arrow = is_argoutput($node) ? '&lArr;' : '&rArr;';
                 $tname = $node->{name};
                 $tname = "$arrow " . $tname unless $is_command || $is_event;
@@ -7391,7 +7410,7 @@ END
             $type = 'arguments' if $is_arguments;
             $type = 'event' if $is_event;
             # XXX would like syntax to be a link when it's a named data type
-            print <<END if $object && !$core && !$nolinks;
+            print <<END if $object && !$command_or_event && !$nolinks;
           <li>$anchor->{ref}</li>
 END
             my $tspecs = $specs;
@@ -7995,6 +8014,17 @@ sub html_template
           text0 => \&html_template_objectref,
           text1 => \&html_template_objectref,
           text2 => \&html_template_objectref},
+         # {{command}} and {{nocommand}} templates already existed (for
+         # <param command="true"> before adding USP commands
+         {name => 'command',
+          text0 => \&html_template_commandref,
+          text1 => \&html_template_commandref,
+          text2 => \&html_template_commandref},
+         {name => 'nocommand', text0 => q{}},
+         {name => 'event',
+          text0 => \&html_template_eventref,
+          text1 => \&html_template_eventref,
+          text2 => \&html_template_eventref},
          {name => 'profile',
           text0 => \&html_template_profileref,
           text1 => \&html_template_profileref},
@@ -8028,11 +8058,6 @@ sub html_template
               q{regardless of the actual value.}},
          {name => 'nohidden',
           text0 => q{}},
-         {name => 'command',
-          text0 => q{{{marktemplate|command}}}.
-              q{The value of this parameter is not part of the device }.
-              q{configuration and is always {{null}} when read.}},
-         {name => 'nocommand', text0 => q{}},
          # XXX async used to include p->{notify} but this is being removed
          {name => 'async',
           text0 => q{{{marktemplate|async}}'''[ASYNC]'''}},
@@ -8445,18 +8470,32 @@ sub html_template_entries
             qq{it is a member of a group of objects of which only one } .
             qq{can exist at a given time.} : qq{}) if $union;
 
-    # don't say anything in the common (0,unbounded) case
-    return qq{} if $min == 0 && $max eq 'unbounded';
-
+    # otherwise output (min, max) constraints
+    my $text = qq{};
     my $minEntries = ($min > 1) ? 'entries' : 'entry';
-    return qq{This table MUST contain exactly $min $minEntries.} if $fixed;
+    if ($min == 0 && $max eq 'unbounded') {
+        # don't say anything in the common (0,unbounded) case
+    } elsif ($fixed) {
+        $text .= qq{This table MUST contain exactly $min $minEntries.};
+    } elsif ($max eq 'unbounded') {
+        $text .= qq{This table MUST contain at least $min $minEntries.};
+    } else {
+        my $maxEntries = ($max > 1) ? 'entries' : 'entry'; 
+        $text .= qq{This table MUST contain at least $min and }.
+            qq{at most $max $maxEntries.};
+    }
+    
+    # if this is a command or event argument table, indicate that the instance
+    # numbers must be 1, 2, ...
+    my $command_or_event = is_command($opts->{node}) ||
+        is_event($opts->{node});
+    if ($command_or_event) {
+        $text .= qq{ } if $text;
+        $text .= qq{This table's Instance Numbers MUST be 1, 2, 3... } .
+            qq{(assigned sequentially without gaps).};
+    }
 
-    return qq{This table MUST contain at least $min $minEntries.} if
-        $max eq 'unbounded';
-
-    my $maxEntries = ($max > 1) ? 'entries' : 'entry'; 
-    return qq{This table MUST contain at least $min and }.
-        qq{at most $max $maxEntries.};
+    return $text;
 }
 
 sub html_template_keys
@@ -8799,59 +8838,56 @@ sub html_template_paramref
     my $object = $opts->{object};
     my $param = $opts->{param};
 
-    # if no param (e.g. in data type description) return literal "parameter"
+    # this routine is used for parameters, commands and events, so use
+    # variables to ensure that the correct terms are used in messages
+    my $template = $opts->{is_commandref} ? '{{command}}' :
+        $opts->{is_eventref} ? '{{event}}' : '{{param}}';
+    my $entity = $opts->{is_commandref} ? 'command' :
+        $opts->{is_eventref} ? 'event' : 'parameter';
+
+    # if no param (e.g. in data type description) return literal "parameter",
+    # "command" or "event"
     unless ($param || $name) {
-        return qq{parameter};
+        return $entity;
     }
 
     # parameterless case (no "name") is special
     unless ($name) {
-        emsg "$object: {{param}} is appropriate only within a ".
-            "parameter description" unless $param;
+        emsg "$object: $template is appropriate only within a ".
+            "$entity description" unless $param;
         return qq{''$param''};
     }
+
+    # warn if {{param}} is used to reference a command or event
+    w0msg "$object$param: should use {{command}} to reference a command"
+        if $name =~ /\(\)$/ && !$opts->{is_commandref};
+    w0msg "$object$param: should use {{event}} to reference an event"
+        if $name =~ /!$/ && !$opts->{is_eventref};
 
     # when showing diffs, "name" can include deleted and inserted text
     $name =~ s|\-\-\-(.*?)\-\-\-||g;
     $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
-    w0msg "$object$param: {{param}} argument is unnecessary when ".
-        "referring to current parameter" if $name eq $param;
+    w0msg "$object$param: $template argument is unnecessary when ".
+        "referring to current $entity" if $name eq $param;
 
-    my $oname = $name;
-    (my $path, $name) = relative_path($object, $name, $scope);
     my $mpref = util_full_path($opts->{node}, 1);
-    my $fpath = $mpref . $path;
-    my $invalid = util_is_defined($parameters, $fpath) ? '' : '?';
-    # XXX special case for commands and events: they are parameter-like but
-    #     also object-like, in that they have argument children; so if failed
-    #     to find peer parameter, look for argument child; THIS INTRODUCES AN
-    #     AMBIGUITY
-    if ($invalid) {
-        foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
-            my $tobject = qq{$object$param$suffix.};
-            my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
-            my $tfpath = $mpref . $tpath;
-            if (util_is_defined($parameters, $tfpath)) {
-                $path = $tpath;
-                $name = $tname;
-                $fpath = $tfpath;
-                $invalid = '';
-                last;
-            }
-        }
-    }
+    (my $path, $name, my $fpath, my $valid) =
+        relative_path_helper($object, $param, $name, $scope, $mpref);
+    my $invalid = $valid ? '' : '?';
+
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
+    
     # XXX don't warn further if this item has been deleted
     if (!util_is_deleted($opts->{node})) {
-        emsg "$object$param: reference to invalid parameter $path"
+        emsg "$object$param: reference to invalid $entity $path"
             if $invalid && !$automodel;
         # XXX make this nicer (not sure why test of status is needed here but
         #     upnpdm triggers "undefined" errors otherwise
         if (!$invalid && $parameters->{$fpath}->{status} &&
             $parameters->{$fpath}->{status} eq 'deleted') {
-            w0msg "$object$param: reference to deleted parameter ".
+            w0msg "$object$param: reference to deleted $entity ".
                 "$path" if !$showdiffs;
             $invalid = '!';
         }
@@ -8861,6 +8897,39 @@ sub html_template_paramref
     $name = html_get_anchor($fpath, 'path', $name) unless $nolinks;
 
     return $name;
+}
+
+# generates reference to command: arguments are command name and optional
+# scope
+sub html_template_commandref
+{
+    my ($opts, $name, $scope) = @_;
+
+    my $object = $opts->{object};
+    my $param = $opts->{param};
+
+    # return the original text if this is a command parameter (as opposed to a
+    # USP command) 
+    if ($opts->{command}) {
+        return q{{{marktemplate|command}}}.
+            q{The value of this parameter is not part of the device }.
+            q{configuration and is always {{null}} when read.};
+    }
+
+    # otherwise use the {{param}} logic
+    $opts->{is_commandref} = 1;
+    return html_template_paramref($opts, $name, $scope);
+}
+
+# generates reference to event: arguments are event name and optional
+# scope
+sub html_template_eventref
+{
+    my ($opts, $name, $scope) = @_;
+
+    # use the {{param}} logic
+    $opts->{is_eventref} = 1;
+    return html_template_paramref($opts, $name, $scope);
 }
 
 # generates reference to object: arguments are object name and optional
@@ -8908,12 +8977,16 @@ sub html_template_objectref
     $path = $path1 if util_is_defined($objects, $mpref.$path1);
     $path = $path2 if util_is_defined($objects, $mpref.$path2);
     my $fpath = $mpref . $path;
-
+    
     # XXX if path starts ".Services." this is a reference to another data
     #     model, so no checks and no link
     return qq{''$name''} if $path =~ /^\.Services\./;
 
     my $invalid = util_is_defined($objects, $fpath) ? '' : '?';
+
+    # XXX the various tests below should be moved to relative_path_helper(),
+    #     which is currently rather parameter-specific
+    
     # XXX special case for commands and events: they are parameter-like but
     #     also object-like, in that they have argument children; so if failed
     #     to find peer parameter, look for argument child; THIS INTRODUCES AN
@@ -8938,6 +9011,60 @@ sub html_template_objectref
             }
         }
     }
+
+    # XXX similar to the above, allow references from input to output
+    #     arguments, and vice versa
+    if ($invalid) {
+        my $match = $object =~ /\(\)\.(In|Out)put\./;
+        if ($match) {
+            my $other = $1 eq 'In' ? 'Out' : 'In';
+            my $xname = $oname;
+            $xname =~ s/^(#*)/$1#.${other}put./;
+            $xname =~ s/\.\././;
+            my ($tpath, $tname) = relative_path($object, $xname, $scope);
+            my $tpath1 = $tpath;
+            $tpath1 .= '.' if $tpath1 !~ /\.$/;
+            my $tpath2 = $tpath1;
+            $tpath2 .= '{i}.' if $tpath2 !~ /\{i\}\.$/;
+            $tpath = $tpath1 if util_is_defined($objects, $mpref.$tpath1);
+            $tpath = $tpath2 if util_is_defined($objects, $mpref.$tpath2);
+            my $tfpath = $mpref . $tpath;
+            if (util_is_defined($objects, $tfpath)) {
+                $path = $tpath;
+                $name = $tname;
+                $fpath = $tfpath;
+                $invalid = '';
+            }
+         }
+    }
+
+    # XXX somewhat similarly, allow references from outside a command to its
+    #     arguments
+    # XXX NOTE: this case isn't currently covered by relative_path_helper()
+    if ($invalid) {
+        if ($oname =~ /\(\)\./) {
+            foreach my $suffix ((qq{Input.}, qq{Output.})) {
+                my $toname = $oname;
+                $toname =~ s/\(\)\./().$suffix/;
+                my ($tpath, $tname) = relative_path($object, $toname, $scope);
+                my $tpath1 = $tpath;
+                $tpath1 .= '.' if $tpath1 !~ /\.$/;
+                my $tpath2 = $tpath1;
+                $tpath2 .= '{i}.' if $tpath2 !~ /\{i\}\.$/;
+                $tpath = $tpath1 if util_is_defined($objects, $mpref.$tpath1);
+                $tpath = $tpath2 if util_is_defined($objects, $mpref.$tpath2);
+                my $tfpath = $mpref . $tpath;
+                if (util_is_defined($objects, $tfpath)) {
+                    $path = $tpath;
+                    $name = $tname;
+                    $fpath = $tfpath;
+                    $invalid = '';
+                    last;
+                }
+            }
+        }
+    }
+    
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
     # XXX don't warn further if this item has been deleted
@@ -8984,14 +9111,13 @@ sub html_template_valueref
     $name =~ s|\-\-\-(.*?)\-\-\-||g;
     $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
-    (my $path, $name) = relative_path($object, $name, $scope);
-
-    my $invalid = '';
-    # XXX don't warn of invalid references for UPnP DM (need to fix!)
     my $mpref = util_full_path($opts->{node}, 1);
-    my $fpath = $mpref . $path;
-    if (!util_is_defined($parameters, $fpath)) {
-        $invalid = '?';
+    (my $path, $name, my $fpath, my $valid) =
+        relative_path_helper($object, $param, $name, $scope, $mpref);
+    my $invalid = $valid ? '' : '?';
+    
+    # XXX don't warn of invalid references for UPnP DM (need to fix!)
+    if ($invalid) {
         $invalid = '' if $upnpdm;
         # XXX don't warn further if this item has been deleted
         if (!util_is_deleted($opts->{node})) {
@@ -9396,6 +9522,65 @@ sub relative_path
     return ($path, $name);
 }
 
+# relative_path() helper that supports various special cases for commands and
+# events; returns additional fpath (full path) and valid (0/1) results
+sub relative_path_helper
+{
+    my ($object, $param, $name, $scope, $mpref) = @_;
+
+    # save the original $name
+    my $oname = $name;
+
+    # process the relative path
+    (my $path, $name) = relative_path($object, $name, $scope);
+
+    # check whether the parameter (or command or event) exists
+    my $fpath = $mpref . $path;
+    return ($path, $name, $fpath, 1)
+        if util_is_defined($parameters, $fpath);
+
+    # special cases for commands and events
+    # XXX should return now if special case logic can't apply...
+
+    # allow things like {{param|Fred}} when:
+    # - Fred() is a command, so {{command|Fred()}} would be correct
+    # - Fred! is an event, so {{event|Fred!}} would be correct
+    foreach my $suffix ((qq{()}, qq{!})) {
+        my $toname = qq{$oname$suffix};
+        my ($tpath, $tname) = relative_path($object, $toname, $scope);
+        my $tfpath = $mpref . $tpath;
+        return ($tpath, $tname, $tfpath, 1)
+            if util_is_defined($parameters, $tfpath);
+    }
+    
+    # if failed to find peer parameter, look for argument child; THIS
+    # INTRODUCES AN AMBIGUITY
+    foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
+        my $tobject = qq{$object$param$suffix.};
+        my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
+        my $tfpath = $mpref . $tpath;
+        return ($tpath, $tname, $tfpath, 1)
+            if util_is_defined($parameters, $tfpath);
+    }
+
+    # similar to the above, allow references from input to output arguments,
+    # and vice versa
+    my $match = $object =~ /\(\)\.(In|Out)put\./;
+    if ($match) {
+        my $other = $1 eq 'In' ? 'Out' : 'In';
+        my $xname = $oname;
+        $xname =~ s/^(#*)/$1#.${other}put./;
+        $xname =~ s/\.\././;
+        my ($tpath, $tname) = relative_path($object, $xname, $scope);
+        my $tfpath = $mpref . $tpath;
+        return ($tpath, $tname, $tfpath, 1)
+            if util_is_defined($parameters, $tfpath);
+    }
+
+    # ran out of options; invalid
+    return ($path, $name, $fpath, 0);
+}
+    
 # Generate appropriate {{object}} references from an XML list
 sub object_references
 {
