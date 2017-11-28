@@ -9502,7 +9502,7 @@ sub html_template_mount
     my $mountType = $opts->{mountType};
     my $mountmap = {
         'mountable' => qq{Mountable as a child of Mount Points},
-            'mountpoint' => qq{a Mount Point, under which Mountable Objects } .
+            'mountPoint' => qq{a Mount Point, under which Mountable Objects } .
             qq{can be Mounted}
     };
     return qq{This Object is $mountmap->{$mountType}.};
