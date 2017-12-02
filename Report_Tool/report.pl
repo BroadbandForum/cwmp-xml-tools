@@ -9499,13 +9499,13 @@ sub html_template_mount
 {
     my ($opts) = @_;
 
-    my $mountType = $opts->{mountType};
-    my $mountmap = {
+    my $mount_type = lc $opts->{mountType};
+    my $mount_map = {
         'mountable' => qq{Mountable as a child of Mount Points},
-            'mountPoint' => qq{a Mount Point, under which Mountable Objects } .
+            'mountpoint' => qq{a Mount Point, under which Mountable Objects } .
             qq{can be Mounted}
     };
-    return qq{This Object is $mountmap->{$mountType}.};
+    return qq{This Object is $mount_map->{$mount_type}.};
 }
 
 # Generate relative path given...
