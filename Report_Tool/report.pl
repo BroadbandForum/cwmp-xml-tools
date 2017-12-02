@@ -285,7 +285,7 @@ our $exitcode = undef;
 our $help = 0;
 our $ignore = undef;
 our $importsuffix = '';
-our $ignoreinputoutputinpaths = 1;
+our $ignoreinputoutputinpaths = undef;
 our $includes = [];
 our $info = 0;
 our $lastonly = 0;
@@ -670,6 +670,12 @@ $nocomments = 0 if $loglevel >= $LOGLEVEL_DEBUG;
 
 # XXX upnpdm profiles are broken...
 $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
+
+if (defined $ignoreinputoutputinpaths) {
+    emsg "--ignoreinputoutputinpaths is now the default and so shouldn't ".
+        "be specified (it may be removed in a future release)";
+}
+$ignoreinputoutputinpaths = 1;
 
 # XXX load_catalog() works but there is no error checking?
 {
@@ -2065,6 +2071,8 @@ sub expand_model_arguments
     #     work but means that there can't be an input and an output argument
     #     with the same name
     my $path = $pnode->{path};
+    # XXX Input. and Output. are never in the paths so could delete next line
+    # XXX this is now always true, i.e. Input. and Output. are never in paths
     $path .= $name unless $ignoreinputoutputinpaths;
     my $type = 'object';
     my $access = 'readOnly';
@@ -7433,6 +7441,7 @@ END
             }
             # account for --ignoreinputoutputinpaths, which means that
             # arguments 'input'/'output' path is the same as its parent
+            # XXX Input. and Output. are never in the paths so could simplify
             my $anchor;
             if ($node->{path} ne $node->{pnode}->{path}) {
                 $anchor = html_create_anchor($node, 'path',
@@ -9036,7 +9045,8 @@ sub html_template_objectref
     #     to find peer parameter, look for argument child; THIS INTRODUCES AN
     #     AMBIGUITY
     if ($invalid) {
-        foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
+        #foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
+        foreach my $suffix ((qq{})) {
             my $tobject = qq{$object$param$suffix.};
             my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
             my $tpath1 = $tpath;
@@ -9058,7 +9068,8 @@ sub html_template_objectref
 
     # XXX similar to the above, allow references from input to output
     #     arguments, and vice versa
-    if ($invalid) {
+    # XXX Input. and Output. are never in the paths so no longer needed
+    if (0 && $invalid) {
         my $match = $object =~ /\(\)\.(In|Out)put\./;
         if ($match) {
             my $other = $1 eq 'In' ? 'Out' : 'In';
@@ -9085,7 +9096,7 @@ sub html_template_objectref
     # XXX somewhat similarly, allow references from outside a command to its
     #     arguments
     # XXX NOTE: this case isn't currently covered by relative_path_helper()
-    if ($invalid) {
+    if (0 && $invalid) {
         if ($oname =~ /\(\)\./) {
             foreach my $suffix ((qq{Input.}, qq{Output.})) {
                 my $toname = $oname;
@@ -9601,22 +9612,19 @@ sub relative_path_helper
 
     # Input. and Output. aren't in the path but allow them to be specified
     # in the XML
-    # XXX could keep track of this to improve logic and error reporting?
-    my $oname2 = $oname;
+    # XXX this logic isn't supported for object references; maybe OK because
+    #     backward compatibility with CWMP diagnostics will never need it
+    # XXX should keep track of this so only allow explicit Input. and Output.
+    #     to match arguments
     if ($oname =~ /^#+\.(In|Out)put\./) {
         $oname =~ s/#\.(In|Out)put\.//;
     } elsif ($oname =~ /^(In|Out)put\./) {
         $oname =~ s/^(In|Out)put\.//;
     }
-    my $diff = $oname ne $oname2;
-    tmsg "0 $oname2 -> $oname" if $diff;
 
     # try the modified name
-    tmsg "1 $object $oname" if $diff;
     my ($tpath, $tname) = relative_path($object, $oname, $scope);
     my $tfpath = $mpref . $tpath;
-    tmsg "1 $tpath $tname " . util_is_defined($parameters, $tfpath)
-        if $diff;
     return ($tpath, $tname, $tfpath, 1)
         if util_is_defined($parameters, $tfpath);
 
@@ -9633,13 +9641,11 @@ sub relative_path_helper
     
     # if failed to find peer parameter, look for argument child; THIS
     # INTRODUCES AN AMBIGUITY
-    foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
+    #foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
+    foreach my $suffix ((qq{})) {
         my $tobject = qq{$object$param$suffix.};
-        tmsg "2 $tobject $oname" if $diff;
         my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
         my $tfpath = $mpref . $tpath;
-        tmsg "2 $tpath $tname " . util_is_defined($parameters, $tfpath)
-            if $diff;
         return ($tpath, $tname, $tfpath, 1)
             if util_is_defined($parameters, $tfpath);
     }
@@ -9647,17 +9653,17 @@ sub relative_path_helper
     # similar to the above, allow references from input to output arguments,
     # and vice versa
     # XXX Input. and Output. are never in the paths so no longer needed
-    #my $match = $object =~ /\(\)\.(In|Out)put\./;
-    #if ($match) {
-    #    my $other = $1 eq 'In' ? 'Out' : 'In';
-    #    my $xname = $oname;
-    #    $xname =~ s/^(#*)/$1#.${other}put./;
-    #    $xname =~ s/\.\././;
-    #    my ($tpath, $tname) = relative_path($object, $xname, $scope);
-    #    my $tfpath = $mpref . $tpath;
-    #    return ($tpath, $tname, $tfpath, 1)
-    #        if util_is_defined($parameters, $tfpath);
-    #}
+    my $match = $object =~ /\(\)\.(In|Out)put\./;
+    if (0 && $match) {
+        my $other = $1 eq 'In' ? 'Out' : 'In';
+        my $xname = $oname;
+        $xname =~ s/^(#*)/$1#.${other}put./;
+        $xname =~ s/\.\././;
+        my ($tpath, $tname) = relative_path($object, $xname, $scope);
+        my $tfpath = $mpref . $tpath;
+        return ($tpath, $tname, $tfpath, 1)
+            if util_is_defined($parameters, $tfpath);
+    }
 
     # ran out of options; invalid
     return ($path, $name, $fpath, 0);
