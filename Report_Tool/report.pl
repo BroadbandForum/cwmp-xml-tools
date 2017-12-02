@@ -285,7 +285,7 @@ our $exitcode = undef;
 our $help = 0;
 our $ignore = undef;
 our $importsuffix = '';
-our $ignoreinputoutputinpaths = 0;
+our $ignoreinputoutputinpaths = 1;
 our $includes = [];
 our $info = 0;
 our $lastonly = 0;
@@ -9599,6 +9599,27 @@ sub relative_path_helper
     # special cases for commands and events
     # XXX should return now if special case logic can't apply...
 
+    # Input. and Output. aren't in the path but allow them to be specified
+    # in the XML
+    # XXX could keep track of this to improve logic and error reporting?
+    my $oname2 = $oname;
+    if ($oname =~ /^#+\.(In|Out)put\./) {
+        $oname =~ s/#\.(In|Out)put\.//;
+    } elsif ($oname =~ /^(In|Out)put\./) {
+        $oname =~ s/^(In|Out)put\.//;
+    }
+    my $diff = $oname ne $oname2;
+    tmsg "0 $oname2 -> $oname" if $diff;
+
+    # try the modified name
+    tmsg "1 $object $oname" if $diff;
+    my ($tpath, $tname) = relative_path($object, $oname, $scope);
+    my $tfpath = $mpref . $tpath;
+    tmsg "1 $tpath $tname " . util_is_defined($parameters, $tfpath)
+        if $diff;
+    return ($tpath, $tname, $tfpath, 1)
+        if util_is_defined($parameters, $tfpath);
+
     # allow things like {{param|Fred}} when:
     # - Fred() is a command, so {{command|Fred()}} would be correct
     # - Fred! is an event, so {{event|Fred!}} would be correct
@@ -9614,25 +9635,29 @@ sub relative_path_helper
     # INTRODUCES AN AMBIGUITY
     foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
         my $tobject = qq{$object$param$suffix.};
+        tmsg "2 $tobject $oname" if $diff;
         my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
         my $tfpath = $mpref . $tpath;
+        tmsg "2 $tpath $tname " . util_is_defined($parameters, $tfpath)
+            if $diff;
         return ($tpath, $tname, $tfpath, 1)
             if util_is_defined($parameters, $tfpath);
     }
 
     # similar to the above, allow references from input to output arguments,
     # and vice versa
-    my $match = $object =~ /\(\)\.(In|Out)put\./;
-    if ($match) {
-        my $other = $1 eq 'In' ? 'Out' : 'In';
-        my $xname = $oname;
-        $xname =~ s/^(#*)/$1#.${other}put./;
-        $xname =~ s/\.\././;
-        my ($tpath, $tname) = relative_path($object, $xname, $scope);
-        my $tfpath = $mpref . $tpath;
-        return ($tpath, $tname, $tfpath, 1)
-            if util_is_defined($parameters, $tfpath);
-    }
+    # XXX Input. and Output. are never in the paths so no longer needed
+    #my $match = $object =~ /\(\)\.(In|Out)put\./;
+    #if ($match) {
+    #    my $other = $1 eq 'In' ? 'Out' : 'In';
+    #    my $xname = $oname;
+    #    $xname =~ s/^(#*)/$1#.${other}put./;
+    #    $xname =~ s/\.\././;
+    #    my ($tpath, $tname) = relative_path($object, $xname, $scope);
+    #    my $tfpath = $mpref . $tpath;
+    #    return ($tpath, $tname, $tfpath, 1)
+    #        if util_is_defined($parameters, $tfpath);
+    #}
 
     # ran out of options; invalid
     return ($path, $name, $fpath, 0);
