@@ -1757,8 +1757,6 @@ sub expand_model_object
     my $maxEntries = $object->findvalue('@maxEntries');
     my $numEntriesParameter = $object->findvalue('@numEntriesParameter');
     my $enableParameter = $object->findvalue('@enableParameter');
-    # XXX it's currently called 'mounttype' but will be proposing change to
-    #     'mountType' so this is future-proofing
     my $mountType = $object->findvalue('@mountType|@mounttype');
     my $status = $object->findvalue('@status');
     my $id = $object->findvalue('@id');
@@ -9501,9 +9499,9 @@ sub html_template_mount
 
     my $mount_type = lc $opts->{mountType};
     my $mount_map = {
-        'mountable' => qq{Mountable as a child of Mount Points},
-            'mountpoint' => qq{a Mount Point, under which Mountable Objects } .
-            qq{can be Mounted}
+        'mountable' => qq{mountable as a child of mount points},
+            'mountpoint' => qq{a mount point, under which mountable Objects } .
+            qq{can be mounted}
     };
     return qq{This Object is $mount_map->{$mount_type}.};
 }
