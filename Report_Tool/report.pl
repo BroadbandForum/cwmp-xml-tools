@@ -285,7 +285,7 @@ our $exitcode = undef;
 our $help = 0;
 our $ignore = undef;
 our $importsuffix = '';
-our $ignoreinputoutputinpaths = 0;
+our $ignoreinputoutputinpaths = undef;
 our $includes = [];
 our $info = 0;
 our $lastonly = 0;
@@ -670,6 +670,11 @@ $nocomments = 0 if $loglevel >= $LOGLEVEL_DEBUG;
 
 # XXX upnpdm profiles are broken...
 $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
+
+if (defined $ignoreinputoutputinpaths) {
+    emsg "--ignoreinputoutputinpaths is now the default and so shouldn't ".
+        "be specified (it may be removed in a future release)";
+}
 
 # XXX load_catalog() works but there is no error checking?
 {
@@ -2058,12 +2063,8 @@ sub expand_model_arguments
     my ($context, $mnode, $pnode, $arguments, $which) = @_;
 
     my $name = ucfirst($which) . '.';
-    # XXX if requested, ignore "Input." and "Output." in the path names;
-    #     this allows existing parameter and object references to continue to
-    #     work but means that there can't be an input and an output argument
-    #     with the same name
+    # the path never includes the node name ("Input." or "Output.")
     my $path = $pnode->{path};
-    $path .= $name unless $ignoreinputoutputinpaths;
     my $type = 'object';
     my $access = 'readOnly';
     my $status = 'current';
@@ -7427,6 +7428,7 @@ END
             }
             # account for --ignoreinputoutputinpaths, which means that
             # arguments 'input'/'output' path is the same as its parent
+            # XXX Input. and Output. are never in the paths so could simplify
             my $anchor;
             if ($node->{path} ne $node->{pnode}->{path}) {
                 $anchor = html_create_anchor($node, 'path',
@@ -9022,87 +9024,31 @@ sub html_template_objectref
 
     my $invalid = util_is_defined($objects, $fpath) ? '' : '?';
 
-    # XXX the various tests below should be moved to relative_path_helper(),
-    #     which is currently rather parameter-specific
+    # XXX the test below should be moved to relative_path_helper(), which is
+    #     currently rather parameter-specific
     
     # XXX special case for commands and events: they are parameter-like but
     #     also object-like, in that they have argument children; so if failed
-    #     to find peer parameter, look for argument child; THIS INTRODUCES AN
-    #     AMBIGUITY
+    #     to find peer parameter, look for argument child
+    # XXX should check it actually _is_ a command or an event!
     if ($invalid) {
-        foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
-            my $tobject = qq{$object$param$suffix.};
-            my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
-            my $tpath1 = $tpath;
-            $tpath1 .= '.' if $tpath1 !~ /\.$/;
-            my $tpath2 = $tpath1;
-            $tpath2 .= '{i}.' if $tpath2 !~ /\{i\}\.$/;
-            $tpath = $tpath1 if util_is_defined($objects, $mpref.$tpath1);
-            $tpath = $tpath2 if util_is_defined($objects, $mpref.$tpath2);
-            my $tfpath = $mpref . $tpath;
-            if (util_is_defined($objects, $tfpath)) {
-                $path = $tpath;
-                $name = $tname;
-                $fpath = $tfpath;
-                $invalid = '';
-                last;
-            }
+        my $tobject = qq{$object$param.};
+        my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
+        my $tpath1 = $tpath;
+        $tpath1 .= '.' if $tpath1 !~ /\.$/;
+        my $tpath2 = $tpath1;
+        $tpath2 .= '{i}.' if $tpath2 !~ /\{i\}\.$/;
+        $tpath = $tpath1 if util_is_defined($objects, $mpref.$tpath1);
+        $tpath = $tpath2 if util_is_defined($objects, $mpref.$tpath2);
+        my $tfpath = $mpref . $tpath;
+        if (util_is_defined($objects, $tfpath)) {
+            $path = $tpath;
+            $name = $tname;
+            $fpath = $tfpath;
+            $invalid = '';
         }
     }
 
-    # XXX similar to the above, allow references from input to output
-    #     arguments, and vice versa
-    if ($invalid) {
-        my $match = $object =~ /\(\)\.(In|Out)put\./;
-        if ($match) {
-            my $other = $1 eq 'In' ? 'Out' : 'In';
-            my $xname = $oname;
-            $xname =~ s/^(#*)/$1#.${other}put./;
-            $xname =~ s/\.\././;
-            my ($tpath, $tname) = relative_path($object, $xname, $scope);
-            my $tpath1 = $tpath;
-            $tpath1 .= '.' if $tpath1 !~ /\.$/;
-            my $tpath2 = $tpath1;
-            $tpath2 .= '{i}.' if $tpath2 !~ /\{i\}\.$/;
-            $tpath = $tpath1 if util_is_defined($objects, $mpref.$tpath1);
-            $tpath = $tpath2 if util_is_defined($objects, $mpref.$tpath2);
-            my $tfpath = $mpref . $tpath;
-            if (util_is_defined($objects, $tfpath)) {
-                $path = $tpath;
-                $name = $tname;
-                $fpath = $tfpath;
-                $invalid = '';
-            }
-         }
-    }
-
-    # XXX somewhat similarly, allow references from outside a command to its
-    #     arguments
-    # XXX NOTE: this case isn't currently covered by relative_path_helper()
-    if ($invalid) {
-        if ($oname =~ /\(\)\./) {
-            foreach my $suffix ((qq{Input.}, qq{Output.})) {
-                my $toname = $oname;
-                $toname =~ s/\(\)\./().$suffix/;
-                my ($tpath, $tname) = relative_path($object, $toname, $scope);
-                my $tpath1 = $tpath;
-                $tpath1 .= '.' if $tpath1 !~ /\.$/;
-                my $tpath2 = $tpath1;
-                $tpath2 .= '{i}.' if $tpath2 !~ /\{i\}\.$/;
-                $tpath = $tpath1 if util_is_defined($objects, $mpref.$tpath1);
-                $tpath = $tpath2 if util_is_defined($objects, $mpref.$tpath2);
-                my $tfpath = $mpref . $tpath;
-                if (util_is_defined($objects, $tfpath)) {
-                    $path = $tpath;
-                    $name = $tname;
-                    $fpath = $tfpath;
-                    $invalid = '';
-                    last;
-                }
-            }
-        }
-    }
-    
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
     # XXX don't warn further if this item has been deleted
@@ -9594,6 +9540,25 @@ sub relative_path_helper
     # special cases for commands and events
     # XXX should return now if special case logic can't apply...
 
+    # Input. and Output. aren't in the path but allow them to be specified
+    # in the XML
+    # XXX this logic isn't supported for object references; maybe OK because
+    #     backward compatibility with CWMP diagnostics will never need it
+    # XXX should keep track of this so explicit Input. and Output. can only
+    #     match arguments, not parameters
+    if ($oname =~ /^#+\.(In|Out)put\./) {
+        $oname =~ s/#\.(In|Out)put\.//;
+    } elsif ($oname =~ /^(In|Out)put\./) {
+        $oname =~ s/^(In|Out)put\.//;
+    }
+
+    # try the modified name
+    # XXX should check it really is modified
+    my ($tpath, $tname) = relative_path($object, $oname, $scope);
+    my $tfpath = $mpref . $tpath;
+    return ($tpath, $tname, $tfpath, 1)
+        if util_is_defined($parameters, $tfpath);
+
     # allow things like {{param|Fred}} when:
     # - Fred() is a command, so {{command|Fred()}} would be correct
     # - Fred! is an event, so {{event|Fred!}} would be correct
@@ -9605,29 +9570,13 @@ sub relative_path_helper
             if util_is_defined($parameters, $tfpath);
     }
     
-    # if failed to find peer parameter, look for argument child; THIS
-    # INTRODUCES AN AMBIGUITY
-    foreach my $suffix ((qq{}, qq{.Input}, qq{.Output})) {
-        my $tobject = qq{$object$param$suffix.};
-        my ($tpath, $tname) = relative_path($tobject, $oname, $scope);
-        my $tfpath = $mpref . $tpath;
-        return ($tpath, $tname, $tfpath, 1)
-            if util_is_defined($parameters, $tfpath);
-    }
-
-    # similar to the above, allow references from input to output arguments,
-    # and vice versa
-    my $match = $object =~ /\(\)\.(In|Out)put\./;
-    if ($match) {
-        my $other = $1 eq 'In' ? 'Out' : 'In';
-        my $xname = $oname;
-        $xname =~ s/^(#*)/$1#.${other}put./;
-        $xname =~ s/\.\././;
-        my ($tpath, $tname) = relative_path($object, $xname, $scope);
-        my $tfpath = $mpref . $tpath;
-        return ($tpath, $tname, $tfpath, 1)
-            if util_is_defined($parameters, $tfpath);
-    }
+    # if failed to find peer parameter, look for argument child
+    # "param" is the command/event, so we treat it as an object
+    my $tobject = qq{$object$param.};
+    ($tpath, $tname) = relative_path($tobject, $oname, $scope);
+    $tfpath = $mpref . $tpath;
+    return ($tpath, $tname, $tfpath, 1)
+        if util_is_defined($parameters, $tfpath);
 
     # ran out of options; invalid
     return ($path, $name, $fpath, 0);
