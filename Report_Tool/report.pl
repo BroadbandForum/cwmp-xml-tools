@@ -2689,6 +2689,9 @@ sub expand_model_profile
         # determine where to insert the new node; after base profile first;
         # then after extends profiles; after previous node otherwise
         my $index = @{$mnode->{nodes}};
+        # need to treat base and extends together since otherwise can
+        # reference a profile before it's been defined
+        my $base_extends = $base . ($extends ? " " : "") . $extends;
         if ($previous) {
             for (0..$index-1) {
                 if (@{$mnode->{nodes}}[$_]->{name} eq $previous) {
@@ -2696,22 +2699,15 @@ sub expand_model_profile
                     last;
                 }
             }
-        } elsif ($base) {
-            for (0..$index-1) {
-                if (@{$mnode->{nodes}}[$_]->{name} eq $base) {
-                    $index = $_+1;
-                    last;
-                }
-            }
-        } elsif ($extends) {
+        } elsif ($base_extends) {
             # XXX this always puts the profile right after the last profile
             #     that it extends, so if more than one profile extends another,
             #     they end up in reverse order
-            EXTEND: foreach my $extend (reverse split /\s+/, $extends) {
+            BASE: foreach my $base (reverse split /\s+/, $base_extends) {
                 for (0..$index-1) {
-                    if (@{$mnode->{nodes}}[$_]->{name} eq $extend) {
+                    if (@{$mnode->{nodes}}[$_]->{name} eq $base) {
                         $index = $_+1;
-                        last EXTEND;
+                        last BASE;
                     }
                 }
             }
@@ -5775,13 +5771,18 @@ sub xml2_node
 
     my $command_or_event = is_command($node) || is_event($node);
 
+    my $nested_argument_object = $command_or_event &&
+        $node->{pnode}->{type} eq 'object' &&
+        !$node->{pnode}->{is_arguments} && 
+        !$node->{pnode}->{is_event};
+
     # this is the object nesting level (relative to the root object) and is
     # necessary because all 'object' elements (apart from in arguments) are 
     # defined at the same level
     $xml2_objlevel = 0 if $indent == 0;
     $node->{xml2}->{objlevel_inc} =
-        !$command_or_event && $element eq 'object' &&
-        $node->{pnode}->{type} eq 'object';
+        (!$command_or_event || $nested_argument_object) &&
+        $element eq 'object' && $node->{pnode}->{type} eq 'object';
     $xml2_objlevel++ if $node->{xml2}->{objlevel_inc};
     my $i = "  " x ($indent - $xml2_objlevel);
 
@@ -5973,7 +5974,15 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $description = '';
                 $descact = 'replace';
             }
-            $name = $node->{name} if $command_or_event;
+            # XXX this allows two levels of nested argument objects; would
+            #     need a recursive utility for the general case
+            if ($command_or_event) {
+                if ($nested_argument_object) {
+                    $name = $node->{pnode}->{name} . $node->{name};
+                } else {
+                    $name = $node->{name};
+                }
+            }
             undef $access if $command_or_event;
         } elsif ($element eq 'command' || $element eq 'event') {
             undef $access;
@@ -6306,6 +6315,7 @@ sub xml2_post
     my $element = $node->{xml2}->{element};
     return if !$element || $element eq 'object';
 
+    # XXX is this intentional? should it be $node->{type}?
     return if $node->{name} eq 'object';
 
     # XXX this is a hack (I hate this logic)
