@@ -9357,7 +9357,8 @@ sub html_template_reference
 
                 # XXX heuristically suppress error message in some cases
                 elsif ($tpp !~ /^\.Services\./ && !$automodel) {
-                    emsg "$path: targetParent doesn't exist: $tp";
+                    emsg "$path: targetParent $tp doesn't exist: $tpp (see " .
+                        "TR-106 A.2.3.4)";
                 }
 
                 $targetParentFixed = 0 if $tpn && !$tpn->{fixedObject};
