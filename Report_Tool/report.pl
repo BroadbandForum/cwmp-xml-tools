@@ -338,6 +338,7 @@ our $ucprofiles = [];
 our $ugly = 0;
 our $upnpdm = 0;
 our $verbose = undef;
+our $version = 0;
 our $warnbibref = undef;
 our $warndupbibref = 0;
 our $noxmllink = 0;
@@ -419,6 +420,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'upnpdm' => \$upnpdm,
            'ugly' => \$ugly,
 	   'verbose:i' => \$verbose,
+	   'version' => \$version,
            'warnbibref:i' => \$warnbibref,
            'warndupbibref' => \$warndupbibref,
            'noxmllink' => \$noxmllink,
@@ -528,6 +530,13 @@ if ($info) {
     imsg 'Author: ', $tool_author_only;
     imsg 'Date: ', $tool_vers_date_only, $tool_checked_out;
     imsg 'Id: ', $tool_id_only;
+    exit(1);
+}
+
+if ($version) {
+    my $extra = $tool_checked_out ? $tool_checked_out :
+        " ($tool_vers_date_only)";
+    print STDOUT "$tool_id_only$extra\n";
     exit(1);
 }
 
