@@ -9344,7 +9344,7 @@ sub html_template_reference
         $targetParent = object_references($targetParent,
                                           $targetParentScope);
 
-        $text .= qq{MUST be the path name of };
+        $text .= qq{MUST be the Path Name of };
 
         if ($targetType eq 'row') {
             if ($arg1) {
