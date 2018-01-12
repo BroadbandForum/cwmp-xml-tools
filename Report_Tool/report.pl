@@ -3364,7 +3364,13 @@ sub add_object
         my $changed = {};
 
         # XXX should use a utility routine for this change checking
-        if ($access ne $nnode->{access}) {
+        if ($access ne $nnode->{access})
+        {
+            # Create Error if access got demoted!
+            if ($nnode->{access} eq 'readWrite')
+            {
+                emsg "$path: access got demoted from $nnode->{access} to $access";
+            }
             d0msg "$path: access: $nnode->{access} -> $access";
             $nnode->{access} = $access;
             $changed->{access} = 1;
@@ -3628,7 +3634,13 @@ sub add_parameter
         # (lspec) is updated (and its mspec is modified)
         my $changed = {};
 
-        if ($access ne $nnode->{access}) {
+        if ($access ne $nnode->{access})
+        {
+            # Create Error if access got demoted!
+            if ($nnode->{access} eq 'readWrite')
+            {
+                emsg "$path: access got demoted from $nnode->{access} to $access";
+            }
             d0msg "$path: access: $nnode->{access} -> $access";
             $nnode->{access} = $access;
             $changed->{access} = 1;
