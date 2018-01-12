@@ -3523,7 +3523,7 @@ sub add_parameter
     $ref = '' unless $ref;
     # don't default data type
     # assume that syntax defaulting has already been handled
-    $access = 'readOnly' unless $access;
+    # $access = 'readOnly' unless $access; DO not default here (KW)
     $status = 'current' unless $status;
     $description = '' unless $description;
     # don't default descact, so can tell whether it was specified
@@ -3532,7 +3532,7 @@ sub add_parameter
     $deftype = 'object' unless $deftype;
     $defstat = 'current' unless $defstat;
     # don't touch version, since undefined is significant
-    $activeNotify = 'normal' unless $activeNotify;
+    # $activeNotify = 'normal' unless $activeNotify; DO not default here (KW)
     # forcedInform is boolean
 
     # use oldname as fallback for ref when comparing
@@ -3549,7 +3549,8 @@ sub add_parameter
 
     # if ref, find the referenced parameter
     my $nnode;
-    if ($ref) {
+    if ($ref)
+    {
         my @match = grep {!util_is_deleted($_) &&
                               $_->{name} eq $ref} @{$pnode->{nodes}};
         if (@match) {
@@ -3561,11 +3562,19 @@ sub add_parameter
             $name = $ref;
             $auto = 1;
         }
-    } elsif ($name) {
+        # Set defaults to refnode values if empty:
+        if ($nnode)
+        {
+            $activeNotify = $nnode->{activeNotify} unless $activeNotify;
+            $access = $nnode->{access} unless $access;
+        }
+    } 
+    elsif ($name)
+    {
         my @match = grep {$_->{name} eq $name} @{$pnode->{nodes}};
         # XXX should this be unconditional?
         # XXX sometimes don't want report (need finer reporting control)
-	$nnode = $match[0];
+        $nnode = $match[0];
         if (@match && !$autobase && !$nnode->{hidden}) {
             msg "W", "$path: parameter already defined (new one ignored)" if
                 $loglevel >= $LOGLEVEL_DEBUG || (!$nowarnredef && !$automodel);
@@ -3574,7 +3583,10 @@ sub add_parameter
         # XXX this puts the replacement object in the same place as the orig
         $previous = $nnode->{name} if $nnode && $nnode->{hidden};
     }
-
+    # Set missing defaults:
+    $activeNotify = 'normal' unless $activeNotify;
+    $access = 'readOnly' unless $access;
+    
     # XXX should maybe allow name to include an object spec; could call
     #     add_path on it (would like to know if any object in the path didn't
     #     already exist)
