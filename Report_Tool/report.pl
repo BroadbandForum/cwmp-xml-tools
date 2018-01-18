@@ -7469,6 +7469,7 @@ END
                 my $arrow = is_argoutput($node) ? '&lArr;' : '&rArr;';
                 $tname = $node->{name};
                 $tname = "$arrow " . $tname unless $is_command || $is_event;
+                $version  = '' if substr($tname,-4) eq "put." ;   # Do not display a version for OUTPUT/INPUT
             }
             # account for --ignoreinputoutputinpaths, which means that
             # arguments 'input'/'output' path is the same as its parent
