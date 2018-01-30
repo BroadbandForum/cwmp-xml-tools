@@ -8677,6 +8677,26 @@ sub html_template_keys
         }
         $text .= qq{.};
 
+        # determine non-functional and non-defaulted unique key parameters
+        # for use below
+        my $numkeyparams;
+        my $nonfunc = []; # non-functional unique key parameters
+        my $nondflt = []; # non-defaulted unique key parameters
+        foreach my $uniqueKey (@{$keys->[0]}) {
+            my $functional = $uniqueKey->{functional};
+            my $keyparams = $uniqueKey->{keyparams};
+            foreach my $parameter (@$keyparams) {
+                push @$nonfunc, $parameter unless $functional;
+                my $fpath = $mpref . $object . $parameter;
+                my $defaulted =
+                    util_is_defined($parameters, $fpath, 'default') &&
+                    $parameters->{$fpath}->{deftype} eq 'object' &&
+                    $parameters->{$fpath}->{defstat} ne 'deleted';
+                push @$nondflt, $parameter unless $defaulted;
+                $numkeyparams++;
+            }
+        }
+
         # if the unique key is unconditional and includes at least one
         # writable parameter, check whether to output additional text about
         # the Agent needing to choose unique initial values for non-defaulted
@@ -8698,24 +8718,7 @@ sub html_template_keys
                 qq{SetParameterValuesFault element for each parameter in } .
                 qq{the corresponding request whose modification would have }.
                 qq{resulted in such a violation.} if 0;
-            my $i;
-            my $nonfunc = []; # non-functional unique key parameters
-            my $nondflt = []; # non-defaulted unique key parameters
-            foreach my $uniqueKey (@{$keys->[0]}) {
-                my $functional = $uniqueKey->{functional};
-                my $keyparams = $uniqueKey->{keyparams};
-                foreach my $parameter (@$keyparams) {
-                    push @$nonfunc, $parameter unless $functional;
-                    my $fpath = $mpref . $object . $parameter;
-                    my $defaulted =
-                        util_is_defined($parameters, $fpath, 'default') &&
-                        $parameters->{$fpath}->{deftype} eq 'object' &&
-                        $parameters->{$fpath}->{defstat} ne 'deleted';
-                    push @$nondflt, $parameter unless $defaulted;
-                    $i++;
-                }
-            }
-            if ($i && !@$nondflt && !$ignoreenableparameter) {
+            if ($numkeyparams && !@$nondflt && !$ignoreenableparameter) {
                 emsg "$object: all unique key parameters are " .
                     "defaulted; need enableParameter";
             }
@@ -8730,15 +8733,16 @@ sub html_template_keys
                 $text .= qq{ such that the new entry does not conflict with } .
                     qq{any existing entries.};
             }
-            if ($immutablenonfunctionalkeys && @$nonfunc) {
-                $text .= qq{  The non-functional key parameter};
-                $text .= qq{s} if @$nonfunc > 1;
-                $text .= qq{ };
-                $text .= util_list($nonfunc, qq{{{param|\$1}}});
-                $text .= @$nonfunc > 1 ? qq{ are } : qq{ is };
-                $text .= qq{immutable and therefore MUST NOT be changed } .
-                    qq{after creation of a new table entry.};
-            }
+        }
+
+        if ($immutablenonfunctionalkeys && @$nonfunc) {
+            $text .= qq{  The non-functional key parameter};
+            $text .= qq{s} if @$nonfunc > 1;
+            $text .= qq{ };
+            $text .= util_list($nonfunc, qq{{{param|\$1}}});
+            $text .= @$nonfunc > 1 ? qq{ are } : qq{ is };
+            $text .= qq{immutable and therefore MUST NOT be changed } .
+                qq{after creation of a new table entry.};
         }
 
         $text .= qq{\n} if $sep_paras;
