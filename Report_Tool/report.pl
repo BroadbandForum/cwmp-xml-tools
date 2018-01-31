@@ -285,7 +285,9 @@ our $exitcode = undef;
 our $help = 0;
 our $ignore = undef;
 our $importsuffix = '';
+our $ignoreenableparameter = 0;
 our $ignoreinputoutputinpaths = undef;
+our $immutablenonfunctionalkeys = 0;
 our $includes = [];
 our $info = 0;
 our $lastonly = 0;
@@ -366,7 +368,9 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'exitcode:s' => \$exitcode,
            'help' => \$help,
            'ignore:s' => \$ignore,
+           'ignoreenableparameter' => \$ignoreenableparameter,
            'ignoreinputoutputinpaths' => \$ignoreinputoutputinpaths,
+           'immutablenonfunctionalkeys' => \$immutablenonfunctionalkeys,
            'importsuffix:s' => \$importsuffix,
            'include:s@' => \$includes,
            'info' => \$info,
@@ -7318,9 +7322,9 @@ END
 END
             my $boiler_plate = '';
             $boiler_plate = <<END if $node->{minorVersion};
-For a given implementation of this data model, the CPE MUST indicate
+For a given implementation of this data model, the Agent MUST indicate
 support for the highest version number of any object or parameter that
-it supports.  For example, even if the CPE supports only a single
+it supports.  For example, even if the Agent supports only a single
 parameter that was introduced in version $version, then it will indicate
 support for version $version.  The version number associated with each object
 and parameter is shown in the <b>Version</b> column.<p>
@@ -8592,6 +8596,9 @@ sub html_template_keys
     my $uniqueKeys = $opts->{uniqueKeys};
     my $enableParameter = $opts->{enableParameter};
 
+    # enableParameter is ignored (for example) for USP
+    undef $enableParameter if $ignoreenableparameter;
+
     my $text = qq{{{marktemplate|keys}}};
 
     # XXX various errors and warnings are suppressed if the object has been
@@ -8670,9 +8677,29 @@ sub html_template_keys
         }
         $text .= qq{.};
 
+        # determine non-functional and non-defaulted unique key parameters
+        # for use below
+        my $numkeyparams;
+        my $nonfunc = []; # non-functional unique key parameters
+        my $nondflt = []; # non-defaulted unique key parameters
+        foreach my $uniqueKey (@{$keys->[0]}) {
+            my $functional = $uniqueKey->{functional};
+            my $keyparams = $uniqueKey->{keyparams};
+            foreach my $parameter (@$keyparams) {
+                push @$nonfunc, $parameter unless $functional;
+                my $fpath = $mpref . $object . $parameter;
+                my $defaulted =
+                    util_is_defined($parameters, $fpath, 'default') &&
+                    $parameters->{$fpath}->{deftype} eq 'object' &&
+                    $parameters->{$fpath}->{defstat} ne 'deleted';
+                push @$nondflt, $parameter unless $defaulted;
+                $numkeyparams++;
+            }
+        }
+
         # if the unique key is unconditional and includes at least one
         # writable parameter, check whether to output additional text about
-        # the CPE needing to choose unique initial values for non-defaulted
+        # the Agent needing to choose unique initial values for non-defaulted
         # key parameters
         #
         # XXX the next bit is needed only if one or more of the unique key
@@ -8684,43 +8711,39 @@ sub html_template_keys
         #     the object is writable
         if (!$conditional && $access ne 'readOnly') {
             # XXX have suppressed this boiler plate (it should be stated once)
-            $text .= qq{  If the ACS attempts to set the parameters of an } .
-                qq{existing entry such that this requirement would be } .
-                qq{violated, the CPE MUST reject the request. In this } .
+            $text .= qq{  If the Controller attempts to set the parameters } .
+                qq{of an existing entry such that this requirement would be } .
+                qq{violated, the Agent MUST reject the request. In this } .
                 qq{case, the SetParameterValues response MUST include a } .
                 qq{SetParameterValuesFault element for each parameter in } .
                 qq{the corresponding request whose modification would have }.
                 qq{resulted in such a violation.} if 0;
-            my $i;
-            my $params = [];
-            foreach my $uniqueKey (@{$keys->[0]}) {
-                my $functional = $uniqueKey->{functional};
-                my $keyparams = $uniqueKey->{keyparams};
-                foreach my $parameter (@$keyparams) {
-                    my $fpath = $mpref . $object . $parameter;
-                    my $defaulted =
-                        util_is_defined($parameters, $fpath, 'default') &&
-                        $parameters->{$fpath}->{deftype} eq 'object' &&
-                        $parameters->{$fpath}->{defstat} ne 'deleted';
-                    push @$params, $parameter unless $defaulted;
-                    $i++;
-                }
-            }
-            if ($i && !@$params) {
+            if ($numkeyparams && !@$nondflt && !$ignoreenableparameter) {
                 emsg "$object: all unique key parameters are " .
                     "defaulted; need enableParameter";
             }
-            if (@$params) {
-                $text .= qq{  On creation of a new table entry, the CPE } .
+            if (@$nondflt) {
+                $text .= qq{  On creation of a new table entry, the Agent } .
                     qq{MUST choose };
-                $text .= qq{an } if @$params == 1;
+                $text .= qq{an } if @$nondflt == 1;
                 $text .= qq{initial value};
-                $text .= qq{s} if @$params > 1;
+                $text .= qq{s} if @$nondflt > 1;
                 $text .= qq{ for };
-                $text .= util_list($params, qq{{{param|\$1}}});
+                $text .= util_list($nondflt, qq{{{param|\$1}}});
                 $text .= qq{ such that the new entry does not conflict with } .
                     qq{any existing entries.};
             }
+        }
+
+        if ($immutablenonfunctionalkeys && @$nonfunc) {
+            $text .= qq{  The non-functional key parameter};
+            $text .= qq{s} if @$nonfunc > 1;
+            $text .= qq{ };
+            $text .= util_list($nonfunc, qq{{{param|\$1}}});
+            $text .= @$nonfunc > 1 ? qq{ are } : qq{ is };
+            $text .= qq{immutable and therefore MUST NOT change once };
+            $text .= @$nonfunc > 1 ? qq{they've } : qq{it's };
+            $text .= qq{been assigned.};
         }
 
         $text .= qq{\n} if $sep_paras;
@@ -11871,7 +11894,7 @@ sub special_end
     }
 
     # pathref: somewhat similar to ref but specifically pathref, and
-    # reports references from and to "CPE-managed non-fixed" objects
+    # reports references from and to "Agent-managed non-fixed" objects
     elsif ($special eq 'pathref') {
         foreach my $item (@$special_items) {
             my $path = $item->{path};
@@ -11882,7 +11905,7 @@ sub special_end
             next unless $refType; # only interested in references
 
             # source (referencing) object; we are interested only if it's
-            # CPE-managed (read-only) and non-fixed
+            # Agent-managed (read-only) and non-fixed
             my $srcobj = $item->{pnode};
             my $srcaccess = $srcobj->{access};
             my $srcfixed = $srcobj->{fixedObject};
@@ -11891,7 +11914,7 @@ sub special_end
             my $map = $syntax->{map};
 
             # target (referenced) object(s); we are interested only if the
-            # targets are specified, are rows, and all are CPE-managed
+            # targets are specified, are rows, and all are Agent-managed
             #(read-only) and non-fixed
             my $targetParent = $syntax->{targetParent};
             my $targetType = $syntax->{targetType};
@@ -14057,7 +14080,7 @@ check which parameters in the highest version of the data model are not in the "
 
 =item B<pathref>
 
-for each pathRef parameter, report cases where a "CPE-managed, non-fixed" object references another "CPE-managed, non-fixed" object; these are candidate cases for objects that should have the same lifetime
+for each pathRef parameter, report cases where a "Agent-managed, non-fixed" object references another "Agent-managed, non-fixed" object; these are candidate cases for objects that should have the same lifetime
 
 =item B<profile>
 
