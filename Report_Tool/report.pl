@@ -8741,8 +8741,9 @@ sub html_template_keys
             $text .= qq{ };
             $text .= util_list($nonfunc, qq{{{param|\$1}}});
             $text .= @$nonfunc > 1 ? qq{ are } : qq{ is };
-            $text .= qq{immutable and therefore MUST NOT be changed } .
-                qq{after creation of a new table entry.};
+            $text .= qq{immutable and therefore MUST NOT change once };
+            $text .= @$nonfunc > 1 ? qq{they've } : qq{it's };
+            $text .= qq{been assigned.};
         }
 
         $text .= qq{\n} if $sep_paras;
