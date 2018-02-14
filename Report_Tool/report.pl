@@ -6022,6 +6022,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 }
             }
             undef $access if $command_or_event;
+            undef $numEntriesParameter if $command_or_event;
         } elsif ($element eq 'command' || $element eq 'event') {
             undef $access;
             undef $minEntries;
