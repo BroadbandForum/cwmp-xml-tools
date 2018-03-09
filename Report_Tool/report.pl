@@ -10044,6 +10044,11 @@ sub htmlbbf_init
 # XXX there are other things like that, e.g. could center the version column
 sub htmlbbf_begin
 {
+    # this suffix (if specified) causes use of field name FIELD-SUFFIX rather
+    # than FIELD (the default); e.g. a value of "usp" means that the title
+    # will be taken from "title-usp" rather than "title"
+    my $suffix = $options->{htmlbbf_configfile_suffix};
+
     # styles
     my $table = qq{text-align: left;};
     my $row = qq{vertical-align: middle;};
@@ -10059,8 +10064,19 @@ sub htmlbbf_begin
     my $sup_valign = qq{vertical-align: super;};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
+    # title (title within page
+    my $titlename = $suffix ? qq{title-$suffix} : qq{title};
+    my $title = $htmlbbf_global->{$titlename};
+    $title = qq{CPE WAN Management Protocol (CWMP)} unless $title;
+
+    # title2 (HTML title element)
+    my $title2name = $suffix ? qq{title2-$suffix} : qq{title2};
+    my $title2 = $htmlbbf_global->{$title2name};
+    $title2 = qq{Broadband Forum - CWMP} unless $title2;
+
     # introductory text
-    my $intro = $htmlbbf_global->{intro};
+    my $introname = $suffix ? qq{intro-$suffix} : qq{intro};
+    my $intro = $htmlbbf_global->{$introname};
     $intro = <<END unless $intro;
     [${trpage}TR-181i2%20Overview.pdf Overview of the Device:2 Root Data Model in TR-069 Family of Specifications]
     The available data model definitions and XML Schemas for the TR-069 suite of documents are listed below.
@@ -10100,7 +10116,7 @@ END
 <html>
   <head>
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
-    <title>Broadband Forum - CWMP</title>
+    <title>$title2</title>
     <style type="text/css">
       p, li, body { $font }
       h1 { $h1font }
@@ -10115,7 +10131,7 @@ END
     </style>
   </head>
   <body>
-    <h1>CPE WAN Management Protocol (CWMP)</h1>
+    <h1>$title</h1>
     $intro
 
 END
@@ -10126,15 +10142,21 @@ END
     # first determine heuristically which ones are support files and components
     # (schema files are already identified in $allfiles)
     # XXX this modifies the $allfiles element, but should do no harm
+    my $anyschema = 0;
+    my $anysupport = 0;
+    my $anycomponent = 0;
     foreach my $file (@$allfiles) {
         my $name = $file->{name};
         my $models = $file->{models};
         if ($file->{schema}) {
+            $anyschema = 1;
         } elsif ($name =~ /$htmlbbf_supportpatt/) {
             $file->{support} = 1;
+            $anysupport = 1;
         } elsif ($name =~ /$htmlbbf_igddevpatt/ ||
                  !defined $models || !@$models) {
             $file->{component} = 1;
+            $anycomponent = 1;
         }
     }
 
@@ -10150,6 +10172,7 @@ END
     }
 
     # open the table of contents
+    my $contexts = [];
     print <<END;
     <ul>
 END
@@ -10163,6 +10186,7 @@ END
         htmlbbf_file($file, {context => $latestcontext});
     }
     htmlbbf_file(undef, {context => $latestcontext, contents => 1});
+    push @$contexts, $latestcontext;
 
     # root data models
     my $rootcontext = htmlbbf_file(undef, {
@@ -10172,6 +10196,7 @@ END
         htmlbbf_file($file, {context => $rootcontext});
     }
     htmlbbf_file(undef, {context => $rootcontext, contents => 1});
+    push @$contexts, $rootcontext;
 
     # service data models
     my $servicecontext = htmlbbf_file(undef, {
@@ -10181,31 +10206,43 @@ END
         htmlbbf_file($file, {context => $servicecontext});
     }
     htmlbbf_file(undef, {context => $servicecontext, contents => 1});
+    push @$contexts, $servicecontext;
 
     # components
-    my $componentcontext = htmlbbf_file(undef, {
-        component => 1, title => 'Component Definitions', header => 1,
-        reverserows => 1});
-    foreach my $file (sort htmlbbf_component_cmp @$allfiles) {
-        htmlbbf_file($file, {context => $componentcontext});
+    if ($anycomponent) {
+        my $componentcontext = htmlbbf_file(undef, {
+            component => 1, title => 'Component Definitions', header => 1,
+            reverserows => 1});
+        foreach my $file (sort htmlbbf_component_cmp @$allfiles) {
+            htmlbbf_file($file, {context => $componentcontext});
+        }
+        htmlbbf_file(undef, {context => $componentcontext, contents => 1});
+        push @$contexts, $componentcontext;
     }
-    htmlbbf_file(undef, {context => $componentcontext, contents => 1});
 
     # schemas
-    my $schemacontext = htmlbbf_file(undef, {
-        schema => 1, title => 'Schema Files', header => 1, reverserows => 1});
-    foreach my $file (sort htmlbbf_schema_cmp @$allfiles) {
-        htmlbbf_file($file, {context => $schemacontext});
+    if ($anyschema) {
+        my $schemacontext = htmlbbf_file(undef, {
+            schema => 1, title => 'Schema Files', header => 1,
+            reverserows => 1});
+        foreach my $file (sort htmlbbf_schema_cmp @$allfiles) {
+            htmlbbf_file($file, {context => $schemacontext});
+        }
+        htmlbbf_file(undef, {context => $schemacontext, contents => 1});
+        push @$contexts, $schemacontext;
     }
-    htmlbbf_file(undef, {context => $schemacontext, contents => 1});
 
     # support files
-    my $supportcontext = htmlbbf_file(undef, {
-        support => 1, title => 'Support Files', header => 1, reverserows => 1});
-    foreach my $file (sort htmlbbf_support_cmp @$allfiles) {
-        htmlbbf_file($file, {context => $supportcontext});
+    if ($anysupport) {
+        my $supportcontext = htmlbbf_file(undef, {
+            support => 1, title => 'Support Files', header => 1,
+            reverserows => 1});
+        foreach my $file (sort htmlbbf_support_cmp @$allfiles) {
+            htmlbbf_file($file, {context => $supportcontext});
+        }
+        htmlbbf_file(undef, {context => $supportcontext, contents => 1});
+        push @$contexts, $supportcontext;
     }
-    htmlbbf_file(undef, {context => $supportcontext, contents => 1});
 
     # outdated corrigenda; identified via {{xmlref}}) templates in the other
     # files; populate the list (it's like a pared-down $allfiles)
@@ -10245,13 +10282,16 @@ END
         }
     }
 
-    my $outdatedcontext = htmlbbf_file(undef, {
-        outdated => 1, title => 'Outdated Corrigenda', header => 1,
-        reverserows => 1});
-    foreach my $file (sort htmlbbf_component_cmp @$outdatedfiles) {
-        htmlbbf_file($file, {context => $outdatedcontext});
+    if (@$outdatedfiles) {
+        my $outdatedcontext = htmlbbf_file(undef, {
+            outdated => 1, title => 'Outdated Corrigenda', header => 1,
+            reverserows => 1});
+        foreach my $file (sort htmlbbf_component_cmp @$outdatedfiles) {
+            htmlbbf_file($file, {context => $outdatedcontext});
+        }
+        htmlbbf_file(undef, {context => $outdatedcontext, contents => 1});
+        push @$contexts, $outdatedcontext;
     }
-    htmlbbf_file(undef, {context => $outdatedcontext, contents => 1});
 
     # close the table of contents
     print <<END;
@@ -10260,9 +10300,7 @@ END
 END
 
     # output the tables
-    foreach my $context (($latestcontext, $rootcontext, $servicecontext,
-                          $componentcontext, $schemacontext, $supportcontext,
-                          $outdatedcontext)) {
+    foreach my $context (@$contexts) {
         htmlbbf_file(undef, {context => $context, footer => 1});
     }
 
