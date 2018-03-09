@@ -747,6 +747,7 @@ our $pfile = ''; # last-but-one command-line-specified file
 our $pspec = ''; # spec from last-but-one command-line-specified file
 our $lfile = ''; # last command-line-specified file
 our $lspec = ''; # spec from last command-line-specified file
+our $lspecf = '';# lspec "fixed" with trailing label removed
 our $files = {};
 our $no_imports = 1;
 our $imports = {}; # XXX not a good name, because it includes main file defns
@@ -843,6 +844,7 @@ sub expand_toplevel
 
     $lfile = $file;
     $lspec = $spec;
+    $lspecf = fix_lspec($lspec);
 
     $root->{spec} = $spec;
     push @$specs, $spec unless grep {$_ eq $spec} @$specs;
@@ -1646,10 +1648,11 @@ sub expand_model
     #     are omitted (really the answer here is for the node tree to include
     #     nodes for all nodes in the final report)
     if (!$any_profiles) {
+        my $lspec_ = fix_lspec($Lspec);
         push @{$nnode->{nodes}}, {mnode => $nnode, pnode => $nnode,
                                   type => 'profile', name => '',
                                   spec => $spec, file => $file,
-                                  lspec => $Lspec, lfile => $Lfile};
+                                  lspec => $lspec_, lfile => $Lfile};
     }
 }
 
@@ -2690,10 +2693,11 @@ sub expand_model_profile
         my ($mname_only, $mversion_major, $mversion_minor) =
             ($mnode->{name} =~ /([^:]*):(\d+)\.(\d+)/);
 
+        my $lspec_ = fix_lspec($Lspec, $mversion_major, $mversion_minor);
         $nnode = {mnode => $mnode, pnode => $mnode, path => $name,
                   name => $name, base => $base, extends => $extends,
                   file => $file, lfile => $Lfile, spec => $spec,
-                  lspec => $Lspec, type => 'profile', access => '',
+                  lspec => $lspec_, type => 'profile', access => '',
                   status => $status, id => $id, description => $description,
                   model => $model, nodes => [], baseprof => $baseprof,
                   extendsprofs => $extendsprofs,
@@ -3423,9 +3427,10 @@ sub add_object
             unshift @{$nnode->{history}}, $cnode;
             $nnode->{changed} = $changed;
             $nnode->{lfile} = $Lfile;
-            $nnode->{lspec} = $Lspec;
+            $nnode->{lspec} = fix_lspec($Lspec, $nnode->{majorVersion},
+                                        $nnode->{minorVersion});
             $nnode->{mspec} = $spec;
-            mark_changed($pnode, $Lfile, $Lspec);
+            mark_changed($pnode, $nnode->{lfile}, $nnode->{lspec});
             # XXX experimental (absent description is like appending nothing)
             if (!$description) {
                 $nnode->{description} = '';
@@ -3453,13 +3458,14 @@ sub add_object
         d0msg "$path: added"
             if $mnode->{history} && @{$mnode->{history}} && !$auto;
 
-        mark_changed($pnode, $Lfile, $Lspec);
+        my $lspec_ = fix_lspec($Lspec, $majorVersion, $minorVersion);
+        mark_changed($pnode, $Lfile, $lspec_);
 
         my $dynamic = $pnode->{dynamic} || $access ne 'readOnly';
 
         $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
                   path => $path, file => $file, lfile => $Lfile,
-                  sfile => $Lfile, spec => $spec, lspec => $Lspec,
+                  sfile => $Lfile, spec => $spec, lspec => $lspec_,
                   mspec => $spec, type => 'object', auto => $auto,
                   access => $access, status => $status,
                   description => $description, descact => $descact,
@@ -3507,11 +3513,11 @@ sub add_object
 # Helper to mark a node's ancestors as having been changed
 sub mark_changed
 {
-    my ($node, $Lfile, $Lspec) = @_;
+    my ($node, $lfile_, $lspec_) = @_;
 
     while ($node && $node->{type} eq 'object') {
-        $node->{lfile} = $Lfile;
-        $node->{lspec} = $Lspec;
+        $node->{lfile} = $lfile_;
+        $node->{lspec} = $lspec_;
         $node = $node->{pnode};
     }
 }
@@ -3936,9 +3942,10 @@ sub add_parameter
             unshift @{$nnode->{history}}, $cnode;
             $nnode->{changed} = $changed;
             $nnode->{lfile} = $Lfile;
-            $nnode->{lspec} = $Lspec;
+            $nnode->{lspec} = fix_lspec($Lspec, $nnode->{majorVersion},
+                                        $nnode->{minorVersion});
             $nnode->{mspec} = $spec;
-            mark_changed($pnode, $Lfile, $Lspec);
+            mark_changed($pnode, $nnode->{lfile}, $nnode->{lspec});
             # XXX experimental (absent description is like appending nothing)
             if (!$description) {
                 $nnode->{description} = '';
@@ -3969,7 +3976,8 @@ sub add_parameter
 
         my $dynamic = $pnode->{dynamic};
 
-        mark_changed($pnode, $Lfile, $Lspec);
+        my $lspec_ = fix_lspec($Lspec, $majorVersion, $minorVersion);
+        mark_changed($pnode, $Lfile, $lspec_);
 
         # XXX I think this is to with components and auto-removing defaults
         #     from them if they are used in a static environment
@@ -3986,7 +3994,7 @@ sub add_parameter
 
         $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
                   path => $path, file => $file, lfile => $Lfile,
-                  sfile => $Lfile, spec => $spec, lspec => $Lspec,
+                  sfile => $Lfile, spec => $spec, lspec => $lspec_,
                   mspec => $spec, type => $type, syntax => $syntax,
                   access => $access, status => $status,
                   description => $description, descact => $descact,
@@ -4011,7 +4019,7 @@ sub add_parameter
         }
         splice @{$pnode->{nodes}}, $index, 0, $nnode;
         $pnode->{lfile} = $Lfile;
-        $pnode->{lspec} = $Lspec;
+        $pnode->{lspec} = fix_lspec($Lspec, $majorVersion, $minorVersion);
         my $fpath = util_full_path($nnode);
         $parameters->{$fpath} = $nnode;
     }
@@ -5088,7 +5096,8 @@ sub find_file
     return ($fdir, $ffile, $corr, $rpath);
 }
 
-# Check whether specs match
+# Check whether specs match (this is intended for checking whether a spec in
+# one file matches the spec in an imported file)
 sub specs_match
 {
     my ($spec, $fspec) = @_;
@@ -5110,6 +5119,38 @@ sub specs_match
     ($c) = $fspec =~ /[^-]+-\d+-\d+-\d+(?:-(\d+))?(?:\d*\D.*)?$/;
     $fspec =~ s/-\d+\Q$label\E$/$label/ if defined $c;
     return ($fspec eq $spec);
+}
+
+# Fix lspec (the spec of the last command-line file) to allow --lastonly to
+# work when there are multiple files for a given spec; there are two fixes:
+# 1. Remove a trailing label such as "-usp" from lspec (this allows --lastonly
+#    to be insensitive to the presence or absence of such a label)
+# 2. If supplied, replace the issue and amendment part of lspec with the node
+#    major and minor versions, which come from the dmr:version attribute (this
+#    works around the fact that "flattened" data model specs don't contain the
+#    necessary per-node information)
+sub fix_lspec
+{
+    my ($lspec_, $majorVersion, $minorVersion) = @_;
+
+    # support lspecs that end name-i-a-c[label] where name is of the form
+    # "xx-nnn", i, a and c are numeric, and label is more-or-less arbitrary
+    # text (but has to contain at least one non-digit)
+    my ($prefix, $name, $i, $a, $c, $label) =
+        $lspec_ =~ /^(.*):(\w+-\d+)-(\d+)-(\d+)-(\d+)(\d*\D.*)?$/;
+
+    # if the lspec doesn't match the pattern, just return it unchanged
+    return $lspec_ unless defined $c;
+
+    # if supplied, use the major and minor versions to override the issue and
+    # amendment as explained earlier
+    if (defined($majorVersion) && defined($minorVersion)) {
+        $i = $majorVersion;
+        $a = $minorVersion;
+    }
+
+    # ignore the label as explained earlier
+    return qq{$prefix:$name-$i-$a-$c};
 }
 
 # Null report of node.
@@ -7082,7 +7123,7 @@ END
                 # XXX this is the wrong criterion; the test should be whether
                 #     any of the parameters in the report use the data type
                 next if $lastonly && !$prim &&
-                    !grep {$_ eq $lspec} @{$datatype->{specs}};
+                    !grep {$_ eq $lspecf} @{$datatype->{specs}};
 
                 # get the base type
                 my $base = base_type($name, 0);
@@ -7153,7 +7194,7 @@ END
                 #     hide_subtree and unhide_subtree to auto-hide and show
                 #     relevant references)
                 next if $lastonly &&
-                    !grep {$_ eq $lspec} @{$bibrefs->{$id}};
+                    !grep {$_ eq $lspecf} @{$bibrefs->{$id}};
 
                 my $name = xml_escape($reference->{name});
                 my $title = xml_escape($reference->{title});
@@ -12879,7 +12920,7 @@ sub util_node_is_modified
 
     # spec is used when not comparing files
     if ($modifiedusesspec) {
-        return 1 if $node->{lspec} && $node->{lspec} eq $lspec;
+        return 1 if $node->{lspec} && $node->{lspec} eq $lspecf;
 
     # file is used when comparing files
     } else {
@@ -12951,7 +12992,8 @@ sub sanity_node
                 #     to children (although could) because if parent isn't
                 #     mentioned, children can't be mentioned)
                 $node->{lfile} = $lfile;
-                $node->{lspec} = $lspec;
+                $node->{lspec} = fix_lspec($lspec, $node->{majorVersion},
+                                           $node->{minorVersion});
                 $node->{status} = 'deleted';
             }
         }
