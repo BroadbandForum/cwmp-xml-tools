@@ -2693,7 +2693,10 @@ sub expand_model_profile
         my ($mname_only, $mversion_major, $mversion_minor) =
             ($mnode->{name} =~ /([^:]*):(\d+)\.(\d+)/);
 
-        my $lspec_ = fix_lspec($Lspec, $mversion_major, $mversion_minor);
+        # XXX these are used below but aren't used as the node major and minor
+        #     versions (they're used for the profile's minimum model version?)
+        my ($majorVersion, $minorVersion) = dmr_version($profile);
+        my $lspec_ = fix_lspec($Lspec, $majorVersion, $minorVersion);
         $nnode = {mnode => $mnode, pnode => $mnode, path => $name,
                   name => $name, base => $base, extends => $extends,
                   file => $file, lfile => $Lfile, spec => $spec,
@@ -2744,7 +2747,6 @@ sub expand_model_profile
         # (usually this is the current model, but not if this XML was
         # flattened by the xml2 report, in which case it is indicated
         # by dmr:version
-        my ($majorVersion, $minorVersion) = dmr_version($profile);
         my $version = defined $majorVersion && defined $minorVersion ?
             qq{$majorVersion.$minorVersion} : undef;
         my $defmodel = $version ? qq{$mname_only:$version} : $mnode->{name};
