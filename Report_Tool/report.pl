@@ -3510,14 +3510,22 @@ sub add_object
     return $nnode;
 }
 
-# Helper to mark a node's ancestors as having been changed
+# Helper to mark a node's ancestors as having been changed (only ever mark
+# them as newer, never as older)
 sub mark_changed
 {
     my ($node, $lfile_, $lspec_) = @_;
 
     while ($node && $node->{type} eq 'object') {
-        $node->{lfile} = $lfile_;
-        $node->{lspec} = $lspec_;
+        # XXX for reasons that I don't really understand, this can get called
+        #     before the node's lspec is defined, but will always get called
+        #     again later
+        my $compare = defined($node->{lspec}) ?
+            spec_compare($lspec_, $node->{lspec}) : -1;
+        if ($compare > 0) {
+            $node->{lfile} = $lfile_;
+            $node->{lspec} = $lspec_;
+        }
         $node = $node->{pnode};
     }
 }
@@ -5096,8 +5104,26 @@ sub find_file
     return ($fdir, $ffile, $corr, $rpath);
 }
 
+# Parse a spec, returning prefix, name, i, a, c and label (use c to determine
+# whether the spec was valid)
+sub spec_parse
+{
+    my ($spec) = @_;
+
+    # support specs of the form prefix:name-i-a-c[label] where name is of the
+    # form "xx-nnn", i, a and c are numeric, and label is more-or-less
+    # arbitrary text (but has to contain at least one non-digit)
+    my ($prefix, $name, $i, $a, $c, $label) =
+        $spec =~ /^(.*):(\w+-\d+)-(\d+)-(\d+)-(\d+)(\d*\D.*)?$/;
+    $label = '' unless $label;
+
+    # the label is optional, so use c to determine whether the spec is valid
+    return ($prefix, $name, $i, $a, $c, $label);
+}
+
 # Check whether specs match (this is intended for checking whether a spec in
 # one file matches the spec in an imported file)
+# XXX not (yet) using spec_parse because it requires the corrigendum number
 sub specs_match
 {
     my ($spec, $fspec) = @_;
@@ -5121,6 +5147,29 @@ sub specs_match
     return ($fspec eq $spec);
 }
 
+# Compare two specs, returning (like <=>) -1, 0, +1 if the first is older, the
+# same or newer than the second (also return 0 if the specs are invalid or
+# string-valued fields don't match)
+sub spec_compare
+{
+    my ($spec1, $spec2) = @_;
+
+    my ($prefix1, $name1, $i1, $a1, $c1, $label1) = spec_parse($spec1);
+    my ($prefix2, $name2, $i2, $a2, $c2, $label2) = spec_parse($spec2);
+
+    # 0 if either spec is invalid (what else can we do?)
+    return 0 if !defined($c1) || !defined($c2);
+
+    # 0 if prefix:name doesn't match
+    return 0 if qq{$prefix1:$name1} ne qq{$prefix2:$name2};
+
+    # compare issue, then amendment then corrigendum
+    return ($i1 <=> $i2) ? ($i1 <=> $i2) : ($a1 <=> $a2) ? ($a1 <=> $a2) :
+        ($c1 <=> $c2);
+
+    # ignore the label
+}
+
 # Fix lspec (the spec of the last command-line file) to allow --lastonly to
 # work when there are multiple files for a given spec; there are two fixes:
 # 1. Remove a trailing label such as "-usp" from lspec (this allows --lastonly
@@ -5133,13 +5182,8 @@ sub fix_lspec
 {
     my ($lspec_, $majorVersion, $minorVersion) = @_;
 
-    # support lspecs that end name-i-a-c[label] where name is of the form
-    # "xx-nnn", i, a and c are numeric, and label is more-or-less arbitrary
-    # text (but has to contain at least one non-digit)
-    my ($prefix, $name, $i, $a, $c, $label) =
-        $lspec_ =~ /^(.*):(\w+-\d+)-(\d+)-(\d+)-(\d+)(\d*\D.*)?$/;
-
     # if the lspec doesn't match the pattern, just return it unchanged
+    my ($prefix, $name, $i, $a, $c, $label) = spec_parse($lspec_);
     return $lspec_ unless defined $c;
 
     # if supplied, use the major and minor versions to override the issue and
