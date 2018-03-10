@@ -4028,8 +4028,12 @@ sub add_parameter
             }
         }
         splice @{$pnode->{nodes}}, $index, 0, $nnode;
-        $pnode->{lfile} = $Lfile;
-        $pnode->{lspec} = fix_lspec($Lspec, $majorVersion, $minorVersion);
+        # XXX why do we modify the parent node's lfile and lspec here? also
+        #     these are _this_ node's major and minor version, not the parent
+        #     node's; commenting this out as an experiment (if restore it,
+        #     make sure to use the parent node's version info, if defined)
+        #$pnode->{lfile} = $Lfile;
+        #$pnode->{lspec} = fix_lspec($Lspec, $majorVersion, $minorVersion);
         my $fpath = util_full_path($nnode);
         $parameters->{$fpath} = $nnode;
     }
