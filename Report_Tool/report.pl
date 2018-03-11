@@ -2044,6 +2044,7 @@ sub expand_model_command
     my $path = $nnode->{path};
     my $fpath = util_full_path($nnode);
     $fpath =~ s/\.$//;
+    $objects->{$fpath} = $nnode;
     $parameters->{$fpath} = $nnode;
     my $is_async = $command->findvalue('@async');
     my $notify = $command->findvalue('@notify') || 'OperationComplete';
@@ -2061,7 +2062,6 @@ sub is_command
 }
 
 # Expand a data model command's input and output arguments
-# XXX very basic...
 sub expand_model_input
 {
     my ($context, $mnode, $pnode, $input) = @_;
@@ -2135,6 +2135,7 @@ sub expand_model_event
     my $path = $nnode->{path};
     my $fpath = util_full_path($nnode);
     $fpath =~ s/\.$//;
+    $objects->{$fpath} = $nnode;
     $parameters->{$fpath} = $nnode;
     $nnode->{is_event} = 1;
     return $nnode;
@@ -2766,7 +2767,7 @@ sub expand_model_profile
 # Expand a data model profile object.
 sub expand_model_profile_object
 {
-    my ($context, $mnode, $Pnode, $pnode, $object) = @_;
+    my ($context, $mnode, $Pnode, $pnode, $object, $name_is_relative) = @_;
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
@@ -2781,6 +2782,13 @@ sub expand_model_profile_object
     my $description = $object->findvalue('description');
     my $descact = $object->findvalue('description/@action');
     my $descdef = $object->findnodes('description')->size();
+
+    # save the original name (this is also saved in the new node)
+    my $oname = $name;
+
+    # the name is relative for commands, events and their arguments, e.g.
+    # Command()
+    $name = $pnode->{path} . $name if $name_is_relative;
 
     $status = 'current' unless $status;
     $status = util_maybe_deleted($status);
@@ -2833,10 +2841,10 @@ sub expand_model_profile_object
         $push_needed = 0;
     } else {
         $nnode = {mnode => $mnode, pnode => $pnode, path => $name,
-                  name => $name, type => 'objectRef', access => $access,
-                  status => $status, description => $description,
-                  descact => $descact, descdef => $descdef, nodes => [],
-                  baseobj => $baseobj};
+                  oname => $oname, name => $name, type => 'objectRef',
+                  access => $access,  status => $status,
+                  description => $description, descact => $descact,
+                  descdef => $descdef, nodes => [], baseobj => $baseobj};
         $push_deferred = 1;
     }
 
@@ -2845,10 +2853,11 @@ sub expand_model_profile_object
     # XXX this isn't quite right; should use profile equivalent of add_path()
     #     to create intervening nodes; currently top-level parameters are in
     #     the wrong place in the hierarchy
-    foreach my $item ($object->findnodes('parameter|object|command|event')) {
+    foreach my $item ($object->findnodes('parameter|object|command|event|' .
+                                         'input|output')) {
         my $element = $item->findvalue('local-name()');
-        "expand_model_profile_$element"->($context, $mnode,
-                                          $Pnode, $nnode, $item);
+        "expand_model_profile_$element"->($context, $mnode, $Pnode, $nnode,
+                                          $item, $name_is_relative);
     }
 
     # suppress push if possible
@@ -2860,12 +2869,15 @@ sub expand_model_profile_object
         my $fpath = util_full_path($Pnode);
         $profiles->{$fpath}->{$name} = $access;
     }
+
+    # XXX this is just for expand_model_profile_(command|event)
+    return $nnode;
 }
 
 # Expand a data model profile parameter.
 sub expand_model_profile_parameter
 {
-    my ($context, $mnode, $Pnode, $pnode, $parameter) = @_;
+    my ($context, $mnode, $Pnode, $pnode, $parameter, $name_is_relative) = @_;
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
@@ -2887,7 +2899,16 @@ sub expand_model_profile_parameter
 
     d1msg "expand_model_profile_parameter path=$Path ref=$name";
 
-    my $path = $pnode->{type} eq 'profile' ? $name : $pnode->{name}.$name;
+    my $path;
+    # this is for command and event arguments
+    if ($name_is_relative) {
+        $path = $pnode->{path} . $name;
+    }
+    # this is existing logic
+    # XXX hmm... are path and name the same or different for these nodes?
+    else {
+        $path = $pnode->{type} eq 'profile' ? $name : $pnode->{name} . $name;
+    }
     # special case for parameter at top level of a profile
     # XXX this is wrong; see comment in caller; but we live with it...
     $path = $Path . $path if $Path && $Pnode == $pnode;
@@ -2968,29 +2989,72 @@ sub expand_model_profile_parameter
         $profiles->{$fpath}->{$path} = $access;
     }
 
-    #XXX this is just for expand_model_profile_(command|event)
+    # XXX this is just for expand_model_profile_(command|event), which in
+    #     fact don't use this routine any more (they are expanded as objects)
     return $nnode;
 }
 
 # Expand a data model profile command.
-# XXX very basic; will be removing this?
 sub expand_model_profile_command
 {
     my ($context, $mnode, $Pnode, $pnode, $command) = @_;
 
-    my $nnode = expand_model_profile_parameter $context, $mnode, $Pnode,
-        $pnode, $command;
+    my $nnode = expand_model_profile_object($context, $mnode, $Pnode,
+                                            $pnode, $command, 1);
     $nnode->{is_command} = 1 if $nnode;
 }
 
+# Expand a data model profile command's input arguments.
+sub expand_model_profile_input
+{
+    my ($context, $mnode, $Pnode, $pnode, $input) = @_;
+    return expand_model_profile_arguments($context, $mnode, $Pnode, $pnode,
+                                          $input, 'input');
+}
+
+# Expand a data model profile command's output arguments.
+sub expand_model_profile_output
+{
+    my ($context, $mnode, $Pnode, $pnode, $output) = @_;
+    return expand_model_profile_arguments($context, $mnode, $Pnode, $pnode,
+                                          $output, 'output');
+}
+
+# $which is 'input' or 'output'
+sub expand_model_profile_arguments
+{
+    my ($context, $mnode, $Pnode, $pnode, $arguments, $which) = @_;
+
+    my $name = ucfirst($which) . '.';
+    # the path never includes the node name ("Input." or "Output.")
+    # need a dot because the path currently ends with Command() or Event!
+    my $path = $pnode->{path} . '.';
+    my $type = 'objectRef';
+    my $access = 'readOnly';
+    my $status = 'current';
+    my $description = '';
+    my $nnode = {mnode => $mnode, pnode => $pnode, path => $path,
+                 name => $name, type => $type, is_arguments => 1,
+                 access => $access, status => $status,
+                 description => $description, nodes => []};
+    push @{$pnode->{nodes}}, $nnode;
+
+    foreach my $item ($arguments->findnodes('parameter|object')) {
+        my $element = $item->findvalue('local-name()');
+        "expand_model_profile_$element"->($context, $mnode, $Pnode, $nnode,
+                                          $item, 1);
+    }
+
+    return $nnode;
+}
+
 # Expand a data model profile event.
-# XXX very basic; will be removing this?
 sub expand_model_profile_event
 {
     my ($context, $mnode, $Pnode, $pnode, $event) = @_;
 
-    my $nnode = expand_model_profile_parameter $context, $mnode, $Pnode,
-        $pnode, $event;
+    my $nnode = expand_model_profile_object($context, $mnode, $Pnode,
+                                            $pnode, $event, 1);
     $nnode->{is_event} = 1 if $nnode;
 }
 
@@ -6165,14 +6229,18 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 return;
             }
         } elsif ($element =~ /(\w+)Ref$/) {
+            $element = $1; # parameter or object
             $ref = $name;
+            if ($command_or_event) {
+                $element = 'command' if $node->{is_command};
+                $element = 'event' if $node->{is_event};
+                $ref = $node->{oname} if $node->{oname};
+            }
             $name = '';
             $requirement = $access;
             $access = '';
-            $element = $1; # parameter or object
-            $element = 'command' if $node->{is_command};
-            $element = 'event' if $node->{is_event};
-            $node->{xml2}->{element} = ($element eq 'object') ? $element : '';
+            $node->{xml2}->{element} =
+                ($element ne 'parameter') ? $element : '';
         }
 
         $name = $name ? qq{ name="$name"} : qq{};
@@ -7516,15 +7584,15 @@ END
         </tr>
         <tr>
           <td class="pc">C</td>
-          <td>Creation and deletion of instances of the object via AddObject and DeleteObject is REQUIRED.</td>
+          <td>Creation and deletion of instances of the object is REQUIRED.</td>
         </tr>
         <tr>
           <td class="pc">A</td>
-          <td>Creation of instances of the object via AddObject is REQUIRED, but deletion is not REQUIRED.</td>
+          <td>Creation of instances of the object is REQUIRED, but deletion is not REQUIRED.</td>
         </tr>
         <tr>
           <td class="pc">D</td>
-          <td>Deletion of instances of the object via DeleteObject is REQUIRED, but creation is not REQUIRED.</td>
+          <td>Deletion of instances of the object is REQUIRED, but creation is not REQUIRED.</td>
         </tr>
       </tbody>
     </table>
@@ -7558,7 +7626,6 @@ END
         if ($model || $profile) {
         } elsif (!$html_profile_active) {
             my $tname = '';
-            my $command_or_event = is_command($node) || is_event($node);
             # modify displayed name for commands and event arguments (just the
             # name, not the full path)
             if ($command_or_event) {
@@ -7601,8 +7668,23 @@ END
 END
         } else {
             my $fpath = util_full_path($node);
-            $name = html_get_anchor($fpath, 'path', $name) unless $nolinks;
-            $write = 'R' if $access eq 'readOnly';
+            # for commands and events:
+            # 1. they are object-like (here), but need to use the name rather
+            #    than the full path (in profiles, object names are full paths
+            #    but the original name is available in oname)
+            # 2. there's no point creating links for "Input." and "Output."
+            #    because the link would point to the command
+            # 3. use access "P" for commands and events
+            # 4. use access "R" for output arguments
+            if ($command_or_event) {
+                $name = $node->{oname} ? $node->{oname} : $node->{name};
+                $write = 'P' if $is_command || $is_event;
+                $write = 'R' if $write eq '-' && !$is_arguments;
+            } else {
+                $write = 'R' if $access eq 'readOnly';
+            }
+            $name = html_get_anchor($fpath, 'path', $name)
+                unless $nolinks || $is_arguments;
             my $footnote = qq{};
             # XXX need to use origdesc because description has already been
             #     escaped and an originally empty one might no longer be empty
