@@ -2722,14 +2722,15 @@ sub expand_model_profile
                 }
             }
         } elsif ($base_extends) {
-            # XXX this always puts the profile right after the last profile
-            #     that it extends, so if more than one profile extends another,
-            #     they end up in reverse order
-            BASE: foreach my $base (reverse split /\s+/, $base_extends) {
-                for (0..$index-1) {
-                    if (@{$mnode->{nodes}}[$_]->{name} eq $base) {
-                        $index = $_+1;
-                        last BASE;
+            # put the profile after its last base / extends profile
+            # XXX this could probably be done in one line of code
+            my $index = 0;
+            foreach my $base (split /\s+/, $base_extends) {
+                for (0 .. @{$mnode->{nodes}} - 1) {
+                    if ($mnode->{nodes}->[$_]->{name} eq $base) {
+                        if ($_ + 1 > $index) {
+                            $index = $_ + 1;
+                        }
                     }
                 }
             }
@@ -2740,6 +2741,8 @@ sub expand_model_profile
         # XXX the above logic causes problems with "flattened" XML, in which
         #     profiles are already in the correct order so hack to preserve
         #     order in this case
+        # XXX it might be OK now (given that the above logic was broken) but
+        #     this does no harm, so leave it for now
         $index = @{$mnode->{nodes}} if $no_imports;
 
         splice @{$mnode->{nodes}}, $index, 0, $nnode;
