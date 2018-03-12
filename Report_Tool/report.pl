@@ -6115,6 +6115,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         my $ref = $node->{ref};
         my $isService = $node->{isService};
         my $access = $node->{access};
+        my $mountType = $node->{mountType};
         my $numEntriesParameter = $node->{numEntriesParameter};
         my $enableParameter = $node->{enableParameter};
         my $status = $node->{status};
@@ -6284,6 +6285,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         $ref = $ref ? qq{ ref="$ref"} : qq{};
         $isService = $isService ? qq{ isService="true"} : qq{};
         $access = $access ? qq{ access="$access"} : qq{};
+        $mountType = $mountType ? qq{ mountType="$mountType"} : qq{};
         $numEntriesParameter = $numEntriesParameter ? qq{ numEntriesParameter="$numEntriesParameter"} : qq{};
         $enableParameter = $enableParameter ? qq{ enableParameter="$enableParameter"} : qq{};
         $status = $status ne 'current' ? qq{ status="$status"} : qq{};
@@ -6333,7 +6335,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         my $addPsrams = ($node->{is_command} && $type !~ /Ref$/ && $node->{is_async}) ?  qq{ async="true"} : qq{};
         $addPsrams .= ' mandatory="true"' if ($node->{is_mandatory});
 
-        print qq{$i<$element$name$base$ref$isService$extends$addPsrams$access$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$noUniqueKeys$fixedObject$end_element>\n};
+        print qq{$i<$element$name$base$ref$isService$extends$addPsrams$access$mountType$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$noUniqueKeys$fixedObject$end_element>\n};
         if ($tlpp) {
             $i = $isave;
             print qq{$i</object>\n};
