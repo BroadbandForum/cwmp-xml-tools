@@ -301,6 +301,7 @@ our $maxworddiffs = 10;
 our $newparser = 0;
 our $noautomodel = 0;
 our $nocomments = 0;
+our $nofontstyles = 0;
 our $nohyphenate = 0;
 our $nolinks = 0;
 our $nologprefix = 0;
@@ -385,6 +386,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'newparser' => \$newparser,
            'noautomodel' => \$noautomodel,
            'nocomments' => \$nocomments,
+           'nofontstyles' => \$nofontstyles,
            'nohyphenate' => \$nohyphenate,
            'nolinks' => \$nolinks,
            'nologprefix' => \$nologprefix,
@@ -6974,11 +6976,17 @@ sub html_node
     my $strike = qq{text-decoration: line-through;};
     my $center = qq{text-align: center;};
 
-    # font
-    my $h1font = qq{font-family: helvetica,arial,sans-serif; font-size: 14pt;};
-    my $h2font = qq{font-family: helvetica,arial,sans-serif; font-size: 12pt;};
-    my $h3font = qq{font-family: helvetica,arial,sans-serif; font-size: 10pt;};
-    my $font = qq{font-family: helvetica,arial,sans-serif; font-size: 8pt;};
+    # font (--nofontstyles doesn't affect use of blue and red)
+    my $font_oc = $nofontstyles ? '/* ' : '';
+    my $font_cc = $nofontstyles ? ' */' : '';
+    my $h1font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 14pt;${font_cc}};
+    my $h2font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 12pt;${font_cc}};
+    my $h3font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 10pt;${font_cc}};
+    my $font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 8pt;${font_cc}};
     my $fontnew = qq{color: blue;};
     my $fontdel = qq{color: red;};
 
@@ -10231,10 +10239,16 @@ sub htmlbbf_begin
     my $center = qq{text-align: center;};
 
     # font
-    my $h1font = qq{font-family: helvetica,arial,sans-serif; font-size: 14pt;};
-    my $h2font = qq{font-family: helvetica,arial,sans-serif; font-size: 12pt;};
-    my $h3font = qq{font-family: helvetica,arial,sans-serif; font-size: 10pt;};
-    my $font = qq{font-family: helvetica,arial,sans-serif; font-size: 8pt;};
+    my $font_oc = $nofontstyles ? '/* ' : '';
+    my $font_cc = $nofontstyles ? ' */' : '';
+    my $h1font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 14pt;${font_cc}};
+    my $h2font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 12pt;${font_cc}};
+    my $h3font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 10pt;${font_cc}};
+    my $font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 8pt;${font_cc}};
 
     # others
     my $sup_valign = qq{vertical-align: super;};
@@ -11372,10 +11386,16 @@ sub html148_begin
     my $center = qq{text-align: center;};
 
     # font
-    my $h1font = qq{font-family: helvetica,arial,sans-serif; font-size: 14pt;};
-    my $h2font = qq{font-family: helvetica,arial,sans-serif; font-size: 12pt;};
-    my $h3font = qq{font-family: helvetica,arial,sans-serif; font-size: 10pt;};
-    my $font = qq{font-family: helvetica,arial,sans-serif; font-size: 8pt;};
+    my $font_oc = $nofontstyles ? '/* ' : '';
+    my $font_cc = $nofontstyles ? ' */' : '';
+    my $h1font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 14pt;${font_cc}};
+    my $h2font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 12pt;${font_cc}};
+    my $h3font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 10pt;${font_cc}};
+    my $font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 8pt;${font_cc}};
 
     # others
     my $sup_valign = qq{vertical-align: super;};
