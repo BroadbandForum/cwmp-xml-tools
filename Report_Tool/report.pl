@@ -1228,8 +1228,10 @@ sub expand_dataType
     my $description = $dataType->findvalue('description');
     my $descact = $dataType->findvalue('description/@action');
     my $descdef = $dataType->findnodes('description')->size();
-    # XXX not getting any list attributes
+    # XXX not getting many list attributes or any map attributes
     my $list = $dataType->findnodes('list')->size();
+    my $listMinItems = $dataType->findvalue('list/@minItems');
+    my $listMaxItems = $dataType->findvalue('list/@maxItems');
     my $map = $dataType->findnodes('map')->size();
     # XXX this won't handle multiple sizes or ranges
     my $minLength = $dataType->findvalue('.//size/@minLength');
@@ -1288,6 +1290,15 @@ sub expand_dataType
         my $syntax;
 
         $syntax->{list} = $list;
+        if ($list) {
+            $listMinItems = undef if $listMinItems eq '';
+            $listMaxItems = undef if $listMaxItems eq '';
+            if (defined $listMinItems || defined $listMaxItems) {
+                push @{$syntax->{listRanges}}, {minInclusive => $listMinItems,
+                                                maxInclusive => $listMaxItems};
+            }
+        }
+
         $syntax->{map} = $map;
 
         $minLength = undef if $minLength eq '';
@@ -5739,6 +5750,9 @@ sub xml_datatypes
         my $prim = $dataType->{prim};
         my $spec = $dataType->{spec};
         my $description = $dataType->{description};
+        my $list = $dataType->{syntax}->{list};
+        my $listMinInclusive = $dataType->{syntax}->{listRanges}->[0]->{minInclusive};
+        my $listMaxInclusive = $dataType->{syntax}->{listRanges}->[0]->{maxInclusive};
         # XXX not handling multiple sizes or ranges
         my $minLength = $dataType->{syntax}->{sizes}->[0]->{minLength};
         my $maxLength = $dataType->{syntax}->{sizes}->[0]->{maxLength};
@@ -5749,6 +5763,8 @@ sub xml_datatypes
         $description = xml_escape($description, {indent => $i.'    '});
 
         $base = $base ? qq{ base="$base"} : qq{};
+        $listMinInclusive = defined $listMinInclusive ? qq{ minItems="$listMinInclusive"} : qq{};
+        $listMaxInclusive = defined $listMaxInclusive ? qq{ maxItems="$listMaxInclusive"} : qq{};
         $minLength = defined $minLength ? qq{ minLength="$minLength"} : qq{};
         $maxLength = defined $maxLength ? qq{ maxLength="$maxLength"} : qq{};
         $minInclusive = defined $minInclusive ? qq{ minInclusive="$minInclusive"} : qq{};
@@ -5757,6 +5773,7 @@ sub xml_datatypes
         print qq{$i  <dataType name="$name"$base>\n};
         print qq{$i    <description>$description</description>\n} if $description;
         my $j = $i . ($prim ? '  ' : '');
+        print qq{$i    <list$listMinInclusive$listMaxInclusive/>\n} if $list;
         print qq{$i    <$prim>\n} if $prim;
 
         print qq{$j    <size$minLength$maxLength/>\n} if
