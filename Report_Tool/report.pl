@@ -1287,6 +1287,9 @@ sub expand_dataType
         #     hierarchy as needed... but that would be more complicated
         my $syntax;
 
+        $syntax->{list} = $list;
+        $syntax->{map} = $map;
+
         $minLength = undef if $minLength eq '';
         $maxLength = undef if $maxLength eq '';
         if (defined $minLength || defined $maxLength) {
@@ -8114,6 +8117,19 @@ sub html_whitespace
     return $outval;
 }
 
+# Determine the appropriate separator between an auto-prefixed template and
+# the rest of the input value
+sub util_template_separator
+{
+    my ($original_inval, $current_inval) = @_;
+
+    # force a line break before lists
+    my $separator = !$original_inval ? "" :
+        $original_inval =~ /^[*#:]/ ? "\n" : "  ";
+    $separator = "  " if !$separator && $current_inval;
+    return $separator;
+}
+
 # Process templates
 sub html_template
 {
@@ -8133,11 +8149,10 @@ sub html_template
     # {{list}} or {{map}} if already there)
     if ($p->{reference} && $tinval !~ /\{\{reference/ &&
         $tinval !~ /\{\{noreference\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
+        my $sep = util_template_separator($tinval, $inval);
         if ($tinval =~ /\{\{(?:list|map)\}\}/) {
             $inval =~ s/(\{\{(?:list|map)\}\})/$1$sep\{\{reference\}\}/;
         } else {
-            $sep = "  " if !$sep && $inval;
             $inval = "{{reference}}" . $sep . $inval;
         }
     }
@@ -8145,16 +8160,14 @@ sub html_template
     # auto-prefix {{list}} if the parameter is list-valued
     if ($p->{list} && $tinval !~ /\{\{list/ &&
         $tinval !~ /\{\{nolist\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{list}}" . $sep . $inval;
     }
 
     # auto-prefix {{map}} if the parameter is map-valued
     if ($p->{map} && $tinval !~ /\{\{map/ &&
         $tinval !~ /\{\{nomap\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{map}}" . $sep . $inval;
     }
 
@@ -8162,24 +8175,21 @@ sub html_template
     if ($p->{type} && $p->{type} eq 'dataType' &&
         $tinval !~ /\{\{datatype/ &&
         $tinval !~ /\{\{nodatatype\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{datatype}}" . $sep . $inval;
     }
 
     # auto-prefix {{async}} if this is an asynchronous command
     if ($p->{is_async} && $tinval !~ /\{\{async/ &&
         $tinval !~ /\{\{noasync\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{async}}" . $sep . $inval;
     }
 
     # auto-prefix {{mandatory}} if this is a mandatory argument
     if ($p->{is_mandatory} && $tinval !~ /\{\{mandatory/ &&
         $tinval !~ /\{\{nomandatory\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{mandatory}}" . $sep . $inval;
     }
 
@@ -8187,15 +8197,13 @@ sub html_template
     if ($p->{id} &&
         $tinval !~ /\{\{showid/ &&
         $tinval !~ /\{\{noshowid\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{showid}}" . $sep . $inval;
     }
 
     # auto-prefix {{profdesc}} if it's a profile
     if ($p->{profile} && $tinval !~ /\{\{noprofdesc\}\}/) {
-        my $sep = !$tinval ? "" : "\n";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{profdesc}}" . $sep . $inval;
     }
 
