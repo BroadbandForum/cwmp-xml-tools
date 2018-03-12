@@ -7556,7 +7556,7 @@ END
             $html_profile_active = 0;
         }
 
-        if ($parameter) {
+        if ($parameter && !is_command($node) && !is_event($node)) {
             push @$html_parameters, $node;
         }
 
