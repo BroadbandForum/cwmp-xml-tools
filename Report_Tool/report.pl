@@ -2712,6 +2712,8 @@ sub expand_model_profile
 
         # XXX these are used below but aren't used as the node major and minor
         #     versions (they're used for the profile's minimum model version?)
+        # XXX update: they're stored in the node (with different names) so
+        #     they're available, e.g. when generating full XML
         my ($majorVersion, $minorVersion) = dmr_version($profile);
         my $lspec_ = fix_lspec($Lspec, $majorVersion, $minorVersion);
         $nnode = {mnode => $mnode, pnode => $mnode, path => $name,
@@ -2721,6 +2723,8 @@ sub expand_model_profile
                   status => $status, id => $id, description => $description,
                   model => $model, nodes => [], baseprof => $baseprof,
                   extendsprofs => $extendsprofs,
+                  majorVersion_node => $majorVersion,
+                  minorVersion_node => $minorVersion,
                   majorVersion => $mversion_major,
                   minorVersion => $mversion_minor,
                   errors => {}};
@@ -6127,6 +6131,13 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         my $majorVersion = $node->{majorVersion};
         my $minorVersion = $node->{minorVersion};
         my $extendsprofs = $node->{extendsprofs};
+
+        # XXX override the versions with the _node versions if defined; this
+        #     is so profiles will retain node rather than model versions
+        $majorVersion = $node->{majorVersion_node}
+            if defined $node->{majorVersion_node};
+        $minorVersion = $node->{minorVersion_node}
+            if defined $node->{minorVersion_node};
 
         # use extendsprofs rather than extends because this won't contain
         # profiles for which extends rather than base was used (in error)
