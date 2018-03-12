@@ -7443,9 +7443,12 @@ END
         my $seen = {};
         foreach my $mspec (@$mspecs) {
             next unless defined $mspec;
-            $specs .= ' ' if $specs;
-            $specs .= util_doc_name($mspec) unless $seen->{$mspec};
-            $seen->{$mspec} = 1;
+            $mspec = fix_lspec($mspec);
+            if (!$seen->{$mspec}) {
+                $specs .= ' ' if $specs;
+                $specs .= util_doc_name($mspec);
+                $seen->{$mspec} = 1;
+            }
         }
         $specs = '' if $canonical;
         my $versiontitle = $showspec ? qq{} : qq{ title="$specs"};
