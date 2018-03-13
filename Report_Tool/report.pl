@@ -10799,6 +10799,10 @@ END
     my $component = $file->{component};
     my $outdated = $file->{outdated};
 
+    # if this is common XML and it's being omitted, return immediately
+    return if $options->{htmlbbf_configfile_omitcommonxml} &&
+        $context->{model} && $name =~ /-common\.xml$/;
+
     # this is defined only for outdated files; it's the file name of the latest
     # version; for non-outdated files just set it to the file name
     my $latest = $outdated ? $file->{latest} : $name;
@@ -11074,20 +11078,34 @@ END
 
         my $verval = {text => $mver};
 
-        # put model anchor on file to avoid jump to the middle of a large cell;
-        # don't define anchors for "full" XML
+        # put model anchor on file to avoid jump to the middle of a large cell
         my $fileval = undef;
         if ($filerow) {
+            # if showing full XML only, all file rows will show and reference
+            # the full XML
+            # XXX don't worry about the "nc" case (it's on its way out)
+            my $fileval_text = $filerow;
+            my $fileval_name1 = $fileval_text;
+            my $fileval_name2 = $fileval_text;
+            if ($options->{htmlbbf_configfile_onlyfullxml} &&
+                $context->{model}) {
+                $fileval_text =~ s/(-full)?\.xml$/-full.xml/;
+                $fileval_name1 =~ s/(-full)?\.xml$/-full.xml/;
+                $fileval_name2 =~ s/(-full)?\.xml$/.xml/;
+            }
+
             my $fileval_names = [];
             push @$fileval_names, $mname if $mname && $context->{model};
             push @$fileval_names, $mnam if $mnam && $context->{model};
             push @$fileval_names, $pmname if $pmname && $context->{component};
             push @$fileval_names, $pmnam if $pmnam && $context->{component};
             push @$fileval_names, $name_nc if $name_nc;
-            push @$fileval_names, $filerow if $filerow !~ /-full.xml/;
-            $fileval = {text => $filerow,
+            push @$fileval_names, $fileval_name1;
+            push @$fileval_names, $fileval_name2
+                if $fileval_name2 ne $fileval_name1;
+            $fileval = {text => $fileval_text,
                         names => $fileval_names,
-                        link => qq{$cwmppath$filerow}};
+                        link => qq{$cwmppath$fileval_text}};
         }
 
         my $htmlval = undef;
