@@ -262,6 +262,7 @@ my $modifiedusesspec = 1;
 # XXX needed to change declarations to be "our" in order for variables to be
 #     visible to plugins; better to use a single options hash?
 our $allbibrefs = 0;
+our $altnotifreqstyle = 0;
 our $autobase = 0;
 our $autodatatype = 0;
 our $automodel = 0;
@@ -347,6 +348,7 @@ our $warndupbibref = 0;
 our $noxmllink = 0;
 our $writonly = 0;
 GetOptions('allbibrefs' => \$allbibrefs,
+           'altnotifreqstyle' => \$altnotifreqstyle,
            'autobase' => \$autobase,
            'autodatatype' => \$autodatatype,
            'automodel' => \$automodel,
@@ -7565,7 +7567,8 @@ END
         #     model definition
         if ($profile) {
             if (!$html_profile_active) {
-                my $infreq = 'Inform and Notification Requirements';
+                my $inform_and = $altnotifreqstyle ? '' : 'Inform and ';
+                my $infreq = $inform_and . 'Notification Requirements';
                 my $anchor = html_create_anchor($infreq, 'heading',
                                                 {node => $node});
                 print <<END;
@@ -7578,25 +7581,39 @@ END
     </table> <!-- Data Model Definition -->
     <h2>$anchor->{def}</h2>
 END
+                if (!$altnotifreqstyle) {
+                    $html_buffer .=
+                        html_param_table(qq{Forced Inform Parameters},
+                                         {tabopts => $tabopts, node => $node},
+                                         grep {$_->{forcedInform}}
+                                         @$html_parameters);
+                }
+                if (!$altnotifreqstyle) {
+                    $html_buffer .=
+                        html_param_table(qq{Forced Active Notification } .
+                                         qq{Parameters},
+                                         {tabopts => $tabopts, node => $node},
+                                         grep {$_->{activeNotify} eq
+                                                   'forceEnabled'}
+                                         @$html_parameters);
+                }
+                if (!$altnotifreqstyle) {
+                    $html_buffer .=
+                        html_param_table(qq{Default Active Notification } .
+                                         qq{Parameters},
+                                         {tabopts => $tabopts, node => $node},
+                                         grep {$_->{activeNotify} eq
+                                                   'forceDefaultEnabled'}
+                                         @$html_parameters);
+                }
+                my $active = $altnotifreqstyle ? 'Value Change' : 'Active';
                 $html_buffer .=
-                html_param_table(qq{Forced Inform Parameters},
-                                 {tabopts => $tabopts, node => $node},
-                                 grep {$_->{forcedInform}} @$html_parameters) .
-                html_param_table(qq{Forced Active Notification Parameters},
-                                 {tabopts => $tabopts, node => $node},
-                                 grep {$_->{activeNotify} eq 'forceEnabled'}
-                                 @$html_parameters) .
-                html_param_table(qq{Default Active Notification Parameters},
-                                 {tabopts => $tabopts, node => $node},
-                                 grep {$_->{activeNotify} eq
-                                           'forceDefaultEnabled'}
-                                 @$html_parameters) .
-                html_param_table(qq{Parameters for which Active Notification }.
-                                 qq{MAY be Denied},
-                                 {tabopts => $tabopts, sepobj => 1,
-                                  node => $node},
-                                 grep {$_->{activeNotify} eq 'canDeny'}
-                                 @$html_parameters);
+                    html_param_table(qq{Parameters for which $active } .
+                                     qq{Notification MAY be Denied},
+                                     {tabopts => $tabopts, sepobj => 1,
+                                      node => $node},
+                                     grep {$_->{activeNotify} eq 'canDeny'}
+                                     @$html_parameters);
                 my $panchor = html_create_anchor('Profile Definitions',
                                                  'heading', {node => $node});
                 my $nanchor = html_create_anchor('Notation',
