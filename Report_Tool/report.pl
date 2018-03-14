@@ -277,9 +277,9 @@ our $cwmpindex = '../cwmp';
 our $cwmppath = 'cwmp';
 our $debugpath = '';
 our $deletedeprecated = 0;
-our $dtprofiles = [];
 our $diffs = 0;
 our $diffsexts = ['diffs'];
+our $dtprofiles = [];
 our $dtspec = 'urn:example-com:device-1-0-0';
 our $dtuuid = '00000000-0000-0000-0000-000000000000';
 our $exitcode = undef;
@@ -287,7 +287,6 @@ our $help = 0;
 our $ignore = undef;
 our $importsuffix = '';
 our $ignoreenableparameter = 0;
-our $ignoreinputoutputinpaths = undef;
 our $immutablenonfunctionalkeys = 0;
 our $includes = [];
 our $info = 0;
@@ -299,7 +298,7 @@ our $logosrc = '';
 our $marktemplates = undef;
 our $maxchardiffs = 5;
 our $maxworddiffs = 10;
-our $newparser = 0;
+our $newparser = 0; # XXX incomplete, so option has been removed
 our $noautomodel = 0;
 our $nocomments = 0;
 our $nofontstyles = 0;
@@ -344,7 +343,6 @@ our $upnpdm = 0;
 our $verbose = undef;
 our $version = 0;
 our $warnbibref = undef;
-our $warndupbibref = 0;
 our $noxmllink = 0;
 our $writonly = 0;
 GetOptions('allbibrefs' => \$allbibrefs,
@@ -372,7 +370,6 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'help' => \$help,
            'ignore:s' => \$ignore,
            'ignoreenableparameter' => \$ignoreenableparameter,
-           'ignoreinputoutputinpaths' => \$ignoreinputoutputinpaths,
            'immutablenonfunctionalkeys' => \$immutablenonfunctionalkeys,
            'importsuffix:s' => \$importsuffix,
            'include:s@' => \$includes,
@@ -385,7 +382,6 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'marktemplates' => \$marktemplates,
            'maxchardiffs:i' => \$maxchardiffs,
            'maxworddiffs:i' => \$maxworddiffs,
-           'newparser' => \$newparser,
            'noautomodel' => \$noautomodel,
            'nocomments' => \$nocomments,
            'nofontstyles' => \$nofontstyles,
@@ -407,6 +403,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'nowarnstaticdefault' => \$nowarnstaticdefault,
            'nowarnuniquekeys' => \$nowarnuniquekeys,
            'nowarnwtref' => \$nowarnwtref,
+           'noxmllink' => \$noxmllink,
            'objpat:s' => \$objpat,
            'option:s%' => \$options,
            'outfile:s' => \$outfile,
@@ -425,13 +422,11 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'tr106:s' => \$tr106,
            'trpage:s' => \$trpage,
            'ucprofile:s@' => \$ucprofiles,
-           'upnpdm' => \$upnpdm,
            'ugly' => \$ugly,
+           'upnpdm' => \$upnpdm,
            'verbose:i' => \$verbose,
            'version' => \$version,
            'warnbibref:i' => \$warnbibref,
-           'warndupbibref' => \$warndupbibref,
-           'noxmllink' => \$noxmllink,
            'writonly' => \$writonly) or pod2usage(2);
 pod2usage(2) if $report && $special;
 pod2usage(1) if $help;
@@ -579,11 +574,6 @@ if ($ugly) {
     $showsyntax = 1;
 }
 
-if ($warndupbibref) {
-    emsg "--warndupbibref is deprecated; use --warnbibref";
-    $warnbibref = 1;
-}
-
 if (defined $warnbibref && $nowarnbibref) {
     emsg "--nowarnbibref overrides --warnbibref";
 }
@@ -687,11 +677,6 @@ $nocomments = 0 if $loglevel >= $LOGLEVEL_DEBUG;
 
 # XXX upnpdm profiles are broken...
 $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
-
-if (defined $ignoreinputoutputinpaths) {
-    emsg "--ignoreinputoutputinpaths is now the default and so shouldn't ".
-        "be specified (it may be removed in a future release)";
-}
 
 # XXX load_catalog() works but there is no error checking?
 {
@@ -1373,7 +1358,7 @@ sub expand_dataType
     }
 }
 
-# Alternative datatype expansion enabled by --newparser.  Is driven more
+# Alternative datatype expansion enabled by $newparser.  Is driven more
 # directly by the DM Schema structure.  Will eventually move over to using
 # these routines elsewhere.
 #
@@ -7699,7 +7684,8 @@ END
             }
             # account for --ignoreinputoutputinpaths, which means that
             # arguments 'input'/'output' path is the same as its parent
-            # XXX Input. and Output. are never in the paths so could simplify
+            # XXX this is now the default (the option has been removed), so
+            #     Input. and Output. are never in the paths and could simplify
             my $anchor;
             if ($node->{path} ne $node->{pnode}->{path}) {
                 $anchor = html_create_anchor($node, 'path',
@@ -13764,12 +13750,14 @@ report.pl - generate report on TR-069 DM instances (data model definitions)
 
 B<report.pl>
 [--allbibrefs]
+[--altnotifreqstyle]
 [--autobase]
 [--autodatatype]
 [--automodel]
 [--bibrefdocfirst]
 [--canonical]
-[--catalog=c]...
+[--catalog=s]...
+[--commandcolor=s]...
 [--compare]
 [--components]
 [--configfile=s("")]
@@ -13785,6 +13773,8 @@ B<report.pl>
 [--exitcode]
 [--help]
 [--ignore=p("")]
+[--ignoreenableparameter]
+[--immutablenonfunctionalkeys]
 [--importsuffix=s("")]
 [--include=d]...
 [--info]
@@ -13798,6 +13788,7 @@ B<report.pl>
 [--maxworddiffs=i(10)]
 [--noautomodel]
 [--nocomments]
+[--nofontstyles]
 [--nohyphenate]
 [--nolinks]
 [--nologprefix]
@@ -13807,15 +13798,16 @@ B<report.pl>
 [--noprofiles]
 [--noshowreadonly]
 [--notemplates]
-[--nowarnredef]
 [--nowarnbibref]
 [--nowarnenableparameter]
 [--nowarnnumentries]
+[--nowarnredef]
 [--nowarnreport]
 [--nowarnprofbadref]
 [--nowarnstaticdefault]
 [--nowarnuniquekeys]
 [--nowarnwtref]
+[--noxmllink]
 [--objpat=p("")]
 [--option=n=v]...
 [--outfile=s]
@@ -13837,6 +13829,7 @@ B<report.pl>
 [--ugly]
 [--upnpdm]
 [--verbose[=i(1)]]
+[--version]
 [--warnbibref[=i(1)]]
 [--writonly]
 DM-instance...
@@ -13868,6 +13861,12 @@ There are a large number of options but in practice only a few need to be used. 
 =item B<--allbibrefs>
 
 usually only bibliographic references that are referenced from within the data model definition are listed in the report; this isn't much help when generating a list of bibliographic references without a data model! that's what this option is for; currently it affects only B<html> reports
+
+=item B<--altnotifreqstyle>
+
+enables an "alternative notification requirements style" that affects the HTML report's "Inform and Notification Requirements" section; when enabled, this section is called "Notification Requirements" and contains only a "Parameters for which Value Change Notification MAY be Denied" section
+
+note: use of this option is appropriate when generating reports for data models that will be used with USP
 
 =item B<--autobase>
 
@@ -13903,6 +13902,22 @@ can be specified multiple times; XML catalogs (http://en.wikipedia.org/wiki/XML_
 
 XML catalogs are used only when processing URL-valued B<schemaLocation> attributes during DM instance validation; it is not necessary to use XML catalogs in order to validate DM instances; see B<--loglevel>
 
+=item B<--commandcolor=s>...
+
+sets the background colors to be used (in the HTML report) for commands and events; can be specified up to four times to set (in order) the background colors for:
+
+=over
+
+=item * commands and events (default: #66CDAA)
+
+=item * command "Input." and "Output." containers (default: silver)
+
+=item * command and event object arguments (default: pink)
+
+=item * command and event parameter arguments (default: #FFE4E1)
+
+=back
+
 =item B<--compare>
 
 compares the two files that were specified on the command line, showing the changes made by the second one
@@ -13921,9 +13936,9 @@ the configuration file name can also be specified via B<--option configfile=s> b
 
 defaults to B<report.ini> where B<report> is the report type, e.g. B<htmlbbf.ini> for the B<htmlbbf> report
 
-=item B<--cwmpindex=s(..)>
+=item B<--cwmpindex=s(../cwmp)>
 
-affects only the B<html> report; specifies the location of the BBF CWMP index page, i.e. the page generated using the B<htmlbbf> report; is used to generate a link back to the appropriate location within the index page
+affects only the B<html> report; specifies the location of the BBF CWMP (or USP) index page, i.e. the page generated using the B<htmlbbf> report; is used to generate a link back to the appropriate location within the index page
 
 defaults to B<../cwmp> (parent directory), which will work for the BBF web site but will not necessarily work in other locations; the generated link will be B<cwmpindex#xmlfile>, e.g. B<../cwmp#tr-069-1-0-0.xml>
 
@@ -13931,7 +13946,7 @@ defaults to B<../cwmp> (parent directory), which will work for the BBF web site 
 
 affects only the B<htmlbbf> report; specifies the location of the XML and HTML files relative to the BBF CWMP index page
 
-defaults to B<cwmp> (sub-directory), which will work for the BBF web site; can be set to B<http://www.broadband-forum.org/cwmp> to generate a local BBF CWMP index page that references published content
+defaults to B<cwmp> (sub-directory), which will work for the BBF web site; can be set to a URL such as B<http://www.broadband-forum.org/cwmp> to generate a local BBF CWMP index page that references published content
 
 =item B<--debugpath=p("")>
 
@@ -13967,9 +13982,11 @@ affects only the B<xml> report; has an affect only when B<--dtprofile> is also p
 
 affects only the B<xml> report; has an affect only when B<--dtprofile> is also present; specifies the value of the top-level B<uuid> attribute in the generated DT instance (there is no "uuid:" prefix); if not specified, the UUID defaults to B<00000000-0000-0000-0000-000000000000>
 
-=item B<--exitcode>
+=item B<--exitcode=s>
 
-if specified, the exit code is minus the number of reported errors, which will typically be masked to 8 bits, e.g. 2 errors would result in an exit code of -2, which might become 254
+if specified with no value or with a value of "errors", the exit code is minus the number of reported errors, which will typically be masked to 8 bits, e.g. 2 errors would result in an exit code of -2, which might become 254
+
+if specified with a value of "fatals", the exit code is minus the number of reported fatal errors (with the same proviso about masking to 8 bits);
 
 if not specified, the exit code is zero regardless of the number of errors
 
@@ -13981,9 +13998,21 @@ requests output of usage information
 
 specifies a pattern; data models whose names begin with the pattern will be ignored
 
+=item B<--ignoreenableparameter>
+
+causes the B<enableParameter> attribute to be ignored when generating unique key text for the HTML report
+
+note: use of this option is appropriate when generating reports for data models that will be used with USP
+
+=item B<--immutablenonfunctionalkeys>
+
+causes non-functional unique keys to be treated as immutable when generating unique key text for the HTML report
+
+note: use of this option is appropriate when generating reports for data models that will be used with USP
+
 =item B<--importsuffix=s("")>
 
-specifies a suffix which, if specified, will be appended (preceded by a hyphen) to the name part of any imported files in b<xml> reports
+specifies a suffix which, if specified, will be appended (preceded by a hyphen) to the name part of any imported files in B<xml> reports
 
 =item B<--include=d>...
 
@@ -14001,7 +14030,7 @@ can be specified multiple times; specifies directories to search for files speci
 
 =item B<--info>
 
-output details of author, date, version etc
+outputs details of author, date, version etc.
 
 =item B<--lastonly>
 
@@ -14113,6 +14142,12 @@ it is better to use B<--automodel> because it allows various error messages to b
 
 disables generation of XML comments showing what changed etc (B<--verbose> always switches it off)
 
+=item B<--nofontstyles>
+
+disables use of font-related styles in the B<html> and B<htmlbbf> (index file) reports; this allows these styles to be inherited, e.g. from a theme
+
+note: this option doesn't disable use of red / blue text for indicating deletions / insertions
+
 =item B<--nohyphenate>
 
 prevents automatic insertion of soft hyphens
@@ -14197,6 +14232,10 @@ disables warnings when a multi-instance object has no unique keys
 
 disables "referenced file's spec indicates that it's still a WT" warnings
 
+=item B<--noxmllink>
+
+disables inclusion (in B<html> reports) of links back to the appropriate place in the B<htmlbbf> report (index page)
+
 =item B<--objpat=p>
 
 specifies an object name pattern (a regular expression); objects that do not match this pattern will be ignored (the default of "" matches all objects)
@@ -14204,6 +14243,8 @@ specifies an object name pattern (a regular expression); objects that do not mat
 =item B<--option=n=v>...
 
 can be specified multiple times; defines options that can be accessed and used when generating the report; useful when used with reports implemented in plugins
+
+see B<--report> for details of options supported by standard report types
 
 =item B<--outfile=s>
 
@@ -14275,9 +14316,31 @@ HTML document; see also B<--nolinks> and B<--notemplates>
 
 =item B<htmlbbf>
 
-HTML document containing the information in the BBF CWMP index page; when generating this report, all the XSD and XML files are specified on the command line
+HTML document containing the information in the BBF CWMP (or USP) index page; when generating this report, all the XSD and XML files are specified on the command line
 
 the B<htmlbbf> report reads a configuration file whose name can be specified using B<--configfile>
+
+the B<htmlbbf> report supports the following B<options>:
+
+=over
+
+=item B<htmlbbf_configfile_suffix=SUFFIX>
+
+causes use of config file field name FIELD-SUFFIX rather than FIELD (the default); e.g. a value of "usp" means that the title will be taken from "title-usp" rather than "title"
+
+=item B<htmlbbf_deprecatedmodels=MODELS>
+
+causes the specified data models to be marked as deprecated (the option value is a space-separated list of model names and major versions, e.g. "InternetGatewayDevice:1 Device:1")
+
+=item B<htmlbbf_omitcommonxml=VALUE>
+
+causes any XML files whose names end with B<-common.xml> to be ignored (the option value is ignored, but should be "true")
+
+=item B<htmlbbf_onlyfullxml=VALUE>
+
+causes only full XML to be included; affects only data model XML, not component or support XML (the option value is ignored, but should be "true")
+
+=back
 
 see OD-290 and OD-148 for more details
 
@@ -14466,13 +14529,15 @@ enables verbose output; the higher the level the more the output
 
 this has the same effect as setting B<--loglevel> to "d" (debug) followed by the verbose value minus one, e.g. "d2" for B<--verbose=3>
 
+=item B<--version>
+
+outputs a single line showing the version
+
 =item B<--warnbibref[=i(1)]>
 
 enables bibliographic reference warnings (these warnings are also output if B<--verbose> is specified); the higher the level the more warnings
 
 setting it to -1 is the same as setting B<--nowarnbibref> and suppresses various bibref-related errors that would normally be output
-
-previously known as B<--warndupbibref>, which is now deprecated (and will be removed in a future release) because it covers more than just duplicate bibliographic references
 
 =item B<--writonly>
 
