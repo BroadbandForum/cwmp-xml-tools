@@ -10746,7 +10746,7 @@ sub htmlbbf_file
         my $title = $opts->{title};
 
         # open table of contents entry
-        $context->{contents} = {title => $title, keys => []};
+        $context->{contents} = {title => $title, entries => []};
 
         # row is an array of columns (first row is header; don't need suppress
         # or percent values in subsequent rows)
@@ -10777,15 +10777,18 @@ sub htmlbbf_file
     elsif ($opts->{contents}) {
         my $contents = $context->{contents};
         my $title = $contents->{title};
-        my @keys = $context->{reverserows} ?
-            reverse(@{$contents->{keys}}) : @{$contents->{keys}};
+        my @entries = $context->{reverserows} ?
+            reverse(@{$contents->{entries}}) : @{$contents->{entries}};
         print <<END;
       <b><a href="#$title">$title</a></b>
       <ul>
 END
-        foreach my $key (@keys) {
+        foreach my $entry (@entries) {
+            my $key = $entry->{key};
+            my $note = $entry->{note};
+            $note = qq{ <b>$note</b>} if $note;
             print <<END;
-        <a href="#$key">$key</a><br>
+        <a href="#$key">$key</a>$note<br>
 END
         }
         print <<END;
@@ -10817,7 +10820,7 @@ END
     my $outdated = $file->{outdated};
 
     # if this is common XML and it's being omitted, return immediately
-    return if $options->{htmlbbf_configfile_omitcommonxml} &&
+    return if $options->{htmlbbf_omitcommonxml} &&
         $context->{model} && $name =~ /-common\.xml$/;
 
     # this is defined only for outdated files; it's the file name of the latest
@@ -10858,12 +10861,27 @@ END
         $mdesc = 'descr_model';
     }
 
-    # for model, check latest / root / service
+    # convenience variables
+    my $mnam = qq{$mname_name:$mname_major};
+    my $mver = qq{$mname_major.$mname_minor};
+    my $mnot = qq{};
+
+    # for model, check latest / root / service / deprecated
     if ($model) {
         my $service = $model->findvalue('@isService');
 
         return if !$context->{root}    && !$service;
         return if !$context->{service} &&  $service;
+
+        # omit deprecated models from the list of latest data models and
+        # otherwise mark them as being deprecated
+        if ($options->{htmlbbf_deprecatedmodels}) {
+            my @deprecated = split ' ', $options->{htmlbbf_deprecatedmodels};
+            if (grep {$_ eq $mnam} @deprecated) {
+                return if $context->{latestcolumn};
+                $mnot = qq{[DEPRECATED]};
+            }
+        }
     }
 
     # name used for looking up config info is filename first, then filename
@@ -11056,10 +11074,6 @@ END
                    link => util_doc_link($trname)};
     }
 
-    # convenience variables
-    my $mnam = qq{$mname_name:$mname_major};
-    my $mver = qq{$mname_major.$mname_minor};
-
     # generate the table rows for this file; number of rows is the maximum of
     # the number of file and HTML rows
     my $numrows = (@filerows > @htmlrows) ? @filerows : @htmlrows;
@@ -11072,25 +11086,27 @@ END
         # XXX key is a bit klunky; the row should be a hash rather than an
         #     array; by convention the key is on the first column (regardless
         #     of which columns contribute to it)
-        my $key = !$context->{model} ? $document : $mnam;
+        my $entry = !$context->{model} ?
+            {key => $document, note => ''} : {key => $mnam, note => $mnot};
 
         # output table of contents entry (not for outdated files because
         # the link would go to the latest file)
         # XXX hmm... can we simplify this logic? it's not clear...
         if (!$outdated) {
-            my $changed = !$context->{prevkey} || $key ne $context->{prevkey};
+            my $changed = !$context->{prevkey} ||
+                $entry->{key} ne $context->{prevkey};
             if ($changed) {
-                push @{$context->{contents}->{keys}}, $key
+                push @{$context->{contents}->{entries}}, $entry
                     unless $context->{noanchors};
             }
         }
-        $context->{prevkey} = $key;
+        $context->{prevkey} = $entry->{key};
 
         my $docval = {text => $document, names => [$document]};
 
         # link model to its anchor if not defining anchors, i.e. if the link
         # won't be self-referential
-        my $modval = {text => $mnam,
+        my $modval = {text => $mnam, note => $mnot,
                       link => ($context->{noanchors} ? qq{#$mnam} : qq{})};
 
         my $verval = {text => $mver};
@@ -11104,8 +11120,7 @@ END
             my $fileval_text = $filerow;
             my $fileval_name1 = $fileval_text;
             my $fileval_name2 = $fileval_text;
-            if ($options->{htmlbbf_configfile_onlyfullxml} &&
-                $context->{model}) {
+            if ($options->{htmlbbf_onlyfullxml} && $context->{model}) {
                 $fileval_text =~ s/(-full)?\.xml$/-full.xml/;
                 $fileval_name1 =~ s/(-full)?\.xml$/-full.xml/;
                 $fileval_name2 =~ s/(-full)?\.xml$/.xml/;
@@ -11142,7 +11157,7 @@ END
         # row is an array of columns
         push @{$context->{rows}},
         [
-         { name => 'document',    value => $docval, key => $key },
+         { name => 'document',    value => $docval, key => $entry->{key} },
          { name => 'model',       value => $modval },
          { name => 'version',     value => $verval },
          { name => 'file',        value => $fileval },
@@ -11287,6 +11302,7 @@ END
             # this is the same as the "newkey" criterion; a new key forces
             # all column values to be regarded as new
             my $text = $value->{text};
+            my $note = $value->{note} || qq{};
             my $link = $value->{link} || qq{};
             my $ptext = $pvalue->{text};
             my $plink = $pvalue->{link} || qq{};
@@ -11314,6 +11330,8 @@ END
             # it is unchanged from a previous version
             $ncol->{value} = $latestvalues->{$rkey}->{$name} if
                 $latestcolumn && !defined($ncol->{value});
+
+            $ncol->{note} = $note;
 
             push @$ncols, $ncol;
         }
@@ -11410,6 +11428,10 @@ END
                     }
                 }
             }
+
+            # add note
+            my $note  = $block->{note};
+            $text .= qq{<br/><b>$note</b>} if $note;
 
             # quietly replace undefined or empty text with non-breaking space
             $text = '&nbsp;' unless $text;
