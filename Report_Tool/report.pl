@@ -10347,7 +10347,8 @@ END
 
     # header
     # XXX should put standard header and footer info, as for the HTML report
-    print <<END;
+    my $fragment = $options->{htmlbbf_createfragment};
+    print <<END if !$fragment;
 <html>
   <head>
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
@@ -10369,6 +10370,21 @@ END
     <h1>$title</h1>
     $intro
 
+END
+
+    print <<END if $fragment;
+    <style type="text/css">
+      p, li, body { $font }
+      h1 { $h1font }
+      h2 { $h2font }
+      h3 { $h3font }
+      sup { $sup_valign }
+      table { $table }
+      th { $row $font }
+      th.g { $row $font $theader_bg }
+      td, td.p { $row $font }
+      td.pc { $row $font $center }
+    </style>
 END
 
     # XXX temporary until are sure that it works
@@ -10540,7 +10556,7 @@ END
     }
 
     # footer
-    print <<END;
+    print <<END if !$fragment;
   </body>
 </html>
 END
@@ -14328,6 +14344,10 @@ the B<htmlbbf> report supports the following B<options>:
 =item B<htmlbbf_configfile_suffix=SUFFIX>
 
 causes use of config file field name FIELD-SUFFIX rather than FIELD (the default); e.g. a value of "usp" means that the title will be taken from "title-usp" rather than "title"
+
+=item B<htmlbbf_createfragment=VALUE>
+
+causes generation of a fragment of HTML, suitable for inclusion in an HTML document (the option value is ignored, but should be "true")
 
 =item B<htmlbbf_deprecatedmodels=MODELS>
 
