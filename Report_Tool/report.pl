@@ -10432,7 +10432,7 @@ END
     my $latestcontext = htmlbbf_file(undef, {
         model => 1, root => 1, service => 1, title => 'Latest Data Models',
         header => 1, latestcolumn => 'version', noanchors => 1,
-        noseparator => 1, reverserows => 1});
+        noseparator => 1, reverserows => 1, smallheadings => $fragment});
     foreach my $file (sort htmlbbf_model_cmp @$modelfiles) {
         htmlbbf_file($file, {context => $latestcontext});
     }
@@ -10442,7 +10442,7 @@ END
     # root data models
     my $rootcontext = htmlbbf_file(undef, {
         model => 1, root => 1, title => 'Root Data Models', header => 1,
-        reverserows => 1});
+        reverserows => 1, smallheadings => $fragment});
     foreach my $file (sort htmlbbf_model_cmp @$modelfiles) {
         htmlbbf_file($file, {context => $rootcontext});
     }
@@ -10452,7 +10452,7 @@ END
     # service data models
     my $servicecontext = htmlbbf_file(undef, {
         model => 1, service => 1, title => 'Service Data Models',
-        header => 1, reverserows => 1});
+        header => 1, reverserows => 1, smallheadings => $fragment});
     foreach my $file (sort htmlbbf_model_cmp @$modelfiles) {
         htmlbbf_file($file, {context => $servicecontext});
     }
@@ -10463,7 +10463,7 @@ END
     if ($anycomponent) {
         my $componentcontext = htmlbbf_file(undef, {
             component => 1, title => 'Component Definitions', header => 1,
-            reverserows => 1});
+            reverserows => 1, smallheadings => $fragment});
         foreach my $file (sort htmlbbf_component_cmp @$allfiles) {
             htmlbbf_file($file, {context => $componentcontext});
         }
@@ -10475,7 +10475,7 @@ END
     if ($anyschema) {
         my $schemacontext = htmlbbf_file(undef, {
             schema => 1, title => 'Schema Files', header => 1,
-            reverserows => 1});
+            reverserows => 1, smallheadings => $fragment});
         foreach my $file (sort htmlbbf_schema_cmp @$allfiles) {
             htmlbbf_file($file, {context => $schemacontext});
         }
@@ -10487,7 +10487,7 @@ END
     if ($anysupport) {
         my $supportcontext = htmlbbf_file(undef, {
             support => 1, title => 'Support Files', header => 1,
-            reverserows => 1});
+            reverserows => 1, smallheadings => $fragment});
         foreach my $file (sort htmlbbf_support_cmp @$allfiles) {
             htmlbbf_file($file, {context => $supportcontext});
         }
@@ -10536,7 +10536,7 @@ END
     if (@$outdatedfiles) {
         my $outdatedcontext = htmlbbf_file(undef, {
             outdated => 1, title => 'Outdated Corrigenda', header => 1,
-            reverserows => 1});
+            reverserows => 1, smallheadings => $fragment});
         foreach my $file (sort htmlbbf_component_cmp @$outdatedfiles) {
             htmlbbf_file($file, {context => $outdatedcontext});
         }
@@ -10808,7 +10808,8 @@ END
             {latestcolumn => $context->{latestcolumn},
              noanchors => $context->{noanchors},
              noseparator => $context->{noseparator},
-             reverserows => $context->{reverserows}});
+             reverserows => $context->{reverserows},
+             smallheadings => $context->{smallheadings}});
         return;
     }
 
@@ -11205,8 +11206,9 @@ sub htmlbbf_output_table
     # title is on first header field
     my $title = $header->[0]->{title};
     if ($title) {
+        my $h = $opts->{smallheadings} ? 'h2' : 'h1';
         print <<END;
-    <a name="$title"><h1>$title</h1></a>
+    <a name="$title"><$h>$title</$h></a>
 END
     }
 
