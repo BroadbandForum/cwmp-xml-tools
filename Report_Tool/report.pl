@@ -262,6 +262,7 @@ my $modifiedusesspec = 1;
 # XXX needed to change declarations to be "our" in order for variables to be
 #     visible to plugins; better to use a single options hash?
 our $allbibrefs = 0;
+our $altnotifreqstyle = 0;
 our $autobase = 0;
 our $autodatatype = 0;
 our $automodel = 0;
@@ -276,9 +277,9 @@ our $cwmpindex = '../cwmp';
 our $cwmppath = 'cwmp';
 our $debugpath = '';
 our $deletedeprecated = 0;
-our $dtprofiles = [];
 our $diffs = 0;
 our $diffsexts = ['diffs'];
+our $dtprofiles = [];
 our $dtspec = 'urn:example-com:device-1-0-0';
 our $dtuuid = '00000000-0000-0000-0000-000000000000';
 our $exitcode = undef;
@@ -286,7 +287,6 @@ our $help = 0;
 our $ignore = undef;
 our $importsuffix = '';
 our $ignoreenableparameter = 0;
-our $ignoreinputoutputinpaths = undef;
 our $immutablenonfunctionalkeys = 0;
 our $includes = [];
 our $info = 0;
@@ -298,9 +298,10 @@ our $logosrc = '';
 our $marktemplates = undef;
 our $maxchardiffs = 5;
 our $maxworddiffs = 10;
-our $newparser = 0;
+our $newparser = 0; # XXX incomplete, so option has been removed
 our $noautomodel = 0;
 our $nocomments = 0;
+our $nofontstyles = 0;
 our $nohyphenate = 0;
 our $nolinks = 0;
 our $nologprefix = 0;
@@ -342,10 +343,10 @@ our $upnpdm = 0;
 our $verbose = undef;
 our $version = 0;
 our $warnbibref = undef;
-our $warndupbibref = 0;
 our $noxmllink = 0;
 our $writonly = 0;
 GetOptions('allbibrefs' => \$allbibrefs,
+           'altnotifreqstyle' => \$altnotifreqstyle,
            'autobase' => \$autobase,
            'autodatatype' => \$autodatatype,
            'automodel' => \$automodel,
@@ -369,7 +370,6 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'help' => \$help,
            'ignore:s' => \$ignore,
            'ignoreenableparameter' => \$ignoreenableparameter,
-           'ignoreinputoutputinpaths' => \$ignoreinputoutputinpaths,
            'immutablenonfunctionalkeys' => \$immutablenonfunctionalkeys,
            'importsuffix:s' => \$importsuffix,
            'include:s@' => \$includes,
@@ -382,9 +382,9 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'marktemplates' => \$marktemplates,
            'maxchardiffs:i' => \$maxchardiffs,
            'maxworddiffs:i' => \$maxworddiffs,
-           'newparser' => \$newparser,
            'noautomodel' => \$noautomodel,
            'nocomments' => \$nocomments,
+           'nofontstyles' => \$nofontstyles,
            'nohyphenate' => \$nohyphenate,
            'nolinks' => \$nolinks,
            'nologprefix' => \$nologprefix,
@@ -403,6 +403,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'nowarnstaticdefault' => \$nowarnstaticdefault,
            'nowarnuniquekeys' => \$nowarnuniquekeys,
            'nowarnwtref' => \$nowarnwtref,
+           'noxmllink' => \$noxmllink,
            'objpat:s' => \$objpat,
            'option:s%' => \$options,
            'outfile:s' => \$outfile,
@@ -421,13 +422,11 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'tr106:s' => \$tr106,
            'trpage:s' => \$trpage,
            'ucprofile:s@' => \$ucprofiles,
-           'upnpdm' => \$upnpdm,
            'ugly' => \$ugly,
+           'upnpdm' => \$upnpdm,
            'verbose:i' => \$verbose,
            'version' => \$version,
            'warnbibref:i' => \$warnbibref,
-           'warndupbibref' => \$warndupbibref,
-           'noxmllink' => \$noxmllink,
            'writonly' => \$writonly) or pod2usage(2);
 pod2usage(2) if $report && $special;
 pod2usage(1) if $help;
@@ -575,11 +574,6 @@ if ($ugly) {
     $showsyntax = 1;
 }
 
-if ($warndupbibref) {
-    emsg "--warndupbibref is deprecated; use --warnbibref";
-    $warnbibref = 1;
-}
-
 if (defined $warnbibref && $nowarnbibref) {
     emsg "--nowarnbibref overrides --warnbibref";
 }
@@ -684,11 +678,6 @@ $nocomments = 0 if $loglevel >= $LOGLEVEL_DEBUG;
 # XXX upnpdm profiles are broken...
 $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
 
-if (defined $ignoreinputoutputinpaths) {
-    emsg "--ignoreinputoutputinpaths is now the default and so shouldn't ".
-        "be specified (it may be removed in a future release)";
-}
-
 # XXX load_catalog() works but there is no error checking?
 {
     my $parser = XML::LibXML->new(line_numbers => 1);
@@ -747,6 +736,7 @@ our $pfile = ''; # last-but-one command-line-specified file
 our $pspec = ''; # spec from last-but-one command-line-specified file
 our $lfile = ''; # last command-line-specified file
 our $lspec = ''; # spec from last command-line-specified file
+our $lspecf = '';# lspec "fixed" with trailing label removed
 our $files = {};
 our $no_imports = 1;
 our $imports = {}; # XXX not a good name, because it includes main file defns
@@ -843,6 +833,7 @@ sub expand_toplevel
 
     $lfile = $file;
     $lspec = $spec;
+    $lspecf = fix_lspec($lspec);
 
     $root->{spec} = $spec;
     push @$specs, $spec unless grep {$_ eq $spec} @$specs;
@@ -1224,8 +1215,10 @@ sub expand_dataType
     my $description = $dataType->findvalue('description');
     my $descact = $dataType->findvalue('description/@action');
     my $descdef = $dataType->findnodes('description')->size();
-    # XXX not getting any list attributes
+    # XXX not getting many list attributes or any map attributes
     my $list = $dataType->findnodes('list')->size();
+    my $listMinItems = $dataType->findvalue('list/@minItems');
+    my $listMaxItems = $dataType->findvalue('list/@maxItems');
     my $map = $dataType->findnodes('map')->size();
     # XXX this won't handle multiple sizes or ranges
     my $minLength = $dataType->findvalue('.//size/@minLength');
@@ -1282,6 +1275,18 @@ sub expand_dataType
         # XXX really it would be better not to copy at all, and traverse the
         #     hierarchy as needed... but that would be more complicated
         my $syntax;
+
+        $syntax->{list} = $list;
+        if ($list) {
+            $listMinItems = undef if $listMinItems eq '';
+            $listMaxItems = undef if $listMaxItems eq '';
+            if (defined $listMinItems || defined $listMaxItems) {
+                push @{$syntax->{listRanges}}, {minInclusive => $listMinItems,
+                                                maxInclusive => $listMaxItems};
+            }
+        }
+
+        $syntax->{map} = $map;
 
         $minLength = undef if $minLength eq '';
         $maxLength = undef if $maxLength eq '';
@@ -1353,7 +1358,7 @@ sub expand_dataType
     }
 }
 
-# Alternative datatype expansion enabled by --newparser.  Is driven more
+# Alternative datatype expansion enabled by $newparser.  Is driven more
 # directly by the DM Schema structure.  Will eventually move over to using
 # these routines elsewhere.
 #
@@ -1646,10 +1651,11 @@ sub expand_model
     #     are omitted (really the answer here is for the node tree to include
     #     nodes for all nodes in the final report)
     if (!$any_profiles) {
+        my $lspec_ = fix_lspec($Lspec);
         push @{$nnode->{nodes}}, {mnode => $nnode, pnode => $nnode,
                                   type => 'profile', name => '',
                                   spec => $spec, file => $file,
-                                  lspec => $Lspec, lfile => $Lfile};
+                                  lspec => $lspec_, lfile => $Lfile};
     }
 }
 
@@ -2041,6 +2047,7 @@ sub expand_model_command
     my $path = $nnode->{path};
     my $fpath = util_full_path($nnode);
     $fpath =~ s/\.$//;
+    $objects->{$fpath} = $nnode;
     $parameters->{$fpath} = $nnode;
     my $is_async = $command->findvalue('@async');
     my $notify = $command->findvalue('@notify') || 'OperationComplete';
@@ -2058,7 +2065,6 @@ sub is_command
 }
 
 # Expand a data model command's input and output arguments
-# XXX very basic...
 sub expand_model_input
 {
     my ($context, $mnode, $pnode, $input) = @_;
@@ -2132,6 +2138,7 @@ sub expand_model_event
     my $path = $nnode->{path};
     my $fpath = util_full_path($nnode);
     $fpath =~ s/\.$//;
+    $objects->{$fpath} = $nnode;
     $parameters->{$fpath} = $nnode;
     $nnode->{is_event} = 1;
     return $nnode;
@@ -2690,13 +2697,21 @@ sub expand_model_profile
         my ($mname_only, $mversion_major, $mversion_minor) =
             ($mnode->{name} =~ /([^:]*):(\d+)\.(\d+)/);
 
+        # XXX these are used below but aren't used as the node major and minor
+        #     versions (they're used for the profile's minimum model version?)
+        # XXX update: they're stored in the node (with different names) so
+        #     they're available, e.g. when generating full XML
+        my ($majorVersion, $minorVersion) = dmr_version($profile);
+        my $lspec_ = fix_lspec($Lspec, $majorVersion, $minorVersion);
         $nnode = {mnode => $mnode, pnode => $mnode, path => $name,
                   name => $name, base => $base, extends => $extends,
                   file => $file, lfile => $Lfile, spec => $spec,
-                  lspec => $Lspec, type => 'profile', access => '',
+                  lspec => $lspec_, type => 'profile', access => '',
                   status => $status, id => $id, description => $description,
                   model => $model, nodes => [], baseprof => $baseprof,
                   extendsprofs => $extendsprofs,
+                  majorVersion_node => $majorVersion,
+                  minorVersion_node => $minorVersion,
                   majorVersion => $mversion_major,
                   minorVersion => $mversion_minor,
                   errors => {}};
@@ -2714,14 +2729,15 @@ sub expand_model_profile
                 }
             }
         } elsif ($base_extends) {
-            # XXX this always puts the profile right after the last profile
-            #     that it extends, so if more than one profile extends another,
-            #     they end up in reverse order
-            BASE: foreach my $base (reverse split /\s+/, $base_extends) {
-                for (0..$index-1) {
-                    if (@{$mnode->{nodes}}[$_]->{name} eq $base) {
-                        $index = $_+1;
-                        last BASE;
+            # put the profile after its last base / extends profile
+            # XXX this could probably be done in one line of code
+            my $index = 0;
+            foreach my $base (split /\s+/, $base_extends) {
+                for (0 .. @{$mnode->{nodes}} - 1) {
+                    if ($mnode->{nodes}->[$_]->{name} eq $base) {
+                        if ($_ + 1 > $index) {
+                            $index = $_ + 1;
+                        }
                     }
                 }
             }
@@ -2732,6 +2748,8 @@ sub expand_model_profile
         # XXX the above logic causes problems with "flattened" XML, in which
         #     profiles are already in the correct order so hack to preserve
         #     order in this case
+        # XXX it might be OK now (given that the above logic was broken) but
+        #     this does no harm, so leave it for now
         $index = @{$mnode->{nodes}} if $no_imports;
 
         splice @{$mnode->{nodes}}, $index, 0, $nnode;
@@ -2740,7 +2758,6 @@ sub expand_model_profile
         # (usually this is the current model, but not if this XML was
         # flattened by the xml2 report, in which case it is indicated
         # by dmr:version
-        my ($majorVersion, $minorVersion) = dmr_version($profile);
         my $version = defined $majorVersion && defined $minorVersion ?
             qq{$majorVersion.$minorVersion} : undef;
         my $defmodel = $version ? qq{$mname_only:$version} : $mnode->{name};
@@ -2760,7 +2777,7 @@ sub expand_model_profile
 # Expand a data model profile object.
 sub expand_model_profile_object
 {
-    my ($context, $mnode, $Pnode, $pnode, $object) = @_;
+    my ($context, $mnode, $Pnode, $pnode, $object, $name_is_relative) = @_;
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
@@ -2775,6 +2792,13 @@ sub expand_model_profile_object
     my $description = $object->findvalue('description');
     my $descact = $object->findvalue('description/@action');
     my $descdef = $object->findnodes('description')->size();
+
+    # save the original name (this is also saved in the new node)
+    my $oname = $name;
+
+    # the name is relative for commands, events and their arguments, e.g.
+    # Command()
+    $name = $pnode->{path} . $name if $name_is_relative;
 
     $status = 'current' unless $status;
     $status = util_maybe_deleted($status);
@@ -2827,10 +2851,10 @@ sub expand_model_profile_object
         $push_needed = 0;
     } else {
         $nnode = {mnode => $mnode, pnode => $pnode, path => $name,
-                  name => $name, type => 'objectRef', access => $access,
-                  status => $status, description => $description,
-                  descact => $descact, descdef => $descdef, nodes => [],
-                  baseobj => $baseobj};
+                  oname => $oname, name => $name, type => 'objectRef',
+                  access => $access,  status => $status,
+                  description => $description, descact => $descact,
+                  descdef => $descdef, nodes => [], baseobj => $baseobj};
         $push_deferred = 1;
     }
 
@@ -2839,10 +2863,11 @@ sub expand_model_profile_object
     # XXX this isn't quite right; should use profile equivalent of add_path()
     #     to create intervening nodes; currently top-level parameters are in
     #     the wrong place in the hierarchy
-    foreach my $item ($object->findnodes('parameter|object|command|event')) {
+    foreach my $item ($object->findnodes('parameter|object|command|event|' .
+                                         'input|output')) {
         my $element = $item->findvalue('local-name()');
-        "expand_model_profile_$element"->($context, $mnode,
-                                          $Pnode, $nnode, $item);
+        "expand_model_profile_$element"->($context, $mnode, $Pnode, $nnode,
+                                          $item, $name_is_relative);
     }
 
     # suppress push if possible
@@ -2854,12 +2879,15 @@ sub expand_model_profile_object
         my $fpath = util_full_path($Pnode);
         $profiles->{$fpath}->{$name} = $access;
     }
+
+    # XXX this is just for expand_model_profile_(command|event)
+    return $nnode;
 }
 
 # Expand a data model profile parameter.
 sub expand_model_profile_parameter
 {
-    my ($context, $mnode, $Pnode, $pnode, $parameter) = @_;
+    my ($context, $mnode, $Pnode, $pnode, $parameter, $name_is_relative) = @_;
 
     my $file = $context->[0]->{file};
     my $spec = $context->[0]->{spec};
@@ -2881,7 +2909,16 @@ sub expand_model_profile_parameter
 
     d1msg "expand_model_profile_parameter path=$Path ref=$name";
 
-    my $path = $pnode->{type} eq 'profile' ? $name : $pnode->{name}.$name;
+    my $path;
+    # this is for command and event arguments
+    if ($name_is_relative) {
+        $path = $pnode->{path} . $name;
+    }
+    # this is existing logic
+    # XXX hmm... are path and name the same or different for these nodes?
+    else {
+        $path = $pnode->{type} eq 'profile' ? $name : $pnode->{name} . $name;
+    }
     # special case for parameter at top level of a profile
     # XXX this is wrong; see comment in caller; but we live with it...
     $path = $Path . $path if $Path && $Pnode == $pnode;
@@ -2962,29 +2999,72 @@ sub expand_model_profile_parameter
         $profiles->{$fpath}->{$path} = $access;
     }
 
-    #XXX this is just for expand_model_profile_(command|event)
+    # XXX this is just for expand_model_profile_(command|event), which in
+    #     fact don't use this routine any more (they are expanded as objects)
     return $nnode;
 }
 
 # Expand a data model profile command.
-# XXX very basic; will be removing this?
 sub expand_model_profile_command
 {
     my ($context, $mnode, $Pnode, $pnode, $command) = @_;
 
-    my $nnode = expand_model_profile_parameter $context, $mnode, $Pnode,
-        $pnode, $command;
+    my $nnode = expand_model_profile_object($context, $mnode, $Pnode,
+                                            $pnode, $command, 1);
     $nnode->{is_command} = 1 if $nnode;
 }
 
+# Expand a data model profile command's input arguments.
+sub expand_model_profile_input
+{
+    my ($context, $mnode, $Pnode, $pnode, $input) = @_;
+    return expand_model_profile_arguments($context, $mnode, $Pnode, $pnode,
+                                          $input, 'input');
+}
+
+# Expand a data model profile command's output arguments.
+sub expand_model_profile_output
+{
+    my ($context, $mnode, $Pnode, $pnode, $output) = @_;
+    return expand_model_profile_arguments($context, $mnode, $Pnode, $pnode,
+                                          $output, 'output');
+}
+
+# $which is 'input' or 'output'
+sub expand_model_profile_arguments
+{
+    my ($context, $mnode, $Pnode, $pnode, $arguments, $which) = @_;
+
+    my $name = ucfirst($which) . '.';
+    # the path never includes the node name ("Input." or "Output.")
+    # need a dot because the path currently ends with Command() or Event!
+    my $path = $pnode->{path} . '.';
+    my $type = 'objectRef';
+    my $access = 'readOnly';
+    my $status = 'current';
+    my $description = '';
+    my $nnode = {mnode => $mnode, pnode => $pnode, path => $path,
+                 name => $name, type => $type, is_arguments => 1,
+                 access => $access, status => $status,
+                 description => $description, nodes => []};
+    push @{$pnode->{nodes}}, $nnode;
+
+    foreach my $item ($arguments->findnodes('parameter|object')) {
+        my $element = $item->findvalue('local-name()');
+        "expand_model_profile_$element"->($context, $mnode, $Pnode, $nnode,
+                                          $item, 1);
+    }
+
+    return $nnode;
+}
+
 # Expand a data model profile event.
-# XXX very basic; will be removing this?
 sub expand_model_profile_event
 {
     my ($context, $mnode, $Pnode, $pnode, $event) = @_;
 
-    my $nnode = expand_model_profile_parameter $context, $mnode, $Pnode,
-        $pnode, $event;
+    my $nnode = expand_model_profile_object($context, $mnode, $Pnode,
+                                            $pnode, $event, 1);
     $nnode->{is_event} = 1 if $nnode;
 }
 
@@ -3423,9 +3503,10 @@ sub add_object
             unshift @{$nnode->{history}}, $cnode;
             $nnode->{changed} = $changed;
             $nnode->{lfile} = $Lfile;
-            $nnode->{lspec} = $Lspec;
+            $nnode->{lspec} = fix_lspec($Lspec, $nnode->{majorVersion},
+                                        $nnode->{minorVersion});
             $nnode->{mspec} = $spec;
-            mark_changed($pnode, $Lfile, $Lspec);
+            mark_changed($pnode, $nnode->{lfile}, $nnode->{lspec});
             # XXX experimental (absent description is like appending nothing)
             if (!$description) {
                 $nnode->{description} = '';
@@ -3453,13 +3534,14 @@ sub add_object
         d0msg "$path: added"
             if $mnode->{history} && @{$mnode->{history}} && !$auto;
 
-        mark_changed($pnode, $Lfile, $Lspec);
+        my $lspec_ = fix_lspec($Lspec, $majorVersion, $minorVersion);
+        mark_changed($pnode, $Lfile, $lspec_);
 
         my $dynamic = $pnode->{dynamic} || $access ne 'readOnly';
 
         $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
                   path => $path, file => $file, lfile => $Lfile,
-                  sfile => $Lfile, spec => $spec, lspec => $Lspec,
+                  sfile => $Lfile, spec => $spec, lspec => $lspec_,
                   mspec => $spec, type => 'object', auto => $auto,
                   access => $access, status => $status,
                   description => $description, descact => $descact,
@@ -3504,14 +3586,22 @@ sub add_object
     return $nnode;
 }
 
-# Helper to mark a node's ancestors as having been changed
+# Helper to mark a node's ancestors as having been changed (only ever mark
+# them as newer, never as older)
 sub mark_changed
 {
-    my ($node, $Lfile, $Lspec) = @_;
+    my ($node, $lfile_, $lspec_) = @_;
 
     while ($node && $node->{type} eq 'object') {
-        $node->{lfile} = $Lfile;
-        $node->{lspec} = $Lspec;
+        # XXX for reasons that I don't really understand, this can get called
+        #     before the node's lspec is defined, but will always get called
+        #     again later
+        my $compare = defined($node->{lspec}) ?
+            spec_compare($lspec_, $node->{lspec}) : -1;
+        if ($compare > 0) {
+            $node->{lfile} = $lfile_;
+            $node->{lspec} = $lspec_;
+        }
         $node = $node->{pnode};
     }
 }
@@ -3936,9 +4026,10 @@ sub add_parameter
             unshift @{$nnode->{history}}, $cnode;
             $nnode->{changed} = $changed;
             $nnode->{lfile} = $Lfile;
-            $nnode->{lspec} = $Lspec;
+            $nnode->{lspec} = fix_lspec($Lspec, $nnode->{majorVersion},
+                                        $nnode->{minorVersion});
             $nnode->{mspec} = $spec;
-            mark_changed($pnode, $Lfile, $Lspec);
+            mark_changed($pnode, $nnode->{lfile}, $nnode->{lspec});
             # XXX experimental (absent description is like appending nothing)
             if (!$description) {
                 $nnode->{description} = '';
@@ -3969,7 +4060,8 @@ sub add_parameter
 
         my $dynamic = $pnode->{dynamic};
 
-        mark_changed($pnode, $Lfile, $Lspec);
+        my $lspec_ = fix_lspec($Lspec, $majorVersion, $minorVersion);
+        mark_changed($pnode, $Lfile, $lspec_);
 
         # XXX I think this is to with components and auto-removing defaults
         #     from them if they are used in a static environment
@@ -3986,7 +4078,7 @@ sub add_parameter
 
         $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
                   path => $path, file => $file, lfile => $Lfile,
-                  sfile => $Lfile, spec => $spec, lspec => $Lspec,
+                  sfile => $Lfile, spec => $spec, lspec => $lspec_,
                   mspec => $spec, type => $type, syntax => $syntax,
                   access => $access, status => $status,
                   description => $description, descact => $descact,
@@ -4010,8 +4102,12 @@ sub add_parameter
             }
         }
         splice @{$pnode->{nodes}}, $index, 0, $nnode;
-        $pnode->{lfile} = $Lfile;
-        $pnode->{lspec} = $Lspec;
+        # XXX why do we modify the parent node's lfile and lspec here? also
+        #     these are _this_ node's major and minor version, not the parent
+        #     node's; commenting this out as an experiment (if restore it,
+        #     make sure to use the parent node's version info, if defined)
+        #$pnode->{lfile} = $Lfile;
+        #$pnode->{lspec} = fix_lspec($Lspec, $majorVersion, $minorVersion);
         my $fpath = util_full_path($nnode);
         $parameters->{$fpath} = $nnode;
     }
@@ -5088,7 +5184,26 @@ sub find_file
     return ($fdir, $ffile, $corr, $rpath);
 }
 
-# Check whether specs match
+# Parse a spec, returning prefix, name, i, a, c and label (use c to determine
+# whether the spec was valid)
+sub spec_parse
+{
+    my ($spec) = @_;
+
+    # support specs of the form prefix:name-i-a-c[label] where name is of the
+    # form "xx-nnn", i, a and c are numeric, and label is more-or-less
+    # arbitrary text (but has to contain at least one non-digit)
+    my ($prefix, $name, $i, $a, $c, $label) =
+        $spec =~ /^(.*):(\w+-\d+)-(\d+)-(\d+)-(\d+)(\d*\D.*)?$/;
+    $label = '' unless $label;
+
+    # the label is optional, so use c to determine whether the spec is valid
+    return ($prefix, $name, $i, $a, $c, $label);
+}
+
+# Check whether specs match (this is intended for checking whether a spec in
+# one file matches the spec in an imported file)
+# XXX not (yet) using spec_parse because it requires the corrigendum number
 sub specs_match
 {
     my ($spec, $fspec) = @_;
@@ -5110,6 +5225,56 @@ sub specs_match
     ($c) = $fspec =~ /[^-]+-\d+-\d+-\d+(?:-(\d+))?(?:\d*\D.*)?$/;
     $fspec =~ s/-\d+\Q$label\E$/$label/ if defined $c;
     return ($fspec eq $spec);
+}
+
+# Compare two specs, returning (like <=>) -1, 0, +1 if the first is older, the
+# same or newer than the second (also return 0 if the specs are invalid or
+# string-valued fields don't match)
+sub spec_compare
+{
+    my ($spec1, $spec2) = @_;
+
+    my ($prefix1, $name1, $i1, $a1, $c1, $label1) = spec_parse($spec1);
+    my ($prefix2, $name2, $i2, $a2, $c2, $label2) = spec_parse($spec2);
+
+    # 0 if either spec is invalid (what else can we do?)
+    return 0 if !defined($c1) || !defined($c2);
+
+    # 0 if prefix:name doesn't match
+    return 0 if qq{$prefix1:$name1} ne qq{$prefix2:$name2};
+
+    # compare issue, then amendment then corrigendum
+    return ($i1 <=> $i2) ? ($i1 <=> $i2) : ($a1 <=> $a2) ? ($a1 <=> $a2) :
+        ($c1 <=> $c2);
+
+    # ignore the label
+}
+
+# Fix lspec (the spec of the last command-line file) to allow --lastonly to
+# work when there are multiple files for a given spec; there are two fixes:
+# 1. Remove a trailing label such as "-usp" from lspec (this allows --lastonly
+#    to be insensitive to the presence or absence of such a label)
+# 2. If supplied, replace the issue and amendment part of lspec with the node
+#    major and minor versions, which come from the dmr:version attribute (this
+#    works around the fact that "flattened" data model specs don't contain the
+#    necessary per-node information)
+sub fix_lspec
+{
+    my ($lspec_, $majorVersion, $minorVersion) = @_;
+
+    # if the lspec doesn't match the pattern, just return it unchanged
+    my ($prefix, $name, $i, $a, $c, $label) = spec_parse($lspec_);
+    return $lspec_ unless defined $c;
+
+    # if supplied, use the major and minor versions to override the issue and
+    # amendment as explained earlier
+    if (defined($majorVersion) && defined($minorVersion)) {
+        $i = $majorVersion;
+        $a = $minorVersion;
+    }
+
+    # ignore the label as explained earlier
+    return qq{$prefix:$name-$i-$a-$c};
 }
 
 # Null report of node.
@@ -5576,6 +5741,9 @@ sub xml_datatypes
         my $prim = $dataType->{prim};
         my $spec = $dataType->{spec};
         my $description = $dataType->{description};
+        my $list = $dataType->{syntax}->{list};
+        my $listMinInclusive = $dataType->{syntax}->{listRanges}->[0]->{minInclusive};
+        my $listMaxInclusive = $dataType->{syntax}->{listRanges}->[0]->{maxInclusive};
         # XXX not handling multiple sizes or ranges
         my $minLength = $dataType->{syntax}->{sizes}->[0]->{minLength};
         my $maxLength = $dataType->{syntax}->{sizes}->[0]->{maxLength};
@@ -5586,6 +5754,8 @@ sub xml_datatypes
         $description = xml_escape($description, {indent => $i.'    '});
 
         $base = $base ? qq{ base="$base"} : qq{};
+        $listMinInclusive = defined $listMinInclusive ? qq{ minItems="$listMinInclusive"} : qq{};
+        $listMaxInclusive = defined $listMaxInclusive ? qq{ maxItems="$listMaxInclusive"} : qq{};
         $minLength = defined $minLength ? qq{ minLength="$minLength"} : qq{};
         $maxLength = defined $maxLength ? qq{ maxLength="$maxLength"} : qq{};
         $minInclusive = defined $minInclusive ? qq{ minInclusive="$minInclusive"} : qq{};
@@ -5594,6 +5764,7 @@ sub xml_datatypes
         print qq{$i  <dataType name="$name"$base>\n};
         print qq{$i    <description>$description</description>\n} if $description;
         my $j = $i . ($prim ? '  ' : '');
+        print qq{$i    <list$listMinInclusive$listMaxInclusive/>\n} if $list;
         print qq{$i    <$prim>\n} if $prim;
 
         print qq{$j    <size$minLength$maxLength/>\n} if
@@ -5931,6 +6102,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         my $ref = $node->{ref};
         my $isService = $node->{isService};
         my $access = $node->{access};
+        my $mountType = $node->{mountType};
         my $numEntriesParameter = $node->{numEntriesParameter};
         my $enableParameter = $node->{enableParameter};
         my $status = $node->{status};
@@ -5947,6 +6119,13 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         my $majorVersion = $node->{majorVersion};
         my $minorVersion = $node->{minorVersion};
         my $extendsprofs = $node->{extendsprofs};
+
+        # XXX override the versions with the _node versions if defined; this
+        #     is so profiles will retain node rather than model versions
+        $majorVersion = $node->{majorVersion_node}
+            if defined $node->{majorVersion_node};
+        $minorVersion = $node->{minorVersion_node}
+            if defined $node->{minorVersion_node};
 
         # use extendsprofs rather than extends because this won't contain
         # profiles for which extends rather than base was used (in error)
@@ -6074,14 +6253,18 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 return;
             }
         } elsif ($element =~ /(\w+)Ref$/) {
+            $element = $1; # parameter or object
             $ref = $name;
+            if ($command_or_event) {
+                $element = 'command' if $node->{is_command};
+                $element = 'event' if $node->{is_event};
+                $ref = $node->{oname} if $node->{oname};
+            }
             $name = '';
             $requirement = $access;
             $access = '';
-            $element = $1; # parameter or object
-            $element = 'command' if $node->{is_command};
-            $element = 'event' if $node->{is_event};
-            $node->{xml2}->{element} = ($element eq 'object') ? $element : '';
+            $node->{xml2}->{element} =
+                ($element ne 'parameter') ? $element : '';
         }
 
         $name = $name ? qq{ name="$name"} : qq{};
@@ -6089,6 +6272,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         $ref = $ref ? qq{ ref="$ref"} : qq{};
         $isService = $isService ? qq{ isService="true"} : qq{};
         $access = $access ? qq{ access="$access"} : qq{};
+        $mountType = $mountType ? qq{ mountType="$mountType"} : qq{};
         $numEntriesParameter = $numEntriesParameter ? qq{ numEntriesParameter="$numEntriesParameter"} : qq{};
         $enableParameter = $enableParameter ? qq{ enableParameter="$enableParameter"} : qq{};
         $status = $status ne 'current' ? qq{ status="$status"} : qq{};
@@ -6138,7 +6322,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         my $addPsrams = ($node->{is_command} && $type !~ /Ref$/ && $node->{is_async}) ?  qq{ async="true"} : qq{};
         $addPsrams .= ' mandatory="true"' if ($node->{is_mandatory});
 
-        print qq{$i<$element$name$base$ref$isService$extends$addPsrams$access$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$noUniqueKeys$fixedObject$end_element>\n};
+        print qq{$i<$element$name$base$ref$isService$extends$addPsrams$access$mountType$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$noUniqueKeys$fixedObject$end_element>\n};
         if ($tlpp) {
             $i = $isave;
             print qq{$i</object>\n};
@@ -6812,11 +6996,17 @@ sub html_node
     my $strike = qq{text-decoration: line-through;};
     my $center = qq{text-align: center;};
 
-    # font
-    my $h1font = qq{font-family: helvetica,arial,sans-serif; font-size: 14pt;};
-    my $h2font = qq{font-family: helvetica,arial,sans-serif; font-size: 12pt;};
-    my $h3font = qq{font-family: helvetica,arial,sans-serif; font-size: 10pt;};
-    my $font = qq{font-family: helvetica,arial,sans-serif; font-size: 8pt;};
+    # font (--nofontstyles doesn't affect use of blue and red)
+    my $font_oc = $nofontstyles ? '/* ' : '';
+    my $font_cc = $nofontstyles ? ' */' : '';
+    my $h1font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 14pt;${font_cc}};
+    my $h2font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 12pt;${font_cc}};
+    my $h3font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 10pt;${font_cc}};
+    my $font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 8pt;${font_cc}};
     my $fontnew = qq{color: blue;};
     my $fontdel = qq{color: red;};
 
@@ -7082,7 +7272,7 @@ END
                 # XXX this is the wrong criterion; the test should be whether
                 #     any of the parameters in the report use the data type
                 next if $lastonly && !$prim &&
-                    !grep {$_ eq $lspec} @{$datatype->{specs}};
+                    !grep {$_ eq $lspecf} @{$datatype->{specs}};
 
                 # get the base type
                 my $base = base_type($name, 0);
@@ -7153,7 +7343,7 @@ END
                 #     hide_subtree and unhide_subtree to auto-hide and show
                 #     relevant references)
                 next if $lastonly &&
-                    !grep {$_ eq $lspec} @{$bibrefs->{$id}};
+                    !grep {$_ eq $lspecf} @{$bibrefs->{$id}};
 
                 my $name = xml_escape($reference->{name});
                 my $title = xml_escape($reference->{title});
@@ -7253,9 +7443,12 @@ END
         my $seen = {};
         foreach my $mspec (@$mspecs) {
             next unless defined $mspec;
-            $specs .= ' ' if $specs;
-            $specs .= util_doc_name($mspec) unless $seen->{$mspec};
-            $seen->{$mspec} = 1;
+            $mspec = fix_lspec($mspec);
+            if (!$seen->{$mspec}) {
+                $specs .= ' ' if $specs;
+                $specs .= util_doc_name($mspec);
+                $seen->{$mspec} = 1;
+            }
         }
         $specs = '' if $canonical;
         my $versiontitle = $showspec ? qq{} : qq{ title="$specs"};
@@ -7350,7 +7543,7 @@ END
             $html_profile_active = 0;
         }
 
-        if ($parameter) {
+        if ($parameter && !is_command($node) && !is_event($node)) {
             push @$html_parameters, $node;
         }
 
@@ -7359,7 +7552,8 @@ END
         #     model definition
         if ($profile) {
             if (!$html_profile_active) {
-                my $infreq = 'Inform and Notification Requirements';
+                my $inform_and = $altnotifreqstyle ? '' : 'Inform and ';
+                my $infreq = $inform_and . 'Notification Requirements';
                 my $anchor = html_create_anchor($infreq, 'heading',
                                                 {node => $node});
                 print <<END;
@@ -7372,25 +7566,39 @@ END
     </table> <!-- Data Model Definition -->
     <h2>$anchor->{def}</h2>
 END
+                if (!$altnotifreqstyle) {
+                    $html_buffer .=
+                        html_param_table(qq{Forced Inform Parameters},
+                                         {tabopts => $tabopts, node => $node},
+                                         grep {$_->{forcedInform}}
+                                         @$html_parameters);
+                }
+                if (!$altnotifreqstyle) {
+                    $html_buffer .=
+                        html_param_table(qq{Forced Active Notification } .
+                                         qq{Parameters},
+                                         {tabopts => $tabopts, node => $node},
+                                         grep {$_->{activeNotify} eq
+                                                   'forceEnabled'}
+                                         @$html_parameters);
+                }
+                if (!$altnotifreqstyle) {
+                    $html_buffer .=
+                        html_param_table(qq{Default Active Notification } .
+                                         qq{Parameters},
+                                         {tabopts => $tabopts, node => $node},
+                                         grep {$_->{activeNotify} eq
+                                                   'forceDefaultEnabled'}
+                                         @$html_parameters);
+                }
+                my $active = $altnotifreqstyle ? 'Value Change' : 'Active';
                 $html_buffer .=
-                html_param_table(qq{Forced Inform Parameters},
-                                 {tabopts => $tabopts, node => $node},
-                                 grep {$_->{forcedInform}} @$html_parameters) .
-                html_param_table(qq{Forced Active Notification Parameters},
-                                 {tabopts => $tabopts, node => $node},
-                                 grep {$_->{activeNotify} eq 'forceEnabled'}
-                                 @$html_parameters) .
-                html_param_table(qq{Default Active Notification Parameters},
-                                 {tabopts => $tabopts, node => $node},
-                                 grep {$_->{activeNotify} eq
-                                           'forceDefaultEnabled'}
-                                 @$html_parameters) .
-                html_param_table(qq{Parameters for which Active Notification }.
-                                 qq{MAY be Denied},
-                                 {tabopts => $tabopts, sepobj => 1,
-                                  node => $node},
-                                 grep {$_->{activeNotify} eq 'canDeny'}
-                                 @$html_parameters);
+                    html_param_table(qq{Parameters for which $active } .
+                                     qq{Notification MAY be Denied},
+                                     {tabopts => $tabopts, sepobj => 1,
+                                      node => $node},
+                                     grep {$_->{activeNotify} eq 'canDeny'}
+                                     @$html_parameters);
                 my $panchor = html_create_anchor('Profile Definitions',
                                                  'heading', {node => $node});
                 my $nanchor = html_create_anchor('Notation',
@@ -7425,15 +7633,15 @@ END
         </tr>
         <tr>
           <td class="pc">C</td>
-          <td>Creation and deletion of instances of the object via AddObject and DeleteObject is REQUIRED.</td>
+          <td>Creation and deletion of instances of the object is REQUIRED.</td>
         </tr>
         <tr>
           <td class="pc">A</td>
-          <td>Creation of instances of the object via AddObject is REQUIRED, but deletion is not REQUIRED.</td>
+          <td>Creation of instances of the object is REQUIRED, but deletion is not REQUIRED.</td>
         </tr>
         <tr>
           <td class="pc">D</td>
-          <td>Deletion of instances of the object via DeleteObject is REQUIRED, but creation is not REQUIRED.</td>
+          <td>Deletion of instances of the object is REQUIRED, but creation is not REQUIRED.</td>
         </tr>
       </tbody>
     </table>
@@ -7467,7 +7675,6 @@ END
         if ($model || $profile) {
         } elsif (!$html_profile_active) {
             my $tname = '';
-            my $command_or_event = is_command($node) || is_event($node);
             # modify displayed name for commands and event arguments (just the
             # name, not the full path)
             if ($command_or_event) {
@@ -7478,7 +7685,8 @@ END
             }
             # account for --ignoreinputoutputinpaths, which means that
             # arguments 'input'/'output' path is the same as its parent
-            # XXX Input. and Output. are never in the paths so could simplify
+            # XXX this is now the default (the option has been removed), so
+            #     Input. and Output. are never in the paths and could simplify
             my $anchor;
             if ($node->{path} ne $node->{pnode}->{path}) {
                 $anchor = html_create_anchor($node, 'path',
@@ -7511,8 +7719,23 @@ END
 END
         } else {
             my $fpath = util_full_path($node);
-            $name = html_get_anchor($fpath, 'path', $name) unless $nolinks;
-            $write = 'R' if $access eq 'readOnly';
+            # for commands and events:
+            # 1. they are object-like (here), but need to use the name rather
+            #    than the full path (in profiles, object names are full paths
+            #    but the original name is available in oname)
+            # 2. there's no point creating links for "Input." and "Output."
+            #    because the link would point to the command
+            # 3. use access "P" for commands and events
+            # 4. use access "R" for output arguments
+            if ($command_or_event) {
+                $name = $node->{oname} ? $node->{oname} : $node->{name};
+                $write = 'P' if $is_command || $is_event;
+                $write = 'R' if $write eq '-' && !$is_arguments;
+            } else {
+                $write = 'R' if $access eq 'readOnly';
+            }
+            $name = html_get_anchor($fpath, 'path', $name)
+                unless $nolinks || $is_arguments;
             my $footnote = qq{};
             # XXX need to use origdesc because description has already been
             #     escaped and an originally empty one might no longer be empty
@@ -7931,6 +8154,19 @@ sub html_whitespace
     return $outval;
 }
 
+# Determine the appropriate separator between an auto-prefixed template and
+# the rest of the input value
+sub util_template_separator
+{
+    my ($original_inval, $current_inval) = @_;
+
+    # force a line break before lists
+    my $separator = !$original_inval ? "" :
+        $original_inval =~ /^[*#:]/ ? "\n" : "  ";
+    $separator = "  " if !$separator && $current_inval;
+    return $separator;
+}
+
 # Process templates
 sub html_template
 {
@@ -7950,11 +8186,10 @@ sub html_template
     # {{list}} or {{map}} if already there)
     if ($p->{reference} && $tinval !~ /\{\{reference/ &&
         $tinval !~ /\{\{noreference\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
+        my $sep = util_template_separator($tinval, $inval);
         if ($tinval =~ /\{\{(?:list|map)\}\}/) {
             $inval =~ s/(\{\{(?:list|map)\}\})/$1$sep\{\{reference\}\}/;
         } else {
-            $sep = "  " if !$sep && $inval;
             $inval = "{{reference}}" . $sep . $inval;
         }
     }
@@ -7962,16 +8197,14 @@ sub html_template
     # auto-prefix {{list}} if the parameter is list-valued
     if ($p->{list} && $tinval !~ /\{\{list/ &&
         $tinval !~ /\{\{nolist\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{list}}" . $sep . $inval;
     }
 
     # auto-prefix {{map}} if the parameter is map-valued
     if ($p->{map} && $tinval !~ /\{\{map/ &&
         $tinval !~ /\{\{nomap\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{map}}" . $sep . $inval;
     }
 
@@ -7979,24 +8212,21 @@ sub html_template
     if ($p->{type} && $p->{type} eq 'dataType' &&
         $tinval !~ /\{\{datatype/ &&
         $tinval !~ /\{\{nodatatype\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{datatype}}" . $sep . $inval;
     }
 
     # auto-prefix {{async}} if this is an asynchronous command
     if ($p->{is_async} && $tinval !~ /\{\{async/ &&
         $tinval !~ /\{\{noasync\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{async}}" . $sep . $inval;
     }
 
     # auto-prefix {{mandatory}} if this is a mandatory argument
     if ($p->{is_mandatory} && $tinval !~ /\{\{mandatory/ &&
         $tinval !~ /\{\{nomandatory\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{mandatory}}" . $sep . $inval;
     }
 
@@ -8004,15 +8234,13 @@ sub html_template
     if ($p->{id} &&
         $tinval !~ /\{\{showid/ &&
         $tinval !~ /\{\{noshowid\}\}/) {
-        my $sep = !$tinval ? "" : "  ";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{showid}}" . $sep . $inval;
     }
 
     # auto-prefix {{profdesc}} if it's a profile
     if ($p->{profile} && $tinval !~ /\{\{noprofdesc\}\}/) {
-        my $sep = !$tinval ? "" : "\n";
-        $sep = "  " if !$sep && $inval;
+        my $sep = util_template_separator($tinval, $inval);
         $inval = "{{profdesc}}" . $sep . $inval;
     }
 
@@ -10045,23 +10273,45 @@ sub htmlbbf_init
 # XXX there are other things like that, e.g. could center the version column
 sub htmlbbf_begin
 {
+    # this suffix (if specified) causes use of field name FIELD-SUFFIX rather
+    # than FIELD (the default); e.g. a value of "usp" means that the title
+    # will be taken from "title-usp" rather than "title"
+    my $suffix = $options->{htmlbbf_configfile_suffix};
+
     # styles
     my $table = qq{text-align: left;};
     my $row = qq{vertical-align: middle;};
     my $center = qq{text-align: center;};
 
     # font
-    my $h1font = qq{font-family: helvetica,arial,sans-serif; font-size: 14pt;};
-    my $h2font = qq{font-family: helvetica,arial,sans-serif; font-size: 12pt;};
-    my $h3font = qq{font-family: helvetica,arial,sans-serif; font-size: 10pt;};
-    my $font = qq{font-family: helvetica,arial,sans-serif; font-size: 8pt;};
+    my $font_oc = $nofontstyles ? '/* ' : '';
+    my $font_cc = $nofontstyles ? ' */' : '';
+    my $h1font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 14pt;${font_cc}};
+    my $h2font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 12pt;${font_cc}};
+    my $h3font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 10pt;${font_cc}};
+    my $font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 8pt;${font_cc}};
 
     # others
     my $sup_valign = qq{vertical-align: super;};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
+    # title (title within page
+    my $titlename = $suffix ? qq{title-$suffix} : qq{title};
+    my $title = $htmlbbf_global->{$titlename};
+    $title = qq{CPE WAN Management Protocol (CWMP)} unless $title;
+
+    # title2 (HTML title element)
+    my $title2name = $suffix ? qq{title2-$suffix} : qq{title2};
+    my $title2 = $htmlbbf_global->{$title2name};
+    $title2 = qq{Broadband Forum - CWMP} unless $title2;
+
     # introductory text
-    my $intro = $htmlbbf_global->{intro};
+    my $introname = $suffix ? qq{intro-$suffix} : qq{intro};
+    my $intro = $htmlbbf_global->{$introname};
     $intro = <<END unless $intro;
     [${trpage}TR-181i2%20Overview.pdf Overview of the Device:2 Root Data Model in TR-069 Family of Specifications]
     The available data model definitions and XML Schemas for the TR-069 suite of documents are listed below.
@@ -10101,7 +10351,7 @@ END
 <html>
   <head>
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
-    <title>Broadband Forum - CWMP</title>
+    <title>$title2</title>
     <style type="text/css">
       p, li, body { $font }
       h1 { $h1font }
@@ -10116,7 +10366,7 @@ END
     </style>
   </head>
   <body>
-    <h1>CPE WAN Management Protocol (CWMP)</h1>
+    <h1>$title</h1>
     $intro
 
 END
@@ -10127,15 +10377,21 @@ END
     # first determine heuristically which ones are support files and components
     # (schema files are already identified in $allfiles)
     # XXX this modifies the $allfiles element, but should do no harm
+    my $anyschema = 0;
+    my $anysupport = 0;
+    my $anycomponent = 0;
     foreach my $file (@$allfiles) {
         my $name = $file->{name};
         my $models = $file->{models};
         if ($file->{schema}) {
+            $anyschema = 1;
         } elsif ($name =~ /$htmlbbf_supportpatt/) {
             $file->{support} = 1;
+            $anysupport = 1;
         } elsif ($name =~ /$htmlbbf_igddevpatt/ ||
                  !defined $models || !@$models) {
             $file->{component} = 1;
+            $anycomponent = 1;
         }
     }
 
@@ -10151,6 +10407,7 @@ END
     }
 
     # open the table of contents
+    my $contexts = [];
     print <<END;
     <ul>
 END
@@ -10164,6 +10421,7 @@ END
         htmlbbf_file($file, {context => $latestcontext});
     }
     htmlbbf_file(undef, {context => $latestcontext, contents => 1});
+    push @$contexts, $latestcontext;
 
     # root data models
     my $rootcontext = htmlbbf_file(undef, {
@@ -10173,6 +10431,7 @@ END
         htmlbbf_file($file, {context => $rootcontext});
     }
     htmlbbf_file(undef, {context => $rootcontext, contents => 1});
+    push @$contexts, $rootcontext;
 
     # service data models
     my $servicecontext = htmlbbf_file(undef, {
@@ -10182,31 +10441,43 @@ END
         htmlbbf_file($file, {context => $servicecontext});
     }
     htmlbbf_file(undef, {context => $servicecontext, contents => 1});
+    push @$contexts, $servicecontext;
 
     # components
-    my $componentcontext = htmlbbf_file(undef, {
-        component => 1, title => 'Component Definitions', header => 1,
-        reverserows => 1});
-    foreach my $file (sort htmlbbf_component_cmp @$allfiles) {
-        htmlbbf_file($file, {context => $componentcontext});
+    if ($anycomponent) {
+        my $componentcontext = htmlbbf_file(undef, {
+            component => 1, title => 'Component Definitions', header => 1,
+            reverserows => 1});
+        foreach my $file (sort htmlbbf_component_cmp @$allfiles) {
+            htmlbbf_file($file, {context => $componentcontext});
+        }
+        htmlbbf_file(undef, {context => $componentcontext, contents => 1});
+        push @$contexts, $componentcontext;
     }
-    htmlbbf_file(undef, {context => $componentcontext, contents => 1});
 
     # schemas
-    my $schemacontext = htmlbbf_file(undef, {
-        schema => 1, title => 'Schema Files', header => 1, reverserows => 1});
-    foreach my $file (sort htmlbbf_schema_cmp @$allfiles) {
-        htmlbbf_file($file, {context => $schemacontext});
+    if ($anyschema) {
+        my $schemacontext = htmlbbf_file(undef, {
+            schema => 1, title => 'Schema Files', header => 1,
+            reverserows => 1});
+        foreach my $file (sort htmlbbf_schema_cmp @$allfiles) {
+            htmlbbf_file($file, {context => $schemacontext});
+        }
+        htmlbbf_file(undef, {context => $schemacontext, contents => 1});
+        push @$contexts, $schemacontext;
     }
-    htmlbbf_file(undef, {context => $schemacontext, contents => 1});
 
     # support files
-    my $supportcontext = htmlbbf_file(undef, {
-        support => 1, title => 'Support Files', header => 1, reverserows => 1});
-    foreach my $file (sort htmlbbf_support_cmp @$allfiles) {
-        htmlbbf_file($file, {context => $supportcontext});
+    if ($anysupport) {
+        my $supportcontext = htmlbbf_file(undef, {
+            support => 1, title => 'Support Files', header => 1,
+            reverserows => 1});
+        foreach my $file (sort htmlbbf_support_cmp @$allfiles) {
+            htmlbbf_file($file, {context => $supportcontext});
+        }
+        htmlbbf_file(undef, {context => $supportcontext, contents => 1});
+        push @$contexts, $supportcontext;
     }
-    htmlbbf_file(undef, {context => $supportcontext, contents => 1});
 
     # outdated corrigenda; identified via {{xmlref}}) templates in the other
     # files; populate the list (it's like a pared-down $allfiles)
@@ -10246,13 +10517,16 @@ END
         }
     }
 
-    my $outdatedcontext = htmlbbf_file(undef, {
-        outdated => 1, title => 'Outdated Corrigenda', header => 1,
-        reverserows => 1});
-    foreach my $file (sort htmlbbf_component_cmp @$outdatedfiles) {
-        htmlbbf_file($file, {context => $outdatedcontext});
+    if (@$outdatedfiles) {
+        my $outdatedcontext = htmlbbf_file(undef, {
+            outdated => 1, title => 'Outdated Corrigenda', header => 1,
+            reverserows => 1});
+        foreach my $file (sort htmlbbf_component_cmp @$outdatedfiles) {
+            htmlbbf_file($file, {context => $outdatedcontext});
+        }
+        htmlbbf_file(undef, {context => $outdatedcontext, contents => 1});
+        push @$contexts, $outdatedcontext;
     }
-    htmlbbf_file(undef, {context => $outdatedcontext, contents => 1});
 
     # close the table of contents
     print <<END;
@@ -10261,9 +10535,7 @@ END
 END
 
     # output the tables
-    foreach my $context (($latestcontext, $rootcontext, $servicecontext,
-                          $componentcontext, $schemacontext, $supportcontext,
-                          $outdatedcontext)) {
+    foreach my $context (@$contexts) {
         htmlbbf_file(undef, {context => $context, footer => 1});
     }
 
@@ -10461,7 +10733,7 @@ sub htmlbbf_file
         my $title = $opts->{title};
 
         # open table of contents entry
-        $context->{contents} = {title => $title, keys => []};
+        $context->{contents} = {title => $title, entries => []};
 
         # row is an array of columns (first row is header; don't need suppress
         # or percent values in subsequent rows)
@@ -10492,15 +10764,18 @@ sub htmlbbf_file
     elsif ($opts->{contents}) {
         my $contents = $context->{contents};
         my $title = $contents->{title};
-        my @keys = $context->{reverserows} ?
-            reverse(@{$contents->{keys}}) : @{$contents->{keys}};
+        my @entries = $context->{reverserows} ?
+            reverse(@{$contents->{entries}}) : @{$contents->{entries}};
         print <<END;
       <b><a href="#$title">$title</a></b>
       <ul>
 END
-        foreach my $key (@keys) {
+        foreach my $entry (@entries) {
+            my $key = $entry->{key};
+            my $note = $entry->{note};
+            $note = qq{ <b>$note</b>} if $note;
             print <<END;
-        <a href="#$key">$key</a><br>
+        <a href="#$key">$key</a>$note<br>
 END
         }
         print <<END;
@@ -10530,6 +10805,10 @@ END
     my $support = $file->{support};
     my $component = $file->{component};
     my $outdated = $file->{outdated};
+
+    # if this is common XML and it's being omitted, return immediately
+    return if $options->{htmlbbf_omitcommonxml} &&
+        $context->{model} && $name =~ /-common\.xml$/;
 
     # this is defined only for outdated files; it's the file name of the latest
     # version; for non-outdated files just set it to the file name
@@ -10569,12 +10848,27 @@ END
         $mdesc = 'descr_model';
     }
 
-    # for model, check latest / root / service
+    # convenience variables
+    my $mnam = qq{$mname_name:$mname_major};
+    my $mver = qq{$mname_major.$mname_minor};
+    my $mnot = qq{};
+
+    # for model, check latest / root / service / deprecated
     if ($model) {
         my $service = $model->findvalue('@isService');
 
         return if !$context->{root}    && !$service;
         return if !$context->{service} &&  $service;
+
+        # omit deprecated models from the list of latest data models and
+        # otherwise mark them as being deprecated
+        if ($options->{htmlbbf_deprecatedmodels}) {
+            my @deprecated = split ' ', $options->{htmlbbf_deprecatedmodels};
+            if (grep {$_ eq $mnam} @deprecated) {
+                return if $context->{latestcolumn};
+                $mnot = qq{[DEPRECATED]};
+            }
+        }
     }
 
     # name used for looking up config info is filename first, then filename
@@ -10767,10 +11061,6 @@ END
                    link => util_doc_link($trname)};
     }
 
-    # convenience variables
-    my $mnam = qq{$mname_name:$mname_major};
-    my $mver = qq{$mname_major.$mname_minor};
-
     # generate the table rows for this file; number of rows is the maximum of
     # the number of file and HTML rows
     my $numrows = (@filerows > @htmlrows) ? @filerows : @htmlrows;
@@ -10783,43 +11073,58 @@ END
         # XXX key is a bit klunky; the row should be a hash rather than an
         #     array; by convention the key is on the first column (regardless
         #     of which columns contribute to it)
-        my $key = !$context->{model} ? $document : $mnam;
+        my $entry = !$context->{model} ?
+            {key => $document, note => ''} : {key => $mnam, note => $mnot};
 
         # output table of contents entry (not for outdated files because
         # the link would go to the latest file)
         # XXX hmm... can we simplify this logic? it's not clear...
         if (!$outdated) {
-            my $changed = !$context->{prevkey} || $key ne $context->{prevkey};
+            my $changed = !$context->{prevkey} ||
+                $entry->{key} ne $context->{prevkey};
             if ($changed) {
-                push @{$context->{contents}->{keys}}, $key
+                push @{$context->{contents}->{entries}}, $entry
                     unless $context->{noanchors};
             }
         }
-        $context->{prevkey} = $key;
+        $context->{prevkey} = $entry->{key};
 
         my $docval = {text => $document, names => [$document]};
 
         # link model to its anchor if not defining anchors, i.e. if the link
         # won't be self-referential
-        my $modval = {text => $mnam,
+        my $modval = {text => $mnam, note => $mnot,
                       link => ($context->{noanchors} ? qq{#$mnam} : qq{})};
 
         my $verval = {text => $mver};
 
-        # put model anchor on file to avoid jump to the middle of a large cell;
-        # don't define anchors for "full" XML
+        # put model anchor on file to avoid jump to the middle of a large cell
         my $fileval = undef;
         if ($filerow) {
+            # if showing full XML only, all file rows will show and reference
+            # the full XML
+            # XXX don't worry about the "nc" case (it's on its way out)
+            my $fileval_text = $filerow;
+            my $fileval_name1 = $fileval_text;
+            my $fileval_name2 = $fileval_text;
+            if ($options->{htmlbbf_onlyfullxml} && $context->{model}) {
+                $fileval_text =~ s/(-full)?\.xml$/-full.xml/;
+                $fileval_name1 =~ s/(-full)?\.xml$/-full.xml/;
+                $fileval_name2 =~ s/(-full)?\.xml$/.xml/;
+            }
+
             my $fileval_names = [];
             push @$fileval_names, $mname if $mname && $context->{model};
             push @$fileval_names, $mnam if $mnam && $context->{model};
             push @$fileval_names, $pmname if $pmname && $context->{component};
             push @$fileval_names, $pmnam if $pmnam && $context->{component};
             push @$fileval_names, $name_nc if $name_nc;
-            push @$fileval_names, $filerow if $filerow !~ /-full.xml/;
-            $fileval = {text => $filerow,
+            push @$fileval_names, $fileval_name1;
+            push @$fileval_names, $fileval_name2
+                if $fileval_name2 ne $fileval_name1;
+            $fileval = {text => $fileval_text,
                         names => $fileval_names,
-                        link => qq{$cwmppath$filerow}};
+                        link => qq{$cwmppath$fileval_text}};
         }
 
         my $htmlval = undef;
@@ -10839,7 +11144,7 @@ END
         # row is an array of columns
         push @{$context->{rows}},
         [
-         { name => 'document',    value => $docval, key => $key },
+         { name => 'document',    value => $docval, key => $entry->{key} },
          { name => 'model',       value => $modval },
          { name => 'version',     value => $verval },
          { name => 'file',        value => $fileval },
@@ -10984,6 +11289,7 @@ END
             # this is the same as the "newkey" criterion; a new key forces
             # all column values to be regarded as new
             my $text = $value->{text};
+            my $note = $value->{note} || qq{};
             my $link = $value->{link} || qq{};
             my $ptext = $pvalue->{text};
             my $plink = $pvalue->{link} || qq{};
@@ -11011,6 +11317,8 @@ END
             # it is unchanged from a previous version
             $ncol->{value} = $latestvalues->{$rkey}->{$name} if
                 $latestcolumn && !defined($ncol->{value});
+
+            $ncol->{note} = $note;
 
             push @$ncols, $ncol;
         }
@@ -11108,6 +11416,10 @@ END
                 }
             }
 
+            # add note
+            my $note  = $block->{note};
+            $text .= qq{<br/><b>$note</b>} if $note;
+
             # quietly replace undefined or empty text with non-breaking space
             $text = '&nbsp;' unless $text;
             my $oc = $suppress ? '<!-- ' : '';
@@ -11159,10 +11471,16 @@ sub html148_begin
     my $center = qq{text-align: center;};
 
     # font
-    my $h1font = qq{font-family: helvetica,arial,sans-serif; font-size: 14pt;};
-    my $h2font = qq{font-family: helvetica,arial,sans-serif; font-size: 12pt;};
-    my $h3font = qq{font-family: helvetica,arial,sans-serif; font-size: 10pt;};
-    my $font = qq{font-family: helvetica,arial,sans-serif; font-size: 8pt;};
+    my $font_oc = $nofontstyles ? '/* ' : '';
+    my $font_cc = $nofontstyles ? ' */' : '';
+    my $h1font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 14pt;${font_cc}};
+    my $h2font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 12pt;${font_cc}};
+    my $h3font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 10pt;${font_cc}};
+    my $font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
+        qq{font-size: 8pt;${font_cc}};
 
     # others
     my $sup_valign = qq{vertical-align: super;};
@@ -12842,7 +13160,7 @@ sub util_node_is_modified
 
     # spec is used when not comparing files
     if ($modifiedusesspec) {
-        return 1 if $node->{lspec} && $node->{lspec} eq $lspec;
+        return 1 if $node->{lspec} && $node->{lspec} eq $lspecf;
 
     # file is used when comparing files
     } else {
@@ -12914,7 +13232,8 @@ sub sanity_node
                 #     to children (although could) because if parent isn't
                 #     mentioned, children can't be mentioned)
                 $node->{lfile} = $lfile;
-                $node->{lspec} = $lspec;
+                $node->{lspec} = fix_lspec($lspec, $node->{majorVersion},
+                                           $node->{minorVersion});
                 $node->{status} = 'deleted';
             }
         }
@@ -13432,12 +13751,14 @@ report.pl - generate report on TR-069 DM instances (data model definitions)
 
 B<report.pl>
 [--allbibrefs]
+[--altnotifreqstyle]
 [--autobase]
 [--autodatatype]
 [--automodel]
 [--bibrefdocfirst]
 [--canonical]
-[--catalog=c]...
+[--catalog=s]...
+[--commandcolor=s]...
 [--compare]
 [--components]
 [--configfile=s("")]
@@ -13453,6 +13774,8 @@ B<report.pl>
 [--exitcode]
 [--help]
 [--ignore=p("")]
+[--ignoreenableparameter]
+[--immutablenonfunctionalkeys]
 [--importsuffix=s("")]
 [--include=d]...
 [--info]
@@ -13466,6 +13789,7 @@ B<report.pl>
 [--maxworddiffs=i(10)]
 [--noautomodel]
 [--nocomments]
+[--nofontstyles]
 [--nohyphenate]
 [--nolinks]
 [--nologprefix]
@@ -13475,15 +13799,16 @@ B<report.pl>
 [--noprofiles]
 [--noshowreadonly]
 [--notemplates]
-[--nowarnredef]
 [--nowarnbibref]
 [--nowarnenableparameter]
 [--nowarnnumentries]
+[--nowarnredef]
 [--nowarnreport]
 [--nowarnprofbadref]
 [--nowarnstaticdefault]
 [--nowarnuniquekeys]
 [--nowarnwtref]
+[--noxmllink]
 [--objpat=p("")]
 [--option=n=v]...
 [--outfile=s]
@@ -13505,6 +13830,7 @@ B<report.pl>
 [--ugly]
 [--upnpdm]
 [--verbose[=i(1)]]
+[--version]
 [--warnbibref[=i(1)]]
 [--writonly]
 DM-instance...
@@ -13536,6 +13862,12 @@ There are a large number of options but in practice only a few need to be used. 
 =item B<--allbibrefs>
 
 usually only bibliographic references that are referenced from within the data model definition are listed in the report; this isn't much help when generating a list of bibliographic references without a data model! that's what this option is for; currently it affects only B<html> reports
+
+=item B<--altnotifreqstyle>
+
+enables an "alternative notification requirements style" that affects the HTML report's "Inform and Notification Requirements" section; when enabled, this section is called "Notification Requirements" and contains only a "Parameters for which Value Change Notification MAY be Denied" section
+
+note: use of this option is appropriate when generating reports for data models that will be used with USP
 
 =item B<--autobase>
 
@@ -13571,6 +13903,22 @@ can be specified multiple times; XML catalogs (http://en.wikipedia.org/wiki/XML_
 
 XML catalogs are used only when processing URL-valued B<schemaLocation> attributes during DM instance validation; it is not necessary to use XML catalogs in order to validate DM instances; see B<--loglevel>
 
+=item B<--commandcolor=s>...
+
+sets the background colors to be used (in the HTML report) for commands and events; can be specified up to four times to set (in order) the background colors for:
+
+=over
+
+=item * commands and events (default: #66CDAA)
+
+=item * command "Input." and "Output." containers (default: silver)
+
+=item * command and event object arguments (default: pink)
+
+=item * command and event parameter arguments (default: #FFE4E1)
+
+=back
+
 =item B<--compare>
 
 compares the two files that were specified on the command line, showing the changes made by the second one
@@ -13589,9 +13937,9 @@ the configuration file name can also be specified via B<--option configfile=s> b
 
 defaults to B<report.ini> where B<report> is the report type, e.g. B<htmlbbf.ini> for the B<htmlbbf> report
 
-=item B<--cwmpindex=s(..)>
+=item B<--cwmpindex=s(../cwmp)>
 
-affects only the B<html> report; specifies the location of the BBF CWMP index page, i.e. the page generated using the B<htmlbbf> report; is used to generate a link back to the appropriate location within the index page
+affects only the B<html> report; specifies the location of the BBF CWMP (or USP) index page, i.e. the page generated using the B<htmlbbf> report; is used to generate a link back to the appropriate location within the index page
 
 defaults to B<../cwmp> (parent directory), which will work for the BBF web site but will not necessarily work in other locations; the generated link will be B<cwmpindex#xmlfile>, e.g. B<../cwmp#tr-069-1-0-0.xml>
 
@@ -13599,7 +13947,7 @@ defaults to B<../cwmp> (parent directory), which will work for the BBF web site 
 
 affects only the B<htmlbbf> report; specifies the location of the XML and HTML files relative to the BBF CWMP index page
 
-defaults to B<cwmp> (sub-directory), which will work for the BBF web site; can be set to B<http://www.broadband-forum.org/cwmp> to generate a local BBF CWMP index page that references published content
+defaults to B<cwmp> (sub-directory), which will work for the BBF web site; can be set to a URL such as B<http://www.broadband-forum.org/cwmp> to generate a local BBF CWMP index page that references published content
 
 =item B<--debugpath=p("")>
 
@@ -13635,9 +13983,11 @@ affects only the B<xml> report; has an affect only when B<--dtprofile> is also p
 
 affects only the B<xml> report; has an affect only when B<--dtprofile> is also present; specifies the value of the top-level B<uuid> attribute in the generated DT instance (there is no "uuid:" prefix); if not specified, the UUID defaults to B<00000000-0000-0000-0000-000000000000>
 
-=item B<--exitcode>
+=item B<--exitcode=s>
 
-if specified, the exit code is minus the number of reported errors, which will typically be masked to 8 bits, e.g. 2 errors would result in an exit code of -2, which might become 254
+if specified with no value or with a value of "errors", the exit code is minus the number of reported errors, which will typically be masked to 8 bits, e.g. 2 errors would result in an exit code of -2, which might become 254
+
+if specified with a value of "fatals", the exit code is minus the number of reported fatal errors (with the same proviso about masking to 8 bits);
 
 if not specified, the exit code is zero regardless of the number of errors
 
@@ -13649,9 +13999,21 @@ requests output of usage information
 
 specifies a pattern; data models whose names begin with the pattern will be ignored
 
+=item B<--ignoreenableparameter>
+
+causes the B<enableParameter> attribute to be ignored when generating unique key text for the HTML report
+
+note: use of this option is appropriate when generating reports for data models that will be used with USP
+
+=item B<--immutablenonfunctionalkeys>
+
+causes non-functional unique keys to be treated as immutable when generating unique key text for the HTML report
+
+note: use of this option is appropriate when generating reports for data models that will be used with USP
+
 =item B<--importsuffix=s("")>
 
-specifies a suffix which, if specified, will be appended (preceded by a hyphen) to the name part of any imported files in b<xml> reports
+specifies a suffix which, if specified, will be appended (preceded by a hyphen) to the name part of any imported files in B<xml> reports
 
 =item B<--include=d>...
 
@@ -13669,7 +14031,7 @@ can be specified multiple times; specifies directories to search for files speci
 
 =item B<--info>
 
-output details of author, date, version etc
+outputs details of author, date, version etc.
 
 =item B<--lastonly>
 
@@ -13781,6 +14143,12 @@ it is better to use B<--automodel> because it allows various error messages to b
 
 disables generation of XML comments showing what changed etc (B<--verbose> always switches it off)
 
+=item B<--nofontstyles>
+
+disables use of font-related styles in the B<html> and B<htmlbbf> (index file) reports; this allows these styles to be inherited, e.g. from a theme
+
+note: this option doesn't disable use of red / blue text for indicating deletions / insertions
+
 =item B<--nohyphenate>
 
 prevents automatic insertion of soft hyphens
@@ -13865,6 +14233,10 @@ disables warnings when a multi-instance object has no unique keys
 
 disables "referenced file's spec indicates that it's still a WT" warnings
 
+=item B<--noxmllink>
+
+disables inclusion (in B<html> reports) of links back to the appropriate place in the B<htmlbbf> report (index page)
+
 =item B<--objpat=p>
 
 specifies an object name pattern (a regular expression); objects that do not match this pattern will be ignored (the default of "" matches all objects)
@@ -13872,6 +14244,8 @@ specifies an object name pattern (a regular expression); objects that do not mat
 =item B<--option=n=v>...
 
 can be specified multiple times; defines options that can be accessed and used when generating the report; useful when used with reports implemented in plugins
+
+see B<--report> for details of options supported by standard report types
 
 =item B<--outfile=s>
 
@@ -13943,9 +14317,31 @@ HTML document; see also B<--nolinks> and B<--notemplates>
 
 =item B<htmlbbf>
 
-HTML document containing the information in the BBF CWMP index page; when generating this report, all the XSD and XML files are specified on the command line
+HTML document containing the information in the BBF CWMP (or USP) index page; when generating this report, all the XSD and XML files are specified on the command line
 
 the B<htmlbbf> report reads a configuration file whose name can be specified using B<--configfile>
+
+the B<htmlbbf> report supports the following B<options>:
+
+=over
+
+=item B<htmlbbf_configfile_suffix=SUFFIX>
+
+causes use of config file field name FIELD-SUFFIX rather than FIELD (the default); e.g. a value of "usp" means that the title will be taken from "title-usp" rather than "title"
+
+=item B<htmlbbf_deprecatedmodels=MODELS>
+
+causes the specified data models to be marked as deprecated (the option value is a space-separated list of model names and major versions, e.g. "InternetGatewayDevice:1 Device:1")
+
+=item B<htmlbbf_omitcommonxml=VALUE>
+
+causes any XML files whose names end with B<-common.xml> to be ignored (the option value is ignored, but should be "true")
+
+=item B<htmlbbf_onlyfullxml=VALUE>
+
+causes only full XML to be included; affects only data model XML, not component or support XML (the option value is ignored, but should be "true")
+
+=back
 
 see OD-290 and OD-148 for more details
 
@@ -14134,13 +14530,15 @@ enables verbose output; the higher the level the more the output
 
 this has the same effect as setting B<--loglevel> to "d" (debug) followed by the verbose value minus one, e.g. "d2" for B<--verbose=3>
 
+=item B<--version>
+
+outputs a single line showing the version
+
 =item B<--warnbibref[=i(1)]>
 
 enables bibliographic reference warnings (these warnings are also output if B<--verbose> is specified); the higher the level the more warnings
 
 setting it to -1 is the same as setting B<--nowarnbibref> and suppresses various bibref-related errors that would normally be output
-
-previously known as B<--warndupbibref>, which is now deprecated (and will be removed in a future release) because it covers more than just duplicate bibliographic references
 
 =item B<--writonly>
 
