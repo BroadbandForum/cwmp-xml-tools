@@ -11022,6 +11022,12 @@ END
         push @$nsuffices, qq{$suffix-$diffsext} if $mname_minor;
     }
     push @$suffices, @$nsuffices;
+    # if only outputting full XML, reverse the order so full HTML will (after
+    # the rows have been reversed!) be listed before diffs HTML
+    if ($options->{htmlbbf_onlyfullxml}) {
+        my @tsuffices = reverse @$suffices;
+        $suffices = \ @tsuffices;
+    }
     my @htmlrows = ();
     foreach my $suffix (@$suffices) {
         my $hname = $name;
