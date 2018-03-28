@@ -13745,7 +13745,7 @@ exit (!defined $exitcode ? 0 :
 # documentation
 =head1 NAME
 
-report.pl - generate report on TR-069 DM instances (data model definitions)
+report.pl - generate Broadband Forum USP and CWMP data model reports
 
 =head1 SYNOPSIS
 
