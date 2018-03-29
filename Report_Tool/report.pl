@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2017-09-07 $};
-my $tool_id = q{$Id: report.pl 421+ $};
+my $tool_vers_date = q{$Date: 2018-03-28 $};
+my $tool_id = q{$Id: report.pl 422 $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -13769,7 +13769,7 @@ exit (!defined $exitcode ? 0 :
 # documentation
 =head1 NAME
 
-report.pl - generate report on TR-069 DM instances (data model definitions)
+report.pl - generate Broadband Forum USP and CWMP data model reports
 
 =head1 SYNOPSIS
 

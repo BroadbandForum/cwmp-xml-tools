@@ -1,29 +1,32 @@
 Usage:
-    report.pl [--allbibrefs] [--autobase] [--autodatatype] [--automodel]
-    [--bibrefdocfirst] [--canonical] [--catalog=c]... [--compare]
-    [--components] [--configfile=s("")] [--cwmpindex=s(..)]
-    [--cwmppath=s(cwmp)] [--debugpath=p("")] [--deletedeprecated] [--diffs]
+    report.pl [--allbibrefs] [--altnotifreqstyle] [--autobase]
+    [--autodatatype] [--automodel] [--bibrefdocfirst] [--canonical]
+    [--catalog=s]... [--commandcolor=s]... [--compare] [--components]
+    [--configfile=s("")] [--cwmpindex=s(..)] [--cwmppath=s(cwmp)]
+    [--debugpath=p("")] [--deletedeprecated] [--diffs]
     [--diffsext=s(diffs)]... [--dtprofile=s]... [--dtspec[=s]]
     [--dtuuid[=s]] [--exitcode] [--help] [--ignore=p("")]
+    [--ignoreenableparameter] [--immutablenonfunctionalkeys]
     [--importsuffix=s("")] [--include=d]... [--info] [--lastonly]
-    [--loglevel=tn(i)] [--marktemplates] [--maxchardiffs=i(5)]
-    [--maxworddiffs=i(10)] [--noautomodel] [--nocomments] [--nohyphenate]
+    [--loglevel=tn(i)] [--logoalt=s()] [--logoref=s()] [--logosrc=s()]
+    [--marktemplates] [--maxchardiffs=i(5)] [--maxworddiffs=i(10)]
+    [--noautomodel] [--nocomments] [--nofontstyles] [--nohyphenate]
     [--nolinks] [--nologprefix] [--nomodels] [--noobjects] [--noparameters]
-    [--noprofiles] [--noshowreadonly] [--notemplates] [--nowarnredef]
-    [--nowarnbibref] [--nowarnenableparameter] [--nowarnnumentries]
-    [--nowarnreport] [--nowarnprofbadref] [--nowarnuniquekeys]
-    [--nowarnwtref] [--objpat=p("")] [--option=n=v]... [--outfile=s]
-    [--pedantic[=i(1)]] [--plugin=s]... [--quiet]
-    [--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...]
+    [--noprofiles] [--noshowreadonly] [--notemplates] [--nowarnbibref]
+    [--nowarnenableparameter] [--nowarnnumentries] [--nowarnredef]
+    [--nowarnreport] [--nowarnprofbadref] [--nowarnstaticdefault]
+    [--nowarnuniquekeys] [--nowarnwtref] [--noxmllink] [--objpat=p("")]
+    [--option=n=v]... [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]...
+    [--quiet] [--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...]
     [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion]
     [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)]
     [--trpage=s(http://www.broadband-forum.org/technical/download)]
-    [--ucprofile=s]... [--ugly] [--upnpdm] [--verbose[=i(1)]]
+    [--ucprofile=s]... [--ugly] [--upnpdm] [--verbose[=i(1)]] [--version]
     [--warnbibref[=i(1)]] [--writonly] DM-instance...
 
     *   the most common options are --include, --loglevel and --report=html
 
-    *   use --compare to compare files and --showdiffs to show differences
+    *   use --compare to compare files and --diffs to show differences
 
     *   cannot specify both --report and --special
 
@@ -34,6 +37,16 @@ Options:
         isn't much help when generating a list of bibliographic references
         without a data model! that's what this option is for; currently it
         affects only html reports
+
+    --altnotifreqstyle
+        enables an "alternative notification requirements style" that
+        affects the HTML report's "Inform and Notification Requirements"
+        section; when enabled, this section is called "Notification
+        Requirements" and contains only a "Parameters for which Value Change
+        Notification MAY be Denied" section
+
+        note: use of this option is appropriate when generating reports for
+        data models that will be used with USP
 
     --autobase
         causes automatic addition of base attributes when models, parameters
@@ -81,6 +94,19 @@ Options:
         attributes during DM instance validation; it is not necessary to use
         XML catalogs in order to validate DM instances; see --loglevel
 
+    --commandcolor=s...
+        sets the background colors to be used (in the HTML report) for
+        commands and events; can be specified up to four times to set (in
+        order) the background colors for:
+
+        *   commands and events (default: #66CDAA)
+
+        *   command "Input." and "Output." containers (default: silver)
+
+        *   command and event object arguments (default: pink)
+
+        *   command and event parameter arguments (default: #FFE4E1)
+
     --compare
         compares the two files that were specified on the command line,
         showing the changes made by the second one
@@ -104,11 +130,11 @@ Options:
         defaults to report.ini where report is the report type, e.g.
         htmlbbf.ini for the htmlbbf report
 
-    --cwmpindex=s(..)
+    --cwmpindex=s(../cwmp)
         affects only the html report; specifies the location of the BBF CWMP
-        index page, i.e. the page generated using the htmlbbf report; is
-        used to generate a link back to the appropriate location within the
-        index page
+        (or USP) index page, i.e. the page generated using the htmlbbf
+        report; is used to generate a link back to the appropriate location
+        within the index page
 
         defaults to ../cwmp (parent directory), which will work for the BBF
         web site but will not necessarily work in other locations; the
@@ -120,8 +146,9 @@ Options:
         and HTML files relative to the BBF CWMP index page
 
         defaults to cwmp (sub-directory), which will work for the BBF web
-        site; can be set to http://www.broadband-forum.org/cwmp to generate
-        a local BBF CWMP index page that references published content
+        site; can be set to a URL such as
+        http://www.broadband-forum.org/cwmp to generate a local BBF CWMP
+        index page that references published content
 
     --debugpath=p("")
         outputs debug information for parameters and objects whose path
@@ -167,10 +194,15 @@ Options:
         the generated DT instance (there is no "uuid:" prefix); if not
         specified, the UUID defaults to 00000000-0000-0000-0000-000000000000
 
-    --exitcode
-        if specified, the exit code is minus the number of reported errors,
-        which will typically be masked to 8 bits, e.g. 2 errors would result
-        in an exit code of -2, which might become 254
+    --exitcode=s
+        if specified with no value or with a value of "errors", the exit
+        code is minus the number of reported errors, which will typically be
+        masked to 8 bits, e.g. 2 errors would result in an exit code of -2,
+        which might become 254
+
+        if specified with a value of "fatals", the exit code is minus the
+        number of reported fatal errors (with the same proviso about masking
+        to 8 bits);
 
         if not specified, the exit code is zero regardless of the number of
         errors
@@ -182,10 +214,23 @@ Options:
         specifies a pattern; data models whose names begin with the pattern
         will be ignored
 
+    --ignoreenableparameter
+        causes the enableParameter attribute to be ignored when generating
+        unique key text for the HTML report
+
+        note: use of this option is appropriate when generating reports for
+        data models that will be used with USP
+
+    --immutablenonfunctionalkeys
+        causes non-functional unique keys to be treated as immutable when
+        generating unique key text for the HTML report
+
+        note: use of this option is appropriate when generating reports for
+        data models that will be used with USP
+
     --importsuffix=s("")
         specifies a suffix which, if specified, will be appended (preceded
-        by a hyphen) to the name part of any imported files in b<xml>
-        reports
+        by a hyphen) to the name part of any imported files in xml reports
 
     --include=d...
         can be specified multiple times; specifies directories to search for
@@ -202,7 +247,7 @@ Options:
             names
 
     --info
-        output details of author, date, version etc
+        outputs details of author, date, version etc.
 
     --lastonly
         reports only on items that were defined or last modified in the
@@ -279,6 +324,27 @@ Options:
             directory part is ignored and the schema is located as for a
             relative path (above)
 
+    --logoalt=s("Broadband Forum")
+        alternative text for the logo image in the top left-hand corner of
+        the HTML report
+
+        if any other --logoxxx options are specified, the default is an
+        empty string
+
+    --logoref=s("http://www.broadband-forum.org/")
+        URL visited when the logo image in the top left-hand corner of the
+        HTML report is clicked
+
+        if any other --logoxxx options are specified, the default is an
+        empty string
+
+    --logosrc=s("http://www.broadband-forum.org/images/logo-broadband-forum.
+    gif")
+        URL of logo image in the top left-hand corner of the HTML report
+
+        if any other --logoxxx options are specified, the default is an
+        empty string
+
     --marktemplates
         mark selected template expansions with &&&& followed by
         template-related information, a colon and a space
@@ -321,6 +387,14 @@ Options:
         disables generation of XML comments showing what changed etc
         (--verbose always switches it off)
 
+    --nofontstyles
+        disables use of font-related styles in the html and htmlbbf (index
+        file) reports; this allows these styles to be inherited, e.g. from a
+        theme
+
+        note: this option doesn't disable use of red / blue text for
+        indicating deletions / insertions
+
     --nohyphenate
         prevents automatic insertion of soft hyphens
 
@@ -360,7 +434,7 @@ Options:
 
         see also --warnbibref
 
-    --nowarnnableparameter
+    --nowarnenableparameter
         disables warnings when a writable table has no enable parameter
 
     --nowarnnumentries
@@ -392,12 +466,20 @@ Options:
         this is deprecated because it is no longer needed (use
         status="deleted" as appropriate to suppress such errors)
 
+    --nowarnstaticdefault
+        disables "parameter within static object has a default value"
+        warnings
+
     --nowarnuniquekeys
         disables warnings when a multi-instance object has no unique keys
 
     --nowarnwtref
         disables "referenced file's spec indicates that it's still a WT"
         warnings
+
+    --noxmllink
+        disables inclusion (in html reports) of links back to the
+        appropriate place in the htmlbbf report (index page)
 
     --objpat=p
         specifies an object name pattern (a regular expression); objects
@@ -408,6 +490,9 @@ Options:
         can be specified multiple times; defines options that can be
         accessed and used when generating the report; useful when used with
         reports implemented in plugins
+
+        see --report for details of options supported by standard report
+        types
 
     --outfile=s
         specifies the output file; if not specified, output will be sent to
@@ -482,13 +567,13 @@ Options:
             used by specifying --plugin=foo --report=foo
 
              package foo;
- 
+
              sub foo_node
              {
                  my ($node) = @_;
                  print "$node->{path}\n";
              }
- 
+
              1;
 
     --quiet
@@ -504,12 +589,33 @@ Options:
             HTML document; see also --nolinks and --notemplates
 
         htmlbbf
-            HTML document containing the information in the BBF CWMP index
-            page; when generating this report, all the XSD and XML files are
-            specified on the command line
+            HTML document containing the information in the BBF CWMP (or
+            USP) index page; when generating this report, all the XSD and
+            XML files are specified on the command line
 
             the htmlbbf report reads a configuration file whose name can be
             specified using --configfile
+
+            the htmlbbf report supports the following options:
+
+            htmlbbf_configfile_suffix=SUFFIX
+                causes use of config file field name FIELD-SUFFIX rather
+                than FIELD (the default); e.g. a value of "usp" means that
+                the title will be taken from "title-usp" rather than "title"
+
+            htmlbbf_deprecatedmodels=MODELS
+                causes the specified data models to be marked as deprecated
+                (the option value is a space-separated list of model names
+                and major versions, e.g. "InternetGatewayDevice:1 Device:1")
+
+            htmlbbf_omitcommonxml=VALUE
+                causes any XML files whose names end with -common.xml to be
+                ignored (the option value is ignored, but should be "true")
+
+            htmlbbf_onlyfullxml=VALUE
+                causes only full XML to be included; affects only data model
+                XML, not component or support XML (the option value is
+                ignored, but should be "true")
 
             see OD-290 and OD-148 for more details
 
@@ -665,8 +771,8 @@ Options:
             line
 
         pathref
-            for each pathRef parameter, report cases where a "CPE-managed,
-            non-fixed" object references another "CPE-managed, non-fixed"
+            for each pathRef parameter, report cases where a "Agent-managed,
+            non-fixed" object references another "Agent-managed, non-fixed"
             object; these are candidate cases for objects that should have
             the same lifetime
 
@@ -725,6 +831,9 @@ Options:
         this has the same effect as setting --loglevel to "d" (debug)
         followed by the verbose value minus one, e.g. "d2" for --verbose=3
 
+    --version
+        outputs a single line showing the version
+
     --warnbibref[=i(1)]
         enables bibliographic reference warnings (these warnings are also
         output if --verbose is specified); the higher the level the more
@@ -733,10 +842,6 @@ Options:
         setting it to -1 is the same as setting --nowarnbibref and
         suppresses various bibref-related errors that would normally be
         output
-
-        previously known as --warndupbibref, which is now deprecated (and
-        will be removed in a future release) because it covers more than
-        just duplicate bibliographic references
 
     --writonly
         reports only on writable parameters (should, but does not, suppress
