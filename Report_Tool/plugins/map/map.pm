@@ -1,6 +1,6 @@
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2016, 2017  Honu Ltd
+# Copyright (C) 2016, 2017, 2018  Honu Ltd
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -65,6 +65,8 @@
 package map;
 
 use strict;
+no strict "refs";
+use warnings;
 
 # XXX uncomment to enable traceback on warnings and errors
 #use Carp::Always;
@@ -133,7 +135,7 @@ sub map_init {
                 main::emsg "$configfile: $error";
             }
             return;
-        }    
+        }
     }
 
     # scan the resultant hash and convert to the original object and parameter
@@ -347,7 +349,7 @@ sub map_end {
             if ($path1 =~ /^[+=]/) {
                 $path1 =~ s/^[+=]//;
                 push @$cpath1s, $path1;
-            } else {            
+            } else {
                 my $node1 = $nodes->[-1]->{$path1};
                 if (!$node1) {
                     push @$npath1s, $path1;
@@ -382,7 +384,7 @@ sub map_end {
         my $newobj;
         foreach my $cpath1 (@$cpath1s) {
             action {
-                warn => $newobj,
+                warn => $newobj ? 1 : 0,
                 text => "$path -> $cpath1 (new object)$comment",
                 oper => 'NewObject',
                 root => $root,
@@ -401,7 +403,7 @@ sub map_end {
         # look for parameters in the second data model
         foreach my $child (grep {$_->{syntax}} @{$object->{nodes}}) {
             next if main::util_is_omitted($child);
-            
+
             my $cpath = $child->{path};
             my $name = $child->{name};
             my $status = $child->{status};
@@ -415,7 +417,7 @@ sub map_end {
             next if $globals->{tr98map} && grep {
                 $_->{numEntriesParameter} &&
                     $_->{numEntriesParameter} eq $name} @{$object->{nodes}};
-            
+
             my ($patts, $name1s, $comment) =
                 mapped_parameter_names($root, $path, $path1s,
                                        (join ',', @$cpath1s), $name);
@@ -626,8 +628,8 @@ sub mapped_parameter_names {
     my $tpath = $path;
     $tpath =~ s/\.\{i\}//g;
     my @comps = split /\./, $tpath;
-    push @$suffixes, qq{$comps[-2].$comps[-1].$name};
-    push @$suffixes, qq{$comps[-1].$name};
+    push @$suffixes, qq{$comps[-2].$comps[-1].$name} if @comps > 1;
+    push @$suffixes, qq{$comps[-1].$name} if @comps > 0;
     push @$suffixes, qq{$name};
 
     my $name1 = undef;
@@ -664,6 +666,7 @@ sub mapped_parameter_names {
     $name1 = default_mapped_parameter_names($root, $path, $path1s, $name)
         if !defined $name1;
 
+    #main::tmsg "$name -> ($patts $name1 $comment)" if $patts;
     return ($patts, $name1, $comment);
 }
 
@@ -729,7 +732,7 @@ sub default_mapped_parameter_names {
         my @comps = split /\./, $path;
         push @$prefixes, $comps[-1], $comps[-2];
     }
-   
+
     # only remove prefix if it's followed by upper-case character (avoids
     # things like removing "PPP" from "PPPoE..."
     foreach my $prefix (@$prefixes) {
@@ -738,7 +741,7 @@ sub default_mapped_parameter_names {
             last;
         }
     }
-   
+
     return $name1;
 }
 
@@ -904,9 +907,9 @@ sub action {
     # report to stdout (if text has been supplied)
     # XXX $warn=2 is a special case for profile messages: use '#' prefix
     if ($options->{mode} eq 'text') {
-        my $warn = $opts->{warn};
+        my $warn = $opts->{warn} || 0;
         my $text = $opts->{text};
-        my $pfx = $warn == 0 ? ' ' : $warn == 1 ? '!' : '#'; 
+        my $pfx = $warn == 0 ? ' ' : $warn == 1 ? '!' : '#';
         output 0, "$pfx $text" if defined $text;
     }
 
@@ -1016,11 +1019,12 @@ sub action_new_object
         foreach my $param (@$param_list) {
             my $mapping = lookup_mapping($parameter_mappings, $root, $$param);
             if ($mapping) {
+                $mapping =~ s/^\(.+\)//;
                 $mapping =~ s/^[+=]//;
                 $$param = $mapping;
             }
         }
-        
+
         # XXX the two special cases below can interact; are they in the correct
         #     order?
 
@@ -1066,7 +1070,6 @@ sub action_new_object
         # XXX descact, changed and history are there so the correct description
         #     can be derived, but this is pretty hairy
         my $access = $node->{access};
-        my $enableParameter = $node->{enableParameter};
         my $id = $node->{id};
         my $status = $node->{status};
         my $majorVersion = $node->{majorVersion};
@@ -1089,7 +1092,7 @@ sub action_new_object
                    uniqueKeys => $uniqueKeys, changed => $changed,
                    history => $history, map_remarks => [$remark],
                    map_create => 1};
-        
+
         push @$output_objects, $object;
     }
 
@@ -1148,7 +1151,7 @@ sub action_new_parameter
         while (my ($file, $impfile) = each %$main::imports) {
             foreach my $imp (@{$impfile->{imports}}) {
                 if ($imp->{element} eq 'dataType' &&
-                    $imp->{name} eq $datatype && $imp->{file} eq $file) { 
+                    $imp->{name} eq $datatype && $imp->{file} eq $file) {
                     $datatype_map->{$file}->{spec} = $imp->{spec};
                     $datatype_map->{$file}->{datatypes}->{$datatype} = 1;
                 }
@@ -1196,7 +1199,7 @@ sub action_existing_parameter
         path => $path, name => $name, access => $access, id => $id,
         map_remarks => [$remark], map_create => 0};
 
-    push @{$object->{map_parameters}}, $parameter;    
+    push @{$object->{map_parameters}}, $parameter;
 }
 
 # determine object name (common code taken from action_new_parameter)
@@ -1231,13 +1234,51 @@ sub get_object_name
         }
         if (@$notpaths) {
             my $paths = join ', ', @$notpaths;
-            $paths =~ s/(.*), (.*)/\1 or \2/;
+            $paths =~ s/(.*), (.*)/$1 or $2/;
             main::w0msg "$name: creating in $object_name and not in " .
                 "$paths";
         }
     }
 
     return ($object_name, $name);
+}
+
+# compare objects so parents are always defined before children
+sub object_cmp
+{
+    my $ap = $a->{path};
+    my $bp = $b->{path};
+    my $al = length $ap;
+    my $bl = length $bp;
+
+    return -1 if $al < $bl && substr($bp, 0, $al) eq $ap;
+    return +1 if $al > $bl && substr($ap, 0, $bl) eq $bp;
+    return  0;
+}
+
+# compare parameters so traps and #entries parameters are always last
+sub parameter_cmp
+{
+    # XXX we assume that trap names end "Trap" and #entries names end
+    #     "NumberOfEntries"
+    my $an = $a->{name};
+    my $bn = $b->{name};
+    my $ae = $an =~ /NumberOfEntries$/;
+    my $be = $bn =~ /NumberOfEntries$/;
+    my $at = $an =~ /Trap$/;
+    my $bt = $bn =~ /Trap$/;
+
+    # XXX still not got the trap ordering right
+    #print STDERR "$an $bn\n" if $at || $bt;
+
+    # traps before #entries
+    return -1 if $at && $be;
+    return +1 if $bt && $ae;
+
+    # #entries last
+    return -1 if !$ae &&  $be;
+    return  1 if  $ae && !$be;
+    return  0;
 }
 
 # end generating the XML
@@ -1255,16 +1296,18 @@ sub action_end
     output_model_open 1, $root;
 
     # output objects and their parameters
-    foreach my $object (@$output_objects) {
+    foreach my $object (sort object_cmp @$output_objects) {
         my $create = $object->{map_create};
         my $parameters = $object->{map_parameters};
 
         if ($create || ($parameters && @$parameters)) {
             my $path =
                 output_object_open 2, $root, $object, {create => $create};
-            foreach my $parameter (@$parameters) {
-                output_parameter 3, $root, $path, $parameter,
-                    {create => $parameter->{map_create}};
+            if ($parameters && @$parameters) {
+                foreach my $parameter (sort parameter_cmp @$parameters) {
+                    output_parameter 3, $root, $path, $parameter,
+                        { create => $parameter->{map_create} };
+                }
             }
             output_object_close 2, $object;
         }
@@ -1272,7 +1315,7 @@ sub action_end
 
     # close model element
     output_model_close 1;
-    
+
     # close root element
     output_root_close 0;
 }
@@ -1299,7 +1342,7 @@ sub output_root_open
     # these come from the config file
     my $vendorfile = $globals->{$root}->{vendorfile};
     my $vendorspec = $globals->{$root}->{vendorspec};
-    
+
     # XXX should check that all the above are defined
 
     # output DM header
@@ -1400,7 +1443,7 @@ sub output_model_open
     my $vendorprefix = $globals->{$root}->{vendorprefix};
     my $vendormodel = $globals->{$root}->{vendormodel};
     my $vendorversion = $globals->{$root}->{vendorversion};
-    
+
     # XXX should check that all the above are defined
 
     # remove corrigendum number from file and spec
@@ -1486,6 +1529,9 @@ sub output_object_open
     $version = '' unless $create;
     $version = $version ? qq{ dmr:version="$version"} : qq{};
 
+    # XXX for now never output dmr:version (we never do for parameters)
+    $version = '';
+
     my $noUniqueKeys = $node->{noUniqueKeys};
     $noUniqueKeys = '' unless $create;
     $noUniqueKeys = $noUniqueKeys ? qq{ dmr:noUniqueKeys="$noUniqueKeys"} :
@@ -1507,10 +1553,17 @@ sub output_object_open
     my $remark = get_remark($node);
     if ($create) {
         ($description, $descact) = get_description($node);
+
+        # XXX this can set $descact to 'append' but this is never valid
+        if ($descact and $descact ne 'create') {
+            main::w1msg "$name: object is new so clearing descact $descact";
+            undef $descact;
+        }
     } else {
         $description = '';
         $descact = $remark ? 'append' : $node->{descact};
     }
+
     $description = xml_escape($description);
     $descact = $descact && $descact ne 'create' ?
         qq{ action="$descact"} : qq{};
@@ -1557,7 +1610,7 @@ sub output_parameter
     my $name = $node->{name};
     $name = add_vendor_prefix($globals->{$root}->{vendorprefix},
                               $parent_path, $name, $create);
-    
+
     # <parameter>
     my $basename = $create ? 'name' : 'base';
     my $access = $node->{access};
@@ -1577,7 +1630,7 @@ sub output_parameter
     $name =~ s/\s*$//;
     main::w0msg "$path: removed leading/trailing white space from \"$oname\""
         if $name ne $oname;
-    
+
     my $id = $node->{id};
     $id = $id ? qq{ id="$id"} : qq{};
 
@@ -1632,12 +1685,12 @@ sub output_parameter
         my $syntax = $node->{syntax};
         my $hidden = $syntax->{hidden};
         my $command = $syntax->{command};
-        
+
         $hidden = $hidden ? qq{ hidden="true"} : qq{};
         $command = $command ? qq{ command="true"} : qq{};
-        
+
         output $i+1, qq{<syntax$hidden$command>};
-        
+
         # <list>
         my $list = $syntax->{list};
         if ($list) {
@@ -1646,7 +1699,7 @@ sub output_parameter
             my $maxListLength = $syntax->{listSizes}->[0]->{maxLength};
             my $minListItems = $syntax->{listRanges}->[0]->{minInclusive};
             my $maxListItems = $syntax->{listRanges}->[0]->{maxInclusive};
-            
+
             $minListLength = defined $minListLength && $minListLength ne '' ?
                 qq{ minLength="$minListLength"} : qq{};
             $maxListLength = defined $maxListLength && $maxListLength ne '' ?
@@ -1655,7 +1708,7 @@ sub output_parameter
                 qq{ minItems="$minListItems"} : qq{};
             $maxListItems = defined $maxListItems && $maxListItems ne '' ?
                 qq{ maxItems="$maxListItems"} : qq{};
-            
+
             my $ended = ($minListLength || $maxListLength ||
                          $minListItems || $maxListItems) ? '' : '/';
             output $i+2, qq{<list$minListItems$maxListItems$ended>};
@@ -1667,11 +1720,11 @@ sub output_parameter
         my $type = $node->{type};
         my $ref = $syntax->{ref};
         my $base = $syntax->{base};
-        
+
         $type = 'dataType' if $ref; # XXX a bit of a kludge...
         $ref = $ref ? qq{ ref="$ref"} : qq{};
         $base = $base ? qq{ base="$base"} : qq{};
-        
+
         my $sizes = $syntax->{sizes};
         my $ranges = $syntax->{ranges};
         my $reference = $syntax->{reference};
@@ -1679,39 +1732,39 @@ sub output_parameter
         my $units = $node->{units};
         my $ended = (($sizes && @$sizes) || ($ranges && @$ranges) ||
                      $reference || ($values && %$values) || $units) ? '' : '/';
-        
+
         output $i+2, qq{<$type$ref$base$ended>};
-        
+
         # <size>
         foreach my $size (@{$syntax->{sizes}}) {
             my $minLength = $size->{minLength};
             my $maxLength = $size->{maxLength};
-            
+
             $minLength = defined $minLength && $minLength ne '' ?
                 qq{ minLength="$minLength"} : qq{};
             $maxLength = defined $maxLength && $maxLength ne '' ?
                 qq{ maxLength="$maxLength"} : qq{};
-            
+
             output $i+3, qq{<size$minLength$maxLength/>} if
                 $minLength || $maxLength;
         }
-        
+
         # <range>
         foreach my $range (@{$syntax->{ranges}}) {
             my $minInclusive = $range->{minInclusive};
             my $maxInclusive = $range->{maxInclusive};
             my $step = $range->{step};
-            
+
             $minInclusive = defined $minInclusive && $minInclusive ne '' ?
                 qq{ minInclusive="$minInclusive"} : qq{};
             $maxInclusive = defined $maxInclusive && $maxInclusive ne '' ?
                 qq{ maxInclusive="$maxInclusive"} : qq{};
             $step = defined $step && $step ne '' ? qq{ step="$step"} : qq{};
-            
+
             output $i+3, qq{<range$minInclusive$maxInclusive$step/>} if
                 $minInclusive || $maxInclusive || $step;
         }
-        
+
         # <pathRef>, <instanceRef>, <enumerationRef>
         if ($reference) {
             my $refType = $syntax->{refType};
@@ -1722,7 +1775,7 @@ sub output_parameter
             my $targetParam = $syntax->{targetParam};
             my $targetParamScope = $syntax->{targetParamScope};
             my $nullValue = $syntax->{nullValue};
-            
+
             $refType = $refType ? qq{ refType="$refType"} : qq{};
             $targetParent = $targetParent ?
                 qq{ targetParent="$targetParent"} : qq{};
@@ -1734,75 +1787,89 @@ sub output_parameter
             $targetParam = $targetParam ?
                 qq{ targetParam="$targetParam"} : qq{};
             $targetParamScope = $targetParamScope ?
-                qq{ targetParamScope="$targetParamScope"} : qq{};            
+                qq{ targetParamScope="$targetParamScope"} : qq{};
             $nullValue = defined $nullValue ?
                 qq{ nullValue="$nullValue"} : qq{};
-            
+
             output $i+3, qq{<$reference$refType$targetParam$targetParent}.
                 qq{$targetParamScope$targetParentScope$targetType$targetDataType}.
                 qq{$nullValue/>};
         }
-        
+
         # <enumeration>, <pattern>
         foreach my $value (sort {$values->{$a}->{i} <=>
                                      $values->{$b}->{i}} keys %$values) {
             my $evalue = xml_escape($value);
             my $cvalue = $values->{$value};
-            
+
             my $facet = $cvalue->{facet};
             my $access = $cvalue->{access};
             my $status = $cvalue->{status};
             my $optional = main::boolean($cvalue->{optional});
-            
+
             my $description = get_description_value($node, $value);
             $description = xml_escape($description);
-            
+
             $optional = $optional ? qq{ optional="true"} : qq{};
             $access = $access ne 'readWrite' ? qq{ access="$access"} : qq{};
             $status = $status ne 'current' ? qq{ status="$status"} : qq{};
             my $ended = $description ? '' : '/';
-            
+
             output $i+3, qq{<$facet value="$evalue"$access$status$optional$ended>};
             output $i+4, qq{<description>$description</description>} if
                 $description;
             output $i+3, qq{</$facet>} unless $ended;
         }
-        
+
         # <units>
         if ($units) {
             output $i+3, qq{<units value="$units"/>};
         }
-        
+
         # </$type>
         output $i+2, qq{</$type>} unless $ended;
-        
+
         # <default>
         my $default = $node->{default};
         if (defined $default) {
             my $deftype = $node->{deftype};
             my $defstat = $node->{defstat};
-            
+
             $defstat = $defstat ne 'current' ? qq{ status="$defstat"} : qq{};
-            
+
             output $i+2, qq{<default type="$deftype" value="$default"$defstat/>};
         }
-        
+
         # </syntax>
         output $i+1, qq{</syntax>};
     }
-    
+
     # </parameter>
     output $i, qq{</parameter>};
 }
+
+my $existing_prefix_map = {};
 
 # add vendor prefix to object or parameter name (if necessary)
 # XXX also in theory could apply to data types, components, profiles, values?
 sub add_vendor_prefix
 {
     my ($vendorprefix, $path, $name, $create) = @_;
+    my $oname = $name;
 
     # only ever add a prefix if creating, and there's anything to add
     return $name unless $create and $vendorprefix;
+
+    # XXX there's no logic to handle the case where we already added a prefix
+    #     to A (to give PA) and now we have A.B; so hack it...
+    foreach my $orig_name (keys %$existing_prefix_map) {
+        my $mapped_name = $existing_prefix_map->{$orig_name};
+        if ($path =~ /\Q$orig_name\E/) {
+            $name =~ s/\Q$orig_name\E/$mapped_name/
+                if $name =~ /\Q$orig_name\E/;
+            return $name;
+        }
+    }
 
     # don't add prefix if it's already present in the path
     # XXX this isn't a perfect test but it should be good enough
@@ -1813,9 +1880,11 @@ sub add_vendor_prefix
     if ($name !~ /\./) {
         $name = $vendorprefix . $name;
     } else {
+        no warnings qw{uninitialized};
         $name =~ s/^(.*?)\.([^\.]+)(\.\{i\})?\.$/$1.$vendorprefix$2$3./;
     }
 
+    $existing_prefix_map->{$oname} = $name;
     return $name;
 }
 
@@ -1878,8 +1947,8 @@ sub get_remark
     }
 
     return $text;
-} 
-   
+}
+
 sub xml_escape
 {
     my ($value, $opts) = @_;
@@ -1908,11 +1977,12 @@ sub remove_corrigendum
     # don't try to remove corrigendum number on non-BBF specs
     # in tr-nnn-i-a-c-label.ext,
     # $1=-nnn, $2=-i, $3=-a, $4=-c, $5=-label, $6=.ext
+    no warnings qw{uninitialized};
     $text =~ s/(-\d+)(-\d+)(-\d+)(-\d+)(-[^-\d]*)?(\.\w+)?$/$1$2$3$5$6/
         unless $text =~ /^urn:/ && $text !~ /^urn:broadband-forum-org/;
 
     #main::tmsg " --> $text";
-    
+
     return $text;
 }
 
