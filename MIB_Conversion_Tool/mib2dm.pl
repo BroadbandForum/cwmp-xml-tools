@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2016, 2017  Honu Ltd
+# Copyright (C) 2016, 2017, 2018  Honu Ltd
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -116,6 +116,7 @@ use Carp::Always;
 
 use strict;
 no strict "refs";
+use warnings;
 
 use Data::Dumper;
 use File::Basename;
@@ -238,10 +239,14 @@ my $bibrefs = {
         regex => qr{MoCA MAC/PHY Specification( v?2\.0)?},
         id => 'MOCA20-MIB',
     },
+    'MoCA Access MAC/PHY Specification 2.5' => {
+        regex => qr{MoCA Access MAC/PHY Specification( v?2\.5)?},
+        id => 'MOCA-ACCESS-25-MIB',
+    },
 };
 
 # parse files specified on the command line
-# XXX various things don't work if there is more than one file, so should 
+# XXX various things don't work if there is more than one file, so should
 #     forbid this
 foreach my $file (@ARGV) {
     parse_file($file);
@@ -408,7 +413,7 @@ sub expand_typedef
     my $reference = findvalue($typedef, 'reference', {descr => 1});
 
     $status = 'current' unless $status;
-    $default = $default eq "" ? undef : $default eq '""' ? "" : $default;
+    $default = fix_default($default);
 
     print STDERR "expand_typedef name=$name basetype=$basetype " .
 	"status=$status format=$format\n" if $verbose;
@@ -430,7 +435,7 @@ sub expand_typedef
 
     # this avoids a special case in the above loop
     $hash->{parent} = $hash->{parent}->[0] if $hash->{parent};
- 
+
     return $hash;
 }
 
@@ -515,8 +520,8 @@ sub expand_scalar
 				{descr => 1, values => $syntax->{values}});
     my $reference = findvalue($scalar, 'reference', {descr => 1});
 
-    $default = $default eq "" ? undef : $default eq '""' ? "" : $default;
-    
+    $default = fix_default($default);
+
     print STDERR "expand_scalar name=$name status=$status\n" if $verbose;
 
     my $snode = {
@@ -679,8 +684,8 @@ sub expand_column
 				{descr => 1, values => $syntax->{values}});
     my $reference = findvalue($column, 'reference', {descr => 1});
 
-    $default = $default eq "" ? undef : $default eq '""' ? "" : $default;
-    
+    $default = fix_default($default);
+
     print STDERR "expand_column name=$name status=$status access=$access\n"
 	if $verbose;
 
@@ -822,7 +827,7 @@ sub expand_member
     my ($module, $name) = get_module_and_name($member);
 
     print STDERR "expand_member module=$module name=$name\n" if $verbose;
-    
+
     return {module => $module, name => $name};
 }
 
@@ -851,9 +856,9 @@ sub expand_compliance
     my $hash = {};
     $hash->{name} = $name if $name;
     $hash->{oid} = $oid if $oid;
-    $hash->{status} = $status if $status;    
-    $hash->{description} = $description if $description;    
-    
+    $hash->{status} = $status if $status;
+    $hash->{description} = $description if $description;
+
     foreach my $thing ($compliance->findnodes('requires|refinements')) {
 	my $element = findvalue($thing, 'local-name()');
 	push @{$hash->{$element}}, "expand_$element"->($thing);
@@ -903,7 +908,7 @@ sub expand_option
     my $description = findvalue($option, 'description', {descr => 1});
 
     print STDERR "expand_option module=$module name=$name\n" if $verbose;
-    
+
     return {module => $module, name => $name};
 }
 
@@ -937,7 +942,7 @@ sub expand_refinement
     $hash->{name} = $name if $name;
     $hash->{access} = $access if $access;
     $hash->{description} = $description if $description;
-    
+
     print STDERR "expand_refinement module=$module name=$name access=$access\n"
 	if $verbose;
 
@@ -1065,7 +1070,7 @@ sub findvalue
 
     # optionally convert to boolean 0/1
     if ($opts->{boolean}) {
-	$string = boolean($string);
+	    $string = boolean($string);
     }
 
     # optionally remove single newlines, change leading "-" to "*",
@@ -1167,7 +1172,7 @@ sub transform_names
         set_object_path($name, $root_name . '.');
         add_values($name, $scalar->{syntax});
     }
-    
+
     foreach my $table (@{$root->{tables}}) {
         my $name = $table->{name};
         my $path = analyse_linkage($table);
@@ -1179,7 +1184,7 @@ sub transform_names
             add_values($name, $column->{syntax});
         }
     }
-    
+
     foreach my $notification (@{$root->{notifications}}) {
         my $name = $notification->{name};
         my $path = analyse_notification($notification);
@@ -1267,7 +1272,7 @@ sub add_values
                 $tvalues->{values} = $hardvalues->{$type};
             }
         }
-        
+
         $values = $tvalues;
     }
 
@@ -1325,7 +1330,7 @@ sub output_xml
             my $module = $import->{module};
             my $name = $import->{name};
             next if $module eq 'SNMPv2-TC' && $name eq 'DisplayString';
-            
+
             # XXX assume that names that begin with upper-case letters are data
             #     types to be imported, and others are nodes etc that will
             #     be imported via components
@@ -1352,7 +1357,7 @@ sub output_xml
     foreach my $typedef (@{$root->{typedefs}}) {
         my $name = $typedef->{name};
         next if $name eq 'DisplayString';
-        
+
         my $basetype = $typedef->{basetype};
         my $status = $typedef->{status};
         my $description = $typedef->{description};
@@ -1373,7 +1378,7 @@ sub output_xml
 
         my $base = ($basetype !~ /$primitive_patt/) ?
             qq{ base="$basetype"} : qq{};
-        
+
         $status =~ s/obsolete/obsoleted/;
 	$status = ($status ne 'current') ? qq{ status="$status"} : qq{};
 
@@ -1509,7 +1514,7 @@ sub output_xml
 
         # keep unchanged name for use in id
         my $idname = $name;
-        
+
         # analyse linkage
         # XXX need to use analyse_linkage() routine
         # XXX should check module?
@@ -1537,7 +1542,7 @@ sub output_xml
             }
             $numEntries = qq{};
         }
-                
+
         my @unique = ();
         my @shared = ();
         if (defined $linkage->{index} && @{$linkage->{index}}) {
@@ -1550,7 +1555,7 @@ sub output_xml
                 }
             }
         }
-        
+
         # if not augmenting and no unique key this will be a single-instance
         # object
         if (!$linkage->{augments} && !@unique) {
@@ -1560,7 +1565,7 @@ sub output_xml
             $maxEntries = qq{1};
             $numEntries = qq{};
         }
-        
+
         # if single shared key this will be a child of the table that defines
         # the shared key
         # XXX this behavior should be configurable; might want to create
@@ -1585,7 +1590,7 @@ sub output_xml
         }
 
         my $cname = ucfirst $name;
-        
+
 	my $access = $table->{row}->{create} ? 'readWrite' : 'readOnly';
         $status =~ s/obsolete/obsoleted/;
 	$status = ($status ne 'current') ? qq{ status="$status"} : qq{};
@@ -1603,7 +1608,7 @@ sub output_xml
         $alldesc .= qq{$reference} if $reference;
         $alldesc .= qq{ } if $alldesc && $rowref;
         $alldesc .= qq{$rowref} if $rowref;
-        
+
         $description = xml_escape($alldesc, {indent => $i+3, name => $name});
 
 	if ($components) {
@@ -1834,6 +1839,9 @@ sub output_xml
                                 ($access eq 'readwrite') ? 'readWrite' :
                                 ($access eq 'noaccess') ? 'unknown' :
                                 'readOnly';
+                            # XXX why ever set it to 'unknown', which is
+                            #     not valid for the schema
+                            $access = 'readOnly' if $access eq 'unknown';
                             my $end_element = $description ? '' : '/';
                             output $i+2, qq{<parameter ref="$lname" requirement="$access"$end_element>};
                             if ($description) {
@@ -1853,7 +1861,7 @@ sub output_xml
                 $i++;
                 output $i, qq{<profile name="$pname" extends="};
                 foreach my $profile (@$profiles) {
-                    output $i+1, qq{$profile}; 
+                    output $i+1, qq{$profile};
                 }
                 my $end_element = $cdescription ? '' : '/';
                 output $i, qq{"$end_element>};
@@ -1897,7 +1905,7 @@ sub analyse_linkage
 
     my $name = $table->{name};
     my $linkage = $table->{row}->{linkage};
-    
+
     my $ppath = '';
     my $oname = $name . '.{i}';
 
@@ -1906,7 +1914,7 @@ sub analyse_linkage
         $name =~ s/Entry/Table/;
         $oname = $name . '.{i}';
     }
-                
+
     my @unique = ();
     my @shared = ();
     if (defined $linkage->{index} && @{$linkage->{index}}) {
@@ -1919,14 +1927,14 @@ sub analyse_linkage
             }
         }
     }
-        
+
     # if not augmenting and no unique key this will be a single-instance
     # object
     if (!$linkage->{augments} && !@unique) {
         $name =~ s/Table$//;
         $oname = $name;
     }
-        
+
     # if single shared key this will be a child of the table that defines
     # the shared key
     # XXX this behavior should be configurable; might want to create
@@ -2006,17 +2014,19 @@ sub output_parameter
     $description = xml_escape($description, {indent => $i+2, name => $name,
                                              addenum => $syntax->{values},
                                              append => $reference});
-    
+
     # treat 'noaccess' as 'readWrite' for writeable tables and 'readOnly'
     # for read-only tables
     my $parent_access = !$parent ? 'unknown' : $parent->{create} ?
         'readWrite' : 'readOnly';
     $access = ($access eq 'readwrite') ? 'readWrite' :
         ($access eq 'noaccess') ? $parent_access : 'readOnly';
+    # XXX why ever set it to 'unknown', which is not valid for the schema
+    $access = 'readOnly' if $access eq 'unknown';
     $status =~ s/obsolete/obsoleted/;
     $status = ($status ne 'current') ? qq{ status="$status"} : qq{};
     $previousParameter = $previousParameter ? qq{ dmr:previousParameter="$previousParameter"} : qq{};
-    
+
     my $type = $syntax->{type};
     my $sizes = $syntax->{sizes};
     my $ranges = $syntax->{ranges};
@@ -2024,12 +2034,12 @@ sub output_parameter
 
     my $list = ($values && defined $values->{list} &&
                 boolean($values->{list}));
-                
+
     my $end_element = ($sizes || $ranges || $values || $units) ? '' : '/';
 
     my $baseref = $end_element ? 'ref' : 'base';
     my $dataType = ($type =~ /$primitive_patt/) ? $type : 'dataType';
-    $baseref = ($dataType eq 'dataType') ? qq{ $baseref="$type"} : qq{}; 
+    $baseref = ($dataType eq 'dataType') ? qq{ $baseref="$type"} : qq{};
 
     output $i+1, qq{<parameter name="$lname" id="$name/$oid" access="$access"$status$previousParameter>};
     output $i+2, qq{<description>$description</description>};
@@ -2062,7 +2072,7 @@ sub output_parameter
     }
     output $i+4, qq{<units value="$units"/>} if $units;
     output $i+3, qq{</$dataType>} unless $end_element;
-    output $i+3, qq{<default type="factory" value="$default"/>} if 
+    output $i+3, qq{<default type="factory" value="$default"/>} if
         defined $default;
     output $i+2, qq{</syntax>};
     output $i+1, qq{</parameter>};
@@ -2078,7 +2088,7 @@ sub process_reference
 
     # look for a trailing "section a.b.c" with appropriate laxity
     # XXX should check for special characters, e.g. "|"
-    my ($doc, $sec) = 
+    my ($doc, $sec) =
         $reference =~ /^\s*(.*?)[,;\s]*([sS]ection\s*.*?)?\.*\s*$/;
 
     # if no match, return input
@@ -2097,18 +2107,17 @@ sub process_reference
 # escape characters that are special to XML
 # XXX also do various additional transformations; not really the right place to
 #     do this? and/or should do some of the findvalue() transformations here
-# XXX need to simplify {{param}} as appropriate, e.g. use plain {{param}}
 # XXX when is $dm_object_info not defined? what is right thing to do?
 # XXX note that absolute {{param}} scope is non-standard
 sub xml_escape
 {
     my ($value, $opts) = @_;
 
-    my $indent = $opts->{indent};    
+    my $indent = $opts->{indent};
     my $name = $opts->{name};
     my $addenum = $opts->{addenum};
     my $append = $opts->{append};
-    
+
     my $uname = $name ? $name : 'unknown';
 
     my $quotes = qq{'`"};
@@ -2120,21 +2129,24 @@ sub xml_escape
     $value =~ s/\</\&lt;/g;
     $value =~ s/\>/\&gt;/g;
 
-    # XXX should use {{param}} when possible
     # XXX try to protect against nested {{param}} by ignoring strings preceded
     #     by periods
     while (my ($from, $to) = each $transforms) {
         next unless $value =~ /\b\Q$from\E\b/;
+        my $bar = qq{|};
         ($to, my $rel) = relative_path($name, $from, $to);
-        my $scope = $rel ? '' : '|absolute';
-        $value =~ s/(\A|[^\.])[$quotes]?\b\Q$from\E\b[$quotes]?/${1}{{param|$to$scope}}/g;
+        $to = '' if $name && $name eq $from;
+        my $scope = $rel ? qq{} : qq{|absolute};
+        $bar = qq{} if !$to && !$scope;
+        $value =~ s/(\A|[^\.])[$quotes]?\b\Q$from\E\b[$quotes]?/${1}{{param$bar$to$scope}}/g;
+
     }
 
     # XXX note that comparisons are case-blind; probably not a good idea but
     #     done because a particular MIB was lax about case
     #foreach my $enum (sort {length($b) <=> length($a)} keys %$value_map) {
     #    my $objects = $value_map->{$enum};
-    while (my ($enum, $objects) = each $value_map) {    
+    while (my ($enum, $objects) = each $value_map) {
         # split $enum - value(code) - into value and code
         my ($val, $cod) = $enum =~ /^(.*)\((\d+)\)$/;
 
@@ -2177,10 +2189,11 @@ sub xml_escape
     $value =~ s/[$quotes]?\btrue\b[$quotes]?/{{true}}/g;
 
     $value = html_whitespace($value);
-    $value .= qq{ {{enum}}} if $addenum && $append;
+    # XXX was space before but for now hard-code \n (this is worse?)
+    $value .= qq{\n{{enum}}} if $addenum && $append;
     $value .= qq{\n$append} if $append;
     $value = xml_whitespace($value, $indent) if $indent;
-    
+
     return $value;
 }
 
@@ -2260,9 +2273,9 @@ sub common_prefix
     # spaces between lower-case and upper-case letters, then split on white
     # space
     my ($am, $bm) = ($a, $b);
-    $am =~ s/(?<=[a-z])(?=[A-Z])/ /g; 
-    $bm =~ s/(?<=[a-z])(?=[A-Z])/ /g; 
-    my @a = split " ", $am; 
+    $am =~ s/(?<=[a-z])(?=[A-Z])/ /g;
+    $bm =~ s/(?<=[a-z])(?=[A-Z])/ /g;
+    my @a = split " ", $am;
     my @b = split " ", $bm;
 
     # build the prefix; never use the last component of either name
@@ -2297,7 +2310,7 @@ sub common_prefix_dots
             $p .= $a[$i];
         } else {
             last;
-        }        
+        }
     }
 
     return ($p, $i);
@@ -2309,7 +2322,7 @@ sub relative_path
     my ($name, $from, $to) = @_;
 
     $name = '' unless $name;
-    
+
     my $name_object_path = $dm_object_info->{$name}->{path} || '';
     my $to_object_path = $dm_object_info->{$from}->{path} || '';
 
@@ -2332,4 +2345,12 @@ sub relative_path
     }
 
     return ($to_param_path, $relative);
+}
+
+# fix default value
+sub fix_default {
+    my ($default) = @_;
+
+    return $default eq "" ? undef : $default eq '""' ? "" : $default eq "()" ?
+        "" : $default;
 }
