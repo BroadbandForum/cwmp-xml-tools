@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2015, 2016, 2017  Broadband Forum
+# Copyright (C) 2015, 2016, 2017, 2018  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -184,8 +184,8 @@ use utf8;
 #     last svn version was 299, so will start manual versions from 400
 #     (3xx versions are possible if anyone continues to use svn)
 my $tool_author = q{$Author: wlupton $};
-my $tool_vers_date = q{$Date: 2018-03-28 $};
-my $tool_id = q{$Id: report.pl 422 $};
+my $tool_vers_date = q{$Date: 2018-09-14 $};
+my $tool_id = q{$Id: report.pl 422+ $};
 
 my $tool_url = q{https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool};
 
@@ -1143,7 +1143,7 @@ sub expand_import
         }
 
         emsg "{$file}$ref: invalid import of internal $element"
-            if $ref =~ /^_/;
+            if $ref =~ /^_/ && $element ne 'dataType';
 
         # XXX this logic is (originally) from expand_model_component
         my ($elem) = grep {$_->{element} eq $element && $_->{name} eq $ref}
@@ -1178,6 +1178,13 @@ sub expand_import
         # XXX update regardless; will get another error if try to use it
         update_imports($cfile, $cspec, $file, $fspec, $element, $name, $ref,
                        $fitem);
+
+        # if it's a data type and is being imported under a different name,
+        # add a new data type as an alias of the imported one (if the alias
+        # is the name of an existing data type, the old one will be marked
+        # deleted)
+        add_datatype_alias($name, $ref)
+            if $element eq 'dataType' and $name ne $ref;
     }
     shift @$context;
 }
@@ -1270,6 +1277,9 @@ sub expand_dataType
         $node->{description} = $description;
 
     } else {
+        # inherit description from base type
+        $description = $btype->{description} if $btype && !$description;
+
         # XXX only doing a partial job of inheriting the syntax from the base
         #     type; should check that constraints are never extended
         # XXX really it would be better not to copy at all, and traverse the
@@ -1415,6 +1425,27 @@ sub update_datatypes
 
     # also mark the base type (recursively)
     update_datatypes($dataType->{base}, $file, $spec) if $dataType->{base};
+}
+
+# Define a data type alias
+sub add_datatype_alias
+{
+    my ($name, $ref) = @_;
+
+    # if should only be called when name and ref are different (actually
+    # nothing bad would happen if they're the same)
+    return if $name eq $ref;
+
+    my ($existing) = grep {$_->{name} eq $ref} @{$root->{dataTypes}};
+    return unless $existing;
+
+    my ($proposed) = grep {$_->{name} eq $name} @{$root->{dataTypes}};
+    $proposed->{name} = '%deleted%' if $proposed;
+
+    my $node = util_copy($existing);
+    $node->{name} = $name;
+
+    push @{$root->{dataTypes}}, $node;
 }
 
 # Expand a bibliography definition.
@@ -4709,6 +4740,8 @@ sub base_type
     my $base = $defn->{base};
     my $prim = $defn->{prim};
 
+    $recurse = 1 if $base =~ /^_[A-Z]/;
+
     emsg "$name: no base or primitive data type; invalid XML?"
         if !$base && !$prim;
 
@@ -5733,9 +5766,9 @@ sub xml_datatypes
     # XXX status and descact are ignored
 
     foreach my $dataType (@$dataTypes) {
-        # ignore primitive data types
+        # ignore primitive or marked data types
         my $name = $dataType->{name};
-        next if $name =~ /^_[a-z]/;
+        next if $name =~ /^_[a-z]/ || $name =~ /^%\w+%$/;
 
         my $base = $dataType->{base};
         my $prim = $dataType->{prim};
@@ -7269,12 +7302,16 @@ END
                 my $name = $datatype->{name};
                 my $prim = $name =~ /^_[a-z]/;
 
+                # ignore internal ("_UPPER") and marked ("%word%") type names
+                my $ignore = $name =~ /^_[A-Z]/ || $name =~ /^%\w+%$/;
+                next if $ignore;
+
                 # XXX this is the wrong criterion; the test should be whether
                 #     any of the parameters in the report use the data type
                 next if $lastonly && !$prim &&
                     !grep {$_ eq $lspecf} @{$datatype->{specs}};
 
-                # get the base type
+                # get the base type (this recurses for internal type names)
                 my $base = base_type($name, 0);
 
                 # for primitive types, ignore the underscore and the base type
