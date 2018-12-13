@@ -596,7 +596,7 @@ my $samename = 0;
 {
     my $seen = {};
     foreach my $path (@ARGV) {
-        my ($vol, $dir, $file) = File::Spec->splitpath($path);
+        my ($vol_ignore, $dir_ignore, $file) = File::Spec->splitpath($path);
         $samename = 1 if $seen->{$file};
         $seen->{$file} = 1;
     }
@@ -5051,7 +5051,8 @@ sub parse_file
         my ($dir, $file) = find_file($path, $fdir);
         if (!$dir) {
             (my $scheme_ignore, my $auth_ignore, $path) = uri_split($path);
-            (my $vol_ignore, $dir, $path) = File::Spec->splitpath($path);
+            (my $vol_ignore, my $dir_ignore, $path) =
+                File::Spec->splitpath($path);
             ($dir, $file) = find_file($path, $fdir);
         }
         if ($dir) {
@@ -5114,10 +5115,9 @@ sub find_file
     my $dirs = [];
 
     # if file includes directory, it overrides the search path for this call
-    # XXX is it safe to ignore the volume?
     (my $vol, my $dir, $file) = File::Spec->splitpath($file);
     if ($dir) {
-        push @$dirs, $dir;
+        push @$dirs, File::Spec->catpath($vol, $dir);
     } else
 
     # always prepend $predir if non-empty, followed by the current directory
@@ -5166,7 +5166,8 @@ sub find_file
                 File::Spec->catfile($dir, qq{$name-$i-$a-*$label.xml}));
             foreach my $file (@files) {
                 # remove directory part
-                (my $tvol, my $tdir, $file) = File::Spec->splitpath($file);
+                (my $vol_ignore, my $dir_ignore, $file) =
+                    File::Spec->splitpath($file);
                 # XXX assumes no special RE chars anywhere...
                 my ($n) = $file =~ /^$name-$i-$a-(\d+)$label\.xml$/;
                 if (defined $n && (!defined $c || $n > $c)) {
@@ -11442,7 +11443,8 @@ END
                     $link && $link !~ /^\#/ && $link !~ /^http/) {
                     my ($ovol, $odir, $ofile) = File::Spec->splitpath($outfile);
                     if (defined $odir) {
-                        my ($dir) = find_file($link, $odir, 1);
+                        my ($dir) = find_file($link, File::Spec->
+                                              catpath($ovol, $odir), 1);
                         emsg "hyperlink to non-existent $link" unless $dir;
                     }
                 }
