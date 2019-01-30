@@ -675,6 +675,9 @@ push @$commandcolors, "silver"  if @$commandcolors < 2;
 push @$commandcolors, "pink"    if @$commandcolors < 3;
 push @$commandcolors, "#FFE4E1" if @$commandcolors < 4;
 
+push @$commandcolors, "#B3E0FF" if @$commandcolors < 5; # color for mountable objects
+push @$commandcolors, "#4db8ff" if @$commandcolors < 6; # color for mount point objects
+
 # configfile used to be set via $options->{configfile} but now can be set via
 # $configfile; if both are set, the newer $configfile wins, but warn
 if ($options->{configfile}) {
@@ -7024,6 +7027,8 @@ sub html_node
     my $arguments_bg = qq{background-color: $commandcolors->[1];};
     my $argobject_bg = qq{background-color: $commandcolors->[2];};
     my $argparam_bg = qq{background-color: $commandcolors->[3];};
+    my $mountableobject_bg = qq{background-color: $commandcolors->[4];};
+    my $mountpoint_bg = qq{background-color: $commandcolors->[5];};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
     # foo_oc (open comment) and foo_cc (close comment) control generation of
@@ -7041,6 +7046,7 @@ sub html_node
     my $profile = ($node->{type} =~ /profile/);
     my $parameter = $node->{syntax}; # pretty safe? not profile params...
     my $is_command = $node->{is_command} ? 1 : 0;
+    my $is_mountable = $node->{mountType} ?  ($node->{mountType} eq "mountable" ? 1 : 2) : 0;
     my $is_arguments = $node->{is_arguments} ? 1 : 0;
     my $is_event = $node->{is_event} ? 1 : 0;
     my $parameter_like = $parameter || $is_command || $is_event;
@@ -7175,23 +7181,31 @@ $do_not_edit
       tr, tr.o { $row $font }
       tr.n { $row $font $fontnew }
       td.o { $row $font $object_bg }
+      td.m { $row $font $mountableobject_bg }
+      td.q { $row $font $mountpoint_bg }
       td.c { $row $font $command_bg }
       td.d { $row $font $arguments_bg }
       td.e { $row $font $argobject_bg }
       td.f { $row $font $argparam_bg }
       td, td.p { $row $font }
       td.oc { $row $font $object_bg $center }
+      td.mc { $row $font $mountableobject_bg $center }
+      td.qc { $row $font $mountpoint_bg $center }
       td.cc { $row $font $command_bg $center }
       td.dc { $row $font $arguments_bg $center }
       td.ec { $row $font $argobject_bg $center }
       td.fc { $row $font $argparam_bg $center }
       td.pc { $row $font $center }
       td.on { $row $font $object_bg $fontnew }
+      td.mn { $row $font $mountableobject_bg $fontnew }
+      td.qn { $row $font $mountpoint_bg $fontnew }
       td.cn { $row $font $command_bg $fontnew }
       td.dn { $row $font $arguments_bg $fontnew }
       td.en { $row $font $argobject_bg $fontnew }
       td.fn { $row $font $argparam_bg $fontnew }
       td.od { $row $font $object_bg $fontdel $strike }
+      td.md { $row $font $mountableobject_bg $fontdel $strike }
+      td.qd { $row $font $mountpoint_bg $fontdel $strike }
       td.cd { $row $font $command_bg $fontdel $strike }
       td.dd { $row $font $arguments_bg $fontdel $strike }
       td.ed { $row $font $argobject_bg $fontdel $strike }
@@ -7199,7 +7213,11 @@ $do_not_edit
       td.pn { $row $font $fontnew }
       td.pd { $row $font $fontdel $strike }
       td.onc { $row $font $object_bg $fontnew $center }
+      td.mnc { $row $font $mountableobject_bg $fontnew $center }
+      td.qnc { $row $font $mountpoint_bg $fontnew $center }
       td.odc { $row $font $object_bg $fontdel $strike $center }
+      td.mdc { $row $font $mountableobject_bg $fontdel $strike $center }
+      td.qdc { $row $font $mountpoint_bg $fontdel $strike $center }
       td.cnc { $row $font $command_bg $fontnew $center }
       td.cdc { $row $font $command_bg $fontdel $strike $center }
       td.dnc { $row $font $arguments_bg $fontnew $center }
@@ -7478,7 +7496,11 @@ END
         #     - f : parameter argument
         if ($is_command || $is_event) {
             $tdclass = 'c';
-        } elsif ($command_or_event) {
+        } 
+        elsif ($is_mountable) {
+          $tdclass = ($is_mountable == 1) ? 'm' : 'q';
+        }
+        elsif ($command_or_event) {
             if ($tdclass eq 'o') {
                 $tdclass = $is_arguments ? 'd' : 'e';
             } else {
