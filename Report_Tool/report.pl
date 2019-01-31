@@ -275,6 +275,7 @@ our $loglevel = 'w';
 our $logoalt = '';
 our $logoref = '';
 our $logosrc = '';
+our $markmounttype = undef;
 our $marktemplates = undef;
 our $maxchardiffs = 5;
 our $maxworddiffs = 10;
@@ -359,6 +360,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'logoalt:s' => \$logoalt,
            'logoref:s' => \$logoref,
            'logosrc:s' => \$logosrc,
+           'markmounttype' => \$markmounttype,
            'marktemplates' => \$marktemplates,
            'maxchardiffs:i' => \$maxchardiffs,
            'maxworddiffs:i' => \$maxworddiffs,
@@ -1786,7 +1788,7 @@ sub expand_model_object
     my $maxEntries = $object->findvalue('@maxEntries');
     my $numEntriesParameter = $object->findvalue('@numEntriesParameter');
     my $enableParameter = $object->findvalue('@enableParameter');
-    my $mountType = $object->findvalue('@mountType|@mounttype');
+    my $mountType = $markmounttype ? $object->findvalue('@mountType|@mounttype') :'';
     my $status = $object->findvalue('@status');
     my $id = $object->findvalue('@id');
     my $description = $object->findvalue('description');
@@ -13840,6 +13842,7 @@ B<report.pl>
 [--logoalt=s()]
 [--logoref=s()]
 [--logosrc=s()]
+[--markmounttype]
 [--marktemplates]
 [--maxchardiffs=i(5)]
 [--maxworddiffs=i(10)]
@@ -14166,6 +14169,10 @@ if any other B<--logoxxx> options are specified, the default is an empty string
 URL of logo image in the top left-hand corner of the HTML report
 
 if any other B<--logoxxx> options are specified, the default is an empty string
+
+=item B<--markmounttype>
+
+mark mountable objects and mount point objects in color and text (only applicable for USP)
 
 =item B<--marktemplates>
 
