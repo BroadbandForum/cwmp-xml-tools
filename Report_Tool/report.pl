@@ -1518,13 +1518,12 @@ sub expand_bibliography
 
         # XXX could also check for missing date (etc)...
 
-        # for TRs, don't want hyperlink, so can auto-generate the correct
+        # for BBF TR's:
+        # if no hyperlink is specified, generate correct
         # hyperlink according to BBF conventions
-        if ($hash->{organization} eq $bbf && $hash->{category} eq $tr) {
-            if ($hash->{hyperlink}) {
-                msg "W", "$id: $file: replaced deprecated $bbf $tr hyperlink"
-                    if $warnbibref > 1 || $loglevel >= $LOGLEVEL_DEBUG;
-            }
+        # 
+        if (!$hash->{hyperlink} && $hash->{organization} eq $bbf && $hash->{category} eq $tr)
+        {
             my $h = $trpage;
             my $trname = $id;
             $trname =~ s/i(\d+)/_Issue-$1/;
