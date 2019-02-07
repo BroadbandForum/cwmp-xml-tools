@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2015, 2016, 2017, 2018  Broadband Forum
+# Copyright (C) 2015, 2016, 2017, 2018, 2019  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -177,7 +177,7 @@ use XML::LibXML;
 use utf8;
 
 # update the date (yyyy-mm-dd) each time the report tool is changed
-my $tool_vers_date = q{2018-11-12};
+my $tool_vers_date = q{2019-02-07};
 
 # update the version when making a new release
 # a "+" after the version number indicates an interim version
@@ -2808,7 +2808,8 @@ sub expand_model_profile_object
 
     d1msg "expand_model_profile_object path=$Path ref=$name";
 
-    $name = $Path . $name if $Path;
+    # if the name is relative, $Path was already accounted for by the parent
+    $name = $Path . $name if $Path && !$name_is_relative;
 
     # these errors are reported by sanity_node
     my $fpath = util_full_path($Pnode, 1) . $name;
