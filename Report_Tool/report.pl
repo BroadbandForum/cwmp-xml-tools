@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2015, 2016, 2017, 2018  Broadband Forum
+# Copyright (C) 2015, 2016, 2017, 2018, 2019  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -177,7 +177,7 @@ use XML::LibXML;
 use utf8;
 
 # update the date (yyyy-mm-dd) each time the report tool is changed
-my $tool_vers_date = q{2018-11-12};
+my $tool_vers_date = q{2019-02-07};
 
 # update the version when making a new release
 # a "+" after the version number indicates an interim version
@@ -4402,6 +4402,18 @@ sub get_values
     my $changed_values;
     if (defined $node->{type}) {
         $values = $node->{values};
+        # if no values on the node, try to get them from the data type
+        if (!%$values) {
+            my $typeinfo = get_typeinfo($node->{type}, $node->{syntax});
+            if ($typeinfo->{dataType}) {
+                my $dtname = $typeinfo->{value};
+                my ($dtdef) =
+                    grep {$_->{name} eq $dtname} @{$root->{dataTypes}};
+                if ($dtdef) {
+                    $values = $dtdef->{values};
+                }
+            }
+        }
         $is_modified = util_node_is_modified($node);
         $changed_values = $node->{changed}->{values};
     } else {
