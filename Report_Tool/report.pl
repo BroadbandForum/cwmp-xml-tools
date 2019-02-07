@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2015, 2016, 2017, 2018  Broadband Forum
+# Copyright (C) 2015, 2016, 2017, 2018, 2019  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -177,7 +177,7 @@ use XML::LibXML;
 use utf8;
 
 # update the date (yyyy-mm-dd) each time the report tool is changed
-my $tool_vers_date = q{2018-11-12};
+my $tool_vers_date = q{2019-02-07};
 
 # update the version when making a new release
 # a "+" after the version number indicates an interim version
@@ -13494,11 +13494,13 @@ sub sanity_node
 
         w2msg "$path: string parameter has no maximum length specified" if
             maxlength_appropriate($path, $name, $type) &&
-            !has_values($values) && !has_maxlength($syntax);
+            !has_values($values) && !$syntax->{reference} &&
+            !has_maxlength($syntax);
 
         w1msg "$path: enumeration has unnecessary maximum length specified" if
             maxlength_appropriate($path, $name, $type) &&
-            !$node->{hasPattern} && has_values($values) &&
+            !$node->{hasPattern} && (has_values($values) ||
+                                     $syntax->{reference}) &&
             has_maxlength($syntax);
 
         # XXX why the special case for lists?  suppressed
