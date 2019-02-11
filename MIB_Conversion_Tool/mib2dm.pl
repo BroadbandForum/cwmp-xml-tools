@@ -315,10 +315,10 @@ my $bibrefs = {
         regex => qr{MoCA MAC/PHY Specification( v?2\.0)?},
         id => 'MOCA20-MIB',
     },
-    'MoCA Access MAC/PHY Specification 2.5' => {
-        regex => qr{MoCA Access MAC/PHY Specification( v?2\.5)?},
+    'MoCA Access MAC/PHY Specification v2.5' => {
+        regex => qr{MoCA Access MAC/PHY Specification v?2\.5},
         id => 'MOCA-ACCESS-25-MIB',
-    },
+    }
 };
 
 # parse files specified on the command line
@@ -1623,6 +1623,10 @@ sub output_xml
                     @{$table->{row}->{columns}}) {
                     push @unique, $index->{name};
                 } else {
+                    # second and subsequent shared keys are unique keys
+                    if (@shared > 0) {
+                        push @unique, $index->{name};
+                    }
                     push @shared, $index->{name};
                 }
             }
@@ -1639,20 +1643,16 @@ sub output_xml
         }
 
         # if single shared key this will be a child of the table that defines
-        # the shared key
+        # the shared key; second and subsequent shared keys are unique keys
         # XXX this behavior should be configurable; might want to create
         #     a new table that references entries in the table with the
         #     shared key
-        # XXX can't handle cases where there is more than one shared key;
-        #     in this case there are several options...
         my $ppath = '';
         my $paccess = undef;
         my $pminEntries = undef;
         my $pmaxEntries = undef;
         if (@shared) {
             my $list = join ', ', @shared;
-            w0msg "$name: ignoring second and subsequent shared " .
-                "key $list" if @shared > 1;
             my $key = $shared[0];
             my $info = $dm_object_info->{$key};
             $ppath = $info->{path};
@@ -1720,6 +1720,11 @@ sub output_xml
 	}
 
 	unless ($noparameters) {
+            # the first shared key was already handled
+            foreach my $key (@shared[1 .. $#shared]) {
+                my $column = $tree_node->{$key};
+                output_parameter($column, $i, {parent => $table->{row}});
+            }
 	    foreach my $column (@{$table->{row}->{columns}}) {
                 if ($ignorerowstatus &&
                     $column->{syntax}->{type} eq 'RowStatus') {
@@ -1901,7 +1906,7 @@ sub output_xml
                             my $description = qq{};
                             my $override = $overrides->{$name};
                             if ($override) {
-                                $access = $override->{access};
+                                $access = $override->{access} if defined $override->{access};
                                 $description =
                                     xml_escape($override->{description},
                                                {indent => $i+3,
@@ -2008,17 +2013,13 @@ sub analyse_linkage
     }
 
     # if single shared key this will be a child of the table that defines
-    # the shared key
+    # the shared key; second and subsequent shared keys are unique keys
     # XXX this behavior should be configurable; might want to create
     #     a new table that references entries in the table with the
     #     shared key
-    # XXX can't handle cases where there is more than one shared key;
-    #     in this case there are several options...
     # XXX this assumes that the $dm_object_info path is already defined
     if (@shared) {
         my $list = join ', ', @shared;
-        w0msg "$name: ignoring second and subsequent shared " .
-            "key $list" if @shared > 1;
         $ppath = $dm_object_info->{$shared[0]}->{path};
     }
 
@@ -2211,7 +2212,6 @@ sub xml_escape
         my $scope = $rel ? qq{} : qq{|absolute};
         $bar = qq{} if !$to && !$scope;
         $value =~ s/(\A|[^\.])[$quotes]?\b\Q$from\E\b[$quotes]?/${1}{{param$bar$to$scope}}/g;
-
     }
 
     # XXX note that comparisons are case-blind; probably not a good idea but
