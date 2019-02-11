@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2015, 2016, 2017, 2018, 2019  Broadband Forum
+# Copyright (C) 2015, 2016, 2017, 2018  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -177,7 +177,7 @@ use XML::LibXML;
 use utf8;
 
 # update the date (yyyy-mm-dd) each time the report tool is changed
-my $tool_vers_date = q{2019-02-07};
+my $tool_vers_date = q{2019-01-14};
 
 # update the version when making a new release
 # a "+" after the version number indicates an interim version
@@ -847,6 +847,14 @@ sub expand_toplevel
                     lfile => $file, lspec => $spec,
                     path => '', name => ''}];
 
+    # expand description templates in the top level file(s) first
+    # XXX Has to be executed before imports are processed
+    d0msg("expand description templates in top level file $file");
+    foreach my $item ($toplevel->findnodes('template'))
+    {
+      expand_template($context, $root, $item);
+    }
+
     foreach my $item
         ($toplevel->findnodes('import|dataType|bibliography|model')) {
         my $element = $item->findvalue('local-name()');
@@ -1095,7 +1103,14 @@ sub expand_import
         }
     }
 
-    # expand bibliogaphy in the imported file
+    # expand description templates in the imported file
+    d0msg("expand description templates in import file $file");
+    foreach my $item ($toplevel->findnodes('template'))
+    {
+      expand_template($context, $root, $item);
+    }
+
+    # expand bibliography in the imported file
     my ($bibliography) = $toplevel->findnodes('bibliography');
     expand_bibliography($context, $root, $bibliography) if $bibliography;
 
@@ -1380,6 +1395,29 @@ sub expand_description
 {
     my ($context, $node, $dataType) = @_;
 
+}
+
+# Store description templates in internal list if not stored before
+sub expand_template
+{
+    my ($context, $node, $description) = @_;
+
+    my $content = $description->textContent;
+    $content =~ s/^\s+|\s+$//g;
+
+    my $desid = $description->{id};
+    my $file = $context->[0]->{file};
+    my $template = $root->{templates}->{$desid};
+
+    if (!$template)
+    {
+      w1msg ("Add template $desid from file $file to internal list");
+      $root->{templates}->{$desid} = $content;
+    }
+    else
+    {
+      w1msg ("Description template $desid is already defined, definition from file $file is ignored");
+    }
 }
 
 # Update list of data types that are actually used (the specs attribute is an
@@ -8430,7 +8468,8 @@ sub html_template
          {name => 'mark', text1 => q{<mark>$a[0]</mark>}},
          {name => 'sub', text1 => q{<sub>$a[0]</sub>}},
          {name => 'sup', text1 => q{<sup>$a[0]</sup>}},
-         {name => 'ignore', text => q{}}
+         {name => 'ignore', text => q{}},
+         {name => 'templ', text => \&html_template_description}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -8573,6 +8612,20 @@ sub html_template_issue
     $status = $status ? qq{ ($status)} : qq{};
 
     return qq{\n'''$mark$prefix $counter$status: $comment$mark'''};
+}
+
+# insert description from template
+sub html_template_description
+{
+    my ($opts, $arg1, $arg2) = @_;
+
+    my $template = $root->{templates}->{$arg1};
+    if (!$template)
+    {
+      emsg "Description template $arg1 is undefined";
+      $template = qq{'''DESCRIPTION TEMPLATE FOR >$arg1< IS MISSING HERE'''};
+    }
+    return $template;
 }
 
 # insert appropriate null value
