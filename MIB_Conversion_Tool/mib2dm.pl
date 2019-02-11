@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2016, 2017, 2018  Honu Ltd
+# Copyright (C) 2016, 2017, 2018, 2019  Honu Ltd
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -63,10 +63,11 @@ mib2dm.pl - convert MIB XML to BBF DM Instances
 
 B<mib2dm.pl>
 [--components]
+[--nologprefix]
 [--noobjects]
 [--noparameters]
 [--pedantic[=i(1)]]
-[--verbose]
+[--verbose[=i(1)]]
 [--help]
 MIB-XML-file...
 
@@ -86,6 +87,10 @@ causes components to be created (a) for top-level parameters (scalars) and (b) f
 
 the component containing the top-level parameters has the same name as the MIB's first node, and the components containing table definitions are names the same as their tables
 
+=item B<--nologprefix>
+
+suppresses log message prefixes, i.e. the strings such as "E: " or "W: " that indicate errors, warnings etc
+
 =item B<--noobjects>
 
 suppresses generation of all objects, so the generated data model is flat and consists only of parameter definitions
@@ -94,13 +99,17 @@ suppresses generation of all objects, so the generated data model is flat and co
 
 suppresses generation of all parameters (apart from NumberOfEntries parameters), so the generated data model is flat and consists only of object definitions
 
-=item B<--pedantic[=i(1)]>
+=item B<--pedantic=[i(1)]>
 
 enables output of warnings to I<stderr> when logical inconsistencies in the XML are detected; if the option is specified without a value, the value defaults to 1
 
-=item B<--verbose>
+this has the same effect as setting B<--loglevel> to "w" (warning) followed by the pedantic value minus one, e.g. "w1" for B<--pedantic=2>
 
-enables verbose output
+=item B<--verbose[=i(1)]>
+
+enables verbose output; the higher the level the more the output
+
+this has the same effect as setting B<--loglevel> to "d" (debug) followed by the verbose value minus one, e.g. "d2" for B<--verbose=3>
 
 =item B<--help>
 
@@ -131,25 +140,92 @@ my $schema_version = "1-5";
 my $components = 0;
 my $help = 0;
 my $ignorerowstatus = 0;
+my $loglevel = 'w';
 my $namemangle = 0;
+my $nologprefix = 0;
 my $noobjects = 0;
 my $nooutput = 0;
 my $noparameters = 0;
 my $pedantic;
-my $verbose = 0;
+my $verbose = undef;
 GetOptions('components' => \$components,
 	   'help' => \$help,
 	   'ignorerowstatus' => \$ignorerowstatus,
+           'loglevel' => \$loglevel,
 	   'namemangle' => \$namemangle,
+           'nologprefix' => \$nologprefix,
 	   'noobjects' => \$noobjects,
 	   'nooutput' => \$nooutput,
 	   'noparameters' => \$noparameters,
 	   'pedantic:i' => \$pedantic,
-	   'verbose' => \$verbose) or pod2usage(2);
+	   'verbose:i' => \$verbose) or pod2usage(2);
 pod2usage(1) if $help;
+
+# loglevel constants
+my $LOGLEVEL_FATAL   = 00;
+my $LOGLEVEL_ERROR   = 10;
+my $LOGLEVEL_INFO    = 20;
+my $LOGLEVEL_WARNING = 30;
+my $LOGLEVEL_DEBUG   = 40;
+
+# msg helpers from report.pl (use parsed loglevel; see below)
+sub msg;
+sub tmsg  { msg 'T', @_; } # used for temporary debug output
+sub fmsg  { msg 'F', @_ if $loglevel >= $LOGLEVEL_FATAL;       }
+sub emsg  { msg 'E', @_ if $loglevel >= $LOGLEVEL_ERROR;       }
+sub imsg  { msg 'I', @_ if $loglevel >= $LOGLEVEL_INFO;        }
+sub w0msg { msg 'W', @_ if $loglevel >= $LOGLEVEL_WARNING;     }
+sub w1msg { msg 'W', @_ if $loglevel >= $LOGLEVEL_WARNING + 1; }
+sub w2msg { msg 'W', @_ if $loglevel >= $LOGLEVEL_WARNING + 2; }
+sub d0msg { msg 'D', @_ if $loglevel >= $LOGLEVEL_DEBUG;       }
+sub d1msg { msg 'D', @_ if $loglevel >= $LOGLEVEL_DEBUG + 1;   }
+sub d2msg { msg 'D', @_ if $loglevel >= $LOGLEVEL_DEBUG + 2;   }
+
+my $msgs = []; # warnings and errors logged via msg()
+my $num_fatals = 0;
+my $num_errors = 0;
+
+# parse loglevel (can't use the msg routines until have set it)
+# 0x=fatal, 1x=error, 2x=info, 3x=warning, 4x=debug
+{
+    my $orig_loglevel = $loglevel;
+    my ($tname, $tvalue) = ($loglevel =~ /^(\D+)(\d?)$/);
+    undef $loglevel; # is set below
+    $tvalue = 0 unless $tvalue;
+    my @levels = ('fatal', 'error', 'info', 'warning', 'debug');
+    if (defined $tname) {
+        for (my $i = 0; $i < @levels; $i++) {
+            if ($tname eq substr($levels[$i], 0, length $tname)) {
+                $loglevel = 10 * $i + $tvalue;
+                last;
+            }
+        }
+    }
+    if (!defined $loglevel) {
+        $loglevel = $LOGLEVEL_ERROR;
+        emsg "invalid --loglevel $orig_loglevel";
+        pod2usage(2);
+    }
+}
 
 $pedantic = 1 if defined($pedantic) and !$pedantic;
 $pedantic = 0 unless defined($pedantic);
+
+$verbose = 1 if defined($verbose) and !$verbose;
+$verbose = 0 unless defined($verbose);
+
+# pedantic and verbose are replaced by loglevel:
+# - pedantic sets loglevel to LOGLEVEL_WARNING + pedantic - 1
+# - verbose  sets loglevel to LOGLEVEL_DEBUG   + verbose  - 1
+# then the variables are undefined to avoid inadvertent usage
+if ($pedantic) {
+    $loglevel = $LOGLEVEL_WARNING + $pedantic - 1;
+    undef $pedantic;
+}
+if ($verbose) {
+    $loglevel = $LOGLEVEL_DEBUG + $verbose - 1;
+    undef $verbose;
+}
 
 # globals
 my $root = {
@@ -269,7 +345,7 @@ sub parse_file
 {
     my ($file)= @_;
 
-    print STDERR "processing file: $file\n" if $verbose;
+    d0msg "processing file: $file";
 
     # parse file
     my $parser = XML::LibXML->new();
@@ -302,8 +378,7 @@ sub expand_module
     my $reference = findvalue($module, 'reference', {descr => 1});
     my $identity_node = findvalue($module, 'identity/@node');
 
-    print STDERR "expand_module name=$name organization=$organization\n"
-	if $verbose;
+    d0msg "expand_module name=$name organization=$organization";
 
     # XXX root is all rather ad hoc
     $root->{module} = $name;
@@ -357,7 +432,7 @@ sub expand_revision
    my $date = findvalue($revision, '@date');
    my $description = findvalue($revision, 'description', {descr => 1});
 
-   print STDERR "expand_revision date=$date\n" if $verbose;
+   d0msg "expand_revision date=$date";
 
    return {date => $date, description => $description};
 }
@@ -367,7 +442,7 @@ sub expand_imports
 {
     my ($imports) = @_;
 
-    print STDERR "expand_imports\n" if $verbose;
+    d0msg "expand_imports";
 
     foreach my $import ($imports->findnodes('import')) {
 	push @{$root->{imports}}, expand_import($import);
@@ -381,7 +456,7 @@ sub expand_import
 
     my ($module, $name) = get_module_and_name($import);
 
-    print STDERR "expand_import module=$module name=$name\n" if $verbose;
+    d0msg "expand_import module=$module name=$name";
 
     return {module => $module, name => $name};
 }
@@ -391,7 +466,7 @@ sub expand_typedefs
 {
     my ($typedefs) = @_;
 
-    print STDERR "expand_typedefs\n" if $verbose;
+    d0msg "expand_typedefs";
 
     foreach my $typedef ($typedefs->findnodes('typedef')) {
         push @{$root->{typedefs}}, expand_typedef($typedef);
@@ -415,8 +490,8 @@ sub expand_typedef
     $status = 'current' unless $status;
     $default = fix_default($default);
 
-    print STDERR "expand_typedef name=$name basetype=$basetype " .
-	"status=$status format=$format\n" if $verbose;
+    d0msg "expand_typedef name=$name basetype=$basetype " .
+	"status=$status format=$format";
 
     my $hash = {};
     $hash->{name} = $name if $name;
@@ -446,7 +521,7 @@ sub expand_parent
 
     my ($module, $name) = get_module_and_name($parent);
 
-    print STDERR "expand_parent module=$module name=$name\n" if $verbose;
+    d0msg "expand_parent module=$module name=$name";
 
     return {module => $module, name => $name};
 }
@@ -459,7 +534,7 @@ sub expand_range
     my $min = findvalue($range, '@min');
     my $max = findvalue($range, '@max');
 
-    print STDERR "expand_range min=$min max=$max\n" if $verbose;
+    d0msg "expand_range min=$min max=$max";
 
     return {min => $min, max => $max};
 }
@@ -472,7 +547,7 @@ sub expand_namednumber
     my $name = findvalue($namednumber, '@name');
     my $number = findvalue($namednumber, '@number');
 
-    print STDERR "expand_namednumber name=$name number=$number\n" if $verbose;
+    d0msg "expand_namednumber name=$name number=$number";
 
     return {name => $name, number => $number};
 }
@@ -482,7 +557,7 @@ sub expand_nodes
 {
     my ($nodes) = @_;
 
-    print STDERR "expand_nodes\n" if $verbose;
+    d0msg "expand_nodes";
 
     foreach my $thing ($nodes->findnodes('node|scalar|table')) {
 	my $element = findvalue($thing, 'local-name()');
@@ -498,7 +573,7 @@ sub expand_node
     my ($name, $oid, $status) = get_name_oid_and_status($node);
     my $description = findvalue($node, 'description', {descr => 1});
 
-    print STDERR "expand_node name=$name status=$status\n" if $verbose;
+    d0msg "expand_node name=$name status=$status";
 
     # XXX currently ignore nodes except that note the name of the first one
     #     for use as the the component name for the scalars
@@ -522,7 +597,7 @@ sub expand_scalar
 
     $default = fix_default($default);
 
-    print STDERR "expand_scalar name=$name status=$status\n" if $verbose;
+    d0msg "expand_scalar name=$name status=$status";
 
     my $snode = {
         refobj => $root,
@@ -545,7 +620,7 @@ sub expand_syntax
 {
     my ($syntax) = @_;
 
-    print STDERR "expand_syntax\n" if $verbose;
+    d0msg "expand_syntax";
 
     foreach my $thing ($syntax->findnodes('type|typedef')) {
 	my $element = findvalue($thing, 'local-name()');
@@ -560,7 +635,7 @@ sub expand_type
 
     my ($module, $name) = get_module_and_name($type);
 
-    print STDERR "expand_type module=$module name=$name\n" if $verbose;
+    d0msg "expand_type module=$module name=$name";
 
     return {module => $module, name => $name};
 }
@@ -574,7 +649,7 @@ sub expand_table
     my $description = findvalue($table, 'description', {descr => 1});
     my $reference = findvalue($table, 'reference', {descr => 1});
 
-    print STDERR "expand_table name=$name status=$status\n" if $verbose;
+    d0msg "expand_table name=$name status=$status";
 
     my $tnode = {
 	name => $name,
@@ -601,8 +676,7 @@ sub expand_row
     my $description = findvalue($row, 'description', {descr => 1});
     my $reference = findvalue($row, 'reference', {descr => 1});
 
-    print STDERR "expand_row name=$name create=$create status=$status\n"
-	if $verbose;
+    d0msg "expand_row name=$name create=$create status=$status";
 
     my $rnode = $tnode->{row} = {
 	name => $name,
@@ -628,7 +702,7 @@ sub expand_linkage
 
     my $implied = findvalue($linkage, '@implied', {boolean => 1});
 
-    print STDERR "expand_linkage implied=$implied\n" if $verbose;
+    d0msg "expand_linkage implied=$implied";
 
     my $hash = {};
     $hash->{implied} = $implied if $implied;
@@ -652,7 +726,7 @@ sub expand_index
 
     my ($module, $name) = get_module_and_name($index);
 
-    print STDERR "expand_index module=$module name=$name\n" if $verbose;
+    d0msg "expand_index module=$module name=$name";
 
     return {module => $module, name => $name};
 }
@@ -664,7 +738,7 @@ sub expand_augments
 
     my ($module, $name) = get_module_and_name($augments);
 
-    print STDERR "expand_augments module=$module name=$name\n" if $verbose;
+    d0msg "expand_augments module=$module name=$name";
 
     return {module => $module, name => $name};
 }
@@ -686,8 +760,7 @@ sub expand_column
 
     $default = fix_default($default);
 
-    print STDERR "expand_column name=$name status=$status access=$access\n"
-	if $verbose;
+    d0msg "expand_column name=$name status=$status access=$access";
 
     my $cnode = {
         refobj => $tnode,
@@ -710,7 +783,7 @@ sub expand_notifications
 {
     my ($notifications) = @_;
 
-    print STDERR "expand_notifications\n" if $verbose;
+    d0msg "expand_notifications";
 
     foreach my $notification ($notifications->findnodes('notification')) {
 	push @{$root->{notifications}}, expand_notification($notification);
@@ -726,7 +799,7 @@ sub expand_notification
     my $description = findvalue($notification, 'description', { descr => 1});
     my $reference = findvalue($notification, 'reference', {descr => 1});
 
-    print STDERR "expand_notification name=$name status=$status\n" if $verbose;
+    d0msg "expand_notification name=$name status=$status";
 
     my $hash = {};
     $hash->{name} = $name if $name;
@@ -746,7 +819,7 @@ sub expand_objects
 {
     my ($objects) = @_;
 
-    print STDERR "expand_objects\n" if $verbose;
+    d0msg "expand_objects";
 
     my $array = [];
     foreach my $object ($objects->findnodes('object')) {
@@ -763,7 +836,7 @@ sub expand_object
 
     my ($module, $name) = get_module_and_name($object);
 
-    print STDERR "expand_object module=$module name=$name\n" if $verbose;
+    d0msg "expand_object module=$module name=$name";
 
     return {module => $module, name => $name};
 }
@@ -773,7 +846,7 @@ sub expand_groups
 {
     my ($groups) = @_;
 
-    print STDERR "expand_groups\n" if $verbose;
+    d0msg "expand_groups";
 
     foreach my $group ($groups->findnodes('group')) {
 	push @{$root->{groups}}, expand_group($group);
@@ -789,7 +862,7 @@ sub expand_group
     my $description = findvalue($group, 'description', {descr => 1});
     my $reference = findvalue($group, 'reference', {descr => 1});
 
-    print STDERR "expand_group name=$name status=$status\n" if $verbose;
+    d0msg "expand_group name=$name status=$status";
 
     my $hash = {};
     $hash->{name} = $name if $name;
@@ -809,7 +882,7 @@ sub expand_members
 {
     my ($members) = @_;
 
-    print STDERR "expand_members\n" if $verbose;
+    d0msg "expand_members";
 
     my $array = [];
     foreach my $member ($members->findnodes('member')) {
@@ -826,7 +899,7 @@ sub expand_member
 
     my ($module, $name) = get_module_and_name($member);
 
-    print STDERR "expand_member module=$module name=$name\n" if $verbose;
+    d0msg "expand_member module=$module name=$name";
 
     return {module => $module, name => $name};
 }
@@ -836,7 +909,7 @@ sub expand_compliances
 {
     my ($compliances) = @_;
 
-    print STDERR "expand_compliances\n" if $verbose;
+    d0msg "expand_compliances";
 
     foreach my $compliance ($compliances->findnodes('compliance')) {
 	push @{$root->{compliances}}, expand_compliance($compliance);
@@ -851,7 +924,7 @@ sub expand_compliance
     my ($name, $oid, $status) = get_name_oid_and_status($compliance);
     my $description = findvalue($compliance, 'description', {descr => 1});
 
-    print STDERR "expand_compliance name=$name status=$status\n" if $verbose;
+    d0msg "expand_compliance name=$name status=$status";
 
     my $hash = {};
     $hash->{name} = $name if $name;
@@ -876,7 +949,7 @@ sub expand_requires
 {
     my ($requires) = @_;
 
-    print STDERR "expand_requires\n" if $verbose;
+    d0msg "expand_requires";
 
     my $hash = {};
     foreach my $thing ($requires->findnodes('mandatory|option')) {
@@ -894,7 +967,7 @@ sub expand_mandatory
 
     my ($module, $name) = get_module_and_name($mandatory);
 
-    print STDERR "expand_mandatory module=$module name=$name\n" if $verbose;
+    d0msg "expand_mandatory module=$module name=$name";
 
     return {module => $module, name => $name};
 }
@@ -907,7 +980,7 @@ sub expand_option
     my ($module, $name) = get_module_and_name($option);
     my $description = findvalue($option, 'description', {descr => 1});
 
-    print STDERR "expand_option module=$module name=$name\n" if $verbose;
+    d0msg "expand_option module=$module name=$name";
 
     return {module => $module, name => $name};
 }
@@ -917,7 +990,7 @@ sub expand_refinements
 {
     my ($refinements) = @_;
 
-    print STDERR "expand_refinements\n" if $verbose;
+    d0msg "expand_refinements";
 
     my $array = [];
     foreach my $refinement ($refinements->findnodes('refinement')) {
@@ -943,8 +1016,7 @@ sub expand_refinement
     $hash->{access} = $access if $access;
     $hash->{description} = $description if $description;
 
-    print STDERR "expand_refinement module=$module name=$name access=$access\n"
-	if $verbose;
+    d0msg "expand_refinement module=$module name=$name access=$access";
 
     my $syntax = ($refinement->findnodes('syntax'))[0];
     $hash->{syntax} = expand_syntax($syntax) if $syntax;
@@ -1131,7 +1203,7 @@ sub white_strip
     #if ($opts->{black}) {
     #	my $orig = $string;
     #	$string =~ s/\s+//g;
-    #	print STDERR "white_strip: had to remove extra spaces in $orig\n" if
+    #	d1msg "white_strip: had to remove extra spaces in $orig" if
     #	    $pedantic && $opts->{blackwarn} && $string ne $orig;
     #}
 
@@ -1579,8 +1651,8 @@ sub output_xml
         my $pmaxEntries = undef;
         if (@shared) {
             my $list = join ', ', @shared;
-            print STDERR "$name: ignoring second and subsequent shared " .
-                "key $list\n" if @shared > 1;
+            w0msg "$name: ignoring second and subsequent shared " .
+                "key $list" if @shared > 1;
             my $key = $shared[0];
             my $info = $dm_object_info->{$key};
             $ppath = $info->{path};
@@ -1704,16 +1776,16 @@ sub output_xml
                 $tminEntries = $info->{minEntries};
                 $tmaxEntries = $info->{maxEntries};
             } elsif ($module ne $root->{module}) {
-                print STDERR "$nname: $name is in different module ($module)".
-                    " and cannot be mapped to an object\n";
+                w0msg "$nname: $name is in different module ($module)".
+                    " and cannot be mapped to an object";
             } else {
-                print STDERR "$nname: object $name cannot be mapped to an " .
-                    "object\n";
+                w0msg "$nname: object $name cannot be mapped to an " .
+                    "object";
             }
             if ($tpath) {
                 if ($path && $tpath ne $path) {
-                    print STDERR "$nname: object $name maps to different " .
-                        "object $tpath (previously mapped to $path)\n";
+                    w0msg "$nname: object $name maps to different " .
+                        "object $tpath (previously mapped to $path)";
                 }
                 $path = $tpath;
                 $access = $taccess;
@@ -1945,8 +2017,8 @@ sub analyse_linkage
     # XXX this assumes that the $dm_object_info path is already defined
     if (@shared) {
         my $list = join ', ', @shared;
-        print STDERR "$name: ignoring second and subsequent shared " .
-            "key $list\n" if @shared > 1;
+        w0msg "$name: ignoring second and subsequent shared " .
+            "key $list" if @shared > 1;
         $ppath = $dm_object_info->{$shared[0]}->{path};
     }
 
@@ -1969,16 +2041,16 @@ sub analyse_notification
         if ($dm_object_info->{$name}->{path}) {
             $tpath = $dm_object_info->{$name}->{path};
         } elsif ($module ne $root->{module}) {
-            print STDERR "$nname: $name is in different module ($module)".
-                " and cannot be mapped to an object\n";
+            w0msg "$nname: $name is in different module ($module)".
+                " and cannot be mapped to an object";
         } else {
-            print STDERR "$nname: object $name cannot be mapped to an " .
-                "object\n";
+            w0msg "$nname: object $name cannot be mapped to an " .
+                "object";
         }
         if ($tpath) {
             if ($path && $tpath ne $path) {
-                print STDERR "$nname: object $name maps to different " .
-                    "object $tpath (previously mapped to $path)\n";
+                w0msg "$nname: object $name maps to different " .
+                    "object $tpath (previously mapped to $path)";
             }
             $path = $tpath;
         }
@@ -2156,11 +2228,11 @@ sub xml_escape
         if ($value =~ /\Q$enum\E/i) {
             my $rname = $name ? $name : $objects->[0];
             if (!$rname) {
-                print STDERR "$uname: can't map $enum to object\n";
+                w0msg "$uname: can't map $enum to object";
             } else {
-                print STDERR "$uname: associated $enum with $rname but " .
-                  "ambiguous: " . join(",", @$objects) . "\n"
-                  if @$objects > 1 && $verbose;
+                d0msg "$uname: associated $enum with $rname but " .
+                  "ambiguous: " . join(",", @$objects) . ""
+                  if @$objects > 1;
             }
             my $template;
             if ($name && $rname eq $name) {
@@ -2223,7 +2295,7 @@ sub html_whitespace
         if ($line =~ /\t/) {
             my $tline = $line;
             $tline =~ s/\t/\\t/g;
-            print STDERR "replace tab(s) in \"$tline\" with spaces!";
+            w0msg "replace tab(s) in \"$tline\" with spaces!";
         }
     }
     $len = 0 unless defined $len;
@@ -2333,8 +2405,8 @@ sub relative_path
 
     my ($common_prefix, $num_comps) =
         common_prefix_dots($name_param_path, $to_param_path);
-    #print STDERR "$name_param_path -> $to_param_path " .
-    #    "($common_prefix $num_comps)\n" if $name;
+    #d1msg "$name_param_path -> $to_param_path " .
+    #    "($common_prefix $num_comps)" if $name;
 
     my $relative = $num_comps > 0;
     if ($relative) {
@@ -2353,4 +2425,18 @@ sub fix_default {
 
     return $default eq "" ? undef : $default eq '""' ? "" : $default eq "()" ?
         "" : $default;
+}
+
+# Output message to STDERR (add newline if not present)
+sub msg
+{
+    my $cat = shift;
+    my $nl = (@_ == 0) ? 0 : $_[-1] =~ /\n$/;
+    my $pfx = $nologprefix ? qq{} : qq{($cat) };
+    my $text = join '', @_;
+    $text = $pfx . $text;
+    push @$msgs, $text if $cat =~ /F|E|W/;
+    print STDERR $text, $nl ? qq{} : qq{\n};
+    $num_fatals++ if $cat =~ /F/;
+    $num_errors++ if $cat =~ /F|E/;
 }
