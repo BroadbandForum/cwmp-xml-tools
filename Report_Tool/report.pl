@@ -165,6 +165,7 @@ use File::Glob;
 use File::Spec;
 use Getopt::Long;
 use Pod::Usage;
+use Scalar::Util qw{refaddr};
 use String::Tokenizer;
 use Text::Balanced qw{extract_bracketed};
 # XXX causes problems, e.g. need aspell (if restore should use "require")
@@ -493,6 +494,11 @@ foreach my $plugin (@$plugins) {
         emsg "${plugin}.pm: plugin contains no report routines";
     }
 }
+
+# a report type's 'node' routine can return the magic $report_stop value to
+# request that the node's children aren't visited and its 'postpar' and 'post'
+# routines aren't called
+our $report_stop = {};
 
 unless (defined $reports->{$report}) {
     emsg "unsupported report format: $report";
@@ -1408,7 +1414,7 @@ sub expand_template
     my $desid = $description->{id};
     my $file = $context->[0]->{file};
     my $template = $root->{templates}->{$desid};
-    
+
     if (!$template)
     {
       w1msg ("Add template $desid from file $file to internal list");
@@ -2652,6 +2658,10 @@ sub expand_model_profile
     #     profiles come after all objects (or else handle this in the tree
     #     traversal; the latter is better; already do this for parameters)
 
+    # names of internal "extends" profiles (names beginning with underscores)
+    # that will be merged directly
+    my $internalprofnames;
+
     # check whether profile already exists
     my ($nnode) = grep {
         $_->{type} eq 'profile' && $_->{name} eq $name} @{$mnode->{nodes}};
@@ -2712,7 +2722,13 @@ sub expand_model_profile
                 } elsif ($base && $extend eq $base) {
                     $baseauto += 2;
                 } else {
-                    push @$extendsprofs, $extprof;
+                    # internal profiles (profiles whose names begin with
+                    # underscores) are merged directly; see below
+                    if ($extend =~ /^_/) {
+                        push @$internalprofnames, $extend;
+                    } else {
+                        push @$extendsprofs, $extprof;
+                    }
                 }
             }
         }
@@ -2803,14 +2819,28 @@ sub expand_model_profile
         my $defmodel = $version ? qq{$mname_only:$version} : $mnode->{name};
         my $fpath = util_full_path($nnode);
         $profiles->{$fpath}->{defmodel} = $defmodel;
+
+        # store the profile definition for later expansion of internal profiles
+        $profiles->{$fpath}->{definition} = $profile;
     }
 
+    # will expand internal "extends" profiles, then the current profile
+    my $profs = [];
+    my $mpref = util_full_path($nnode, 1);
+    for my $internalprofname (@$internalprofnames) {
+        my $intprof = $profiles->{$mpref.$internalprofname}->{definition};
+        push @$profs, $intprof;
+    }
+    push @$profs, $profile;
+
     # expand nested parameters and objects
-    foreach my $item ($profile->findnodes('parameter|object|'.
-                                          'command|event')) {
-        my $element = $item->findvalue('local-name()');
-        "expand_model_profile_$element"->($context, $mnode,
-                                          $nnode, $nnode, $item);
+    foreach my $prof (@$profs) {
+        foreach my $item ($prof->findnodes('parameter|object|'.
+                                           'command|event')) {
+            my $element = $item->findvalue('local-name()');
+            "expand_model_profile_$element"->($context, $mnode,
+                                              $nnode, $nnode, $item);
+        }
     }
 }
 
@@ -7029,6 +7059,9 @@ sub html_node
 {
     my ($node, $indent) = @_;
 
+    # XXX completely ignore internal profiles (name begins with an underscore)
+    return $report_stop if $node->{type} eq 'profile' && $node->{name} =~ /^_/;
+
     # table options
     #my $tabopts = qq{border="1" cellpadding="2" cellspacing="2"};
     my $tabopts = qq{border="1" cellpadding="2" cellspacing="0"};
@@ -8618,7 +8651,7 @@ sub html_template_issue
 sub html_template_description
 {
     my ($opts, $arg1, $arg2) = @_;
-    
+
     my $template = $root->{templates}->{$arg1};
     if (!$template)
     {
@@ -13609,8 +13642,12 @@ sub report_node
     }
 
     unshift @_, $node, $indent, $opts;
-    $nodefunc->(@_);
+    my $stop = $nodefunc->(@_);
     shift; shift; shift;
+
+    # $stop is only honored if it exactly matches $report_stop
+    undef $stop unless $stop and ref($stop) &&
+        refaddr($stop) == refaddr($report_stop);
 
     $indent++;
 
@@ -13648,7 +13685,7 @@ sub report_node
     foreach my $type (('model', 'parameter', 'object', 'profile')) {
         foreach my $child (@{$sorted->{$type}}) {
             unshift @_, $child, $indent, $opts;
-            report_node(@_);
+            report_node(@_) if !$stop;
             shift; shift; shift;
         }
 
@@ -13657,7 +13694,7 @@ sub report_node
         #     does not nest objects (need to integrate this properly)
         if ($node->{type} =~ /^object/ && $type eq 'parameter') {
             unshift @_, $node, $indent-1, $opts;
-            $postparfunc->(@_) if defined $postparfunc;
+            $postparfunc->(@_) if defined $postparfunc && !$stop;
             shift; shift; shift;
         }
     }
@@ -13665,7 +13702,7 @@ sub report_node
     $indent--;
 
     unshift @_, $node, $indent, $opts;
-    $postfunc->(@_) if defined $postfunc;
+    $postfunc->(@_) if defined $postfunc && !$stop;
     shift; shift; shift;
 
     if (!$indent) {
