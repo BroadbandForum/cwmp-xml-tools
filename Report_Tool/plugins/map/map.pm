@@ -99,6 +99,7 @@ my $globals = {
     'noarrays' => 0,
     'noautocreate' => 0,
     'nodefaultname' => 0,
+    'onlycreatefirstparam' => 0,
     'tr98map' => 0
 };
 
@@ -346,6 +347,7 @@ sub map_end {
         my $mult = ($path1s =~ /,/);
         my $anyobj = 0;
         foreach my $path1 (split /,/, $path1s) {
+            $path1 =~ s/^\s+|\s+$//g;
             if ($path1 =~ /^[+=]/) {
                 $path1 =~ s/^[+=]//;
                 push @$cpath1s, $path1;
@@ -583,6 +585,7 @@ sub map_end {
                     new  => $newpar,
                     rem  => $comment
                 };
+                last if $globals->{onlycreatefirstparam};
             }
         }
     }
@@ -1482,9 +1485,8 @@ sub output_object_open
     # <object>
     my $basename = $create ? 'name' : 'base';
 
-    # XXX Hmm... I thought that object names were the same as their paths...
     my $path = $node->{path};
-    my $name = add_vendor_prefix($vendorprefix, $path, $path, $create);
+    $path = add_vendor_prefix($vendorprefix, $path, $path, $create);
 
     my $access = $node->{access};
     $access = 'readOnly' unless $access;
@@ -1541,7 +1543,7 @@ sub output_object_open
     $fixedObject = '' unless $create;
     $fixedObject = $fixedObject ? qq{ dmr:fixedObject="$fixedObject"} : qq{};
 
-    output $i, qq{<object $basename="$name" access="$access" }.
+    output $i, qq{<object $basename="$path" access="$access" }.
         qq{minEntries="$minEntries" maxEntries="$maxEntries"}.
         qq{$numEntriesParameter$enableParameter$id$status$version}.
         qq{$noUniqueKeys$fixedObject>};
@@ -1589,7 +1591,7 @@ sub output_object_open
         output $i+1, qq{</uniqueKey>};
     }
 
-    return $name;
+    return $path;
 }
 
 sub output_object_close
@@ -1852,6 +1854,12 @@ my $existing_prefix_map = {};
 
 # add vendor prefix to object or parameter name (if necessary)
 # XXX also in theory could apply to data types, components, profiles, values?
+
+# XXX it's broken; hack it by remembering details of the first adjusted path
+#     and applying the same substitution to all subsequent matching paths
+my $vp_before = undef;
+my $vp_after = undef;
+
 sub add_vendor_prefix
 {
     my ($vendorprefix, $path, $name, $create) = @_;
@@ -1859,6 +1867,7 @@ sub add_vendor_prefix
 
     # only ever add a prefix if creating, and there's anything to add
     return $name unless $create and $vendorprefix;
+    #main::tmsg "add_vendor_prefix path $path name $name";
 
     # XXX there's no logic to handle the case where we already added a prefix
     #     to A (to give PA) and now we have A.B; so hack it...
@@ -1872,22 +1881,33 @@ sub add_vendor_prefix
     }
 
     # don't add prefix if it's already present in the path
-    # XXX this isn't a perfect test but it should be good enough
     return $name if $path =~ /\Q$vendorprefix\E/;
 
-    # add prefix before final component of name
-    # XXX could probably do this with a single regex but this is clearer (!)
+    # for parameters, just use the supplied prefix (because can assume
+    # that object name has already had the prefix applied if necessary)
     if ($name !~ /\./) {
-        $name = $vendorprefix . $name;
-    } else {
-        no warnings qw{uninitialized};
-        $name =~ s/^(.*?)\.([^\.]+)(\.\{i\})?\.$/$1.$vendorprefix$2$3./;
+        $name = qq{$vendorprefix$name};
+
     }
 
-    $existing_prefix_map->{$oname} = $name;
+    # for objects, use the saved details if they're known (if not known,
+    # save them)
+    # XXX I'm not 100% sure that this safe, but it's better than it was
+    elsif ($vp_before && $name =~ /^\Q$vp_before.$vp_after\E/) {
+        $name =~ s/^\Q$vp_before.\E/$vp_before.$vendorprefix/;
+        #main::tmsg "! apply before $vp_before after $vp_after";
+    } else {
+        my ($before, $after, $multi) = $name =~ /^(.+)\.([^\.]+)(\.\{i\})?\.$/;
+        $name = qq{$before.$vendorprefix$after$multi.};
+        if (!$vp_before) {
+            $vp_before = $before;
+            $vp_after = $after;
+            #main::tmsg "! save before $vp_before after $vp_after";
+        }
+    }
+    #main::tmsg "-> name $name";
     return $name;
 }
-
 
 # similar to (and invokes) report.pl's get_description, but does a bit more
 sub get_description
