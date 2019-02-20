@@ -1524,10 +1524,9 @@ sub expand_bibliography
             $hash->{$element} = $value ? $value : '';
         }
 
-        # check for TR/WT mismatch between id and name
-        if (($id =~ /^TR-/i && $name =~ /^WT-/i) ||
-            ($id =~ /^WT-/i && $name =~ /^TR-/i)) {
-            w0msg "$id: mixed TR/WT bibref: id is $id but name is $name";
+        # check for id and/or name indicating a WT
+        if ($id =~ /^WT-/i || $name =~ /^WT-/i) {
+            w0msg "$id: bibref id ($id) and/or name ($name) reference a WT";
         }
 
         # XXX check for non-standard organization / category
