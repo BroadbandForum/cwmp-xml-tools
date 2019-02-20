@@ -1408,7 +1408,7 @@ sub expand_template
     my $desid = $description->{id};
     my $file = $context->[0]->{file};
     my $template = $root->{templates}->{$desid};
-    
+
     if (!$template)
     {
       w1msg ("Add template $desid from file $file to internal list");
@@ -1522,6 +1522,12 @@ sub expand_bibliography
         foreach my $element (qw{title organization category date hyperlink}) {
             my $value = $reference->findvalue($element);
             $hash->{$element} = $value ? $value : '';
+        }
+
+        # check for TR/WT mismatch between id and name
+        if (($id =~ /^TR-/i && $name =~ /^WT-/i) ||
+            ($id =~ /^WT-/i && $name =~ /^TR-/i)) {
+            w0msg "$id: mixed TR/WT bibref: id is $id but name is $name";
         }
 
         # XXX check for non-standard organization / category
@@ -8618,7 +8624,7 @@ sub html_template_issue
 sub html_template_description
 {
     my ($opts, $arg1, $arg2) = @_;
-    
+
     my $template = $root->{templates}->{$arg1};
     if (!$template)
     {
