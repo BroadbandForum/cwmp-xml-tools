@@ -1535,6 +1535,11 @@ sub expand_bibliography
             $hash->{$element} = $value ? $value : '';
         }
 
+        # check for id and/or name indicating a WT
+        if ($id =~ /^WT-/i || $name =~ /^WT-/i) {
+            w0msg "$id: bibref id ($id) and/or name ($name) reference a WT";
+        }
+
         # XXX check for non-standard organization / category
         my $bbf = 'Broadband Forum';
         my $tr = 'Technical Report';
