@@ -13483,6 +13483,15 @@ sub sanity_node
                 "($numEntriesParameter->{name}) is writable" if
                 $numEntriesParameter->{access} eq 'readWrite';
 
+            my $numEntriesDefault = $numEntriesParameter->{default};
+            $numEntriesDefault = undef
+                if defined $numEntriesParameter->{defstat} &&
+                $numEntriesParameter->{defstat} eq 'deleted';
+
+            w0msg "$path: numEntriesParameter " .
+                "($numEntriesParameter->{name}) has a default" if
+                defined $numEntriesDefault;
+
             # add a reference from each #entries parameter to its table (can
             # be used in report generation)
             if ($numEntriesParameter->{table}) {
