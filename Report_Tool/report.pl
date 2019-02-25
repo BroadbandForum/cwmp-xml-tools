@@ -2837,6 +2837,9 @@ sub expand_model_profile_object
     my $descact = $object->findvalue('description/@action');
     my $descdef = $object->findnodes('description')->size();
 
+    # unspecified access (happens for commands and events) = 'present'
+    $access = 'present' unless $access;
+
     # save the original name (this is also saved in the new node)
     my $oname = $name;
 
@@ -2853,6 +2856,9 @@ sub expand_model_profile_object
     $name = $Path . $name if $Path;
 
     # these errors are reported by sanity_node
+    my $moa = {readOnly => 1, readWrite => 4};
+    my $poa = {notSpecified => 0, present => 1, create => 2, delete => 3,
+               createDelete => 4};
     my $fpath = util_full_path($Pnode, 1) . $name;
     unless (util_is_defined($objects, $fpath)) {
         if ($noprofiles) {
@@ -2863,16 +2869,16 @@ sub expand_model_profile_object
         }
         delete $Pnode->{errors}->{$name} if $status eq 'deleted';
         return;
+    } elsif ($poa->{$access} > $moa->{$objects->{$fpath}->{access}}) {
+        emsg "profile $Pnode->{name} has invalid requirement ".
+            "($access) for $name ($objects->{$fpath}->{access})";
     }
 
     # XXX need bad hyperlink to be visually apparent
-    # XXX should check that access matches the referenced object's access
 
     # if requirement is not greater than that of the base profile or one of
     # the extends profiles, reduce it to 'notSpecified' (but never if descr)
     my $can_ignore = 0;
-    my $poa = {notSpecified => 0, present => 1, create => 2, delete => 3,
-               createDelete => 4};
     my $baseprof = $Pnode->{baseprof};
     my $baseobj;
     if ($baseprof) {
