@@ -1224,10 +1224,10 @@ sub expand_dataType
     my $minInclusive = $dataType->findvalue('.//range/@minInclusive');
     my $maxInclusive = $dataType->findvalue('.//range/@maxInclusive');
     my $step = $dataType->findvalue('.//range/@step');
-    my $values = $dataType->findnodes('string/enumeration');
+    my $values = $dataType->findnodes('string/enumeration|enumeration');
     my $hasPattern = 0;
     if (!$values) {
-        $values = $dataType->findnodes('string/pattern');
+        $values = $dataType->findnodes('string/pattern|pattern');
         $hasPattern = 1 if $values;
     }
 
@@ -1413,7 +1413,7 @@ sub expand_template
     my $desid = $description->{id};
     my $file = $context->[0]->{file};
     my $template = $root->{templates}->{$desid};
-    
+
     if (!$template)
     {
       w1msg ("Add template $desid from file $file to internal list");
@@ -8672,7 +8672,7 @@ sub html_template_issue
 sub html_template_description
 {
     my ($opts, $arg1, $arg2) = @_;
-    
+
     my $template = $root->{templates}->{$arg1};
     if (!$template)
     {
