@@ -165,6 +165,7 @@ use File::Glob;
 use File::Spec;
 use Getopt::Long;
 use Pod::Usage;
+use Scalar::Util qw{refaddr};
 use String::Tokenizer;
 use Text::Balanced qw{extract_bracketed};
 # XXX causes problems, e.g. need aspell (if restore should use "require")
@@ -177,7 +178,7 @@ use XML::LibXML;
 use utf8;
 
 # update the date (yyyy-mm-dd) each time the report tool is changed
-my $tool_vers_date = q{2019-02-07};
+my $tool_vers_date = q{2019-01-14};
 
 # update the version when making a new release
 # a "+" after the version number indicates an interim version
@@ -275,6 +276,7 @@ our $loglevel = 'w';
 our $logoalt = '';
 our $logoref = '';
 our $logosrc = '';
+our $markmounttype = undef;
 our $marktemplates = undef;
 our $maxchardiffs = 5;
 our $maxworddiffs = 10;
@@ -359,6 +361,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'logoalt:s' => \$logoalt,
            'logoref:s' => \$logoref,
            'logosrc:s' => \$logosrc,
+           'markmounttype' => \$markmounttype,
            'marktemplates' => \$marktemplates,
            'maxchardiffs:i' => \$maxchardiffs,
            'maxworddiffs:i' => \$maxworddiffs,
@@ -493,6 +496,11 @@ foreach my $plugin (@$plugins) {
         emsg "${plugin}.pm: plugin contains no report routines";
     }
 }
+
+# a report type's 'node' routine can return the magic $report_stop value to
+# request that the node's children aren't visited and its 'postpar' and 'post'
+# routines aren't called
+our $report_stop = {};
 
 unless (defined $reports->{$report}) {
     emsg "unsupported report format: $report";
@@ -675,6 +683,9 @@ push @$commandcolors, "silver"  if @$commandcolors < 2;
 push @$commandcolors, "pink"    if @$commandcolors < 3;
 push @$commandcolors, "#FFE4E1" if @$commandcolors < 4;
 
+push @$commandcolors, "#B3E0FF" if @$commandcolors < 5; # color for mountable objects
+push @$commandcolors, "#4db8ff" if @$commandcolors < 6; # color for mount point objects
+
 # configfile used to be set via $options->{configfile} but now can be set via
 # $configfile; if both are set, the newer $configfile wins, but warn
 if ($options->{configfile}) {
@@ -846,6 +857,14 @@ sub expand_toplevel
     my $context = [{dir => $dir, file => $file, spec => $spec,
                     lfile => $file, lspec => $spec,
                     path => '', name => ''}];
+
+    # expand description templates in the top level file(s) first
+    # XXX Has to be executed before imports are processed
+    d0msg("expand description templates in top level file $file");
+    foreach my $item ($toplevel->findnodes('template'))
+    {
+      expand_template($context, $root, $item);
+    }
 
     foreach my $item
         ($toplevel->findnodes('import|dataType|bibliography|model')) {
@@ -1095,7 +1114,14 @@ sub expand_import
         }
     }
 
-    # expand bibliogaphy in the imported file
+    # expand description templates in the imported file
+    d0msg("expand description templates in import file $file");
+    foreach my $item ($toplevel->findnodes('template'))
+    {
+      expand_template($context, $root, $item);
+    }
+
+    # expand bibliography in the imported file
     my ($bibliography) = $toplevel->findnodes('bibliography');
     expand_bibliography($context, $root, $bibliography) if $bibliography;
 
@@ -1204,10 +1230,10 @@ sub expand_dataType
     my $minInclusive = $dataType->findvalue('.//range/@minInclusive');
     my $maxInclusive = $dataType->findvalue('.//range/@maxInclusive');
     my $step = $dataType->findvalue('.//range/@step');
-    my $values = $dataType->findnodes('string/enumeration');
+    my $values = $dataType->findnodes('string/enumeration|enumeration');
     my $hasPattern = 0;
     if (!$values) {
-        $values = $dataType->findnodes('string/pattern');
+        $values = $dataType->findnodes('string/pattern|pattern');
         $hasPattern = 1 if $values;
     }
 
@@ -1382,6 +1408,29 @@ sub expand_description
 
 }
 
+# Store description templates in internal list if not stored before
+sub expand_template
+{
+    my ($context, $node, $description) = @_;
+
+    my $content = $description->textContent;
+    $content =~ s/^\s+|\s+$//g;
+
+    my $desid = $description->{id};
+    my $file = $context->[0]->{file};
+    my $template = $root->{templates}->{$desid};
+
+    if (!$template)
+    {
+      w1msg ("Add template $desid from file $file to internal list");
+      $root->{templates}->{$desid} = $content;
+    }
+    else
+    {
+      w1msg ("Description template $desid is already defined, definition from file $file is ignored");
+    }
+}
+
 # Update list of data types that are actually used (the specs attribute is an
 # array of the specs that use the data type)
 sub update_datatypes
@@ -1486,6 +1535,11 @@ sub expand_bibliography
             $hash->{$element} = $value ? $value : '';
         }
 
+        # check for id and/or name indicating a WT
+        if ($id =~ /^WT-/i || $name =~ /^WT-/i) {
+            w0msg "$id: bibref id ($id) and/or name ($name) reference a WT";
+        }
+
         # XXX check for non-standard organization / category
         my $bbf = 'Broadband Forum';
         my $tr = 'Technical Report';
@@ -1518,13 +1572,12 @@ sub expand_bibliography
 
         # XXX could also check for missing date (etc)...
 
-        # for TRs, don't want hyperlink, so can auto-generate the correct
+        # for BBF TR's:
+        # if no hyperlink is specified, generate correct
         # hyperlink according to BBF conventions
-        if ($hash->{organization} eq $bbf && $hash->{category} eq $tr) {
-            if ($hash->{hyperlink}) {
-                msg "W", "$id: $file: replaced deprecated $bbf $tr hyperlink"
-                    if $warnbibref > 1 || $loglevel >= $LOGLEVEL_DEBUG;
-            }
+        #
+        if (!$hash->{hyperlink} && $hash->{organization} eq $bbf && $hash->{category} eq $tr)
+        {
             my $h = $trpage;
             my $trname = $id;
             $trname =~ s/i(\d+)/_Issue-$1/;
@@ -1676,7 +1729,7 @@ sub expand_model_component
     my $path = $component->findvalue('@path');
     my $name = $component->findvalue('@ref');
 
-    $Path .= $path;
+    $Path = $path ? $path : $pnode->{type} ne 'model' ? $pnode->{path} : '';
 
     # XXX a kludge... will apply to the first items only (really want a way
     #     of passing arguments)
@@ -1783,7 +1836,7 @@ sub expand_model_object
     my $maxEntries = $object->findvalue('@maxEntries');
     my $numEntriesParameter = $object->findvalue('@numEntriesParameter');
     my $enableParameter = $object->findvalue('@enableParameter');
-    my $mountType = $object->findvalue('@mountType|@mounttype');
+    my $mountType = $markmounttype ? $object->findvalue('@mountType|@mounttype') :'';
     my $status = $object->findvalue('@status');
     my $id = $object->findvalue('@id');
     my $description = $object->findvalue('description');
@@ -2614,6 +2667,10 @@ sub expand_model_profile
     #     profiles come after all objects (or else handle this in the tree
     #     traversal; the latter is better; already do this for parameters)
 
+    # names of internal "extends" profiles (names beginning with underscores)
+    # that will be merged directly
+    my $internalprofnames;
+
     # check whether profile already exists
     my ($nnode) = grep {
         $_->{type} eq 'profile' && $_->{name} eq $name} @{$mnode->{nodes}};
@@ -2674,7 +2731,13 @@ sub expand_model_profile
                 } elsif ($base && $extend eq $base) {
                     $baseauto += 2;
                 } else {
-                    push @$extendsprofs, $extprof;
+                    # internal profiles (profiles whose names begin with
+                    # underscores) are merged directly; see below
+                    if ($extend =~ /^_/) {
+                        push @$internalprofnames, $extend;
+                    } else {
+                        push @$extendsprofs, $extprof;
+                    }
                 }
             }
         }
@@ -2765,14 +2828,28 @@ sub expand_model_profile
         my $defmodel = $version ? qq{$mname_only:$version} : $mnode->{name};
         my $fpath = util_full_path($nnode);
         $profiles->{$fpath}->{defmodel} = $defmodel;
+
+        # store the profile definition for later expansion of internal profiles
+        $profiles->{$fpath}->{definition} = $profile;
     }
 
+    # will expand internal "extends" profiles, then the current profile
+    my $profs = [];
+    my $mpref = util_full_path($nnode, 1);
+    for my $internalprofname (@$internalprofnames) {
+        my $intprof = $profiles->{$mpref.$internalprofname}->{definition};
+        push @$profs, $intprof;
+    }
+    push @$profs, $profile;
+
     # expand nested parameters and objects
-    foreach my $item ($profile->findnodes('parameter|object|'.
-                                          'command|event')) {
-        my $element = $item->findvalue('local-name()');
-        "expand_model_profile_$element"->($context, $mnode,
-                                          $nnode, $nnode, $item);
+    foreach my $prof (@$profs) {
+        foreach my $item ($prof->findnodes('parameter|object|'.
+                                           'command|event')) {
+            my $element = $item->findvalue('local-name()');
+            "expand_model_profile_$element"->($context, $mnode,
+                                              $nnode, $nnode, $item);
+        }
     }
 }
 
@@ -2795,6 +2872,9 @@ sub expand_model_profile_object
     my $descact = $object->findvalue('description/@action');
     my $descdef = $object->findnodes('description')->size();
 
+    # unspecified access (happens for commands and events) = 'present'
+    $access = 'present' unless $access;
+
     # save the original name (this is also saved in the new node)
     my $oname = $name;
 
@@ -2808,9 +2888,13 @@ sub expand_model_profile_object
 
     d1msg "expand_model_profile_object path=$Path ref=$name";
 
-    $name = $Path . $name if $Path;
+    # if the name is relative, $Path was already accounted for by the parent
+    $name = $Path . $name if $Path && !$name_is_relative;
 
     # these errors are reported by sanity_node
+    my $moa = {readOnly => 1, readWrite => 4};
+    my $poa = {notSpecified => 0, present => 1, create => 2, delete => 3,
+               createDelete => 4};
     my $fpath = util_full_path($Pnode, 1) . $name;
     unless (util_is_defined($objects, $fpath)) {
         if ($noprofiles) {
@@ -2821,16 +2905,16 @@ sub expand_model_profile_object
         }
         delete $Pnode->{errors}->{$name} if $status eq 'deleted';
         return;
+    } elsif ($poa->{$access} > $moa->{$objects->{$fpath}->{access}}) {
+        emsg "profile $Pnode->{name} has invalid requirement ".
+            "($access) for $name ($objects->{$fpath}->{access})";
     }
 
     # XXX need bad hyperlink to be visually apparent
-    # XXX should check that access matches the referenced object's access
 
     # if requirement is not greater than that of the base profile or one of
     # the extends profiles, reduce it to 'notSpecified' (but never if descr)
     my $can_ignore = 0;
-    my $poa = {notSpecified => 0, present => 1, create => 2, delete => 3,
-               createDelete => 4};
     my $baseprof = $Pnode->{baseprof};
     my $baseobj;
     if ($baseprof) {
@@ -2863,8 +2947,8 @@ sub expand_model_profile_object
     # expand nested parameters and objects
     # XXX schema doesn't support nested objects
     # XXX this isn't quite right; should use profile equivalent of add_path()
-    #     to create intervening nodes; currently top-level parameters are in
-    #     the wrong place in the hierarchy
+    #     to create intervening nodes; we work around this in
+    #     expand_model_profile_parameter()
     foreach my $item ($object->findnodes('parameter|object|command|event|' .
                                          'input|output')) {
         my $element = $item->findvalue('local-name()');
@@ -2911,19 +2995,43 @@ sub expand_model_profile_parameter
 
     d1msg "expand_model_profile_parameter path=$Path ref=$name";
 
+    # XXX top-level parameters are problematic because they have no parent
+    #     objectRef in the profile; therefore create one if need be
+    if ($pnode->{type} eq 'profile') {
+        # find the top-level object, accounting for components
+        # XXX I suppose we should check that the object exists?
+        my $fpath = util_full_path($mnode, 1) . $Path;
+        # XXX yes this is correct! path versus name is confusing here
+        my $topname = $objects->{$fpath}->{path};
+
+        # parent objectRef if necessary
+        my $nnode;
+        my @match = grep {$_->{name} eq $topname} @{$pnode->{nodes}};
+        if (@match) {
+            $nnode = $match[0];
+        } else {
+            $nnode = {mnode => $mnode, pnode => $pnode, path => $topname,
+                      oname => $topname, name => $topname, type => 'objectRef',
+                      access => 'present',  status => 'current',
+                      description => '', descact => 'create',
+                      descdef => 0, nodes => [], baseobj => undef};
+            push(@{$pnode->{nodes}}, $nnode);
+            # XXX maybe should add to $profiles (see below) but won't because
+            #     would have to worry about which access value to use
+        }
+
+        # change pnode to be the parent objectRef
+        $pnode = $nnode;
+    }
+
     my $path;
-    # this is for command and event arguments
+    # name_is_relative is for command and event arguments
     if ($name_is_relative) {
         $path = $pnode->{path} . $name;
     }
-    # this is existing logic
-    # XXX hmm... are path and name the same or different for these nodes?
     else {
-        $path = $pnode->{type} eq 'profile' ? $name : $pnode->{name} . $name;
+        $path = $pnode->{name} . $name;
     }
-    # special case for parameter at top level of a profile
-    # XXX this is wrong; see comment in caller; but we live with it...
-    $path = $Path . $path if $Path && $Pnode == $pnode;
 
     # these errors are reported by sanity_node
     my $fpath = util_full_path($Pnode, 1) . $path;
@@ -6032,7 +6140,7 @@ sub xml2_node
         # generate file attribute (use output file if specified)
         my $tfile;
         if ($outfile) {
-            $tfile = $outfile;
+            (my $ign1, my $ign2, $tfile) = File::Spec->splitpath($outfile);
         } else {
             $tfile = $dmfile;
             $tfile =~ s/\.xml/-full.xml/;
@@ -7003,6 +7111,9 @@ sub html_node
 {
     my ($node, $indent) = @_;
 
+    # XXX completely ignore internal profiles (name begins with an underscore)
+    return $report_stop if $node->{type} eq 'profile' && $node->{name} =~ /^_/;
+
     # table options
     #my $tabopts = qq{border="1" cellpadding="2" cellspacing="2"};
     my $tabopts = qq{border="1" cellpadding="2" cellspacing="0"};
@@ -7036,6 +7147,8 @@ sub html_node
     my $arguments_bg = qq{background-color: $commandcolors->[1];};
     my $argobject_bg = qq{background-color: $commandcolors->[2];};
     my $argparam_bg = qq{background-color: $commandcolors->[3];};
+    my $mountableobject_bg = qq{background-color: $commandcolors->[4];};
+    my $mountpoint_bg = qq{background-color: $commandcolors->[5];};
     my $theader_bg = qq{background-color: rgb(153, 153, 153);};
 
     # foo_oc (open comment) and foo_cc (close comment) control generation of
@@ -7053,6 +7166,7 @@ sub html_node
     my $profile = ($node->{type} =~ /profile/);
     my $parameter = $node->{syntax}; # pretty safe? not profile params...
     my $is_command = $node->{is_command} ? 1 : 0;
+    my $is_mountable = $node->{mountType} ?  ($node->{mountType} eq "mountable" ? 1 : 2) : 0;
     my $is_arguments = $node->{is_arguments} ? 1 : 0;
     my $is_event = $node->{is_event} ? 1 : 0;
     my $parameter_like = $parameter || $is_command || $is_event;
@@ -7187,23 +7301,31 @@ $do_not_edit
       tr, tr.o { $row $font }
       tr.n { $row $font $fontnew }
       td.o { $row $font $object_bg }
+      td.m { $row $font $mountableobject_bg }
+      td.q { $row $font $mountpoint_bg }
       td.c { $row $font $command_bg }
       td.d { $row $font $arguments_bg }
       td.e { $row $font $argobject_bg }
       td.f { $row $font $argparam_bg }
       td, td.p { $row $font }
       td.oc { $row $font $object_bg $center }
+      td.mc { $row $font $mountableobject_bg $center }
+      td.qc { $row $font $mountpoint_bg $center }
       td.cc { $row $font $command_bg $center }
       td.dc { $row $font $arguments_bg $center }
       td.ec { $row $font $argobject_bg $center }
       td.fc { $row $font $argparam_bg $center }
       td.pc { $row $font $center }
       td.on { $row $font $object_bg $fontnew }
+      td.mn { $row $font $mountableobject_bg $fontnew }
+      td.qn { $row $font $mountpoint_bg $fontnew }
       td.cn { $row $font $command_bg $fontnew }
       td.dn { $row $font $arguments_bg $fontnew }
       td.en { $row $font $argobject_bg $fontnew }
       td.fn { $row $font $argparam_bg $fontnew }
       td.od { $row $font $object_bg $fontdel $strike }
+      td.md { $row $font $mountableobject_bg $fontdel $strike }
+      td.qd { $row $font $mountpoint_bg $fontdel $strike }
       td.cd { $row $font $command_bg $fontdel $strike }
       td.dd { $row $font $arguments_bg $fontdel $strike }
       td.ed { $row $font $argobject_bg $fontdel $strike }
@@ -7211,7 +7333,11 @@ $do_not_edit
       td.pn { $row $font $fontnew }
       td.pd { $row $font $fontdel $strike }
       td.onc { $row $font $object_bg $fontnew $center }
+      td.mnc { $row $font $mountableobject_bg $fontnew $center }
+      td.qnc { $row $font $mountpoint_bg $fontnew $center }
       td.odc { $row $font $object_bg $fontdel $strike $center }
+      td.mdc { $row $font $mountableobject_bg $fontdel $strike $center }
+      td.qdc { $row $font $mountpoint_bg $fontdel $strike $center }
       td.cnc { $row $font $command_bg $fontnew $center }
       td.cdc { $row $font $command_bg $fontdel $strike $center }
       td.dnc { $row $font $arguments_bg $fontnew $center }
@@ -7490,7 +7616,11 @@ END
         #     - f : parameter argument
         if ($is_command || $is_event) {
             $tdclass = 'c';
-        } elsif ($command_or_event) {
+        }
+        elsif ($is_mountable) {
+          $tdclass = ($is_mountable == 1) ? 'm' : 'q';
+        }
+        elsif ($command_or_event) {
             if ($tdclass eq 'o') {
                 $tdclass = $is_arguments ? 'd' : 'e';
             } else {
@@ -8442,7 +8572,8 @@ sub html_template
          {name => 'mark', text1 => q{<mark>$a[0]</mark>}},
          {name => 'sub', text1 => q{<sub>$a[0]</sub>}},
          {name => 'sup', text1 => q{<sup>$a[0]</sup>}},
-         {name => 'ignore', text => q{}}
+         {name => 'ignore', text => q{}},
+         {name => 'templ', text => \&html_template_description}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -8585,6 +8716,20 @@ sub html_template_issue
     $status = $status ? qq{ ($status)} : qq{};
 
     return qq{\n'''$mark$prefix $counter$status: $comment$mark'''};
+}
+
+# insert description from template
+sub html_template_description
+{
+    my ($opts, $arg1, $arg2) = @_;
+
+    my $template = $root->{templates}->{$arg1};
+    if (!$template)
+    {
+      emsg "Description template $arg1 is undefined";
+      $template = qq{'''DESCRIPTION TEMPLATE FOR >$arg1< IS MISSING HERE'''};
+    }
+    return $template;
 }
 
 # insert appropriate null value
@@ -13419,6 +13564,15 @@ sub sanity_node
                 "($numEntriesParameter->{name}) is writable" if
                 $numEntriesParameter->{access} eq 'readWrite';
 
+            my $numEntriesDefault = $numEntriesParameter->{default};
+            $numEntriesDefault = undef
+                if defined $numEntriesParameter->{defstat} &&
+                $numEntriesParameter->{defstat} eq 'deleted';
+
+            w0msg "$path: numEntriesParameter " .
+                "($numEntriesParameter->{name}) has a default" if
+                defined $numEntriesDefault;
+
             # add a reference from each #entries parameter to its table (can
             # be used in report generation)
             if ($numEntriesParameter->{table}) {
@@ -13568,8 +13722,12 @@ sub report_node
     }
 
     unshift @_, $node, $indent, $opts;
-    $nodefunc->(@_);
+    my $stop = $nodefunc->(@_);
     shift; shift; shift;
+
+    # $stop is only honored if it exactly matches $report_stop
+    undef $stop unless $stop and ref($stop) &&
+        refaddr($stop) == refaddr($report_stop);
 
     $indent++;
 
@@ -13607,7 +13765,7 @@ sub report_node
     foreach my $type (('model', 'parameter', 'object', 'profile')) {
         foreach my $child (@{$sorted->{$type}}) {
             unshift @_, $child, $indent, $opts;
-            report_node(@_);
+            report_node(@_) if !$stop;
             shift; shift; shift;
         }
 
@@ -13616,7 +13774,7 @@ sub report_node
         #     does not nest objects (need to integrate this properly)
         if ($node->{type} =~ /^object/ && $type eq 'parameter') {
             unshift @_, $node, $indent-1, $opts;
-            $postparfunc->(@_) if defined $postparfunc;
+            $postparfunc->(@_) if defined $postparfunc && !$stop;
             shift; shift; shift;
         }
     }
@@ -13624,7 +13782,7 @@ sub report_node
     $indent--;
 
     unshift @_, $node, $indent, $opts;
-    $postfunc->(@_) if defined $postfunc;
+    $postfunc->(@_) if defined $postfunc && !$stop;
     shift; shift; shift;
 
     if (!$indent) {
@@ -13830,6 +13988,7 @@ B<report.pl>
 [--logoalt=s()]
 [--logoref=s()]
 [--logosrc=s()]
+[--markmounttype]
 [--marktemplates]
 [--maxchardiffs=i(5)]
 [--maxworddiffs=i(10)]
@@ -14156,6 +14315,10 @@ if any other B<--logoxxx> options are specified, the default is an empty string
 URL of logo image in the top left-hand corner of the HTML report
 
 if any other B<--logoxxx> options are specified, the default is an empty string
+
+=item B<--markmounttype>
+
+mark mountable objects and mount point objects in color and text (only applicable for USP)
 
 =item B<--marktemplates>
 
