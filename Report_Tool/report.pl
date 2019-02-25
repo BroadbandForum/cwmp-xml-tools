@@ -1718,7 +1718,7 @@ sub expand_model_component
     my $path = $component->findvalue('@path');
     my $name = $component->findvalue('@ref');
 
-    $Path .= $path;
+    $Path = $path ? $path : $pnode->{type} ne 'model' ? $pnode->{path} : '';
 
     # XXX a kludge... will apply to the first items only (really want a way
     #     of passing arguments)
@@ -2853,7 +2853,8 @@ sub expand_model_profile_object
 
     d1msg "expand_model_profile_object path=$Path ref=$name";
 
-    $name = $Path . $name if $Path;
+    # if the name is relative, $Path was already accounted for by the parent
+    $name = $Path . $name if $Path && !$name_is_relative;
 
     # these errors are reported by sanity_node
     my $moa = {readOnly => 1, readWrite => 4};
@@ -2911,8 +2912,8 @@ sub expand_model_profile_object
     # expand nested parameters and objects
     # XXX schema doesn't support nested objects
     # XXX this isn't quite right; should use profile equivalent of add_path()
-    #     to create intervening nodes; currently top-level parameters are in
-    #     the wrong place in the hierarchy
+    #     to create intervening nodes; we work around this in
+    #     expand_model_profile_parameter()
     foreach my $item ($object->findnodes('parameter|object|command|event|' .
                                          'input|output')) {
         my $element = $item->findvalue('local-name()');
@@ -2959,19 +2960,43 @@ sub expand_model_profile_parameter
 
     d1msg "expand_model_profile_parameter path=$Path ref=$name";
 
+    # XXX top-level parameters are problematic because they have no parent
+    #     objectRef in the profile; therefore create one if need be
+    if ($pnode->{type} eq 'profile') {
+        # find the top-level object, accounting for components
+        # XXX I suppose we should check that the object exists?
+        my $fpath = util_full_path($mnode, 1) . $Path;
+        # XXX yes this is correct! path versus name is confusing here
+        my $topname = $objects->{$fpath}->{path};
+
+        # parent objectRef if necessary
+        my $nnode;
+        my @match = grep {$_->{name} eq $topname} @{$pnode->{nodes}};
+        if (@match) {
+            $nnode = $match[0];
+        } else {
+            $nnode = {mnode => $mnode, pnode => $pnode, path => $topname,
+                      oname => $topname, name => $topname, type => 'objectRef',
+                      access => 'present',  status => 'current',
+                      description => '', descact => 'create',
+                      descdef => 0, nodes => [], baseobj => undef};
+            push(@{$pnode->{nodes}}, $nnode);
+            # XXX maybe should add to $profiles (see below) but won't because
+            #     would have to worry about which access value to use
+        }
+
+        # change pnode to be the parent objectRef
+        $pnode = $nnode;
+    }
+
     my $path;
-    # this is for command and event arguments
+    # name_is_relative is for command and event arguments
     if ($name_is_relative) {
         $path = $pnode->{path} . $name;
     }
-    # this is existing logic
-    # XXX hmm... are path and name the same or different for these nodes?
     else {
-        $path = $pnode->{type} eq 'profile' ? $name : $pnode->{name} . $name;
+        $path = $pnode->{name} . $name;
     }
-    # special case for parameter at top level of a profile
-    # XXX this is wrong; see comment in caller; but we live with it...
-    $path = $Path . $path if $Path && $Pnode == $pnode;
 
     # these errors are reported by sanity_node
     my $fpath = util_full_path($Pnode, 1) . $path;
