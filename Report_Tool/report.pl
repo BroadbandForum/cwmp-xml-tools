@@ -13660,11 +13660,13 @@ sub sanity_node
 
         w2msg "$path: string parameter has no maximum length specified" if
             maxlength_appropriate($path, $name, $type) &&
-            !has_values($values) && !has_maxlength($syntax);
+            !has_values($values) && !$syntax->{reference} &&
+            !has_maxlength($syntax);
 
         w1msg "$path: enumeration has unnecessary maximum length specified" if
             maxlength_appropriate($path, $name, $type) &&
-            !$node->{hasPattern} && has_values($values) &&
+            !$node->{hasPattern} && (has_values($values) ||
+                                     $syntax->{reference}) &&
             has_maxlength($syntax);
 
         # XXX why the special case for lists?  suppressed
