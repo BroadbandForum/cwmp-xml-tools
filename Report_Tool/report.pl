@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2015, 2016, 2017, 2018  Broadband Forum
+# Copyright (C) 2015, 2016, 2017, 2018, 2019  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -1575,7 +1575,7 @@ sub expand_bibliography
         # for BBF TR's:
         # if no hyperlink is specified, generate correct
         # hyperlink according to BBF conventions
-        # 
+        #
         if (!$hash->{hyperlink} && $hash->{organization} eq $bbf && $hash->{category} eq $tr)
         {
             my $h = $trpage;
@@ -4510,6 +4510,18 @@ sub get_values
     my $changed_values;
     if (defined $node->{type}) {
         $values = $node->{values};
+        # if no values on the node, try to get them from the data type
+        if (!%$values) {
+            my $typeinfo = get_typeinfo($node->{type}, $node->{syntax});
+            if ($typeinfo->{dataType}) {
+                my $dtname = $typeinfo->{value};
+                my ($dtdef) =
+                    grep {$_->{name} eq $dtname} @{$root->{dataTypes}};
+                if ($dtdef) {
+                    $values = $dtdef->{values};
+                }
+            }
+        }
         $is_modified = util_node_is_modified($node);
         $changed_values = $node->{changed}->{values};
     } else {
@@ -7604,7 +7616,7 @@ END
         #     - f : parameter argument
         if ($is_command || $is_event) {
             $tdclass = 'c';
-        } 
+        }
         elsif ($is_mountable) {
           $tdclass = ($is_mountable == 1) ? 'm' : 'q';
         }
