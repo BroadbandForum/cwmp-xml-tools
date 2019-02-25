@@ -6062,7 +6062,7 @@ sub xml2_node
         # generate file attribute (use output file if specified)
         my $tfile;
         if ($outfile) {
-            $tfile = $outfile;
+            (my $ign1, my $ign2, $tfile) = File::Spec->splitpath($outfile);
         } else {
             $tfile = $dmfile;
             $tfile =~ s/\.xml/-full.xml/;
