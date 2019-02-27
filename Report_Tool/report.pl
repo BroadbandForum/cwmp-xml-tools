@@ -3002,7 +3002,11 @@ sub expand_model_profile_parameter
         # XXX I suppose we should check that the object exists?
         my $fpath = util_full_path($mnode, 1) . $Path;
         # XXX yes this is correct! path versus name is confusing here
-        my $topname = $objects->{$fpath}->{path};
+        # XXX if this is a Service Object #entries parameter, $Path will be
+        #     empty, so $fpath will be the model name and it won't exist in
+        #     $objects; the resultant "fake" objectRef with empty name should
+        #     be ignored by the report format
+        my $topname = $objects->{$fpath}->{path} || '';
 
         # parent objectRef if necessary
         my $nnode;
@@ -7901,7 +7905,9 @@ END
                 #     would be better handled within html_create_anchor()
                 $footnote = qq{<sup>$anchor->{ref}</sup>};
             }
-            $html_buffer .= <<END;
+            # XXX ignore nodes with empty names; this will happen for Service
+            #     Object top-level #entries parameters' fake parent objectRefs
+            $html_buffer .= <<END if $node->{name};
         <tr>
           <td class="${tdclass}">$name</td>
           <td class="${tdclass}c">$write$footnote</td>
