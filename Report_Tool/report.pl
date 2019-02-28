@@ -6389,6 +6389,17 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $element = 'event' if $node->{is_event};
                 $ref = $node->{oname} if $node->{oname};
             }
+            # XXX empty name means that this is a fake top-level objectRef...
+            unless ($name) {
+                $node->{xml2}->{element} = '';
+                return;
+            }
+            # XXX ...which means that any parameter children shouldn't be
+            #     indented (cosmetic)
+            if ($node->{pnode}->{type} eq 'objectRef' &&
+                !$node->{pnode}->{name}) {
+                $i =~ s/..$//;
+            }
             $name = '';
             $requirement = $access;
             $access = '';
@@ -6432,30 +6443,12 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
 
         my $end_element = (@{$node->{nodes}} || $description || $syntax) ? '' : '/';
         print qq{$i<!--\n} if $element eq 'object' && $noobjects;
-        # XXX horrible hack for top-level parameters in profiles (which
-        #     probably only happens when the profile was defined in a
-        #     component?); have to create an entry for the parent object
-        #     but not if it's at the top level of a Service object!
-        my $tlpp = ($node->{pnode}->{type} &&
-                    $node->{pnode}->{type} eq 'profile' &&
-                    $element eq 'parameter' && $path =~ /\./);
-        my $isave = $i;
-        if ($tlpp) {
-            my $tpath = $path;
-            $tpath =~ s/[^\.]+$//;
-            print qq{$i<object ref="$tpath" requirement="present">\n};
-            $i .= '  ';
-        }
 
         # add additional parameters if necessary:
         my $addPsrams = ($node->{is_command} && $type !~ /Ref$/ && $node->{is_async}) ?  qq{ async="true"} : qq{};
         $addPsrams .= ' mandatory="true"' if ($node->{is_mandatory});
 
         print qq{$i<$element$name$base$ref$isService$extends$addPsrams$access$mountType$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$noUniqueKeys$fixedObject$end_element>\n};
-        if ($tlpp) {
-            $i = $isave;
-            print qq{$i</object>\n};
-        }
         $node->{xml2}->{element} = '' if $end_element;
         print qq{$i  <$descname>$description</$descname>\n} if $description;
         if ($uniqueKeys && !@$dtprofiles) {
