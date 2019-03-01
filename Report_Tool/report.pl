@@ -9450,6 +9450,10 @@ sub html_template_objectref
     my $object = $opts->{object};
     my $param = $opts->{param};
 
+    # if there's no object, e.g. this is within a data type definition, just
+    # return the word 'object'
+    return 'object' unless $object;
+
     my $mpref = util_full_path($opts->{node}, 1);
 
     # parameterless case (no "name") is special; use just the last component
