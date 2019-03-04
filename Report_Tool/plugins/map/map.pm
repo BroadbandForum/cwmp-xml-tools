@@ -1558,7 +1558,7 @@ sub output_object_open
 
         # XXX this can set $descact to 'append' but this is never valid
         if ($descact and $descact ne 'create') {
-            main::w1msg "$name: object is new so clearing descact $descact";
+            main::w1msg "$path: object is new so clearing descact $descact";
             undef $descact;
         }
     } else {
@@ -1898,6 +1898,7 @@ sub add_vendor_prefix
         #main::tmsg "! apply before $vp_before after $vp_after";
     } else {
         my ($before, $after, $multi) = $name =~ /^(.+)\.([^\.]+)(\.\{i\})?\.$/;
+        $multi = '' unless $multi;
         $name = qq{$before.$vendorprefix$after$multi.};
         if (!$vp_before) {
             $vp_before = $before;
