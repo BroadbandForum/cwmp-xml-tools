@@ -153,7 +153,7 @@ use warnings;
 #no autovivification qw{fetch exists delete warn};
 
 # XXX uncomment to enable traceback on warnings and errors
-use Carp::Always;
+#use Carp::Always;
 #sub control_c { die ""; }
 #$SIG{INT} = \&control_c;
 
