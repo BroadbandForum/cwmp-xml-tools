@@ -153,7 +153,7 @@ use warnings;
 #no autovivification qw{fetch exists delete warn};
 
 # XXX uncomment to enable traceback on warnings and errors
-#use Carp::Always;
+use Carp::Always;
 #sub control_c { die ""; }
 #$SIG{INT} = \&control_c;
 
@@ -5353,7 +5353,7 @@ sub specs_match
 }
 
 # Compare two specs, returning (like <=>) -1, 0, +1 if the first is older, the
-# same or newer than the second (also return 0 if the specs are invalid or
+# same or newer than the second (also return +1 if the specs are invalid or
 # string-valued fields don't match)
 sub spec_compare
 {
@@ -5362,11 +5362,11 @@ sub spec_compare
     my ($prefix1, $name1, $i1, $a1, $c1, $label1) = spec_parse($spec1);
     my ($prefix2, $name2, $i2, $a2, $c2, $label2) = spec_parse($spec2);
 
-    # 0 if either spec is invalid (what else can we do?)
-    return 0 if !defined($c1) || !defined($c2);
+    # +1 if either spec is invalid (what else can we do?)
+    return +1 if !defined($c1) || !defined($c2);
 
-    # 0 if prefix:name doesn't match
-    return 0 if qq{$prefix1:$name1} ne qq{$prefix2:$name2};
+    # +1 if prefix:name doesn't match
+    return +1 if qq{$prefix1:$name1} ne qq{$prefix2:$name2};
 
     # compare issue, then amendment then corrigendum
     return ($i1 <=> $i2) ? ($i1 <=> $i2) : ($a1 <=> $a2) ? ($a1 <=> $a2) :
