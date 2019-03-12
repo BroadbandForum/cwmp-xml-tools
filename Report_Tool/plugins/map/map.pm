@@ -1366,7 +1366,7 @@ sub output_root_open
     # XXX shouldn't be hard-coded
     output $i+1, qq{
 <description>
-  XXX vendor extensions
+  Vendor extensions...
 </description>
 };
     # XXX hard-code bibref import
