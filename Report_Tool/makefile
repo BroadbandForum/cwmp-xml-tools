@@ -42,9 +42,6 @@ ifneq "$(PLATFORM)" "exe"
     FILES += report.pl.info README.txt index.html
 endif
 
-# XXX this isn't currently used by Dockerfile
-INSTALL-TEMP = install-repository-temporary-for-docker
-
 DOCKER-NAME = report-pl
 DOCKER-TAG = broadbandforum/$(DOCKER-NAME):latest
 
@@ -63,16 +60,7 @@ files-clean:
 	$(RM) $(FILES)
 
 docker-build:
-	if ! [ -d $(INSTALL-TEMP) ]; then \
-	  git clone \
-	    ssh://git@code.broadband-forum.org:7999/software/install.git \
-	      $(INSTALL-TEMP); \
-	else \
-	  git -C $(INSTALL-TEMP) checkout develop; \
-	  git -C $(INSTALL-TEMP) pull; \
-	fi
-	docker build --build-arg INSTALL_TEMP=$(INSTALL-TEMP) \
-	  --tag=$(DOCKER-TAG) .
+	docker build --build-arg --tag=$(DOCKER-TAG) .
 
 docker-run:
 	docker run -it --name $(DOCKER-NAME) $(DOCKER-TAG) bash
@@ -96,7 +84,6 @@ docker-prune: docker-stop
 	docker image prune --force
 
 docker-clean: docker-prune
-	rm -rf $(INSTALL-TEMP)
 	docker image rm $(DOCKER-TAG)
 
 report.pl.info: report.pl
