@@ -4515,7 +4515,7 @@ sub get_values
     if (defined $node->{type}) {
         $values = $node->{values};
         # if no values on the node, try to get them from the data type
-        if (!%$values) {
+        if (!$values || !%$values) {
             my $typeinfo = get_typeinfo($node->{type}, $node->{syntax});
             if ($typeinfo->{dataType}) {
                 my $dtname = $typeinfo->{value};
@@ -6401,7 +6401,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $i =~ s/..$//;
             }
             $name = '';
-            $requirement = $access;
+            $requirement = $access unless $command_or_event;
             $access = '';
             $node->{xml2}->{element} =
                 ($element ne 'parameter') ? $element : '';
@@ -6489,6 +6489,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
 
             # XXX a bit of a kludge...
             $type = 'dataType' if $ref;
+
+            $deftype = 'parameter' if $deftype && $command_or_event;
 
             $base = $base ? qq{ base="$base"} : qq{};
             $ref = $ref ? qq{ ref="$ref"} : qq{};
@@ -8841,7 +8843,9 @@ sub html_template_numentries
     my $text = qq{};
     $text .= qq{{{marktemplate|numentries}}} if $marktemplates;
 
-    if (!$table) {
+    if (is_command($node) || is_event($node)) {
+        return '';
+    } elsif (!$table) {
         emsg "$path: invalid use of {{numentries}}; parameter is " .
             "not associated with a table" unless util_is_deleted($node);
         return undef;
@@ -9158,7 +9162,10 @@ sub html_template_enum
     my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
         "Each list item is an enumeration of:\n"  : $opts->{map} ?
         "Each map item value is an enumeration of:\n" : "Enumeration of:\n";
-    return $pref . xml_escape(get_values($node_or_values, !$nolinks));
+
+    # only output the prefix if there are any values
+    my $escaped_values = xml_escape(get_values($node_or_values, !$nolinks));
+    return $escaped_values ? ($pref . $escaped_values) : "";
 }
 
 sub html_template_pattern
