@@ -12,7 +12,7 @@ endif
 ifneq (,$(findstring cygwin,$(shell uname -s | tr 'A-Z' 'a-z')))
     CYGDRIVE = /cygdrive
 else
-    CYGDRIVE = 
+    CYGDRIVE =
 endif
 PERL = perl
 STRAWB = $(CYGDRIVE)/c/strawberry32
@@ -42,10 +42,49 @@ ifneq "$(PLATFORM)" "exe"
     FILES += report.pl.info README.txt index.html
 endif
 
-all: $(FILES)
+DOCKER-NAME = report-pl
+DOCKER-TAG = broadbandforum/$(DOCKER-NAME):latest
 
-clean:
-	$(RM) $(FILES) 
+# default target no longer builds FILES
+all: docker-build
+
+old: $(FILES)
+
+install: docker-push
+
+prune: docker-prune
+
+clean: files-clean docker-clean
+
+files-clean:
+	$(RM) $(FILES)
+
+docker-build:
+	docker build --build-arg --tag=$(DOCKER-TAG) .
+
+docker-run:
+	docker run -it --name $(DOCKER-NAME) $(DOCKER-TAG) bash
+
+docker-restart:
+	docker container restart $(DOCKER-NAME)
+
+# Ctrl-P Ctrl-Q detaches without stopping
+docker-attach:
+	docker container attach $(DOCKER-NAME)
+
+docker-stop:
+	docker container stop $(DOCKER-NAME)
+	docker container rm $(DOCKER-NAME)
+
+docker-push: docker-build
+	docker push $(DOCKER-TAG)
+
+docker-prune: docker-stop
+	docker container prune --filter "until=24h" --force
+	docker image prune --force
+
+docker-clean: docker-prune
+	docker image rm $(DOCKER-TAG)
 
 report.pl.info: report.pl
 	-./$< --info 2>$@
