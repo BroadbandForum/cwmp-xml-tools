@@ -1,9 +1,11 @@
 # use an official perl runtime as a parent image
 FROM perl:latest
 
-# install libxml2
-RUN apt-get update
-RUN apt-get --yes install libxml2-dev
+# install libxml2 and link report.pl to a default search path
+RUN apt-get update \
+            && apt-get --yes install libxml2-dev \
+            && ln -s /opt/bbf/bin/report.pl /usr/local/bin/report.pl \
+            && apt-get clean
 
 # install necessary perl modules
 RUN cpanm \
@@ -16,11 +18,8 @@ RUN cpanm \
     URI::Escape \
     XML::LibXML
 
-# create /opt/bbf and /opt/bbf/bin
-RUN mkdir -p /opt/bbf /opt/bbf/bin
-
 # copy report.pl to /opt/bbf/bin
-COPY report.pl /opt/bbf/bin
+COPY report.pl /opt/bbf/bin/report.pl
 
-# create a soft link so report.pl will be in the executable search path
-RUN ln -s /opt/bbf/bin/report.pl /usr/local/bin/report.pl
+# copy plugins to /opt/bbf/plugins
+COPY plugins /opt/bbf/plugins
