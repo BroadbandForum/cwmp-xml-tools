@@ -4605,7 +4605,7 @@ sub get_values
             my $tvalue = $value;
             $tvalue =~ s/\\//g;
 
-            $list .= qq{%%$value%%$tvalue%%};
+            $list .= qq{\@\@\@$value\@\@\@$tvalue\@\@\@};
         }
         $list .= "''";
         $list .= ($deleted ? '---' : '+++') if $showdiffs && $changed;
@@ -10244,7 +10244,7 @@ sub html_font
         #my $path = $object . $opts->{param};
         my $prefix = html_anchor_namespace_prefix('value');
         my $fpath = util_full_path($opts->{node});
-        $inval =~ s|%%([^%]*)%%([^%]*)%%|<a name="$prefix$fpath.$2">$1</a>|g;
+        $inval =~ s|\@\@\@([^\@]*)\@\@\@([^\@]*)\@\@\@|<a name="$prefix$fpath.$2">$1</a>|g;
     }
 
     return $inval;
