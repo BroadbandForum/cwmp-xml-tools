@@ -13846,6 +13846,13 @@ my $primitive_types_xml = <<END;
     </description>
   </dataType>
 
+  <dataType name="_decimal">
+    <description>
+      Decimal value.
+      For some decimal types, a value range is given using the form decimal[''Min'':''Max''] where the ''Min'' and ''Max'' values are inclusive. If either ''Min'' or ''Max'' are missing, this indicates no limit. Multiple comma-separated ranges can be specified, in which case the value will be in one of the ranges.
+    </description>
+  </dataType>
+  
   <dataType name="_int">
     <description>
       Integer in the range -2147483648 to +2147483647, inclusive.
