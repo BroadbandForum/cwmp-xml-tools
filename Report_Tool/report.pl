@@ -742,6 +742,8 @@ our $range_for_type = {
     'unsignedLong' => {min => 0, max => 18446744073709551615}
 };
 
+our $used_data_type_list = {};  # keep track of used data types for output
+
 # File info from htmlbbf config file (declared here because it's used in some
 # template expansions).
 our $htmlbbf_info = {};
@@ -1259,7 +1261,6 @@ sub expand_dataType
         if $base && $prim;
 
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $file, $spec);
 
     my $tprim = defined $prim ? $prim : "undef";
     d1msg "expand_dataType name=$name base=$base prim=$tprim";
@@ -7404,7 +7405,10 @@ END
 END
             # XXX this is still very basic; no ranges, lengths etc;
             foreach my $datatype (sort {$a->{name} cmp $b->{name}}
-                                  @$datatypes) {
+                                  @$datatypes)
+            {
+              if ($used_data_type_list->{$datatype->{name}} || $used_data_type_list->{substr($datatype->{name},1)})
+              {
                 # primitive data type names begin with an underscore (to get
                 # around the fact that the DM Schema doesn't allow data type
                 # names to begin with a lower-case character
@@ -7448,6 +7452,9 @@ END
                 $sizerange .= add_size(base_syntax($name));
                 $sizerange .= add_range(base_syntax($name));
 
+                # add potential bibref references from description 
+                update_bibrefs($description,"","");
+                
                 # XXX this needs a generic utility that will escape any
                 #     description with full template expansion
                 # XXX more generally, a data type report should be quite like
@@ -7466,6 +7473,7 @@ END
         <td>$description</td>
       </tr>
 END
+              }
             }
             $html_buffer .= <<END;
     </table> <!-- Data Types -->
@@ -13629,6 +13637,9 @@ sub sanity_node
 
     # parameter sanity checks
     if ($parameter) {
+        # keep track of used types for output
+        $used_data_type_list->{$node->{'type'} eq 'dataType' ?  $node->{'syntax'}->{'ref'} : $node->{'type'}} = 1;
+        
         # XXX this isn't always an error; depends on whether table entries
         #     correspond to device configuration
         w2msg "$path: writable parameter in read-only table" if
