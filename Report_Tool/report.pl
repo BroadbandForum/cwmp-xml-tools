@@ -9173,6 +9173,8 @@ sub html_template_enum
 
     # only output the prefix if there are any values
     my $escaped_values = xml_escape(get_values($node_or_values, !$nolinks));
+    w0msg "$opts->{node}->{path}: inappropriate use of {{enum}} template"
+        if $opts->{node} && !$escaped_values;
     return $escaped_values ? ($pref . $escaped_values) : "";
 }
 
@@ -9187,7 +9189,12 @@ sub html_template_pattern
     my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
         "Each list item matches one of:\n" : $opts->{map} ?
         "Each map item value matches one of:\n" : "Possible patterns:\n";
-    return $pref . xml_escape(get_values($node_or_values, !$nolinks));
+
+    # only output the prefix if there are any values
+    my $escaped_values = xml_escape(get_values($node_or_values, !$nolinks));
+    w0msg "$opts->{node}->{path}: inappropriate use of {{pattern}} template"
+        if $opts->{node} && !$escaped_values;
+    return $escaped_values ? ($pref . $escaped_values) : "";
 }
 
 # report an object or parameter id
