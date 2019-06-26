@@ -62,10 +62,10 @@ files-clean:
 	$(RM) $(FILES)
 
 docker-build:
-	docker build --tag=$(DOCKER-IMAGE) .
+	docker image build --tag=$(DOCKER-IMAGE) .
 
 docker-run:
-	docker run -it --name $(DOCKER-NAME) $(DOCKER-IMAGE) bash
+	docker container run -it --name $(DOCKER-NAME) --rm $(DOCKER-IMAGE) bash
 
 docker-restart:
 	docker container restart $(DOCKER-NAME)
@@ -79,7 +79,7 @@ docker-stop:
 	docker container rm $(DOCKER-NAME)
 
 docker-push: docker-build
-	docker push $(DOCKER-IMAGE)
+	docker image push $(DOCKER-IMAGE)
 
 docker-prune: docker-stop
 	docker container prune --filter "until=24h" --force
