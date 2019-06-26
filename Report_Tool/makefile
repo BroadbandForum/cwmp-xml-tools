@@ -42,8 +42,10 @@ ifneq "$(PLATFORM)" "exe"
     FILES += report.pl.info README.txt index.html
 endif
 
+DOCKER-ORG = broadbandforum
 DOCKER-NAME = report-pl
-DOCKER-TAG = broadbandforum/$(DOCKER-NAME):latest
+DOCKER-TAG = latest
+DOCKER-IMAGE = $(DOCKER-ORG)/$(DOCKER-NAME):$(DOCKER-TAG)
 
 # default target no longer builds FILES
 all: docker-build
@@ -60,10 +62,10 @@ files-clean:
 	$(RM) $(FILES)
 
 docker-build:
-	docker build --build-arg --tag=$(DOCKER-TAG) .
+	docker build --tag=$(DOCKER-IMAGE) .
 
 docker-run:
-	docker run -it --name $(DOCKER-NAME) $(DOCKER-TAG) bash
+	docker run -it --name $(DOCKER-NAME) $(DOCKER-IMAGE) bash
 
 docker-restart:
 	docker container restart $(DOCKER-NAME)
@@ -77,14 +79,14 @@ docker-stop:
 	docker container rm $(DOCKER-NAME)
 
 docker-push: docker-build
-	docker push $(DOCKER-TAG)
+	docker push $(DOCKER-IMAGE)
 
 docker-prune: docker-stop
 	docker container prune --filter "until=24h" --force
 	docker image prune --force
 
 docker-clean: docker-prune
-	docker image rm $(DOCKER-TAG)
+	docker image rm $(DOCKER-IMAGE)
 
 report.pl.info: report.pl
 	-./$< --info 2>$@
