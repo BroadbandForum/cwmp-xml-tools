@@ -5543,6 +5543,7 @@ sub xml_node
         my $schemaLocation = $node->{schemaLocation};
         my $dataTypes = $node->{dataTypes};
         my $bibliography = $node->{bibliography};
+        my $templates = $node->{templates};
 
         print qq{$i<?xml version="1.0" encoding="UTF-8"?>
 $i<!-- \$Id\$ -->
@@ -5604,6 +5605,10 @@ $i             spec="$lspec">
 
         if ($bibliography && %$bibliography) {
             xml_bibliography($bibliography, $indent, {usespec => $lspec});
+        }
+
+        if ($templates && %$templates) {
+            xml_templates($templates, $indent, {});
         }
 
         $node->{xml}->{element} = 'dm:document';
@@ -5996,6 +6001,24 @@ sub xml_bibliography
     print qq{$i  </bibliography>\n};
 }
 
+sub xml_templates
+{
+    my ($templates, $indent, $opts) = @_;
+
+    $indent = 0 unless $indent;
+    my $i = "  " x $indent;
+
+    # XXX hash key order is undefined, so output them in alphabetical order
+    # XXX no special leading whitespace processing seems to be done for
+    #     templates, so don't worry about multi-line values
+    foreach my $id (sort keys %$templates) {
+        my $value = xml_escape($templates->{$id});
+        print qq{$i  <template id="$id">\n};
+        print qq{$i    $value\n};
+        print qq{$i  </template>\n};
+    }
+}
+
 # XXX could use postpar as is done for the xml2 report
 sub xml_post
 {
@@ -6199,6 +6222,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         if (!@$dtprofiles) {
             my $dataTypes = $node->{dataTypes};
             my $bibliography = $node->{bibliography};
+            my $templates = $node->{templates};
             print qq{$i  <description>$description</description>\n} if
                 $description;
             if ($dataTypes && @$dataTypes) {
@@ -6206,6 +6230,9 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             }
             if ($bibliography && %$bibliography) {
                 xml_bibliography($bibliography, $indent, {});
+            }
+            if ($templates && %$templates) {
+                xml_templates($templates, $indent, {});
             }
         } else {
             my $temp = util_list($dtprofiles, qq{''\$1''});
@@ -7454,9 +7481,9 @@ END
                 $sizerange .= add_size(base_syntax($name));
                 $sizerange .= add_range(base_syntax($name));
 
-                # add potential bibref references from description 
+                # add potential bibref references from description
                 update_bibrefs($description,"","");
-                
+
                 # XXX this needs a generic utility that will escape any
                 #     description with full template expansion
                 # XXX more generally, a data type report should be quite like
@@ -13648,7 +13675,7 @@ sub sanity_node
     if ($parameter) {
         # keep track of used types for output
         $used_data_type_list->{$node->{'type'} eq 'dataType' ?  $node->{'syntax'}->{'ref'} : $node->{'type'}} = 1;
-        
+
         # XXX this isn't always an error; depends on whether table entries
         #     correspond to device configuration
         w2msg "$path: writable parameter in read-only table" if
@@ -13872,7 +13899,7 @@ my $primitive_types_xml = <<END;
       For some decimal types, a value range is given using the form decimal[''Min'':''Max''] where the ''Min'' and ''Max'' values are inclusive. If either ''Min'' or ''Max'' are missing, this indicates no limit. Multiple comma-separated ranges can be specified, in which case the value will be in one of the ranges.
     </description>
   </dataType>
-  
+
   <dataType name="_int">
     <description>
       Integer in the range -2147483648 to +2147483647, inclusive.
