@@ -178,12 +178,12 @@ use XML::LibXML;
 use utf8;
 
 # update the date (yyyy-mm-dd) each time the report tool is changed
-my $tool_vers_date = q{2019-05-20};
+my $tool_vers_date = q{2019-07-01};
 
 # update the version when making a new release
 # a "+" after the version number indicates an interim version
 # (e.g. "report.pl#422+" means v422 + changes; "report.pl#423" means v423)
-my $tool_vers_name = q{report.pl#423};
+my $tool_vers_name = q{report.pl#423+};
 
 # use the existence of a trailing "-" or "+" on the version to determine
 # whether this is an interim version (between releases)
@@ -5272,22 +5272,46 @@ sub find_file
         }
     }
 
-    # support names of form name-i-a[-c][label].xml where name is of the form
+    # support names of form name-i[-a][-c][label].xml where name is of the form
     # "xx-nnn", i, a and c are numeric and label can't begin with a digit
     # XXX as experiment allow label to start with digit as long as it contains
     #     at least one non-digit (have also changed all similar occurrences)
     my ($name, $i, $a, $c, $label) =
-        $file =~ /^([^-]+-\d+)-(\d+)-(\d+)(?:-(\d+))?(-\d*\D.*)?\.xml$/;
+        $file =~ /^([^-]+-\d+)-(\d+)(?:-(\d+))?(?:-(\d+))?(-\d*\D.*)?\.xml$/;
+    $label = '' unless defined $label;
 
-    # remember whether the corrigendum number was explicitly given
+    # remember whether the amendment and corrigendum numbers were explicitly
+    # given
+    my $amen = (defined $a);
     my $corr = (defined $c);
+
+    # if name and issue (i) are defined but amendment number (a) is undefined,
+    # search for the highest amendment
+    # note: this is only done if the supplied file doesn't exist; this is to
+    #       ensure that existing "no amendment" files can be specified
+    # XXX could/should combine this with the "highest corrigendum" logic
+    if (!$fdir && defined $name && defined $i and !defined $a) {
+        foreach my $dir (@$dirs) {
+            my @files = File::Glob::bsd_glob(
+                File::Spec->catfile($dir, qq{$name-$i-*-*$label.xml}));
+            foreach my $file (@files) {
+                # remove directory part
+                (my $vol_ignore, my $dir_ignore, $file) =
+                    File::Spec->splitpath($file);
+                # XXX assumes no special RE chars anywhere...
+                my ($n) = $file =~ /^$name-$i-(\d+)-\d+$label\.xml$/;
+                if (defined $n && (!defined $a || $n > $a)) {
+                    $a = $n;
+                }
+            }
+        }
+    }
 
     # if name, issue (i) and amendment (a) are defined but corrigendum number
     # (c) is undefined, search for the highest corrigendum number
     # note: this is only done if the supplied file doesn't exist; this is to
     #       ensure that existing "no corrigendum" files can be specified
     if (!$fdir && defined $name && defined $i && defined $a && !defined $c){
-        $label = '' unless defined $label;
         foreach my $dir (@$dirs) {
             my @files = File::Glob::bsd_glob(
                 File::Spec->catfile($dir, qq{$name-$i-$a-*$label.xml}));
@@ -5312,7 +5336,7 @@ sub find_file
     #     changes for now...
     my $rpath = File::Spec->abs2rel(File::Spec->catfile($fdir, $ffile));
 
-    d0msg "find_file: $file $predir -> $fdir $ffile $corr $rpath";
+    d0msg "find_file: $file $predir -> $fdir $ffile $amen $corr $rpath";
     return ($fdir, $ffile, $corr, $rpath);
 }
 
@@ -7454,9 +7478,9 @@ END
                 $sizerange .= add_size(base_syntax($name));
                 $sizerange .= add_range(base_syntax($name));
 
-                # add potential bibref references from description 
+                # add potential bibref references from description
                 update_bibrefs($description,"","");
-                
+
                 # XXX this needs a generic utility that will escape any
                 #     description with full template expansion
                 # XXX more generally, a data type report should be quite like
@@ -13648,7 +13672,7 @@ sub sanity_node
     if ($parameter) {
         # keep track of used types for output
         $used_data_type_list->{$node->{'type'} eq 'dataType' ?  $node->{'syntax'}->{'ref'} : $node->{'type'}} = 1;
-        
+
         # XXX this isn't always an error; depends on whether table entries
         #     correspond to device configuration
         w2msg "$path: writable parameter in read-only table" if
@@ -13872,7 +13896,7 @@ my $primitive_types_xml = <<END;
       For some decimal types, a value range is given using the form decimal[''Min'':''Max''] where the ''Min'' and ''Max'' values are inclusive. If either ''Min'' or ''Max'' are missing, this indicates no limit. Multiple comma-separated ranges can be specified, in which case the value will be in one of the ranges.
     </description>
   </dataType>
-  
+
   <dataType name="_int">
     <description>
       Integer in the range -2147483648 to +2147483647, inclusive.
