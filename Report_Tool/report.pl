@@ -14653,7 +14653,7 @@ causes the specified data models to be marked as deprecated (the option value is
 
 causes any XML files whose names end with B<-common.xml> to be ignored (the option value is ignored, but should be "true")
 
-deprecated because the same effect can be achieved with =B<--htmlbbf_omitpattern> and a pattern of "-common\.xml$"
+deprecated because the same effect can be achieved with B<--htmlbbf_omitpattern> and a pattern of "-common\.xml$"
 
 =item B<htmlbbf_omitpattern=PATTERN>
 
