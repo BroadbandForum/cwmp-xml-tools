@@ -10636,6 +10636,9 @@ END
 
     # first determine heuristically which ones are support files and components
     # (schema files are already identified in $allfiles)
+    # XXX the $anyxxx variables aren't reliable, because files that match the
+    #     omit pattern may subsequently be omitted (the only downside is that
+    #     this may result in an empty section in the index file)
     # XXX this modifies the $allfiles element, but should do no harm
     my $anyschema = 0;
     my $anysupport = 0;
@@ -10838,7 +10841,7 @@ sub htmlbbf_schema_cmp
 # based on file name
 sub htmlbbf_support_cmp
 {
-    return htmlbbf_file_name_cmp($a->{name}, $b->{name});
+    return htmlbbf_file_name_cmp($a->{name}, $b->{name}, {defaultissue => 99});
 }
 
 # compare component files; $allfiles elements are passed and the comparison is
@@ -10852,7 +10855,10 @@ sub htmlbbf_component_cmp
 # comparison is based on tr-nnn, i, a, c then label
 sub htmlbbf_file_name_cmp
 {
-    my ($a, $b) = @_;
+    my ($a, $b, $opts) = @_;
+
+    # $opts->{defaultissue} overrides the default issue of 1
+    my $defaultissue = $opts->{defaultissue} || 1;
 
     my ($ax, $ai, $aa, $ac, $al) =
         $a =~ /^([^-]+-\d+)(?:-(\d+))?(?:-(\d+))?(?:-(\d+))?(-\D.*)?\.xml$/;
@@ -10861,12 +10867,12 @@ sub htmlbbf_file_name_cmp
 
     return $a cmp $b unless $ax && $bx && $ax =~ /^tr-/ && $bx =~ /^tr-/;
 
-    $ai = 1 unless defined $ai;
+    $ai = $defaultissue unless defined $ai;
     $aa = 0 unless defined $aa;
     $ac = 0 unless defined $ac;
     $al = '' unless defined $al;
 
-    $bi = 1 unless defined $bi;
+    $bi = $defaultissue unless defined $bi;
     $ba = 0 unless defined $ba;
     $bc = 0 unless defined $bc;
     $bl = '' unless defined $bl;
@@ -11068,8 +11074,13 @@ END
     my $outdated = $file->{outdated};
 
     # if this is common XML and it's being omitted, return immediately
+    # XXX could now use the "omit" pattern for this
     return if $options->{htmlbbf_omitcommonxml} &&
         $context->{model} && $name =~ /-common\.xml$/;
+
+    # more generally, if this matches the "omit" pattern, return immediately
+    return if $options->{htmlbbf_omitpattern} &&
+        $name =~ /$options->{htmlbbf_omitpattern}/;
 
     # this is defined only for outdated files; it's the file name of the latest
     # version; for non-outdated files just set it to the file name
@@ -14656,6 +14667,12 @@ causes any files whose names match the pattern to be marked as deprecated
 =item B<htmlbbf_omitcommonxml=VALUE>
 
 causes any XML files whose names end with B<-common.xml> to be ignored (the option value is ignored, but should be "true")
+
+deprecated because the same effect can be achieved with B<--htmlbbf_omitpattern> and a pattern of "-common\.xml$"
+
+=item B<htmlbbf_omitpattern=PATTERN>
+
+causes any files whose names match the specified pattern to be ignored
 
 =item B<htmlbbf_onlyfullxml=VALUE>
 
