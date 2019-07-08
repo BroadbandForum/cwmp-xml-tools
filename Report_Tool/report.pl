@@ -11112,7 +11112,7 @@ END
     # convenience variables
     my $mnam = qq{$mname_name:$mname_major};
     my $mver = qq{$mname_major.$mname_minor};
-    my $mnot = qq{};
+    my $note = qq{};
 
     # for model, check latest / root / service / deprecated
     if ($model) {
@@ -11122,14 +11122,23 @@ END
         return if !$context->{service} &&  $service;
 
         # omit deprecated models from the list of latest data models and
-        # otherwise mark them as being deprecated
+        # mark them as being deprecated
+        # XXX could often use the "deprecated" pattern for this
         if ($options->{htmlbbf_deprecatedmodels}) {
             my @deprecated = split ' ', $options->{htmlbbf_deprecatedmodels};
             if (grep {$_ eq $mnam} @deprecated) {
                 return if $context->{latestcolumn};
-                $mnot = qq{[DEPRECATED]};
+                $note = qq{[DEPRECATED]};
             }
         }
+    }
+
+    # omit deprecated filenames (those that match the "deprecated" pattern)
+    # from the list of latest data models and mark them as being deprecated
+    if ($options->{htmlbbf_deprecatedpattern} &&
+        $name =~ /$options->{htmlbbf_deprecatedpattern}/) {
+        return if $context->{latestcolumn};
+        $note = qq{[DEPRECATED]};
     }
 
     # name used for looking up config info is filename first, then filename
@@ -11340,8 +11349,8 @@ END
         # XXX key is a bit klunky; the row should be a hash rather than an
         #     array; by convention the key is on the first column (regardless
         #     of which columns contribute to it)
-        my $entry = !$context->{model} ?
-            {key => $document, note => ''} : {key => $mnam, note => $mnot};
+        my $key = $context->{model} ? $mnam : $document;
+        my $entry = {key => $key, note => $note};
 
         # output table of contents entry (not for outdated files because
         # the link would go to the latest file)
@@ -11356,11 +11365,11 @@ END
         }
         $context->{prevkey} = $entry->{key};
 
-        my $docval = {text => $document, names => [$document]};
+        my $docval = {text => $document, note => $note, names => [$document]};
 
         # link model to its anchor if not defining anchors, i.e. if the link
         # won't be self-referential
-        my $modval = {text => $mnam, note => $mnot,
+        my $modval = {text => $mnam, note => $note,
                       link => ($context->{noanchors} ? qq{#$mnam} : qq{})};
 
         my $verval = {text => $mver};
@@ -14637,6 +14646,12 @@ causes generation of a fragment of HTML, suitable for inclusion in an HTML docum
 =item B<htmlbbf_deprecatedmodels=MODELS>
 
 causes the specified data models to be marked as deprecated (the option value is a space-separated list of model names and major versions, e.g. "InternetGatewayDevice:1 Device:1")
+
+it may be possible (although less convenient) to achieve the same effect with B<--htmlbbf_deprecatedpattern>
+
+=item B<htmlbbf_deprecatedpattern=PATTERN>
+
+causes any files whose names match the pattern to be marked as deprecated
 
 =item B<htmlbbf_omitcommonxml=VALUE>
 
