@@ -2157,6 +2157,9 @@ sub expand_model_arguments
                  description => $description,
                  majorVersion => $majorVersion, minorVersion => $minorVersion,
                  dynamic => 0};
+    # XXX this is needed for arguments to be included in "diffs" reports; it's
+    #     quite possible that other attributes should also be defined...
+    $nnode->{lspec} = $pnode->{lspec};
     push @{$pnode->{nodes}}, $nnode;
 
     foreach my $item ($arguments->findnodes('component|parameter|object')) {
