@@ -749,11 +749,19 @@ our $used_data_type_list = {};  # keep track of used data types for output
 our $htmlbbf_info = {};
 
 # Parse and expand a data model definition file.
+# XXX also allows protobuf schemas to be listed but doesn't parse them
 # XXX also does minimal expansion of schema files
 my $firstautomodel = undef;
 sub expand_toplevel
 {
     my ($file, $xml)= @_;
+
+    # note but don't parse protobuf schemas
+    if ($file =~ /\.proto$/) {
+        my $hash = {name => $file, schema => 1};
+        push @$files2, $hash unless grep { $_->{name} eq $file} @$files2;
+        return;
+    }
 
     # if XML is supplied directly, use it rather than reading the file
     my ($dir, $rpath) = (undef, undef);
@@ -11168,18 +11176,19 @@ END
     my $pmname = undef;
     my $pmnam = undef;
 
-    # for non "tr" schemas, support names of form prefix-m-n.xsd where prefix
+    # for non "tr" schemas, support names of form prefix-m-n.ext where prefix
     # contains no digits and m and n are numeric (the same for outdated XSD
     # files)
+    # XXX protobuf schemas should match here
     # XXX tr-232-1-0-0-serviceSpec.xsd forces distinction of "tr" schemas
     if ($name !~ /^tr-/ && ($schema || ($outdated && $name =~ /\.xsd$/))) {
         # the rather complicated pattern allows it to match names with no
         # numeric characters at all, e.g. cwmp-datamodel-report.xsd
-        my ($prefix, $m, $n) = $name =~
-            /^([^\d\.]+)(?:-(\d+))?(?:-(\d+))?\.xsd$/;
-        push @names, qq{$prefix-$m-$n.xsd} if defined $n;
-        push @names, qq{$prefix-$m.xsd} if defined $m;
-        push @names, qq{$prefix.xsd};
+        my ($prefix, $m, $n, $ext) = $name =~
+            /^([^\d\.]+)(?:-(\d+))?(?:-(\d+))?\.(\w+)$/;
+        push @names, qq{$prefix-$m-$n.$ext} if defined $n;
+        push @names, qq{$prefix-$m.$ext} if defined $m;
+        push @names, qq{$prefix.$ext};
     }
 
     # for "tr" schemas, models, components and support files, allow names of
@@ -11412,9 +11421,15 @@ END
             push @$fileval_names, $fileval_name1;
             push @$fileval_names, $fileval_name2
                 if $fileval_name2 ne $fileval_name1;
+
+            # for protobuf schemas, optionally override with an external link
+            my $linksite = $name =~ /\.proto$/ &&
+                $options->{htmlbbf_protobufurlprefix} ?
+                $options->{htmlbbf_protobufurlprefix} : $cwmppath;
+            $linksite .= qq{/} if $linksite && $linksite !~ /\/$/;
             $fileval = {text => $fileval_text,
                         names => $fileval_names,
-                        link => qq{$cwmppath$fileval_text}};
+                        link => qq{$linksite$fileval_text}};
         }
 
         my $htmlval = undef;
@@ -14679,7 +14694,12 @@ causes any files whose names match the specified pattern to be ignored
 
 =item B<htmlbbf_onlyfullxml=VALUE>
 
-causes only full XML to be included; affects only data model XML, not component or support XML (the option value is ignored, but should be "true")
+causes only full XML to be included; affects only data model XML, not component
+or support XML (the option value is ignored, but should be "true")
+
+=item B<htmlbbf_protobufurlprefix=VALUE>
+
+the URL prefix to be used when generating URLs for protobuf schemas; defaults to B<--cwmppath>
 
 =back
 
