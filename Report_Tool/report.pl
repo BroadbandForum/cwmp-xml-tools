@@ -9425,11 +9425,8 @@ sub html_template_paramref
     my $entity = $opts->{is_commandref} ? 'command' :
         $opts->{is_eventref} ? 'event' : 'parameter';
 
-    # if no param (e.g. in data type description) return literal "parameter",
-    # "command" or "event"
-    unless ($param || $name) {
-        return $entity;
-    }
+    # if no param (e.g. in data type description) return $name or the entity
+    return ($name ? qq{''$name''} : $entity) unless $param;
 
     # parameterless case (no "name") is special
     unless ($name) {
@@ -9522,8 +9519,8 @@ sub html_template_objectref
     my $param = $opts->{param};
 
     # if there's no object, e.g. this is within a data type definition, just
-    # return the word 'object'
-    return 'object' unless $object;
+    # return $name or the word 'object'
+    return ($name ? qq{''$name''} : 'object') unless $object;
 
     my $mpref = util_full_path($opts->{node}, 1);
 
