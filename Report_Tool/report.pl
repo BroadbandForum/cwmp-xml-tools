@@ -1591,6 +1591,14 @@ sub expand_bibliography
         {
             my $h = $trpage;
             my $trname = $id;
+            # XXX the biblio file uses "a0" to indicate "initial version",
+            #     but the actual PDFs use "Issue-1" to indicate this
+            if ($trname =~ /\d{3,}a0$/) {
+                $trname =~ s/a0$/i1/;
+                msg "W", "$id: changed to \"$trname\" to match PDF " .
+                    "filename conventions"
+                    if $warnbibref > 1 || $loglevel >= $LOGLEVEL_DEBUG;
+            }
             $trname =~ s/i(\d+)/_Issue-$1/;
             $trname =~ s/a(\d+)/_Amendment-$1/;
             $trname =~ s/c(\d+)/_Corrigendum-$1/;
@@ -9354,7 +9362,7 @@ sub html_template_trref
     my ($opts, $trname) = @_;
 
     my $trlink = util_doc_link($trname);
-    return qq{[$trlink $trname]};
+    return $trlink ? qq{[$trlink $trname]} : $trname;
 }
 
 # approval date (expands to empty string)
@@ -13347,6 +13355,31 @@ sub util_doc_name
 sub util_doc_link
 {
     my ($name) = @_;
+
+    # XXX "TR-nnn" means "original version" but TR-nnn.pdf is the latest, and
+    #     the original version is TR-nnn_Issue-1.pdf
+
+    # XXX hard-coded list of (relevant) TRs whose initial PDF is missing
+    my $missing = ["069"];
+
+    # XXX hard-coded list of (relevant) TRs with multiple versions
+    my $multiple = ["098", "104", "106", "135", "140", "157", "181", "196"];
+    my ($nnn) = $name =~ /^TR-(\d+)$/;
+    if (defined $nnn) {
+        # if the initial version is  missing, return nothing
+        if (grep { $_ eq $nnn } @$missing) {
+            w1msg "$name: PDF is missing so no hyperlink generated";
+            return undef;
+        }
+
+        # if the TR has multiple versions, append "Issue 1"
+        elsif (grep { $_ eq $nnn } @$multiple) {
+            my $name0 = $name;
+            $name .= qq{ Issue 1};
+            w1msg "$name0: changed to \"$name\" to match PDF filename " .
+                "conventions";
+        }
+    }
 
     my $link = qq{${trpage}${name}.pdf};
     $link =~ s/ (Issue|Amendment|Corrigendum)/_$1/g;
