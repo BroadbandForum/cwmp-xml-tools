@@ -10646,7 +10646,11 @@ END
     foreach my $file (@$allfiles) {
         my $name = $file->{name};
         my $models = $file->{models};
-        if ($file->{schema}) {
+        # ignore if the filename matches an "omit" pattern
+        if ($options->{htmlbbf_omitcommonxml} && $name =~ /-common\.xml$/) {
+        } elsif ($options->{htmlbbf_omitpattern} &&
+                 $name =~ /$options->{htmlbbf_omitpattern}/) {
+        } elsif ($file->{schema}) {
             $anyschema = 1;
         } elsif ($name =~ /$htmlbbf_supportpatt/) {
             $file->{support} = 1;
@@ -11073,12 +11077,8 @@ END
     my $component = $file->{component};
     my $outdated = $file->{outdated};
 
-    # if this is common XML and it's being omitted, return immediately
-    # XXX could now use the "omit" pattern for this
-    return if $options->{htmlbbf_omitcommonxml} &&
-        $context->{model} && $name =~ /-common\.xml$/;
-
-    # more generally, if this matches the "omit" pattern, return immediately
+    # return if the filename matches an "omit" pattern
+    return if $options->{htmlbbf_omitcommonxml} && $name =~ /-common\.xml$/;
     return if $options->{htmlbbf_omitpattern} &&
         $name =~ /$options->{htmlbbf_omitpattern}/;
 
