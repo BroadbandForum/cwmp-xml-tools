@@ -13363,7 +13363,8 @@ sub util_doc_link
     my $missing = ["069"];
 
     # XXX hard-coded list of (relevant) TRs with multiple versions
-    my $multiple = ["098", "104", "106", "135", "140", "157", "181", "196"];
+    my $multiple = ["098", "104", "106", "135", "140", "157", "181", "196",
+                    "369];
     my ($nnn) = $name =~ /^TR-(\d+)$/;
     if (defined $nnn) {
         # if the initial version is  missing, return nothing
