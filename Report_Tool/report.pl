@@ -178,7 +178,7 @@ use XML::LibXML;
 use utf8;
 
 # update the date (yyyy-mm-dd) each time the report tool is changed
-my $tool_vers_date = q{2019-07-22};
+my $tool_vers_date = q{2019-07-26};
 
 # update the version when making a new release
 # a "+" after the version number indicates an interim version
