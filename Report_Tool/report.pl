@@ -178,12 +178,12 @@ use XML::LibXML;
 use utf8;
 
 # update the date (yyyy-mm-dd) each time the report tool is changed
-my $tool_vers_date = q{2019-07-26};
+my $tool_vers_date = q{2019-09-06};
 
 # update the version when making a new release
 # a "+" after the version number indicates an interim version
 # (e.g. "report.pl#422+" means v422 + changes; "report.pl#423" means v423)
-my $tool_vers_name = q{report.pl#424};
+my $tool_vers_name = q{report.pl#424+};
 
 # use the existence of a trailing "-" or "+" on the version to determine
 # whether this is an interim version (between releases)
