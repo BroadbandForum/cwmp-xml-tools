@@ -178,12 +178,12 @@ use XML::LibXML;
 use utf8;
 
 # update the date (yyyy-mm-dd) each time the report tool is changed
-my $tool_vers_date = q{2019-07-26};
+my $tool_vers_date = q{2019-09-06};
 
 # update the version when making a new release
 # a "+" after the version number indicates an interim version
 # (e.g. "report.pl#422+" means v422 + changes; "report.pl#423" means v423)
-my $tool_vers_name = q{report.pl#424};
+my $tool_vers_name = q{report.pl#424+};
 
 # use the existence of a trailing "-" or "+" on the version to determine
 # whether this is an interim version (between releases)
@@ -2167,16 +2167,33 @@ sub expand_model_arguments
     my ($majorVersion, $minorVersion) = dmr_version($arguments);
     $majorVersion = $mnode->{majorVersion} unless defined $majorVersion;
     $minorVersion = $mnode->{minorVersion} unless defined $minorVersion;
-    my $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
-                 path => $path, type => $type, is_arguments => 1,
-                 access => $access, status => $status,
-                 description => $description,
-                 majorVersion => $majorVersion, minorVersion => $minorVersion,
-                 dynamic => 0};
-    # XXX this is needed for arguments to be included in "diffs" reports; it's
-    #     quite possible that other attributes should also be defined...
-    $nnode->{lspec} = $pnode->{lspec};
-    push @{$pnode->{nodes}}, $nnode;
+
+    # XXX this is simplified add_object() logic; is this sufficient?
+    my $spec = $context->[0]->{spec};
+    msg "D", "add_$which name=$name spec=$spec"
+        if $loglevel >= $LOGLEVEL_DEBUG + 1 ||
+        ($debugpath && $path =~ /$debugpath/);
+
+    my $nnode;
+    my @match = grep {$_->{name} eq $name} @{$pnode->{nodes}};
+    if (@match) {
+        $nnode = $match[0];
+    } else {
+        $nnode = {mnode => $mnode, pnode => $pnode, name => $name,
+                  path => $path, type => $type, is_arguments => 1,
+                  access => $access, status => $status,
+                  description => $description,
+                  majorVersion => $majorVersion, minorVersion => $minorVersion,
+                  dynamic => 0};
+        # XXX this is needed for arguments to be included in "diffs" reports;
+        #     it's quite possible that other attributes should also be
+        #     defined...
+        $nnode->{lspec} = $pnode->{lspec};
+        push @{$pnode->{nodes}}, $nnode;
+    }
+
+    msg "D", Dumper(util_copy($nnode, ['nodes', 'pnode', 'mnode']))
+        if $debugpath && $path =~ /$debugpath/;
 
     foreach my $item ($arguments->findnodes('component|parameter|object')) {
         my $element = $item->findvalue('local-name()');
