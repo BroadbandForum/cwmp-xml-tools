@@ -238,8 +238,6 @@ binmode STDERR, ":utf8";
 my $modifiedusesspec = 1;
 
 # Command-line options
-# XXX don't need --alldatatypes because the last spec is the data type file so
-#     all are included; why doesn't this work for bibrefs too?
 # XXX needed to change declarations to be "our" in order for variables to be
 #     visible to plugins; better to use a single options hash?
 our $allbibrefs = 0;
