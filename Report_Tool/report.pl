@@ -243,6 +243,7 @@ my $modifiedusesspec = 1;
 # XXX needed to change declarations to be "our" in order for variables to be
 #     visible to plugins; better to use a single options hash?
 our $allbibrefs = 0;
+our $alldatatypes = 0;
 our $altnotifreqstyle = 0;
 our $autobase = 0;
 our $autodatatype = 0;
@@ -328,6 +329,7 @@ our $warnbibref = undef;
 our $noxmllink = 0;
 our $writonly = 0;
 GetOptions('allbibrefs' => \$allbibrefs,
+           'alldatatypes' => \$alldatatypes,
            'altnotifreqstyle' => \$altnotifreqstyle,
            'autobase' => \$autobase,
            'autodatatype' => \$autodatatype,
@@ -6939,6 +6941,30 @@ sub bibid_cmp
     }
 }
 
+# compare by datatype (designed to be used with sort)
+sub datatype_cmp
+{
+    # type name
+    my $an = $a->{name};
+    my $bn = $b->{name};
+
+    # skip leading underscore
+    $an =~ s/^_//;
+    $bn =~ s/^_//;
+
+    # lower-case comes before upper-case (so primitive types are listed first)
+    if ($an =~ /^[a-z]/ && $bn =~ /^[A-Z]/) {
+        return -1;
+    } elsif ($an =~ /^[A-Z]/ && $bn =~ /^[a-z]/) {
+        return +1;
+    }
+
+    # otherwise normal string comparison
+    else {
+        return ($an cmp $bn);
+    }
+}
+
 # Create an HTML anchor of a specified type; supported types (with their
 # abbreviations) are:
 # - heading: section heading
@@ -7493,11 +7519,8 @@ END
     </tr>
 END
             # XXX this is still very basic; no ranges, lengths etc;
-            foreach my $datatype (sort {$a->{name} cmp $b->{name}}
-                                  @$datatypes)
-            {
-              if ($used_data_type_list->{$datatype->{name}} || $used_data_type_list->{substr($datatype->{name},1)})
-              {
+            foreach my $datatype (sort datatype_cmp @$datatypes) {
+              if ($used_data_type_list->{$datatype->{name}} || $used_data_type_list->{substr($datatype->{name}, 1)} || $alldatatypes) {
                 # primitive data type names begin with an underscore (to get
                 # around the fact that the DM Schema doesn't allow data type
                 # names to begin with a lower-case character
@@ -14131,6 +14154,7 @@ report.pl - generate Broadband Forum USP and CWMP data model reports
 
 B<report.pl>
 [--allbibrefs]
+[--alldatatypes]
 [--altnotifreqstyle]
 [--autobase]
 [--autodatatype]
@@ -14243,6 +14267,14 @@ There are a large number of options but in practice only a few need to be used. 
 =item B<--allbibrefs>
 
 usually only bibliographic references that are referenced from within the data model definition are listed in the report; this isn't much help when generating a list of bibliographic references without a data model! that's what this option is for; currently it affects only B<html> reports
+
+see also B<--alldatatypes>
+
+=item B<--alldatatypes>
+
+usually only data types that are referenced from within the data model definition are listed in the report; this isn't much help when generating a list of data types without a data model! that's what this option is for; currently it affects only B<html> reports
+
+see also B<--allbibrefs>
 
 =item B<--altnotifreqstyle>
 
