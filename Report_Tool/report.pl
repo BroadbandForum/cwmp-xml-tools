@@ -1337,7 +1337,9 @@ sub expand_dataType
         my $i = 0;
         foreach my $value (@$values) {
             my $facet = $value->findvalue('local-name()');
-            my $access = $value->findvalue('@access');
+            # XXX should always use util_strip(), but for now it's only used
+            #     with access and requirement (because it was needed!)
+            my $access = util_strip($value->findvalue('@access'));
             my $status = $value->findvalue('@status');
             my $optional = $value->findvalue('@optional');
             my $description = $value->findvalue('description');
@@ -1850,7 +1852,7 @@ sub expand_model_object
     my $ref = $object->findvalue('@ref');
     my $is_dt = ($ref ne '');
     $ref = $object->findvalue('@base') unless $ref;
-    my $access = $object->findvalue('@access');
+    my $access = util_strip($object->findvalue('@access'));
     my $minEntries = $object->findvalue('@minEntries');
     my $maxEntries = $object->findvalue('@maxEntries');
     my $numEntriesParameter = $object->findvalue('@numEntriesParameter');
@@ -2269,7 +2271,7 @@ sub expand_model_parameter
     my $ref = $parameter->findvalue('@ref');
     my $is_dt = ($ref ne '');
     $ref = $parameter->findvalue('@base') unless $ref;
-    my $access = $parameter->findvalue('@access');
+    my $access = util_strip($parameter->findvalue('@access'));
     my $status = $parameter->findvalue('@status');
     # XXX mandatory is meaningful only for commands
     my $is_mandatory = $parameter->findvalue('@mandatory');
@@ -2455,7 +2457,7 @@ sub expand_model_parameter
     my $i = 0;
     foreach my $value (@$values) {
         my $facet = $value->findvalue('local-name()');
-        my $access = $value->findvalue('@access');
+        my $access = util_strip($value->findvalue('@access'));
         my $status = $value->findvalue('@status');
         my $optional = $value->findvalue('@optional');
         my $action = $value->findvalue('@action');
@@ -2905,7 +2907,7 @@ sub expand_model_profile_object
     my $Path = $context->[0]->{path};
 
     my $name = $object->findvalue('@ref');
-    my $access = $object->findvalue('@requirement');
+    my $access = util_strip($object->findvalue('@requirement'));
     my $status = $object->findvalue('@status');
     my $description = $object->findvalue('description');
     my $descact = $object->findvalue('description/@action');
@@ -3022,7 +3024,7 @@ sub expand_model_profile_parameter
     my $Path = $context->[0]->{path};
 
     my $name = $parameter->findvalue('@ref');
-    my $access = $parameter->findvalue('@requirement');
+    my $access = util_strip($parameter->findvalue('@requirement'));
     my $status = $parameter->findvalue('@status');
     my $description = $parameter->findvalue('description');
     my $descact = $parameter->findvalue('description/@action');
@@ -3078,6 +3080,7 @@ sub expand_model_profile_parameter
 
     # these errors are reported by sanity_node
     my $fpath = util_full_path($Pnode, 1) . $path;
+    my $ppa = {readOnly => 0, writeOnceReadOnly => 1, readWrite => 2};
     unless (util_is_defined($parameters, $fpath)) {
         if ($noprofiles) {
         } elsif (!defined $Pnode->{errors}->{$path}) {
@@ -3087,8 +3090,8 @@ sub expand_model_profile_parameter
         }
         delete $Pnode->{errors}->{$path} if $status eq 'deleted';
         return;
-    } elsif ($access && $access ne 'readOnly' &&
-             $parameters->{$fpath}->{access} eq 'readOnly') {
+    } elsif ($access && $ppa->{$access} >
+             $ppa->{$parameters->{$fpath}->{access}}) {
         emsg "profile $Pnode->{name} has invalid requirement ".
             "($access) for $path ($parameters->{$fpath}->{access})";
     }
@@ -3097,7 +3100,6 @@ sub expand_model_profile_parameter
 
     # if requirement is not greater than that of the base profile, reduce
     # it to 'notSpecified' (but not if descr)
-    my $ppa = {readOnly => 0, readWrite => 1};
     my $baseobj = $pnode->{baseobj};
     if ($baseobj) {
         my ($basepar) = grep {$_->{name} eq $name} @{$baseobj->{nodes}};
@@ -3884,7 +3886,9 @@ sub add_parameter
         if ($access ne $nnode->{access})
         {
             # Create Error if access got demoted!
-            if ($nnode->{access} eq 'readWrite')
+            my $access_level = {readOnly => 0, writeOnceReadOnly => 1,
+                                readWrite => 2};
+            if ($access_level->{$access} < $access_level->{$nnode->{access}})
             {
                 emsg "$path: access got demoted from $nnode->{access} to $access";
             }
@@ -6865,14 +6869,15 @@ sub parameter_requirement
         my $req = $profiles->{$fpath}->{$path};
         next unless $req;
 
-        $req = {readOnly => 1, readWrite => 2}->{$req};
+        $req = {readOnly => 1, writeOnceReadOnly => 1, readWrite => 3}->{$req};
         if (defined($req) && $req > $maxreq) {
             $maxreq = $req;
             push @$matches, $prof;
         }
     }
 
-    my $access = {0 => '', 1 => 'readOnly', 2 => 'readWrite'}->{$maxreq};
+    my $access = {0 => '', 1 => 'readOnly', 2 => 'writeOnceReadOnly',
+                  3 => 'readWrite'}->{$maxreq};
 
     return ($access, $maxreq, $matches);
 }
@@ -7644,6 +7649,7 @@ END
         # XXX need to handle access / requirement more generally
         my $access = html_escape($node->{access});
         my $write =
+            $access eq 'writeOnceReadOnly' ? 'r' :
             $access eq 'readWrite' ? 'W' :
             $access eq 'present' ? 'P' :
             $access eq 'create' ? 'A' :
@@ -7980,6 +7986,7 @@ END
                 $write = 'R' if $write eq '-' && !$is_arguments;
             } else {
                 $write = 'R' if $access eq 'readOnly';
+                $write = 'r' if $access eq 'writeOnceReadOnly';
             }
             $name = html_get_anchor($fpath, 'path', $name)
                 unless $nolinks || $is_arguments;
@@ -13563,6 +13570,16 @@ sub util_node_is_new
             $node->{minorVersion} == $mnode->{minorVersion});
 }
 
+# Strip leading and trailing whitespace
+# XXX there are probably lots of places where this could be (but is not) used
+sub util_strip
+{
+    my ($text) = @_;
+    $text =~ s/^\s*//;
+    $text =~ s/\s*$//;
+    return $text;
+}
+
 # Perform sanity checks etc, e.g. prune empty objects if --writonly
 # XXX some warnings are suppressed if is_dt is true; should check all; very
 #     klunky
@@ -13726,7 +13743,7 @@ sub sanity_node
         if ($numEntriesParameter) {
             emsg "$path: numEntriesParameter " .
                 "($numEntriesParameter->{name}) is writable" if
-                $numEntriesParameter->{access} eq 'readWrite';
+                $numEntriesParameter->{access} ne 'readOnly';
 
             my $numEntriesDefault = $numEntriesParameter->{default};
             $numEntriesDefault = undef
