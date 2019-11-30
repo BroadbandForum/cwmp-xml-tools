@@ -7649,7 +7649,7 @@ END
         # XXX need to handle access / requirement more generally
         my $access = html_escape($node->{access});
         my $write =
-            $access eq 'writeOnceReadOnly' ? 'WO' :
+            $access eq 'writeOnceReadOnly' ? 'r' :
             $access eq 'readWrite' ? 'W' :
             $access eq 'present' ? 'P' :
             $access eq 'create' ? 'A' :
@@ -7986,7 +7986,7 @@ END
                 $write = 'R' if $write eq '-' && !$is_arguments;
             } else {
                 $write = 'R' if $access eq 'readOnly';
-                $write = 'WO' if $access eq 'writeOnceReadOnly';
+                $write = 'r' if $access eq 'writeOnceReadOnly';
             }
             $name = html_get_anchor($fpath, 'path', $name)
                 unless $nolinks || $is_arguments;
