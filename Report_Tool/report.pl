@@ -161,6 +161,7 @@ use Algorithm::Diff;
 use Clone qw{clone};
 use Data::Compare;
 use Data::Dumper;
+use File::Find;
 use File::Glob;
 use File::Spec;
 use Getopt::Long;
@@ -306,6 +307,7 @@ our $objpat = '';
 our $options = {};
 our $outfile = undef;
 our $pedantic = undef;
+our $plugindirs = [];
 our $plugins = [];
 our $quiet = 0;
 our $report = '';
@@ -391,6 +393,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'option:s%' => \$options,
            'outfile:s' => \$outfile,
            'pedantic:i' => \$pedantic,
+           'plugindir:s@' => \$plugindirs,
            'plugin:s@' => \$plugins,
            'quiet' => \$quiet,
            'report:s' => \$report,
@@ -464,8 +467,29 @@ my $num_errors = 0;
     }
 }
 
-# this means that plugins can be in included directories
-push @INC, @$includes;
+# plugindirs are expanded all subdirectories
+my $plugindirs_ = [];
+File::Find::find(
+    sub {
+        my $name = $_;
+        if (!-d $name) {
+            # ignore non-directories
+        } elsif ($name =~ /^\..+/) {
+            # prune at ".xxx" (e.g. ".git) but not at "."
+            $File::Find::prune = 1;
+        } else {
+            # otherwise add the directory
+            push @$plugindirs_, $File::Find::name;
+        }
+    }, @$plugindirs);
+
+# plugindirs default to includes (not expanded), so plugins will only be found
+# in includes if --plugindir isn't specified (this gives backwards compatible
+# behavior)
+# XXX note that $INC includes the current directory, which maybe shouldn't be
+#     searched by default?
+push @$plugindirs, @$includes unless @$plugindirs;
+push @INC, @$plugindirs_;
 
 # determine all possible report types; a routine called "<rrr>_node" in the
 # main module or in a plugin module
@@ -14194,6 +14218,7 @@ B<report.pl>
 [--option=n=v]...
 [--outfile=s]
 [--pedantic[=i(1)]]
+[--plugindir=d]...
 [--plugin=s]...
 [--quiet]
 [--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...]
@@ -14647,6 +14672,12 @@ the only reason to use this option (rather than using shell output redirection) 
 enables output of warnings to I<stderr> when logical inconsistencies in the XML are detected; if the option is specified without a value, the value defaults to 1
 
 this has the same effect as setting B<--loglevel> to "w" (warning) followed by the pedantic value minus one, e.g. "w1" for B<--pedantic=2>
+
+=item B<--plugindir=d>...
+
+can be specified multiple times; specifies directories to search for plugins (subdirectories are also searched)
+
+if not specified, B<--include> directories are searched for plugins (in this case, subdirectories are not searched)
 
 =item B<--plugin=s>...
 
