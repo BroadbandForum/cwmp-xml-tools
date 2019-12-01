@@ -467,8 +467,7 @@ my $num_errors = 0;
     }
 }
 
-# plugindirs default to includes and are expanded to include all subdirectories
-push @$plugindirs, @$includes unless @$plugindirs;
+# plugindirs are expanded all subdirectories
 my $plugindirs_ = [];
 File::Find::find(
     sub {
@@ -483,6 +482,13 @@ File::Find::find(
             push @$plugindirs_, $File::Find::name;
         }
     }, @$plugindirs);
+
+# plugindirs default to includes (not expanded), so plugins will only be found
+# in includes if --plugindir isn't specified (this gives backwards compatible
+# behavior)
+# XXX note that $INC includes the current directory, which maybe shouldn't be
+#     searched by default?
+push @$plugindirs, @$includes unless @$plugindirs;
 push @INC, @$plugindirs_;
 
 # determine all possible report types; a routine called "<rrr>_node" in the
@@ -14669,15 +14675,13 @@ this has the same effect as setting B<--loglevel> to "w" (warning) followed by t
 
 =item B<--plugindir=d>...
 
-can be specified multiple times; specifies directories to search for plugins; defaults to the B<--include> directories
+can be specified multiple times; specifies directories to search for plugins (subdirectories are also searched)
 
-all B<--plugindir> subdirectories are also searched for plugins
+if not specified, B<--include> directories are searched for plugins (in this case, subdirectories are not searched)
 
 =item B<--plugin=s>...
 
 can be specified multiple times; defines external plugins that can define additional report types
-
-plugins are searched for in the B<--plugindir> directories (and their subdirectories)
 
 =over
 
