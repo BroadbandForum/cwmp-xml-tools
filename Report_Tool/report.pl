@@ -161,6 +161,7 @@ use Algorithm::Diff;
 use Clone qw{clone};
 use Data::Compare;
 use Data::Dumper;
+use File::Find;
 use File::Glob;
 use File::Spec;
 use Getopt::Long;
@@ -305,6 +306,7 @@ our $objpat = '';
 our $options = {};
 our $outfile = undef;
 our $pedantic = undef;
+our $plugindirs = [];
 our $plugins = [];
 our $quiet = 0;
 our $report = '';
@@ -391,6 +393,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'option:s%' => \$options,
            'outfile:s' => \$outfile,
            'pedantic:i' => \$pedantic,
+           'plugindir:s@' => \$plugindirs,
            'plugin:s@' => \$plugins,
            'quiet' => \$quiet,
            'report:s' => \$report,
@@ -464,8 +467,23 @@ my $num_errors = 0;
     }
 }
 
-# this means that plugins can be in included directories
-push @INC, @$includes;
+# plugindirs default to includes and are expanded to include all subdirectories
+push @$plugindirs, @$includes unless @$plugindirs;
+my $plugindirs_ = [];
+File::Find::find(
+    sub {
+        my $name = $_;
+        if (!-d $name) {
+            # ignore non-directories
+        } elsif ($name =~ /^\..+/) {
+            # prune at ".xxx" (e.g. ".git) but not at "."
+            $File::Find::prune = 1;
+        } else {
+            # otherwise add the directory
+            push @$plugindirs_, $File::Find::name;
+        }
+    }, @$plugindirs);
+push @INC, @$plugindirs_;
 
 # determine all possible report types; a routine called "<rrr>_node" in the
 # main module or in a plugin module
@@ -14224,6 +14242,7 @@ B<report.pl>
 [--option=n=v]...
 [--outfile=s]
 [--pedantic[=i(1)]]
+[--plugindir=d]...
 [--plugin=s]...
 [--quiet]
 [--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...]
@@ -14686,9 +14705,17 @@ enables output of warnings to I<stderr> when logical inconsistencies in the XML 
 
 this has the same effect as setting B<--loglevel> to "w" (warning) followed by the pedantic value minus one, e.g. "w1" for B<--pedantic=2>
 
+=item B<--plugindir=d>...
+
+can be specified multiple times; specifies directories to search for plugins; defaults to the B<--include> directories
+
+all B<--plugindir> subdirectories are also searched for plugins
+
 =item B<--plugin=s>...
 
 can be specified multiple times; defines external plugins that can define additional report types
+
+plugins are searched for in the B<--plugindir> directories (and their subdirectories)
 
 =over
 
