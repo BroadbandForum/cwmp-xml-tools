@@ -10653,7 +10653,7 @@ END
     # XXX footnotes are currently handled locally but general footnote support
     #     might be added later
     my $footnotes = [];
-    my $footpatt = q{(\{\{footnote\|.*)};
+    my $footpatt = q{(\\\{\\\{footnote\|.*)};
     my $footcount = 0;
     while ($intro =~ /$footpatt/) {
         $footcount++;
