@@ -9008,23 +9008,19 @@ sub html_template_datatype
         return qq{};
     }
 
-    # if argument is supplied and is "expand", return the data type description
-    my $text;
+    # always include "[datatype] " (as a hyperlink), unless --showsyntax, in
+    # which case no need because the info will be in the Syntax column
+    $dtname = html_get_anchor($dtname, 'datatype') unless $nolinks;
+    my $text = $showsyntax ? qq{} : qq{[''$dtname''] };
+
+    # if argument is supplied and is "expand", append the data type description
     if ($arg && $arg eq 'expand') {
         # XXX should check for valid data type? (should always be)
         # XXX not sure why need to call html_whitespace() here...
-        $text = html_whitespace($dtdef->{description});
+        $text .= html_whitespace($dtdef->{description});
         # XXX we remove any {{issue}} templates so they will occur only in
         # the data type table and not whenever the data type is expanded
         $text = util_ignore_template('issue', $text);
-    }
-
-    # otherwise, just return "[datatype] " (as a hyperlink), unless
-    # --showsyntax, in which case return nothing because the info will be
-    # in the Syntax column
-    else {
-        $dtname = html_get_anchor($dtname, 'datatype') unless $nolinks;
-        $text = $showsyntax ? qq{} : qq{[''$dtname''] };
     }
 
     return $text;
