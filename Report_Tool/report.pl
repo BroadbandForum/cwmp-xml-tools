@@ -6921,22 +6921,34 @@ sub clean_description
 # compare by bibid (designed to be used with sort)
 sub bibid_cmp
 {
-    # try to split into string prefix, numeric middle, and string suffix;
+    # try to split into prefix, number, and i/a/c + number suffices;
     # sort alphabetically on the prefix, numerically on the middle, and
-    # alphabetically on the suffix (gives correct ordering in many common
+    # alphabetically on the suffices (gives correct ordering in many common
     # cases, e.g. "RFC1234" -> {RFC, 1234,} and TR-069a2 -> {TR-, 069, a2}
     # (ignore case on the alphabetic sorts)
 
-    my ($ap, $am, $as) = ($a->{id} =~ /(.*?)(\d*)([iac]?\d*)$/);
-    my ($bp, $bm, $bs) = ($b->{id} =~ /(.*?)(\d*)([iac]?\d*)$/);
+    my $patt = '(.*?)(\d*)i?(\d*)a?(\d*)c?(\d*)$';
+    my ($ap, $an, $ai, $aa, $ac) = ($a->{id} =~ /$patt/);
+    my ($bp, $bn, $bi, $ba, $bc) = ($b->{id} =~ /$patt/);
 
+    my $retval = undef;
     if ($ap ne $bp) {
-        return (lc $ap cmp lc $bp);
-    } elsif ($am ne $bm) {
-        return (($am ne '' ? $am : 0) <=> ($bm ne '' ? $bm : 0));
+        $retval = (lc $ap cmp lc $bp);
+    } elsif ($an ne $bn) {
+        $retval = (($an ne '' ? $an : 0) <=> ($bn ne '' ? $bn : 0));
+    } elsif ($ai ne $bi) {
+        # XXX note that issue defaults to 1
+        $retval = (($ai ne '' ? $ai : 1) <=> ($bi ne '' ? $bi : 1));
+    } elsif ($aa ne $ba) {
+        # XXX amendment defaults to -1 so omitted a comes before a0
+        $retval = (($aa ne '' ? $aa : -1) <=> ($ba ne '' ? $ba : -1));
+    } elsif ($ac ne $bc) {
+        $retval = (($ac ne '' ? $ac : 0) <=> ($bc ne '' ? $bc : 0));
     } else {
-        return (lc $as cmp lc $bs);
+        # XXX the pattern should guarantee that we don't ever get here
+        $retval = (lc $a->{id} cmp lc $b->{id});
     }
+    return $retval;
 }
 
 # Create an HTML anchor of a specified type; supported types (with their
@@ -7585,7 +7597,7 @@ END
                 # XXX this doesn't work when hiding sub-trees (would like
                 #     hide_subtree and unhide_subtree to auto-hide and show
                 #     relevant references)
-                next if $lastonly &&
+                next if !$allbibrefs && $lastonly &&
                     !grep {$_ eq $lspecf} @{$bibrefs->{$id}};
 
                 my $name = xml_escape($reference->{name});
