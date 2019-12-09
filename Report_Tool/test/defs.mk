@@ -78,7 +78,7 @@ clean:
 	$(RM) -f $(TARGETS) $(TARGETS:%=%.err)
 .PHONY: clean
 
-snapshot: all
+snapshot:
 	$(RM) -rf $(expectdir)
 	$(MKDIR) $(expectdir)
 	$(CP) -af $(targetdir) $(expectdir)

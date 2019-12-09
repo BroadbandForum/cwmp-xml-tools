@@ -1,15 +1,18 @@
-SUBDIRS = steve 
+DIRS = $(shell for d in * ; do [ -d $$d -a -f $$d/makefile ] && echo $$d ; done)
 
-all: $(SUBDIRS:%=all-%)
-.PHONY: all
+all: $(DIRS:%=all-%)
 
 all-%:
 	make --directory=$* all
-.PHONY: all-%
 
-clean: $(SUBDIRS:%=clean-%)
-.PHONY: clean
+snapshot: $(DIRS:%=snapshot-%)
+
+snapshot-%:
+	make --directory=$* snapshot
+
+clean: $(DIRS:%=clean-%)
 
 clean-%:
 	make --directory=$* clean
-.PHONY: clean-%
+
+.PHONY: all all-% snapshot snapshot-% clean clean-%
