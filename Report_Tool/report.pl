@@ -4326,7 +4326,8 @@ sub invalid_bibrefs
         push @$bad, $id unless
             grep {$_->{id} eq $id} @{$root->{bibliography}->{references}};
     }
-    return $bad;
+    my @bad = sort @$bad;
+    return \@bad;
 }
 
 # Determine whether a maximum length is appropriate for this parameter
@@ -13712,7 +13713,7 @@ sub sanity_node
         emsg "$path: invalid bibrefs: " . join(', ', @$ibr) if
             $warnbibref >= 0 && @$ibr;
         if (util_is_defined($values)) {
-            foreach my $value (keys %$values) {
+            foreach my $value (sort keys %$values) {
                 my $cvalue = $values->{$value};
 
                 my $description = $cvalue->{description};
