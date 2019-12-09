@@ -470,19 +470,21 @@ my $num_errors = 0;
 # plugindirs default to includes and are expanded to include all subdirectories
 push @$plugindirs, @$includes unless @$plugindirs;
 my $plugindirs_ = [];
-File::Find::find(
-    sub {
-        my $name = $_;
-        if (!-d $name) {
-            # ignore non-directories
-        } elsif ($name =~ /^\..+/) {
-            # prune at ".xxx" (e.g. ".git) but not at "."
-            $File::Find::prune = 1;
-        } else {
-            # otherwise add the directory
-            push @$plugindirs_, $File::Find::name;
-        }
-    }, @$plugindirs);
+if (@$plugindirs) {
+    File::Find::find(
+        sub {
+            my $name = $_;
+            if (!-d $name) {
+                # ignore non-directories
+            } elsif ($name =~ /^\..+/) {
+                # prune at ".xxx" (e.g. ".git) but not at "."
+                $File::Find::prune = 1;
+            } else {
+                # otherwise add the directory
+                push @$plugindirs_, $File::Find::name;
+            }
+        }, @$plugindirs);
+}
 push @INC, @$plugindirs_;
 
 # determine all possible report types; a routine called "<rrr>_node" in the
