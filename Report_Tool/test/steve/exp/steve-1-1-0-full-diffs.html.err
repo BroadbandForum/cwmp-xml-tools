@@ -1,0 +1,9 @@
+(E) Radio.{i}.: missing or invalid numEntriesParameter ()
+(W) Radio.{i}.: no unique keys are defined
+(E) Radio.{i}.SupportedStandards: invalid bibrefs: 802.11a-1999
+(E) Radio.{i}.SupportedStandards: invalid bibrefs: 802.11ac-2013
+(E) Radio.{i}.SupportedStandards: invalid bibrefs: 802.11b-1999
+(E) Radio.{i}.SupportedStandards: invalid bibrefs: 802.11g-2003
+(E) Radio.{i}.SupportedStandards: invalid bibrefs: 802.11n-2009
+(E) Radio.{i}.OperatingStandards: invalid bibrefs: 802.11b-1999, 802.11g-2003
+(E) invalid bibrefs (need to use the --tr106 option?): SOAP1.1
