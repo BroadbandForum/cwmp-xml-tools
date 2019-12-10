@@ -88,6 +88,14 @@ docker-prune: docker-stop
 docker-clean: docker-prune
 	docker image rm $(DOCKER-IMAGE)
 
+test:
+	make --directory=test all
+
+test-snapshot:
+	make --directory=test snapshot
+
+.PHONY: test test-snapshot
+
 report.pl.info: report.pl
 	-./$< --info 2>$@
 
