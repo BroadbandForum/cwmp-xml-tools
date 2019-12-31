@@ -1377,7 +1377,7 @@ sub output_xml
     # XXX this should be configurable; it introduces a TR-069 dependence and
     #     is tied back to the earlier reference to TR-069 data types
     $i++;
-    output $i, qq{<import file="tr-106-1-1-types.xml" spec="urn:broadband-forum-org:tr-106-1-1">};
+    output $i, qq{<import file="tr-106-types.xml" spec="urn:broadband-forum-org:tr-106">};
     output $i+1, qq{<dataType name="MACAddress"/>};
     output $i+1, qq{<dataType name="StatsCounter32"/>};
     output $i+1, qq{<dataType name="StatsCounter64"/>};
