@@ -1,8 +1,8 @@
 #!/usr/bin/env perl
 #
-# Copyright (C) 2011, 2012  Pace Plc
-# Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2015, 2016, 2017, 2018, 2019  Broadband Forum
+# Copyright (C) 2011-2012  Pace Plc
+# Copyright (C) 2012-2014  Cisco Systems
+# Copyright (C) 2015-2020  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -613,6 +613,9 @@ if ($report !~ /^(text|html)$/) {
 if ($report =~ /^html(bbf|148)$/) {
     $noautomodel = 1;
 }
+
+# ignoreenableparameter implies nowarnenableparameter
+$nowarnenableparameter = 1 if $ignoreenableparameter;
 
 if ($outfile) {
     if (!open(STDOUT, ">", $outfile)) {
