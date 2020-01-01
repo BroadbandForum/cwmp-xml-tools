@@ -9169,6 +9169,7 @@ sub html_template_keys
     # banned since TR-106a7) or a map
     # XXX experimental: warn is there is a unique key parameter that's a
     #     strong reference (this is a candidate for additional auto-text)
+    my $undefined = [];
     my $anystrong = 0;
     my $anylist = 0;
     my $anymap = 0;
@@ -9177,8 +9178,10 @@ sub html_template_keys
         my $keyparams = $uniqueKey->{keyparams};
         foreach my $parameter (@$keyparams) {
             my $fpath = $mpref . $object . $parameter;
+            my $is_defined = util_is_defined($parameters, $fpath);
+            push @$undefined, $parameter if !$is_defined;
 
-            my $refType = util_is_defined($parameters, $fpath) ?
+            my $refType =  $is_defined ?
                 $parameters->{$fpath}->{syntax}->{refType} : undef;
             $anystrong = 1 if defined($refType) && $refType eq 'strong';
 
@@ -9191,6 +9194,9 @@ sub html_template_keys
             $anymap = 1 if $map;
         }
     }
+    my $plural = @$undefined > 1 ? 's' : '';
+    emsg "$object: undefined unique key parameter$plural: " .
+        join ', ', @$undefined if @$undefined && !$is_deleted;
     d0msg "$object: unique key parameter is a strong reference ($access)"
         if $anystrong && !$is_deleted;
     w1msg "$object: unique key parameter is list-valued"
