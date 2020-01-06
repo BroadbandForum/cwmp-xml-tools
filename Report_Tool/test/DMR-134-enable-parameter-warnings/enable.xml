@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-7"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-7
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-7.xsd"
+             spec="urn:example-com:enable" file="enable.xml">
+  
+  <import file="tr-069-biblio.xml"/>
+  
+  <model name="Enable:1.0">
+    <parameter name="TableNumberOfEntries" access="readOnly">
+      <description>
+        {{numentries}}
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+    <object name="Table.{i}." access="readWrite" minEntries="0" maxEntries="unbounded"
+            numEntriesParameter="TableNumberOfEntries">
+      <description>
+        This is a writeable table with no enableParameter. It should result in a report tool warning.
+        However, the --ignoreenableparameter option should (but current doesn't) suppress the warning.
+      </description>
+      <uniqueKey>
+        <parameter ref="Key"/>
+      </uniqueKey>
+      <parameter name="Key" access="readWrite">
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+    </object>
+  </model>
+</dm:document>

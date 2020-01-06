@@ -9,6 +9,8 @@ expectdir = exp/
 
 REPORT = $(TOOLDIR)/report.pl
 
+USERREPORTFLAGS := $(REPORTFLAGS)
+
 REPORTFLAGS += --include=$(INCLUDE)
 REPORTFLAGS += --nowarnreport
 REPORTFLAGS += --canonical
@@ -39,37 +41,47 @@ vpath %.xml $(targetdir)
 
 TARGETS += $(DMFULLXML) $(DMHTML) $(DMTEXT)
 
-PRE = 2>&1 | sed -e 's:^:\#\#\#\# $@\::'
+PREFIX = $(notdir $(CURDIR))/$(notdir $@):
+
+PROGRESS = echo $(PREFIX)$(USERREPORTFLAGS)
+
+ADDPREFIX = 2>&1 | sed -e 's|^|$(PREFIX)|'
 
 COMPARE = >$@.err 2>&1; \
-	  $(DIFF) $(DIFFFLAGS) $(@:$(targetdir)%=$(expectdir)%) $@ $(PRE); \
-	  $(DIFF) $(DIFFFLAGS) $(@:$(targetdir)%=$(expectdir)%).err $@.err $(PRE)
+	  $(DIFF) $(DIFFFLAGS) $(@:$(targetdir)%=$(expectdir)%) $@ $(ADDPREFIX); \
+	  $(DIFF) $(DIFFFLAGS) $(@:$(targetdir)%=$(expectdir)%).err $@.err $(ADDPREFIX)
 
 all: mkdir $(TARGETS)
 
 mkdir:
-	$(MKDIR) -p $(targetdir)
+	@$(MKDIR) -p $(targetdir)
 
 $(targetdir)%-full.xml: %.xml
-	-$(REPORT) $(REPORTFLAGS) $(REPORTXMLFLAGS) --outfile=$@ $< $(COMPARE)
+	@$(PROGRESS)
+	@-$(REPORT) $(REPORTFLAGS) $(REPORTXMLFLAGS) --outfile=$@ $< $(COMPARE)
 .PRECIOUS: $(targetdir)%-full.xml
 
 $(targetdir)%.html: %.xml
-	-$(REPORT) $(REPORTFLAGS) $(REPORTHTMLFLAGS) --outfile=$@ $< $(COMPARE)
+	@$(PROGRESS)
+	@-$(REPORT) $(REPORTFLAGS) $(REPORTHTMLFLAGS) --outfile=$@ $< $(COMPARE)
 
 $(targetdir)%-diffs.html: %.xml
-	-$(REPORT) $(REPORTFLAGS) $(REPORTDIFFSFLAGS) $(REPORTHTMLFLAGS) --outfile=$@ $< $(COMPARE)
+	@$(PROGRESS)
+	@-$(REPORT) $(REPORTFLAGS) $(REPORTDIFFSFLAGS) $(REPORTHTMLFLAGS) --outfile=$@ $< $(COMPARE)
 
 $(targetdir)%-full.html: $(targetdir)%-full.xml
-	-$(REPORT) $(REPORTFLAGS) $(REPORTHTMLFLAGS) --outfile=$@ $< $(COMPARE)
+	@$(PROGRESS)
+	@-$(REPORT) $(REPORTFLAGS) $(REPORTHTMLFLAGS) --outfile=$@ $< $(COMPARE)
 .PRECIOUS: $(targetdir)%-full.html
 
 $(targetdir)%-full-diffs.html: $(targetdir)%-full.xml
-	-$(REPORT) $(REPORTFLAGS) $(REPORTHTMLFLAGS) --outfile=$@ $< $(COMPARE)
+	@$(PROGRESS)
+	@-$(REPORT) $(REPORTFLAGS) $(REPORTHTMLFLAGS) --outfile=$@ $< $(COMPARE)
 .PRECIOUS: $(targetdir)%-full-diffs.html
 
 $(targetdir)%.txt: %.xml
-	-$(REPORT) $(REPORTFLAGS) $(REPORTTEXTFLAGS) --outfile=$@ $< $(COMPARE)
+	@$(PROGRESS)
+	@-$(REPORT) $(REPORTFLAGS) $(REPORTTEXTFLAGS) --outfile=$@ $< $(COMPARE)
 
 $(TARGETS): FORCE
 .PHONY: FORCE
@@ -77,6 +89,10 @@ $(TARGETS): FORCE
 clean:
 	$(RM) -f $(TARGETS) $(TARGETS:%=%.err)
 .PHONY: clean
+
+distclean:
+	$(RM) -rf $(targetdir) $(expectdir)
+.PHONY: distclean
 
 snapshot:
 	$(RM) -rf $(expectdir)
