@@ -6568,10 +6568,11 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         print qq{$i<!--\n} if $element eq 'object' && $noobjects;
 
         # add additional parameters if necessary:
-        my $addPsrams = ($node->{is_command} && $type !~ /Ref$/ && $node->{is_async}) ?  qq{ async="true"} : qq{};
-        $addPsrams .= ' mandatory="true"' if ($node->{is_mandatory});
+        my $addParams = ($node->{is_command} && $type !~ /Ref$/ && $node->{is_async}) ?
+            qq{ async="true"} : qq{};
+        $addParams .= qq{ mandatory="true"} if $node->{is_mandatory} && $command_or_event;
 
-        print qq{$i<$element$name$base$ref$isService$extends$addPsrams$access$mountType$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$noUniqueKeys$fixedObject$end_element>\n};
+        print qq{$i<$element$name$base$ref$isService$extends$addParams$access$mountType$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version$noUniqueKeys$fixedObject$end_element>\n};
         $node->{xml2}->{element} = '' if $end_element;
         print qq{$i  <$descname>$description</$descname>\n} if $description;
         if ($uniqueKeys && !@$dtprofiles) {
