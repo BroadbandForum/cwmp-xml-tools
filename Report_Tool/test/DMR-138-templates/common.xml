@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-7"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-7
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-7.xsd"
+             spec="urn:example-com:enable" file="enable.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <template id="A">
+    {common}A template (should be overridden; you shouldn't see this).
+  </template>
+
+  <template id="B">
+    {common}B template (provides default value; OK to see this).
+  </template>
+
+  <!-- {common}C template isn't defined here -->
+
+  <model name="Model:1.0">
+    <parameter name="Parameter" access="readOnly">
+      <description>
+        Parameter.
+        * A: {{template|A}}
+        * B: {{template|B}}
+        * C: {{template|C}}
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+  </model>
+</dm:document>
