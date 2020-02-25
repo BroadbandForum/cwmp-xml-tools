@@ -1,3 +1,5 @@
+# do 'make COMPARE=' to see the output
+
 # makefiles set TOPDIR to point to here; the tool is in the parent directory
 TOOLDIR = $(TOPDIR)/..
 
@@ -76,7 +78,7 @@ $(targetdir)%-full.html: $(targetdir)%-full.xml
 
 $(targetdir)%-full-diffs.html: $(targetdir)%-full.xml
 	@$(PROGRESS)
-	@-$(REPORT) $(REPORTFLAGS) $(REPORTHTMLFLAGS) --outfile=$@ $< $(COMPARE)
+	@-$(REPORT) $(REPORTFLAGS) $(REPORTDIFFSFLAGS) $(REPORTHTMLFLAGS) --outfile=$@ $< $(COMPARE)
 .PRECIOUS: $(targetdir)%-full-diffs.html
 
 $(targetdir)%.txt: %.xml
