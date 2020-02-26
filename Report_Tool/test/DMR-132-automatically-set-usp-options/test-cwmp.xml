@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-7"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-7
+  https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-7.xsd"
+  spec="urn:example-com:enable" file="invalid-key.xml">
+  
+  <import file="tr-069-biblio.xml"/>
+  
+  <model name="Test:1.0">
+  </model>
+</dm:document>
