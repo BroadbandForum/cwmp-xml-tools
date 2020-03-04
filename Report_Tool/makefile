@@ -48,7 +48,7 @@ DOCKER-TAG = latest
 DOCKER-IMAGE = $(DOCKER-ORG)/$(DOCKER-NAME):$(DOCKER-TAG)
 
 # default target no longer builds FILES
-all: docker-build
+all: test
 
 old: $(FILES)
 

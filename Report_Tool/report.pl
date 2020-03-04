@@ -280,7 +280,7 @@ our $loglevel = 'w';
 our $logoalt = '';
 our $logoref = '';
 our $logosrc = '';
-our $markmounttype = undef;
+our $markmounttype = 0;
 our $marktemplates = undef;
 our $maxchardiffs = 5;
 our $maxworddiffs = 10;
@@ -326,12 +326,27 @@ our $tr106 = 'TR-106';
 our $trpage = 'https://www.broadband-forum.org/technical/download';
 our $ucprofiles = [];
 our $ugly = 0;
+our $usp = 0;
 our $upnpdm = 0;
 our $verbose = undef;
 our $version = 0;
 our $warnbibref = undef;
 our $noxmllink = 0;
 our $writonly = 0;
+
+# These options are appropropriate for USP; if the --usp option is enabled,
+# they are automatically set if the filename ends '-usp.xml', '-usp-diffs.xml'
+# etc.
+# XXX note that it's assumed that these are all Boolean options and that USP
+#     needs them to be enabled
+my $usp_options = {
+    altnotifreqstyle => \$altnotifreqstyle,
+    ignoreenableparameter => \$ignoreenableparameter,
+    immutablenonfunctionalkeys => \$immutablenonfunctionalkeys,
+    markmounttype => \$markmounttype
+};
+
+# Parse command-line options
 GetOptions('allbibrefs' => \$allbibrefs,
            'alldatatypes' => \$alldatatypes,
            'altnotifreqstyle' => \$altnotifreqstyle,
@@ -414,6 +429,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'ucprofile:s@' => \$ucprofiles,
            'ugly' => \$ugly,
            'upnpdm' => \$upnpdm,
+           'usp' => \$usp,
            'verbose:i' => \$verbose,
            'version' => \$version,
            'warnbibref:i' => \$warnbibref,
@@ -775,6 +791,27 @@ our $used_data_type_list = {};  # keep track of used data types for output
 # template expansions).
 our $htmlbbf_info = {};
 
+# Enable USP options for USP files (never clear them)
+sub enable_usp_options
+{
+    my ($file) = @_;
+
+    # check whether it's a USP file
+    my $is_usp = $file =~ /-usp(-[\w\d]+)*\.xml$/;
+    d0msg "file $file is a USP file (or --usp option is set)" if $is_usp || $usp;
+
+    # if so, or if overridden by --usp, set USP options
+    if ($is_usp || $usp) {
+        foreach my $name (sort keys %$usp_options) {
+            my $value = $usp_options->{$name};
+            if (!$$value) {
+                imsg "$file: enabled USP option --$name";
+                $$value = 1;
+            }
+        }
+    }
+}
+
 # Parse and expand a data model definition file.
 # XXX also allows protobuf schemas to be listed but doesn't parse them
 # XXX also does minimal expansion of schema files
@@ -797,6 +834,9 @@ sub expand_toplevel
     # parse file / XML
     my $toplevel = parse_file($dir, $file, $xml);
     return unless $toplevel;
+
+    # conditionally enable USP-specific options
+    enable_usp_options($file) unless $xml;
 
     # for XSD files, just track the target namespace then return
     my $spec;
@@ -14296,6 +14336,7 @@ B<report.pl>
 [--ucprofile=s]...
 [--ugly]
 [--upnpdm]
+[--usp]
 [--verbose[=i(1)]]
 [--version]
 [--warnbibref[=i(1)]]
@@ -14342,7 +14383,7 @@ see also B<--allbibrefs>
 
 enables an "alternative notification requirements style" that affects the HTML report's "Inform and Notification Requirements" section; when enabled, this section is called "Notification Requirements" and contains only a "Parameters for which Value Change Notification MAY be Denied" section
 
-note: use of this option is appropriate when generating reports for data models that will be used with USP
+note: use of this option is appropriate when generating reports for data models that will be used with USP; the B<--usp> option enables it automatically
 
 =item B<--autobase>
 
@@ -14478,13 +14519,13 @@ specifies a pattern; data models whose names begin with the pattern will be igno
 
 causes the B<enableParameter> attribute to be ignored when generating unique key text for the HTML report
 
-note: use of this option is appropriate when generating reports for data models that will be used with USP
+note: use of this option is appropriate when generating reports for data models that will be used with USP; the B<--usp> option enables it automatically
 
 =item B<--immutablenonfunctionalkeys>
 
 causes non-functional unique keys to be treated as immutable when generating unique key text for the HTML report
 
-note: use of this option is appropriate when generating reports for data models that will be used with USP
+note: use of this option is appropriate when generating reports for data models that will be used with USP; the B<--usp> option enables it automatically
 
 =item B<--importsuffix=s("")>
 
@@ -14589,6 +14630,8 @@ if any other B<--logoxxx> options are specified, the default is an empty string
 =item B<--markmounttype>
 
 mark mountable objects and mount point objects in color and text (only applicable for USP)
+
+note: this option is only applicable to USP; the B<--usp> option enables it automatically
 
 =item B<--marktemplates>
 
@@ -15024,15 +15067,33 @@ indicates the location of the PDF versions of BBF standards; is concatenated wit
 
 affects only the B<xml> report; can be specified multiple times; defines use case profiles whose requirements will be checked against the B<--dtprofile> profiles
 
-=item B<--upnpdm>
-
-transforms output (currently HTML only) so it looks like a B<UPnP DM> (Device Management) data model definition
-
 =item B<--ugly>
 
 disables some prettifications, e.g. inserting spaces to encourage line breaks
 
 this is deprecated because it has been replaced with the more specific B<--nohyphenate> and B<--showsyntax>
+
+=item B<--upnpdm>
+
+transforms output (currently HTML only) so it looks like a B<UPnP DM> (Device Management) data model definition
+
+=item B<--usp>
+
+specifies that the file is intended for use with USP and automatically enables the corresponding options, namely:
+
+=over
+
+=item * B<altnotifreqstyle>
+
+=item * B<ignoreenableparameter>
+
+=item * B<immutablenonfunctionalkeys>
+
+=item * B<markmounttype>
+
+=back
+
+if the file "looks like" a USP file, e.g., it ends B<-usp.xml> or B<-usp-full.xml>, then this option is set automatically
 
 =item B<--verbose[=i(1)]>
 
