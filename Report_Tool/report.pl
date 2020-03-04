@@ -936,10 +936,9 @@ sub expand_toplevel
                     path => '', name => ''}];
 
     # expand description templates in the top level file(s) first
-    # XXX Has to be executed before imports are processed
+    # XXX has to be executed before imports are processed
     d0msg("expand description templates in top level file $file");
-    foreach my $item ($toplevel->findnodes('template'))
-    {
+    foreach my $item ($toplevel->findnodes('template')) {
       expand_template($context, $root, $item);
     }
 
@@ -1488,26 +1487,22 @@ sub expand_description
 
 }
 
-# Store description templates in internal list if not stored before
+# Expand a top-level description template.
 sub expand_template
 {
-    my ($context, $node, $description) = @_;
+    my ($context, $node, $template) = @_;
 
-    my $content = $description->textContent;
-    $content =~ s/^\s+|\s+$//g;
-
-    my $desid = $description->{id};
     my $file = $context->[0]->{file};
-    my $template = $root->{templates}->{$desid};
 
-    if (!$template)
-    {
-      w1msg ("Add template $desid from file $file to internal list");
-      $root->{templates}->{$desid} = $content;
-    }
-    else
-    {
-      w1msg ("Description template $desid is already defined, definition from file $file is ignored");
+    my $id = $template->{id};
+    my $value = $template->textContent;
+    $value =~ s/^\s+|\s+$//g;
+
+    if (defined $root->{templates}->{$id}) {
+      d0msg "{$file}$id: ignored description template (already defined)";
+    } else {
+      d0msg "{$file}$id: saved description template";
+      $root->{templates}->{$id} = $value;
     }
 }
 
@@ -8783,7 +8778,9 @@ sub html_template
          {name => 'sub', text1 => q{<sub>$a[0]</sub>}},
          {name => 'sup', text1 => q{<sup>$a[0]</sup>}},
          {name => 'ignore', text => q{}},
-         {name => 'templ', text => \&html_template_description}
+         # 'templ' should be deprecated in favor of 'template'
+         {name => 'templ', text => \&html_template_template},
+         {name => 'template', text => \&html_template_template}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -8928,18 +8925,20 @@ sub html_template_issue
     return qq{\n'''$mark$prefix $counter$status: $comment$mark'''};
 }
 
-# insert description from template
-sub html_template_description
+# insert description template
+sub html_template_template
 {
-    my ($opts, $arg1, $arg2) = @_;
+    my ($opts, $name) = @_;
 
-    my $template = $root->{templates}->{$arg1};
-    if (!$template)
-    {
-      emsg "Description template $arg1 is undefined";
-      $template = qq{'''DESCRIPTION TEMPLATE FOR >$arg1< IS MISSING HERE'''};
-    }
-    return $template;
+    my $object = $opts->{object};
+    my $param = $opts->{param};
+
+    my $value = $root->{templates}->{$name};
+    # if the return value is undefined, the caller will report an error, so
+    # there's no need to generate an error here (it's just a distraction)
+    d0msg "$object$param: undefined description template $name"
+        unless defined $value;
+    return $value;
 }
 
 # insert appropriate null value
