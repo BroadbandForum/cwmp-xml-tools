@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-7"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-7
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-7.xsd"
+             spec="urn:example-com:enable" file="enable.xml">
+  
+  <import file="tr-069-biblio.xml"/>
+  
+  <dataType name="MyDataType">
+    <description>
+      This is my data type, which references {{object}}, {{param}} and {{param|OtherParam}}.
+    </description>
+    <unsignedInt/>
+  </dataType>
+  
+  <model name="Test:1.0">
+    <object name = "MyObject." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        This is a reference to {{param|MyParam}}.
+      </description>
+      <parameter name="MyParam" access="readOnly">
+        <description>
+          This is my parameter. Here's its expanded data type:
+          {{datatype|expand}}
+        </description>
+        <syntax>
+          <dataType ref="MyDataType"/>
+        </syntax>
+      </parameter>
+      <parameter name="OtherParam" access="readOnly">
+        <description>
+          This is another parameter.
+        </description>
+        <syntax>
+          <dataType ref="MyDataType"/>
+        </syntax>
+      </parameter>
+    </object>
+  </model>
+</dm:document>

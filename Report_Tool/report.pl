@@ -9567,18 +9567,25 @@ sub html_template_paramref
 
     # this routine is used for parameters, commands and events, so use
     # variables to ensure that the correct terms are used in messages
-    my $template = $opts->{is_commandref} ? '{{command}}' :
-        $opts->{is_eventref} ? '{{event}}' : '{{param}}';
+    my $template = $opts->{is_commandref} ? 'command' :
+        $opts->{is_eventref} ? 'event' : 'param';
     my $entity = $opts->{is_commandref} ? 'command' :
         $opts->{is_eventref} ? 'event' : 'parameter';
 
-    # if no param (e.g. in data type description) return $name or the entity
-    return ($name ? qq{''$name''} : $entity) unless $param;
+    # if no object (e.g. in data type description) return $name or the entity
+    return ($name ? qq{''$name''} : $entity) unless $object;
 
     # parameterless case (no "name") is special
     unless ($name) {
-        emsg "$object: $template is appropriate only within a ".
-            "$entity description" unless $param;
+        # validate scope, in case (for example) {{param||name}} was mistyped
+        # for {{param|name}}
+        if ($scope && $scope !~ /normal|absolute|model/) {
+            emsg "$object: possible inadvertently empty name argument in " .
+                "{{$template||$scope}}";
+        } elsif (!$param) {
+            emsg "$object: {{$template}} with empty name argument is " .
+                "appropriate only within a $entity description";
+        }
         return qq{''$param''};
     }
 
@@ -9592,7 +9599,7 @@ sub html_template_paramref
     $name =~ s|\-\-\-(.*?)\-\-\-||g;
     $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
-    w0msg "$object$param: $template argument is unnecessary when ".
+    w0msg "$object$param: {{$template}} argument is unnecessary when ".
         "referring to current $entity" if $name eq $param;
 
     my $mpref = util_full_path($opts->{node}, 1);

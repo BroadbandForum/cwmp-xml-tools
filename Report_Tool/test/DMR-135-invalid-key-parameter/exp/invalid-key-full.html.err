@@ -1,1 +1,2 @@
 (E) Table.{i}.: undefined unique key parameter: InvalidKey
+(E) Table.{i}.: reference to invalid parameter Table.{i}.InvalidKey

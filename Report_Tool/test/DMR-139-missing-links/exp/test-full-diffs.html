@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
-    <title>invalid-key.xml (canonical)</title>
+    <title>test-full.xml (changes, differences, canonical)</title>
     <style type="text/css">
       p, li, body { font-family: helvetica,arial,sans-serif; font-size: 8pt; }
       h1 { font-family: helvetica,arial,sans-serif; font-size: 14pt; }
@@ -68,14 +68,14 @@
       td.fnc { vertical-align: top; font-family: helvetica,arial,sans-serif; font-size: 8pt; background-color: #FFE4E1; color: blue; text-align: center; }
       td.pnc { vertical-align: top; font-family: helvetica,arial,sans-serif; font-size: 8pt; color: blue; text-align: center; }
       td.pdc { vertical-align: top; font-family: helvetica,arial,sans-serif; font-size: 8pt; color: red; text-decoration: line-through; text-align: center; }
-      
+      a:link, a:visited, a:hover, a:active { color: inherit; }
     </style>
   </head>
   <body>
     <table width="100%" border="0">
       <tr>
         <td width="25%" valign="middle"><a href="https://www.broadband-forum.org/"><img width="100%" src="https://www.broadband-forum.org/images/logo-broadband-forum.gif" alt="Broadband Forum" style="border:0px;"/></a><br><h3>&nbsp;&nbsp;&nbsp;&nbsp;DATA MODEL DEFINITION</h3></td>
-        <td width="50%" align="center" valign="middle"><h1><br><a href="../cwmp#invalid-key.xml">invalid-key.xml</a> (canonical)</h1></td>
+        <td width="50%" align="center" valign="middle"><h1><br><a href="../cwmp#test-full.xml">test-full.xml</a> (changes, differences, canonical)</h1></td>
         <td width="25%"/>
       </tr>
     </table>
@@ -85,22 +85,22 @@
     <ul> <!-- Table of Contents -->
       <li><a href="#H.Data Types">Data Types</a></li>
       <li><a href="#H.References">References</a></li>
-      <li><a href="#H.Enable:1.0 Data Model">Enable:1.0 Data Model</a></li>
-      <ul> <!-- Enable:1.0 Data Model -->
-        <li><a href="#H.Enable:1.0 Data Model">Data Model Definition</a></li>
+      <li><a href="#H.Test:1.0 Data Model (changes)">Test:1.0 Data Model (changes)</a></li>
+      <ul> <!-- Test:1.0 Data Model (changes) -->
+        <li><a href="#H.Test:1.0 Data Model (changes)">Data Model Definition</a></li>
         <ul> <!-- Data Model Definition -->
-          <li><a href="#D.Enable:1.Table.{i}.">Table.{i}.</a></li>
+          <li><a href="#D.Test:1.MyObject.">MyObject.</a></li>
         </ul> <!-- Data Model Definition -->
-        <li><a href="#H.Enable:1.Inform and Notification Requirements">Inform and Notification Requirements</a></li>
+        <li><a href="#H.Test:1.Inform and Notification Requirements">Inform and Notification Requirements</a></li>
         <ul> <!-- Inform and Notification Requirements -->
-          <li><a href="#H.Enable:1.Forced Inform Parameters">Forced Inform Parameters</a></li>
-          <li><a href="#H.Enable:1.Forced Active Notification Parameters">Forced Active Notification Parameters</a></li>
-          <li><a href="#H.Enable:1.Default Active Notification Parameters">Default Active Notification Parameters</a></li>
-          <li><a href="#H.Enable:1.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></li>
+          <li><a href="#H.Test:1.Forced Inform Parameters">Forced Inform Parameters</a></li>
+          <li><a href="#H.Test:1.Forced Active Notification Parameters">Forced Active Notification Parameters</a></li>
+          <li><a href="#H.Test:1.Default Active Notification Parameters">Default Active Notification Parameters</a></li>
+          <li><a href="#H.Test:1.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></li>
         </ul> <!-- Inform and Notification Requirements -->
-        <li><a href="#H.Enable:1.Profile Definitions">Profile Definitions</a></li>
+        <li><a href="#H.Test:1.Profile Definitions">Profile Definitions</a></li>
         <ul> <!-- Profile Definitions -->
-          <li><a href="#H.Enable:1.Notation">Notation</a></li>
+          <li><a href="#H.Test:1.Notation">Notation</a></li>
         </ul>
       </ul>
     </ul> <!-- Table of Contents -->
@@ -114,10 +114,9 @@ Note: A Parameter that is defined to be one of the named data types is reported 
       <th class="g">Description</th>
     </tr>
       <tr>
-        <td><a name="T.unsignedInt">unsignedInt</a></td>
-        <td class="pc">-</td>
-        <td><p>Unsigned integer in the range 0 to 4294967295, inclusive.<p>
-For some unsignedInt types, a value range is given using the form unsignedInt[<i>Min</i>:<i>Max</i>] or unsigned[<i>Min</i>:<i>Max</i> step <i>Step</i>], where the <i>Min</i> and <i>Max</i> values are inclusive. If either <i>Min</i> or <i>Max</i> are missing, this indicates no limit. If <i>Step</i> is missing, this indicates a step of 1. Multiple comma-separated ranges can be specified, in which case the value will be in one of the ranges.</td>
+        <td><a name="T.MyDataType">MyDataType</a></td>
+        <td class="pc"><a href="#T.unsignedInt">unsignedInt</a></td>
+        <td>This is my data type, which references object, parameter and <i>OtherParam</i>.</td>
       </tr>
     </table> <!-- Data Types -->
     <h1><a name="H.References">References</a></h1>
@@ -127,7 +126,7 @@ For some unsignedInt types, a value range is given using the form unsignedInt[<i
         <td>Simple Object Access Protocol (SOAP) 1.1, W3C.</td>
       </tr>
     </table> <!-- References -->
-    <h1><a name="H.Enable:1.0 Data Model">Enable:1.0 Data Model</a></h1>
+    <h1><a name="H.Test:1.0 Data Model (changes)">Test:1.0 Data Model (changes)</a></h1>
     <p>
     <table width="100%" border="1" cellpadding="2" cellspacing="0"> <!-- Data Model Definition -->
       <tbody>
@@ -142,41 +141,40 @@ For some unsignedInt types, a value range is given using the form unsignedInt[<i
           <!-- <th width="10%" class="gc">Spec</th> -->
         </tr>
         <tr>
-          <td class="p" title="TableNumberOfEntries"><a name="D.Enable:1.TableNumberOfEntries">TableNumberOfEntries</a></td>
-          <td class="p" title="unsignedInt">unsignedInt</td>
-          <!-- <td class="p">unsignedInt</td> -->
-          <td class="pc">-</td>
-          <td class="p">The number of entries in the <i>Table</i> table.</td>
-          <td class="pc">-</td>
-          <td class="pc" title="">1.0</td>
-          <!-- <td class="pc"></td> -->
-        </tr>
-        <tr>
-          <td class="o" title="Table.{i}."><a name="D.Enable:1.Table"></a><a name="D.Enable:1.Table.{i}.">Table.{i}.</a></td>
+          <td class="o" title="MyObject."><a name="D.Test:1.MyObject"></a><a name="D.Test:1.MyObject.">MyObject.</a></td>
           <td class="o" title="object">object</td>
           <!-- <td class="o">object</td> -->
           <td class="oc">-</td>
-          <td class="o"><p>This table references an invalid key. This should be (but isn't) detected.<p>
-<p>
-At most one entry in this table can exist with a given value for <a href="#D.Enable:1.Table.{i}.ValidKey"><i>ValidKey</i></a>, or with a given value for <a href="#D.Enable:1.Table.{i}.InvalidKey"><i>InvalidKey?</i></a>.</td>
+          <td class="o">This is a reference to <a href="#D.Test:1.MyObject.MyParam"><i>MyParam</i></a>.</td>
           <td class="oc">-</td>
           <td class="oc" title="">1.0</td>
           <!-- <td class="oc"></td> -->
         </tr>
         <tr>
-          <td class="p" title="Table.{i}.ValidKey"><a name="D.Enable:1.Table.{i}.ValidKey">ValidKey</a></td>
-          <td class="p" title="unsignedInt">unsignedInt</td>
-          <!-- <td class="p">unsignedInt</td> -->
-          <td class="pc">W</td>
-          <td class="p">&nbsp;</td>
+          <td class="p" title="MyObject.MyParam"><a name="D.Test:1.MyObject.MyParam">MyParam</a></td>
+          <td class="p" title="MyDataType">unsignedInt</td>
+          <!-- <td class="p"><a href="#T.MyDataType">MyDataType</a></td> -->
+          <td class="pc">-</td>
+          <td class="p"><p>This is my parameter. Here's its expanded data type:<p>
+[<i><a href="#T.MyDataType">MyDataType</a></i>] This is my data type, which references <a href="#D.Test:1.MyObject."><i>MyObject</i></a>, <i>MyParam</i> and <a href="#D.Test:1.MyObject.OtherParam"><i>OtherParam</i></a>.</td>
+          <td class="pc">-</td>
+          <td class="pc" title="">1.0</td>
+          <!-- <td class="pc"></td> -->
+        </tr>
+        <tr>
+          <td class="p" title="MyObject.OtherParam"><a name="D.Test:1.MyObject.OtherParam">OtherParam</a></td>
+          <td class="p" title="MyDataType">unsignedInt</td>
+          <!-- <td class="p"><a href="#T.MyDataType">MyDataType</a></td> -->
+          <td class="pc">-</td>
+          <td class="p">[<i><a href="#T.MyDataType">MyDataType</a></i>]   This is another parameter.</td>
           <td class="pc">-</td>
           <td class="pc" title="">1.0</td>
           <!-- <td class="pc"></td> -->
         </tr>
       </tbody>
     </table> <!-- Data Model Definition -->
-    <h2><a name="H.Enable:1.Inform and Notification Requirements">Inform and Notification Requirements</a></h2>
-    <h3><a name="H.Enable:1.Forced Inform Parameters">Forced Inform Parameters</a></h3>
+    <h2><a name="H.Test:1.Inform and Notification Requirements">Inform and Notification Requirements</a></h2>
+    <h3><a name="H.Test:1.Forced Inform Parameters">Forced Inform Parameters</a></h3>
     <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Forced Inform Parameters -->
       <tbody>
         <tr>
@@ -184,7 +182,7 @@ At most one entry in this table can exist with a given value for <a href="#D.Ena
         </tr>
       </tbody>
     </table> <!-- Forced Inform Parameters -->
-    <h3><a name="H.Enable:1.Forced Active Notification Parameters">Forced Active Notification Parameters</a></h3>
+    <h3><a name="H.Test:1.Forced Active Notification Parameters">Forced Active Notification Parameters</a></h3>
     <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Forced Active Notification Parameters -->
       <tbody>
         <tr>
@@ -192,7 +190,7 @@ At most one entry in this table can exist with a given value for <a href="#D.Ena
         </tr>
       </tbody>
     </table> <!-- Forced Active Notification Parameters -->
-    <h3><a name="H.Enable:1.Default Active Notification Parameters">Default Active Notification Parameters</a></h3>
+    <h3><a name="H.Test:1.Default Active Notification Parameters">Default Active Notification Parameters</a></h3>
     <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Default Active Notification Parameters -->
       <tbody>
         <tr>
@@ -200,7 +198,7 @@ At most one entry in this table can exist with a given value for <a href="#D.Ena
         </tr>
       </tbody>
     </table> <!-- Default Active Notification Parameters -->
-    <h3><a name="H.Enable:1.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></h3>
+    <h3><a name="H.Test:1.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></h3>
     <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Parameters for which Active Notification MAY be Denied -->
       <tbody>
         <tr>
@@ -208,8 +206,8 @@ At most one entry in this table can exist with a given value for <a href="#D.Ena
         </tr>
       </tbody>
     </table> <!-- Parameters for which Active Notification MAY be Denied -->
-    <h2><a name="H.Enable:1.Profile Definitions">Profile Definitions</a></h2>
-    <h3><a name="H.Enable:1.Notation">Notation</a></h3>
+    <h2><a name="H.Test:1.Profile Definitions">Profile Definitions</a></h2>
+    <h3><a name="H.Test:1.Notation">Notation</a></h3>
     The following abbreviations are used to specify profile requirements:<p>
     <table width="60%" border="1" cellpadding="2" cellspacing="0">
       <tbody>
