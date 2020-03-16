@@ -3,7 +3,7 @@ FROM broadbandforum/pandoc:latest
 
 # install packages and link report.pl to a default search path
 RUN apt-get update \
-            && apt-get --yes install cpanminus libxml2-dev python3-pip zip \
+            && apt-get --yes install cpanminus libxml2-dev git python3-pip zip \
             && ln -s /opt/bbf/bin/report.pl /usr/local/bin/report.pl \
             && apt-get clean
 
