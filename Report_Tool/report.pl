@@ -8571,7 +8571,7 @@ sub html_template
 
     # auto-prefix {{datatype}} if the parameter has a named data type
     if ($p->{type} && $p->{type} eq 'dataType' &&
-        $tinval !~ /\{\{datatype/ &&
+        $tinval !~ /\{\{datatype\}\}/ &&
         $tinval !~ /\{\{nodatatype\}\}/) {
         my $sep = util_template_separator($tinval, $inval);
         $inval = "{{datatype}}" . $sep . $inval;
@@ -9091,19 +9091,25 @@ sub html_template_datatype
         return qq{};
     }
 
-    # always include "[datatype] " (as a hyperlink), unless --showsyntax, in
-    # which case no need because the info will be in the Syntax column
-    $dtname = html_get_anchor($dtname, 'datatype') unless $nolinks;
-    my $text = $showsyntax ? qq{} : qq{[''$dtname''] };
-
-    # if argument is supplied and is "expand", append the data type description
+    # if argument is supplied and is "expand", return the data type description
+    my $text;
     if ($arg && $arg eq 'expand') {
         # XXX should check for valid data type? (should always be)
-        # XXX not sure why need to call html_whitespace() here...
-        $text .= html_whitespace($dtdef->{description});
+        my $description = html_whitespace($dtdef->{description});
+        # XXX insert newline if data type description starts with special list
+        #     or code character (maybe more characters should be checked for)
+        $text = ($description =~ /^[*#\s]/ ? qq{\n} : qq{}) . $description;
         # XXX we remove any {{issue}} templates so they will occur only in
         # the data type table and not whenever the data type is expanded
         $text = util_ignore_template('issue', $text);
+    }
+
+    # otherwise, just return "[datatype] " (as a hyperlink), unless
+    # --showsyntax, in which case return nothing because the info will be
+    # in the Syntax column
+    else {
+        $dtname = html_get_anchor($dtname, 'datatype') unless $nolinks;
+        $text = $showsyntax ? qq{} : qq{[''$dtname''] };
     }
 
     return $text;

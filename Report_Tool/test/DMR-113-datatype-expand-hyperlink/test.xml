@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-7"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-7
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-7.xsd"
+             spec="urn:example-com:test" file="test.xml">
+  
+  <import file="tr-069-biblio.xml"/>
+  
+  <dataType name="Ordinary">
+    <description>
+      This is an ordinary data type.
+    </description>
+    <unsignedInt/>
+  </dataType>
+  
+  <dataType name="ULDescription">
+    <description>
+      * This is a list item.
+      * This is another.
+      Named data type whose description begins with an itemized list.
+    </description>
+    <unsignedInt/>
+  </dataType>
+  
+  <dataType name="OLDescription">
+    <description>
+      # This is a list item.
+      # This is another.
+      Named data type whose description begins with a numbered list.
+    </description>
+    <unsignedInt/>
+  </dataType>
+  
+  <dataType name="CodeDescription">
+    <description>
+       print("Hello")
+      Named data type whose description begins with code.
+    </description>
+    <unsignedInt/>
+  </dataType>
+  
+  <model name="Test:1.0">
+    <parameter name="Aaron" access="readOnly">
+      <description>
+        {{datatype|expand}}
+      </description>
+      <syntax>
+        <dataType ref="Ordinary"/>
+      </syntax>
+    </parameter>
+    <parameter name="Arthur" access="readOnly">
+      <description>
+        This is an example parameter with an expanded data type. {{datatype|expand}}
+      </description>
+      <syntax>
+        <dataType ref="Ordinary"/>
+      </syntax>
+    </parameter>
+    <parameter name="Barry" access="readOnly">
+      <description>
+        This is an example parameter with an explicit data type reference {{datatype}} and an expanded data type. {{datatype|expand}}
+      </description>
+      <syntax>
+        <dataType ref="Ordinary"/>
+      </syntax>
+    </parameter>
+    <parameter name="Fred" access="readOnly">
+      <description>
+        This is an example parameter also with an explicit data type reference {{datatype}} and an expanded data type. {{datatype|expand}}
+      </description>
+      <syntax>
+        <dataType ref="ULDescription"/>
+      </syntax>
+    </parameter>
+    <parameter name="Joe" access="readOnly">
+      <description>
+        This is an example parameter with an expanded data type. {{datatype|expand}}
+      </description>
+      <syntax>
+        <dataType ref="OLDescription"/>
+      </syntax>
+    </parameter>
+    <parameter name="Bert" access="readOnly">
+      <description>
+        This is an example parameter with an expanded data type. {{datatype|expand}}
+      </description>
+      <syntax>
+        <dataType ref="CodeDescription"/>
+      </syntax>
+    </parameter>
+  </model>
+</dm:document>
