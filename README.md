@@ -1,6 +1,6 @@
 # Broadband Forum CWMP (TR-069) and USP (TR-369) data model tools
 
-* see [https://www.broadband-forum.org/standards-and-software/technical-specifications/tr-069-files-tools](https://www.broadband-forum.org/standards-and-software/technical-specifications/tr-069-files-tools) for general information
+* CWMP and USP data models are published separately:
   * see [https://github.com/BroadbandForum/cwmp-data-models](https://github.com/BroadbandForum/cwmp-data-models) for CWMP data models
   * see [https://github.com/BroadbandForum/usp-data-models](https://github.com/BroadbandForum/usp-data-models) for USP data models
 * some additional documentation is available; refer to individual
