@@ -42,10 +42,31 @@ ifneq "$(PLATFORM)" "exe"
     FILES += report.pl.info README.txt index.html
 endif
 
+# the Docker organization and image name are fixed
 DOCKER-ORG = broadbandforum
 DOCKER-NAME = report-pl
-DOCKER-TAG = latest
+
+# the Docker tag is derived from the branch name; releases (in develop or
+# master) are also pushed to tag=version (e.g. 425) and tag=latest
+# XXX hyphen is last because it's literal; \n is to avoid a trailing
+#     hyphen
+GIT-BRANCH = $(shell git rev-parse --abbrev-ref HEAD | \
+		     tr -c 'A-Za-z0-9\n_.-' '-')
+DOCKER-TAG = $(GIT-BRANCH)
+DOCKER-TAG-RELEASE =
+DOCKER-TAG-LATEST =
+ifneq "$(findstring !$(GIT-BRANCH)!,!develop! !master!)" ""
+  REPORT-PL-VERSION = $(shell ./report.pl --info | \
+			      sed -e 's/report.pl#//' -e 's/ .*//')
+  ifneq "$(findstring +,$(REPORT-PL-VERSION))" "+"
+    DOCKER-TAG-RELEASE = $(REPORT-PL-VERSION)
+    DOCKER-TAG-LATEST = latest
+  endif
+endif
+
 DOCKER-IMAGE = $(DOCKER-ORG)/$(DOCKER-NAME):$(DOCKER-TAG)
+DOCKER-IMAGE-RELEASE = $(DOCKER-ORG)/$(DOCKER-NAME):$(DOCKER-TAG-RELEASE)
+DOCKER-IMAGE-LATEST = $(DOCKER-ORG)/$(DOCKER-NAME):$(DOCKER-TAG-LATEST)
 
 # default target no longer builds FILES
 all: test
@@ -61,8 +82,15 @@ clean: files-clean docker-clean
 files-clean:
 	$(RM) $(FILES)
 
+# XXX this was to support working with the Bamboo Docker task; but it doesn't
+#     help when pushing multiple tags, so it's not currently used
+docker-variables:
+	echo "tag=$(DOCKER-TAG)" >$@.txt
+
 docker-build:
 	docker image build --tag=$(DOCKER-IMAGE) .
+	if [ -n "$(DOCKER-TAG-RELEASE)" ]; then docker image build --tag=$(DOCKER-IMAGE-RELEASE); fi
+	if [ -n "$(DOCKER-TAG-LATEST)" ]; then docker image build --tag=$(DOCKER-IMAGE-LATEST); fi
 
 docker-run:
 	docker container run -it --name $(DOCKER-NAME) --rm $(DOCKER-IMAGE) bash
@@ -80,6 +108,8 @@ docker-stop:
 
 docker-push: docker-build
 	docker image push $(DOCKER-IMAGE)
+	if [ -n "$(DOCKER-TAG-RELEASE)" ]; then docker image push $(DOCKER-IMAGE-RELEASE); fi
+	if [ -n "$(DOCKER-TAG-LATEST)" ]; then docker image push $(DOCKER-IMAGE-LATEST); fi
 
 docker-prune: docker-stop
 	docker container prune --filter "until=24h" --force
