@@ -184,7 +184,7 @@ my $tool_version_date = q{2020-03-23};
 # update the version number when making a new release
 # a "+" after the version number indicates an interim version
 # (e.g. "422+" means v422 + changes, and "423" means v423)
-my $tool_version_number = q{425};
+my $tool_version_number = q{425+};
 
 # tool name and version is conventionally reported as "name#version"
 my $tool_name = q{report.pl};
