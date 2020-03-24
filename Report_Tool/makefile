@@ -56,8 +56,8 @@ DOCKER-TAG = $(GIT-BRANCH)
 DOCKER-TAG-RELEASE =
 DOCKER-TAG-LATEST =
 ifneq "$(findstring !$(GIT-BRANCH)!,!develop! !master!)" ""
-  REPORT-PL-VERSION = $(shell ./report.pl --info | \
-			      sed -e 's/report.pl\#//' -e 's/ .*//')
+  REPORT-PL-VERSION = $(shell grep -e '^ *my *$$tool_version_number' \
+			      ./report.pl | sed -e 's/.*{//' -e 's/}.*//')
   ifneq "$(findstring +,$(REPORT-PL-VERSION))" "+"
     DOCKER-TAG-RELEASE = $(REPORT-PL-VERSION)
     DOCKER-TAG-LATEST = latest
