@@ -1,13 +1,15 @@
 # Broadband Forum CWMP (TR-069) and USP (TR-369) data model tools
 
-* see [http://www.broadband-forum.org/standards-and-software/technical-specifications/tr-069-files-tools]() for general information
-  * see [https://github.com/BroadbandForum/cwmp-data-models]() for CWMP data models
-  * see [https://github.com/BroadbandForum/usp-data-models]() for USP data models
+* CWMP and USP data models are published separately:
+  * see [https://github.com/BroadbandForum/cwmp-data-models](https://github.com/BroadbandForum/cwmp-data-models) for CWMP data models
+  * see [https://github.com/BroadbandForum/usp-data-models](https://github.com/BroadbandForum/usp-data-models) for USP data models
 * some additional documentation is available; refer to individual
   sub-directories
 
 ## Report\_Tool: BBF Report Tool
 * report.pl: perl script
+  - see [https://hub.docker.com/r/broadbandforum/report-pl](https://hub.docker.com/r/broadbandforum/report-pl) for Docker image and quickstart guide
+  - see [https://github.com/BroadbandForum/cwmp-xml-tools/wiki](https://github.com/BroadbandForum/cwmp-xml-tools/wiki) for installation info and other tips
 * plugins: example plugins, including:
   - plugins/instantiated: static instantiated data model tests
   - plugins/map: mapping from one data model to another
