@@ -89,8 +89,8 @@ docker-variables:
 
 docker-build:
 	docker image build --tag=$(DOCKER-IMAGE) .
-	if [ -n "$(DOCKER-TAG-RELEASE)" ]; then docker image build --tag=$(DOCKER-IMAGE-RELEASE); fi
-	if [ -n "$(DOCKER-TAG-LATEST)" ]; then docker image build --tag=$(DOCKER-IMAGE-LATEST); fi
+	if [ -n "$(DOCKER-TAG-RELEASE)" ]; then docker image build --tag=$(DOCKER-IMAGE-RELEASE) .; fi
+	if [ -n "$(DOCKER-TAG-LATEST)" ]; then docker image build --tag=$(DOCKER-IMAGE-LATEST) .; fi
 
 docker-run:
 	docker container run -it --name $(DOCKER-NAME) --rm $(DOCKER-IMAGE) bash
