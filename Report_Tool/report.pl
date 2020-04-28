@@ -768,6 +768,8 @@ our $files = {};
 our $no_imports = 1;
 our $imports = {}; # XXX not a good name, because it includes main file defns
 our $imports_i = 0;
+our $glorefs = {};
+our $abbrefs = {};
 our $bibrefs = {};
 our $objects = {};
 our $parameters = {};
@@ -933,8 +935,8 @@ sub expand_toplevel
     }
 
     # expand nested items (context is a stack of nested component context)
-    # XXX should be: description, import, dataType, bibliography, component,
-    #     model
+    # XXX should be: description, import, dataType, glossary, abbreviations,
+    #     bibliography, component, model
     my $context = [{dir => $dir, file => $file, spec => $spec,
                     lfile => $file, lspec => $spec,
                     path => '', name => ''}];
@@ -947,7 +949,8 @@ sub expand_toplevel
     }
 
     foreach my $item
-        ($toplevel->findnodes('import|dataType|bibliography|model')) {
+        ($toplevel->findnodes('import|dataType|glossary|abbreviations|' .
+                              'bibliography|model')) {
         my $element = $item->findvalue('local-name()');
         my $name = $item->findvalue('@name');
 
@@ -1418,7 +1421,7 @@ sub expand_dataType
             $value = $value->findvalue('@value');
 
             $status = util_maybe_deleted($status);
-            update_bibrefs($description, $file, $spec);
+            update_refs($description, $file, $spec);
 
             $access = 'readWrite' unless $access;
             $status = 'current' unless $status;
@@ -1547,6 +1550,63 @@ sub add_datatype_alias
     push @{$root->{dataTypes}}, $node;
 }
 
+# Expand the glossary.
+sub expand_glossary
+{
+    my ($context, $pnode, $glossary) = @_;
+    expand_definitions($context, $pnode, $glossary, 'glossary');
+}
+
+# Expand the abbreviations.
+sub expand_abbreviations
+{
+    my ($context, $pnode, $abbreviations) = @_;
+    expand_definitions($context, $pnode, $abbreviations, 'abbreviations');
+}
+
+# Expand the glossary or abbreviations (helper).
+sub expand_definitions
+{
+    my ($context, $pnode, $definitions, $which) = @_;
+
+    my $file = $context->[0]->{file};
+    my $spec = $context->[0]->{spec};
+    my $Lfile = $context->[0]->{lfile};
+    my $Lspec = $context->[0]->{lspec};
+
+    my $description = $definitions->findvalue('description');
+    update_refs($description, $file, $spec);
+
+    d1msg "expand_${which}";
+
+    if ($pnode->{$which}) {
+        # XXX not obvious what should be done with the description here; for
+        #     now, just replace it quietly.
+        $pnode->{$which}->{description} = $description;
+    } else {
+        $pnode->{$which} = {description => $description, items => []};
+    }
+
+    foreach my $item ($definitions->findnodes('item')) {
+        my $id = $item->findvalue('@id');
+        my $description = $item->findvalue('description');
+        update_refs($description, $file, $spec);
+
+        d1msg "expand_${which}_item id=$id";
+
+        my ($dupref) = grep {$_->{id} eq $id} @{$pnode->{$which}->{items}};
+        if ($dupref) {
+            emsg "$which.$dupref->{id}: duplicate definition: description " .
+                "replaced";
+            $dupref->{description} = $description;
+        } else {
+            push @{$pnode->{$which}->{items}}, {
+                id => $id, description => $description};
+        }
+    }
+    d1msg Dumper($pnode->{$which});
+}
+
 # Expand a bibliography definition.
 sub expand_bibliography
 {
@@ -1561,7 +1621,7 @@ sub expand_bibliography
     my $descact = $bibliography->findvalue('description/@action');
     my $descdef = $bibliography->findnodes('description')->size();
 
-    update_bibrefs($description, $file, $spec);
+    update_refs($description, $file, $spec);
 
     d1msg "expand_bibliography";
 
@@ -1737,7 +1797,7 @@ sub expand_model
     $name = $ref if $ref && !$name;
 
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $file, $spec);
+    update_refs($description, $file, $spec);
 
     d1msg "expand_model name=$name ref=$ref";
 
@@ -1931,7 +1991,7 @@ sub expand_model_object
     my $descdef = $object->findnodes('description')->size();
 
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $file, $spec);
+    update_refs($description, $file, $spec);
 
     $minEntries = 1 unless defined $minEntries && $minEntries ne '';
     $maxEntries = 1 unless defined $maxEntries && $maxEntries ne '';
@@ -2373,7 +2433,7 @@ sub expand_model_parameter
     my ($majorVersion, $minorVersion) = dmr_version($parameter);
 
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $file, $spec);
+    update_refs($description, $file, $spec);
 
     # XXX I have a feeling that I need to be more rigorous re the distinction
     #     between nodes being absent and nodes having blank values (see the
@@ -2533,7 +2593,7 @@ sub expand_model_parameter
         $value = $value->findvalue('@value');
 
         $status = util_maybe_deleted($status);
-        update_bibrefs($description, $file, $spec);
+        update_refs($description, $file, $spec);
 
         # access, status and optional defaults are applied below after checking
         # for derivation from a named data type
@@ -2735,7 +2795,7 @@ sub expand_model_profile
     $extends =~ s/\s+/ /g;
 
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $file, $spec);
+    update_refs($description, $file, $spec);
 
     $name = $base unless $name;
 
@@ -2991,7 +3051,7 @@ sub expand_model_profile_object
 
     $status = 'current' unless $status;
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $file, $spec);
+    update_refs($description, $file, $spec);
 
     d1msg "expand_model_profile_object path=$Path ref=$name";
 
@@ -3098,7 +3158,7 @@ sub expand_model_profile_parameter
 
     $status = 'current' unless $status;
     $status = util_maybe_deleted($status);
-    update_bibrefs($description, $file, $spec);
+    update_refs($description, $file, $spec);
 
     d1msg "expand_model_profile_parameter path=$Path ref=$name";
 
@@ -4346,15 +4406,34 @@ sub add_parameter
     return $nnode;
 }
 
-# Update list of bibrefs that are actually used (each entry is an array of the
-# specs that use the bibref)
-# XXX this doesn't cope with the case where a bibref is used and then the
+# Update lists of glorefs, abbrefs and bibrefs that are actually used (each
+# entry is an array of the specs that use the ref)
+# XXX this doesn't cope with the case where a ref is used and then the
 #     parameter description is updated so it is no longer used; this is harder
-sub update_bibrefs
+sub update_refs
 {
     my ($value, $file, $spec) = @_;
 
-    my @ids = ($value =~ /\{\{bibref\|([^\|\}]+)/g);
+    my @ids = undef;
+
+    # glorefs
+    @ids = ($value =~ /\{\{gloref\|([^\|\}]+)/g);
+    foreach my $id (@ids) {
+        d1msg "marking gloref $id used (file=$file, spec=$spec)";
+        push @{$glorefs->{$id}}, $spec unless
+            grep {$_ eq $spec} @{$glorefs->{$id}};
+    }
+
+    # abbrefs
+    @ids = ($value =~ /\{\{abbref\|([^\|\}]+)/g);
+    foreach my $id (@ids) {
+        d1msg "marking abbref $id used (file=$file, spec=$spec)";
+        push @{$abbrefs->{$id}}, $spec unless
+            grep {$_ eq $spec} @{$abbrefs->{$id}};
+    }
+
+    # bibrefs
+    @ids = ($value =~ /\{\{bibref\|([^\|\}]+)/g);
     foreach my $id (@ids) {
         d1msg "marking bibref $id used (file=$file, spec=$spec)";
         push @{$bibrefs->{$id}}, $spec unless
@@ -4362,18 +4441,48 @@ sub update_bibrefs
     }
 }
 
-# Determine whether a description contains invalid bibrefs
+# Determine whether a description contains invalid refs (bibrefs by default)
 # XXX or could do during template expansion
-sub invalid_bibrefs
+sub invalid_refs
 {
-    my ($value) = @_;
+    my ($value, $reftype) = @_;
+    $reftype = 'bibrefs' unless $reftype;
 
-    my @ids = ($value =~ /\{\{bibref\|([^\|\}]+)/g);
+    my @ids = undef;
     my $bad = [];
-    foreach my $id (@ids) {
-        push @$bad, $id unless
-            grep {$_->{id} eq $id} @{$root->{bibliography}->{references}};
+
+    # glorefs
+    if ($reftype eq 'glorefs') {
+        @ids = ($value =~ /\{\{gloref\|([^\|\}]+)/g);
+        foreach my $id (@ids) {
+            push @$bad, $id unless
+                grep {$_->{id} eq $id} @{$root->{glossary}->{items}};
+        }
     }
+
+    # abbrefs
+    elsif ($reftype eq 'abbrefs') {
+        @ids = ($value =~ /\{\{abbref\|([^\|\}]+)/g);
+        foreach my $id (@ids) {
+            push @$bad, $id unless
+                grep {$_->{id} eq $id} @{$root->{abbreviations}->{items}};
+        }
+    }
+
+    # bibrefs
+    elsif ($reftype eq 'bibrefs') {
+        @ids = ($value =~ /\{\{bibref\|([^\|\}]+)/g);
+        foreach my $id (@ids) {
+            push @$bad, $id unless
+                grep {$_->{id} eq $id} @{$root->{bibliography}->{references}};
+        }
+    }
+
+    # invalid ref type (programming error
+    else {
+        die "invalid_refs: undefined ref type $reftype";
+    }
+
     my @bad = sort @$bad;
     return \@bad;
 }
@@ -5673,6 +5782,8 @@ sub xml_node
         my $xsi = $node->{xsi};
         my $schemaLocation = $node->{schemaLocation};
         my $dataTypes = $node->{dataTypes};
+        my $glossary = $node->{glossary};
+        my $abbreviations = $node->{abbreviations};
         my $bibliography = $node->{bibliography};
         my $templates = $node->{templates};
 
@@ -5736,6 +5847,14 @@ $i             spec="$lspec">
 
         if ($bibliography && %$bibliography) {
             xml_bibliography($bibliography, $indent, {usespec => $lspec});
+        }
+
+        if ($glossary && %$glossary) {
+            xml_glossary($glossary, $indent, {usespec => $lspec});
+        }
+
+        if ($abbreviations && %$abbreviations) {
+            xml_abbreviations($abbreviations, $indent, {usespec => $lspec});
         }
 
         if ($templates && %$templates) {
@@ -6072,6 +6191,48 @@ sub xml_datatypes
     }
 }
 
+sub xml_glossary
+{
+    my ($glossary, $indent, $opts) = @_;
+    xml_definitions($glossary, $indent, $opts, 'glossary');
+}
+
+sub xml_abbreviations
+{
+    my ($abbreviations, $indent, $opts) = @_;
+    xml_definitions($abbreviations, $indent, $opts, 'abbreviations');
+}
+
+sub xml_definitions
+{
+    my ($definitions, $indent, $opts, $element) = @_;
+
+    $indent = 0 unless $indent;
+    my $i = "  " x $indent;
+
+    if (@{$definitions->{items}}) {
+        print qq{$i  <$element>\n};
+
+        my $description = $definitions->{description};
+        $description = xml_escape($description, {indent => $i.'    '});
+        print qq{$i    <description>$description</description>\n} if
+            $description;
+
+        foreach my $item (@{$definitions->{items}}) {
+            my $id = $item->{id};
+            my $description = $item->{description};
+
+            $description = xml_escape($description, {indent => $i.'      '});
+
+            print qq{$i    <item id="$id">\n};
+            print qq{$i      <description>$description</description>\n} if
+                $description;
+            print qq{$i    </item>\n};
+        }
+        print qq{$i  </$element>\n};
+    }
+}
+
 sub xml_bibliography
 {
     my ($bibliography, $indent, $opts) = @_;
@@ -6354,11 +6515,19 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         if (!@$dtprofiles) {
             my $dataTypes = $node->{dataTypes};
             my $bibliography = $node->{bibliography};
+            my $glossary = $node->{glossary};
+            my $abbreviations = $node->{abbreviations};
             my $templates = $node->{templates};
             print qq{$i  <description>$description</description>\n} if
                 $description;
             if ($dataTypes && @$dataTypes) {
                 xml_datatypes($dataTypes, $indent, {});
+            }
+            if ($glossary && %$glossary) {
+                xml_glossary($glossary, $indent, {});
+            }
+            if ($abbreviations && %$abbreviations) {
+                xml_abbreviations($abbreviations, $indent, {});
             }
             if ($bibliography && %$bibliography) {
                 xml_bibliography($bibliography, $indent, {});
@@ -7096,8 +7265,8 @@ sub html_anchor_namespace_prefix
 
     my $sep = '.';
 
-    my $prefix = {heading => 'H', datatype => 'T', bibref => 'R',
-                  path => 'D', value => 'D',
+    my $prefix = {heading => 'H', datatype => 'T', gloref => 'G',
+                  abbref => 'A', bibref => 'R', path => 'D', value => 'D',
                   profile => 'P', profoot => 'P'}->{$type};
     die "html_anchor_namespace_prefix: invalid type: $type" unless $prefix;
 
@@ -7140,8 +7309,8 @@ sub html_create_anchor
     my $text = $opts->{text};
 
     # validate type (any error is a programming error)
-    my $types = ['heading', 'datatype', 'bibref', 'path', 'value',
-                 'profile', 'profoot'];
+    my $types = ['heading', 'datatype', 'gloref', 'abbref', 'bibref', 'path',
+                 'value', 'profile', 'profoot'];
     die "html_create_anchor: undefined anchor type" unless $type;
     die "html_create_anchor: unsupported anchor type: $type"
         unless grep {$type eq $_} @$types;
@@ -7575,6 +7744,8 @@ END
         $html_buffer .= <<END;
     </ul> <!-- Table of Contents -->
 END
+
+        # data types
         my $datatypes = $node->{dataTypes};
         if ($datatypes && @$datatypes) {
             #emsg Dumper($datatypes);
@@ -7586,12 +7757,12 @@ END
 The Parameters defined in this specification make use of a limited subset of the default SOAP data types {{bibref|SOAP1.1}}. These data types and the named data types used by this specification are described below.
 Note: A Parameter that is defined to be one of the named data types is reported as such at the beginning of the Parameter's description via a reference back to the associated data type definition (e.g. ''[MacAddress]''). However, such parameters still indicate their SOAP data type.
 END
-            update_bibrefs($preamble, $node->{file}, $node->{spec});
+            update_refs($preamble, $node->{file}, $node->{spec});
             # XXX sanity_node only detects invalid bibrefs in node and value
             #     descriptions...
-            my $ibr = invalid_bibrefs($preamble);
+            my $inval = invalid_refs($preamble, 'bibrefs');
             emsg "invalid bibrefs (need to use the --tr106 option?): " .
-              join(', ', @$ibr) if $warnbibref >= 0 && @$ibr;
+              join(', ', @$inval) if $warnbibref >= 0 && @$inval;
             $preamble = html_escape($preamble);
             $html_buffer .= <<END;
     <h1>$anchor->{def}</h1>
@@ -7650,7 +7821,7 @@ END
                 $sizerange .= add_range(base_syntax($name));
 
                 # add potential bibref references from description
-                update_bibrefs($description,"","");
+                update_refs($description,"","");
 
                 # XXX this needs a generic utility that will escape any
                 #     description with full template expansion
@@ -7676,6 +7847,48 @@ END
     </table> <!-- Data Types -->
 END
         }
+
+        # glossary and abbreviations
+        foreach my $which (('glossary', 'abbreviations')) {
+            my $title = ucfirst $which;
+            my $reftype = substr($which, 0, 3) . 'ref';
+            my $definitions = $node->{$which};
+            if ($definitions && @{$definitions->{items}}) {
+                my $anchor = html_create_anchor($title, 'heading');
+                print <<END;
+      <li>$anchor->{ref}</li>
+END
+                my $description = $definitions->{description};
+                $description = html_escape($description) if $description;
+                $html_buffer .= <<END;
+    <h1>$anchor->{def}</h1>
+    $description<p>
+    <table $tabopts> <!-- $title -->
+    <tr>
+      <th class="g">ID</th>
+      <th class="g">Description</th>
+    </tr>
+END
+                foreach my $item (sort bibid_cmp @{$definitions->{items}}) {
+                    my $id = $item->{id};
+                    my $id_anchor = html_create_anchor($id, $reftype);
+                    my $description = $item->{description};
+                    $description = html_escape($description,
+                                               {$reftype => $id});
+                    $html_buffer .= <<END;
+      <tr>
+        <td>$id_anchor->{def}</td>
+        <td>$description</td>
+      </tr>
+END
+                }
+                $html_buffer .= <<END;
+            </table> <!-- $title -->
+END
+            }
+        }
+
+        # bibliography
         my $bibliography = $node->{bibliography};
         my $anchor = html_create_anchor('References', 'heading');
         if ($bibliography && %$bibliography) {
@@ -8679,6 +8892,12 @@ sub html_template
          {name => 'xmlref',
           text1 => \&html_template_xmlref,
           text2 => \&html_template_xmlref},
+         {name => 'gloref',
+          text0 => \&html_template_gloref,
+          text1 => \&html_template_gloref},
+         {name => 'abbref',
+          text0 => \&html_template_abbref,
+          text1 => \&html_template_abbref},
          {name => 'bibref',
           text1 => \&html_template_bibref,
           text2 => \&html_template_bibref},
@@ -9425,6 +9644,51 @@ sub html_template_showid
     my $text = qq{'''+++[$id]+++'''};
 
     return $text;
+}
+
+# generates reference to glossary item; argument is item id
+sub html_template_gloref
+{
+    my ($opts, $gloref) = @_;
+    return html_template_defref($opts, $gloref, 'gloref', $root->{glossary});
+}
+#
+# generates reference to abbreviation item; argument is item id
+sub html_template_abbref
+{
+    my ($opts, $abbref) = @_;
+    return html_template_defref($opts, $abbref, 'abbref',
+                                $root->{abbreviations});
+}
+
+# generates reference to glossary or abbreviation item (helper)
+sub html_template_defref
+{
+    my ($opts, $id, $which, $definitions) = @_;
+
+    my $path = $opts->{path};
+    $path = '<unknown>' unless $path;
+
+    # argumentless template can only be used within an item description
+    my $invalid = '';
+    if (!defined $id) {
+        if (!defined $opts->{$which}) {
+            emsg "$path: {{$which}} with empty id argument is " .
+                "appropriate only within an item description";
+        } else {
+            $id = $opts->{$which};
+        }
+    }
+
+    # otherwise create link
+    else {
+        my ($item) = grep {$_->{id} eq $id} @{$definitions->{items}};
+        $invalid = '?' unless $item;
+        $id = html_get_anchor($id, $which) unless $nolinks;
+    }
+
+    # return italicized reference (with 'invalid' marker)
+    return $id ? qq{''$id$invalid''} : undef;
 }
 
 # generates reference to bibliographic reference: arguments are bibref name
@@ -13780,22 +14044,48 @@ sub sanity_node
         $node->{type} = '' unless $node->{nodes};
     }
 
+    # glossary / abbreviations sanity checks
+    # XXX maybe should only check referenced items?
+    foreach my $deftype (('glossary', 'abbreviations')) {
+        my $definitions = $node->{$deftype};
+        if ($definitions && %$definitions) {
+            foreach my $reftype (('bibrefs', 'glorefs', 'abbrefs')) {
+                my $description = $definitions->{description};
+                if ($description) {
+                    my $inval = invalid_refs($description, $reftype);
+                    emsg "$deftype: invalid ${reftype}: " .
+                        join(', ', @$inval) if $warnbibref >= 0 && @$inval;
+                }
+                foreach my $item (sort bibid_cmp @{$definitions->{items}}) {
+                    my $description = $item->{description};
+                    if ($description) {
+                        my $inval = invalid_refs($description, $reftype);
+                        emsg "$deftype.$item->{id}: invalid ${reftype}: " .
+                            join(', ', @$inval) if $warnbibref >= 0 && @$inval;
+                    }
+                }
+            }
+        }
+    }
+
     # object / parameter sanity checks
     if ($object || $parameter) {
         my $objpar = $object ? 'object' : 'parameter';
         # XXX should check all descriptions, not just obj / par ones (now
         #     better: checking enumeration descriptions)
-        my $ibr = invalid_bibrefs($description);
-        emsg "$path: invalid bibrefs: " . join(', ', @$ibr) if
-            $warnbibref >= 0 && @$ibr;
-        if (util_is_defined($values)) {
-            foreach my $value (sort keys %$values) {
-                my $cvalue = $values->{$value};
+        foreach my $reftype (('bibrefs', 'glorefs', 'abbrefs')) {
+            my $inval = invalid_refs($description, $reftype);
+            emsg "$path: invalid $reftype: " . join(', ', @$inval) if
+                $warnbibref >= 0 && @$inval;
+            if (util_is_defined($values)) {
+                foreach my $value (sort keys %$values) {
+                    my $cvalue = $values->{$value};
 
-                my $description = $cvalue->{description};
-                my $ibr = invalid_bibrefs($description);
-                emsg "$path: invalid bibrefs: " . join(', ', @$ibr) if
-                    $warnbibref >= 0 && @$ibr;
+                    my $description = $cvalue->{description};
+                    my $inval = invalid_refs($description, $reftype);
+                    emsg "$path: invalid $reftype: " . join(', ', @$inval) if
+                        $warnbibref >= 0 && @$inval;
+                }
             }
         }
 

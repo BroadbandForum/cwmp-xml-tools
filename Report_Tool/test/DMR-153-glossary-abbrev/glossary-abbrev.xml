@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-7"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-7
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-7.xsd"
+             spec="urn:example-com:glossary-abbrev" file="glossary-abbrev.xml">
+  
+  <import file="tr-069-biblio.xml"/>
+  
+  <glossary>
+    <description>
+      This is the glossary. It can reference stuff {{gloref|Fred}} {{bibref|TR-106}}.
+    </description>
+    <item id="Term">
+      <description>
+        A {{gloref}} is a defined term. We can reference {{gloref|Another Term}} or an abbreviation such as {{abbref|XYZ}}.
+      </description>
+    </item>
+    <!-- XXX duplicate term should give a schema validation error -->
+    <item id="Term">
+      <description>
+        A {{gloref}} is a defined term. We can reference {{gloref|Another Term}} or an abbreviation such as {{abbref|XYZ}}.
+        * The usual markup applies
+        * Like this
+        And this.
+         And this.
+      </description>
+    </item>
+    <item id="Another Term">
+      <description>
+        {{gloref}} (not a very helpful definition).
+      </description>
+    </item>
+  </glossary>
+  
+  <abbreviations>
+    <item id="TLA">
+      <description>
+        Three Letter Acronym ({{abbref}}). Not an {{abbref|FLA}}.
+      </description>
+    </item>
+  </abbreviations>
+  
+  <bibliography>
+    <description>
+      Bibliography comes after glossary and abbreviations.
+    </description>
+  </bibliography>
+  
+  <model name="GlossaryAbbrev:1.0">
+    <object name = "MyObject." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{abbref|TLA}} is an abbreviation and {{gloref|Term}} is a term.
+        Reference to {{gloref|Undefined Term}} and {{abbref|UNDEF}}.
+        {{gloref}} with no argument is invalid here.
+        {{abbref}} with no argument is invalid here.
+      </description>
+    </object>
+  </model>
+</dm:document>
