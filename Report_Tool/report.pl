@@ -1206,6 +1206,14 @@ sub expand_import
       expand_template($context, $root, $item);
     }
 
+    # expand glossary in the imported file
+    my ($glossary) = $toplevel->findnodes('glossary');
+    expand_glossary($context, $root, $glossary) if $glossary;
+
+    # expand abbreviations in the imported file
+    my ($abbreviations) = $toplevel->findnodes('abbreviations');
+    expand_abbreviations($context, $root, $abbreviations) if $abbreviations;
+
     # expand bibliography in the imported file
     my ($bibliography) = $toplevel->findnodes('bibliography');
     expand_bibliography($context, $root, $bibliography) if $bibliography;
