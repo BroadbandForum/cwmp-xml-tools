@@ -1,0 +1,9 @@
+(E) glossary: invalid glorefs: Fred
+(E) glossary.Term: invalid abbrefs: XYZ
+(E) abbreviations.TLA: invalid abbrefs: FLA
+(E) MyObject.: invalid glorefs: Undefined Term
+(E) MyObject.: invalid abbrefs: UNDEF
+(E) MyObject.: {{gloref}} with empty id argument is appropriate only within an item description
+(E) MyObject.: invalid template reference: {{gloref}}
+(E) MyObject.: {{abbref}} with empty id argument is appropriate only within an item description
+(E) MyObject.: invalid template reference: {{abbref}}

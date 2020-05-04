@@ -1,0 +1,6 @@
+(E) glossary.Term: duplicate definition: description replaced
+(E) glossary: invalid glorefs: Fred
+(E) glossary.Term: invalid abbrefs: XYZ
+(E) abbreviations.TLA: invalid abbrefs: FLA
+(E) MyObject.: invalid glorefs: Undefined Term
+(E) MyObject.: invalid abbrefs: UNDEF
