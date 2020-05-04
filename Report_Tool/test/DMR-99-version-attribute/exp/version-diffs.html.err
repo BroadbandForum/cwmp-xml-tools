@@ -1,0 +1,4 @@
+(E) Root.Child.P3.b: version 1.0 < inherited 1.1
+(W) Profile:1.Root.: version 0.9 ignored
+(W) Profile:1.Root.P1: version 1.1 ignored
+(E) Another:1: major version 2 != inherited 1

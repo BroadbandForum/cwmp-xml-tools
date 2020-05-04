@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-8
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd"
+             spec="urn:example-com:version" file="version.xml">
+  
+  <import file="tr-069-biblio.xml"/>
+  
+  <component name="Params">
+    <parameter name="P1" access="readOnly" version="1.2.3">
+      <description>
+        {{param}}.
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter> 
+    <parameter name="P2" access="readOnly" version="1.2">
+      <description>
+        {{param}}.
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+  </component>
+  
+  <model name="Version:1.3">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1" version="1.1">
+      <description>
+        {{object}}.
+      </description>
+      <component ref="Params"/>
+    </object>
+    <object name="Root.Child." access="readOnly" minEntries="1" maxEntries="1" version="1.1">
+      <description>
+        {{object}}.
+      </description>
+      <parameter name="P3" access="readOnly">
+        <description>
+          {{param}}.
+        </description>
+        <syntax>
+          <string>
+            <enumeration value="a" version="1.3.4"/>
+            <enumeration value="b" version="1.0"/>
+            <enumeration value="c"/>
+          </string>
+        </syntax>
+      </parameter>
+      <command name="C1()">
+        <description>
+          {{command}}.
+        </description>
+        <input>
+          <component ref="Params"/>
+        </input>
+      </command>
+    </object>
+    <profile name="Profile:1" version="1.0">
+      <object ref="Root." requirement="present" version="0.9">
+        <parameter ref="P1" requirement="readOnly" version="1.1"/>
+      </object>
+    </profile>
+    <profile name="Another:1" version="2.0"/>
+  </model>
+</dm:document>
