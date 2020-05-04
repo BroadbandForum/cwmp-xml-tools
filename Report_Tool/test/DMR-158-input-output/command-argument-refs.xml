@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-7"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-7
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-7.xsd"
+               spec="urn:example-com:command-argument-refs" file="command-argument-refs.xml">
+  
+  <import file="tr-069-biblio.xml"/>
+  
+  <model name="CommandArgumentRefs:1.0">
+    <object name = "Object." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        These are references to:
+        * Command().Array {{object|Command().Array}}
+        * Command().Array.{i} {{object|Command().Array.{i}}}
+        * Command().Array.{i}. {{object|Command().Array.{i}.}}
+        * Command().Array.{i}.Param {{param|Command().Array.{i}.Param}}
+        * Command().Param {{param|Command().Param}}
+        And:
+        * Command().Input.Array {{object|Command().Input.Array}}
+        * Command().Input.Array.{i} {{object|Command().Input.Array.{i}}}
+        * Command().Input.Array.{i}. {{object|Command().Input.Array.{i}.}}
+        * Command().Input.Array.{i}.Param {{param|Command().Input.Array.{i}.Param}}
+        * Command().Input.Param {{param|Command().Input.Param}}
+      </description>
+      <command name="Command()">
+        <description>
+          These are references to:
+          * Array {{object|Array}}
+          * Array.{i} {{object|Array.{i}}}
+          * Array.{i}. {{object|Array.{i}.}}
+          * Array.{i}.Param {{param|Array.{i}.Param}}
+          * Param {{param|Param}}
+          And:
+          * Input.Array {{object|Input.Array}}
+          * Input.Array.{i} {{object|Input.Array.{i}}}
+          * Input.Array.{i}. {{object|Input.Array.{i}.}}
+          * Input.Array.{i}.Param {{param|Input.Array.{i}.Param}}
+          * Input.Param {{param|Input.Param}}
+        </description>
+        <input>
+          <parameter name="Param">
+            <description>
+              Scalar.
+            </description>
+            <syntax>
+              <unsignedInt/>
+            </syntax>
+          </parameter>
+          <object name="Array.{i}." minEntries="0" maxEntries="unbounded">
+            <description>
+              Array.
+            </description>
+            <parameter name="Param">
+              <description>
+                Scalar.
+              </description>
+              <syntax>
+                <unsignedInt/>
+              </syntax>
+            </parameter>
+          </object>
+        </input>
+        <output>
+          <parameter name="Another">
+            <description>
+              These are references to:
+              * Array {{object|Array}}
+              * Array.{i} {{object|Array.{i}}}
+              * Array.{i}. {{object|Array.{i}.}}
+              * Array.{i}.Param {{param|Array.{i}.Param}}
+              * Param {{param|Param}}
+              And:
+              * #.Input.Array {{object|#.Input.Array}}
+              * #.Input.Array.{i} {{object|#.Input.Array.{i}}}
+              * #.Input.Array.{i}. {{object|#.Input.Array.{i}.}}
+              * #.Input.Array.{i}.Param {{param|#.Input.Array.{i}.Param}}
+              * #.Input.Param {{param|#.Input.Param}}
+            </description>
+            <syntax>
+              <unsignedInt/>
+            </syntax>
+          </parameter>
+        </output>
+      </command>
+    </object>
+  </model>
+</dm:document>

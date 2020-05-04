@@ -10079,8 +10079,13 @@ sub html_template_objectref
     w0msg "$object$param: {{object}} argument unnecessary when ".
         "referring to current object" if $name && $name eq $object;
 
+    # command Input. and Output. sub-objects aren't in the path but allow them
+    # to be specified in the XML
+    ($name, my $inout) = inout_remove($name);
+
     my $oname = $name;
     (my $path, $name) = relative_path($object, $name, $scope);
+
     my $path1 = $path;
     $path1 .= '.' if $path1 !~ /\.$/;
 
@@ -10095,7 +10100,10 @@ sub html_template_objectref
 
     # XXX if path starts ".Services." this is a reference to another data
     #     model, so no checks and no link
-    return qq{''$name''} if $path =~ /^\.Services\./;
+    if ($path =~ /^\.Services\./) {
+        $name = inout_restore($name, $inout);
+        return qq{''$name''};
+    }
 
     my $invalid = util_is_defined($objects, $fpath) ? '' : '?';
 
@@ -10140,6 +10148,7 @@ sub html_template_objectref
         }
     }
 
+    $name = inout_restore($name, $inout);
     $name = qq{''$name$invalid''};
     $name = html_get_anchor($fpath, 'path', $name) unless $nolinks;
 
@@ -10615,24 +10624,17 @@ sub relative_path_helper
     # special cases for commands and events
     # XXX should return now if special case logic can't apply...
 
-    # Input. and Output. aren't in the path but allow them to be specified
-    # in the XML
-    # XXX this logic isn't supported for object references; maybe OK because
-    #     backward compatibility with CWMP diagnostics will never need it
-    # XXX should keep track of this so explicit Input. and Output. can only
-    #     match arguments, not parameters
-    if ($oname =~ /^#+\.(In|Out)put\./) {
-        $oname =~ s/#\.(In|Out)put\.//;
-    } elsif ($oname =~ /^(In|Out)put\./) {
-        $oname =~ s/^(In|Out)put\.//;
-    }
+    # command Input. and Output. sub-objects aren't in the path but allow them
+    # to be specified in the XML
+    ($oname, my $inout) = inout_remove($oname);
 
     # try the modified name
     # XXX should check it really is modified
     my ($tpath, $tname) = relative_path($object, $oname, $scope);
     my $tfpath = $mpref . $tpath;
-    return ($tpath, $tname, $tfpath, 1)
-        if util_is_defined($parameters, $tfpath);
+    if (util_is_defined($parameters, $tfpath)) {
+        return ($tpath, inout_restore($tname, $inout), $tfpath, 1);
+    }
 
     # allow things like {{param|Fred}} when:
     # - Fred() is a command, so {{command|Fred()}} would be correct
@@ -10641,8 +10643,9 @@ sub relative_path_helper
         my $toname = qq{$oname$suffix};
         my ($tpath, $tname) = relative_path($object, $toname, $scope);
         my $tfpath = $mpref . $tpath;
-        return ($tpath, $tname, $tfpath, 1)
-            if util_is_defined($parameters, $tfpath);
+        if (util_is_defined($parameters, $tfpath)) {
+            return ($tpath, inout_restore($tname, $inout), $tfpath, 1);
+        }
     }
 
     # if failed to find peer parameter, look for argument child
@@ -10650,11 +10653,68 @@ sub relative_path_helper
     my $tobject = qq{$object$param.};
     ($tpath, $tname) = relative_path($tobject, $oname, $scope);
     $tfpath = $mpref . $tpath;
-    return ($tpath, $tname, $tfpath, 1)
-        if util_is_defined($parameters, $tfpath);
+    if (util_is_defined($parameters, $tfpath)) {
+        return ($tpath, inout_restore($tname, $inout), $tfpath, 1);
+    }
 
     # ran out of options; invalid
     return ($path, $name, $fpath, 0);
+}
+
+# Parse a name to remove "Input." or "Output.", returning the modified name and
+# a context object of the form {text => text, where => where} that can be
+# passed to inout_restore.
+sub inout_remove
+{
+    my ($name) = @_;
+    my $oname = $name;
+
+    my $text = '';
+    my $where = '';
+    if ($name =~ /^#+\.((In|Out)put\.)/) {
+        $text = $1;
+        $where = 'after-hash-dot-or-at-start';
+        $name =~ s/#\.(In|Out)put\.//;
+    } elsif ($name =~ /^((In|Out)put\.)/) {
+        $text = $1;
+        $where = 'at-start';
+        $name =~ s/^(In|Out)put\.//;
+    } elsif ($name =~ /\(\)\.((In|Out)put\.)/) {
+        $text = $1;
+        $where = 'after-parens-dot';
+        $name =~ s/(\(\)\.)(In|Out)put\./$1/;
+    }
+
+    #tmsg "$oname -> $name ($where)" if $where;
+    return $name, {text => $text, where => $where};
+}
+
+# Restore "Input." or "Output." removed by inout_remove.
+sub inout_restore
+{
+    my ($name, $context) = @_;
+    my $text = $context->{text};
+    my $where = $context->{where};
+
+    my $oname = $name;
+    if ($text eq '' or $where eq '') {
+        # nothing to restore
+    } elsif ($where eq 'at-start') {
+        $name =~ s/^/$text/;
+    } elsif ($where eq 'after-hash-dot-or-at-start') {
+        if ($name =~ /^#+\./) {
+            $name =~ s/#\./#.$text/;
+        } else {
+            $name =~ s/^/#.$text/;
+        }
+    } elsif ($where eq 'after-parens-dot') {
+        $name =~ s/\(\)\./().$text/;
+    } else {
+        die "inout_restore: unsupported 'where' value $where";
+    }
+
+    #tmsg "  $oname -> $name" if $where;
+    return $name
 }
 
 # Generate appropriate {{object}} references from an XML list
