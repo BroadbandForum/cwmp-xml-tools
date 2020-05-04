@@ -2155,15 +2155,28 @@ sub version
     }
 
     # check version isn't less than the inherited version
-    elsif ($hash->{minor} < $default->{minor} ||
-           ($hash->{minor} == $default->{minor} &&
-            $hash->{patch} < $default->{patch})) {
+    elsif (version_compare($hash, $default) < 0) {
         my $version_string = version_string($hash);
         my $default_string = version_string($default);
         emsg "$path: version $version_string < inherited $default_string";
     }
 
     return $hash;
+}
+
+# Compare two versions, returning -1, 0, or 1 depending on whether the first
+# version is less than, equal to, or greater than the second version (like the
+# perl <=> operator)
+sub version_compare
+{
+    my ($first, $second) = @_;
+    if ($first->{major} != $second->{major}) {
+        return $first->{major} <=> $second->{major};
+    } elsif ($first->{minor} != $second->{minor}) {
+        return $first->{minor} <=> $second->{minor};
+    } else {
+        return $first->{patch} <=> $second->{patch};
+    }
 }
 
 # Get previous items from dmr:previous*, if present
