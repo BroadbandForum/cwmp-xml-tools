@@ -4725,6 +4725,7 @@ sub get_values
         my $obsoleted = $cvalue->{status} eq 'obsoleted';
         my $deleted = $cvalue->{status} eq 'deleted';
         my $DELETED = $cvalue->{status} eq 'DELETED';
+        my $version = $cvalue->{version};
 
         # DELETED (upper-case) means skip unconditionally
         next if $DELETED || ($deleted && !$showdiffs);
@@ -4743,6 +4744,12 @@ sub get_values
 
         # don't mark optional if deprecated or obsoleted
         $optional = 0 if $deprecated || $obsoleted;
+
+        # indicate 'added in' if value added since parent was created
+        # XXX versions might not be defined, e.g. in named data types
+        my $added_in = $version && $node->{version} &&
+            version_compare($version, $node->{version}) > 0 ?
+            qq{added in v} . version_string($version) : qq{};
 
         my $quote = $cvalue !~ /^</;
 
@@ -4765,8 +4772,12 @@ sub get_values
         #        $description !~ /^\S+\s+[A-Z]/);
         $description =~ s/\.([\+\-]*)$/$1/;
 
-        my $any = $description || $readonly || $optional ||
+        my $any_others = $description || $readonly || $optional ||
             $deprecated || $obsoleted;
+        my $any = $any_others || $added_in;
+
+        # added_in is capitalized if it's the only item
+        $added_in = $any_others ? lcfirst($added_in) : ucfirst($added_in);
 
         $list .= '* ';
         $list .= ($deleted ? '---' : '+++') if $showdiffs && $changed;
@@ -4790,6 +4801,7 @@ sub get_values
         $list .= 'OPTIONAL, ' if $optional;
         $list .= 'DEPRECATED, ' if $deprecated;
         $list .= 'OBSOLETED, ' if $obsoleted;
+        $list .= "$added_in, " if $added_in;
         chop $list if $any;
         chop $list if $any;
         $list .= ($deleted ? '---' : '+++') if $showdiffs && $changed;
