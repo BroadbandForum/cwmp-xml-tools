@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-0-1"
              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
              xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-8
-               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd"
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+             urn:broadband-forum-org:cwmp:datamodel-report-0-1
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-report.xsd"
              spec="urn:example-com:version" file="version.xml">
   
   <import file="tr-069-biblio.xml"/>
@@ -17,6 +20,28 @@
       </syntax>
     </parameter> 
     <parameter name="P2" access="readOnly" version="1.2">
+      <description>
+        {{param}}.
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+  </component>
+  
+  <component name="DiagInput">
+    <parameter name="InputArg" access="readOnly" version="2.0">
+      <description>
+        {{param}}.
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+  </component>
+  
+  <component name="DiagOutput">
+    <parameter name="OutputArg" access="readWrite" version="2.0">
       <description>
         {{param}}.
       </description>
@@ -64,5 +89,58 @@
       </object>
     </profile>
     <profile name="Another:1" version="2.0"/>
+  </model>
+  
+  <model name="CWMP:2.12">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1" version="2.0">
+      <description>
+        {{object}}.
+      </description>
+    </object>
+    <object name="Root.Diag." access="readOnly" minEntries="1" maxEntries="1" version="2.0">
+      <parameter name="DiagnosticState" access="readWrite">
+        <description>
+          TBD.
+        </description>
+        <syntax>
+          <string/>
+        </syntax>
+      </parameter>
+      <component ref="DiagInput"/>
+      <component ref="DiagOutput"/>
+    </object>
+  </model>
+  
+  <model name="USP:2.12">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1" version="2.12">
+      <description>
+        {{object}}.
+      </description>
+      <command name="Diag()" version="2.12">
+        <input>
+          <component ref="DiagInput"/>
+        </input>
+        <output>
+          <component ref="DiagOutput"/>
+        </output>
+      </command>
+    </object>
+  </model>
+  
+  <model name="Service:1.1">
+    <parameter name="ServiceNumberOfEntries" access="readOnly" version="1.0">
+      <description>
+        {{numentries}}
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+    <object name="Service.{i}." access="readOnly" minEntries="0" maxEntries="unbounded"
+      numEntriesParameter="ServiceNumberOfEntries" version="1.0" dmr:noUniqueKeys="true">
+      <description>
+        {{object}}.
+      </description>
+    </object>
   </model>
 </dm:document>
