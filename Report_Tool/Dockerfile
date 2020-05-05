@@ -18,9 +18,12 @@ RUN cpanm \
     URI::Escape \
     XML::LibXML
 
-# install necessary python modules (used for generating JUnit XML)
+# install necessary python modules (used for generating JUnit XML and for the
+# new report tool
 RUN pip3 install \
-    junit_xml
+    junit_xml \
+    pyxb \
+    xmltodict
 
 # copy report.pl to /opt/bbf/bin
 COPY report.pl /opt/bbf/bin/report.pl
