@@ -1,0 +1,16 @@
+(F) out/untyped-full.xml:32: parser error : Opening and ending tag mismatch: syntax line 31 and unparseable
+        </>
+           ^
+out/untyped-full.xml:33: parser error : Opening and ending tag mismatch: parameter line 27 and syntax
+      </syntax>
+               ^
+out/untyped-full.xml:34: parser error : Opening and ending tag mismatch: model line 26 and parameter
+    </parameter>
+                ^
+out/untyped-full.xml:35: parser error : Opening and ending tag mismatch: document line 6 and model
+  </model>
+          ^
+out/untyped-full.xml:36: parser error : Extra content at the end of the document
+</dm:document>
+^
+(E) invalid bibrefs (need to use the --tr106 option?): SOAP1.1
