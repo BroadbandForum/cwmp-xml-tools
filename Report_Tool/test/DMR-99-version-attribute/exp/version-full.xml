@@ -95,4 +95,87 @@
     </profile>
     <profile name="Another:1" version="2.0"/>
   </model>
+  <model name="CWMP:2.12">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1" version="2.0">
+      <description>
+        {{object}}.
+      </description>
+    </object>
+    <object name="Root.Diag." access="readOnly" minEntries="1" maxEntries="1" version="2.0">
+      <parameter name="DiagnosticState" access="readWrite" version="2.0">
+        <description>
+          TBD.
+        </description>
+        <syntax>
+          <string/>
+        </syntax>
+      </parameter>
+      <parameter name="InputArg" access="readOnly" version="2.0">
+        <description>
+          {{param}}.
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+      <parameter name="OutputArg" access="readWrite" version="2.0">
+        <description>
+          {{param}}.
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+    </object>
+  </model>
+  <model name="USP:2.12">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1" version="2.12">
+      <description>
+        {{object}}.
+      </description>
+      <command name="Diag()" version="2.12">
+        <input>
+          <description>
+            Input arguments.
+          </description>
+          <parameter name="InputArg" version="2.0">
+            <description>
+              {{param}}.
+            </description>
+            <syntax>
+              <unsignedInt/>
+            </syntax>
+          </parameter>
+        </input>
+        <output>
+          <description>
+            Output arguments.
+          </description>
+          <parameter name="OutputArg" version="2.0">
+            <description>
+              {{param}}.
+            </description>
+            <syntax>
+              <unsignedInt/>
+            </syntax>
+          </parameter>
+        </output>
+      </command>
+    </object>
+  </model>
+  <model name="Service:1.1">
+    <parameter name="ServiceNumberOfEntries" access="readOnly" version="1.0">
+      <description>
+        {{numentries}}
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+    <object name="Service.{i}." access="readOnly" numEntriesParameter="ServiceNumberOfEntries" minEntries="0" maxEntries="unbounded" version="1.0" dmr:noUniqueKeys="true">
+      <description>
+        {{object}}.
+      </description>
+    </object>
+  </model>
 </dm:document>

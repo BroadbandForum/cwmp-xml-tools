@@ -104,6 +104,61 @@
           <li><a href="#H.Version:1.Notation">Notation</a></li>
           <li><a href="#H.Version:1.Profile:1 Profile">Profile:1 Profile</a></li>
           <li><a href="#H.Version:1.Another:1 Profile">Another:1 Profile</a></li>
+        </ul> <!-- Profile Definitions -->
+      </ul> <!-- Data Model -->
+      <li><a href="#H.CWMP:2.12 Data Model">CWMP:2.12 Data Model</a></li>
+      <ul> <!-- CWMP:2.12 Data Model -->
+        <li><a href="#H.CWMP:2.12 Data Model">Data Model Definition</a></li>
+        <ul> <!-- Data Model Definition -->
+          <li><a href="#D.CWMP:2.Root.">Root.</a></li>
+          <li><a href="#D.CWMP:2.Root.Diag.">Root.Diag.</a></li>
+        </ul> <!-- Data Model Definition -->
+        <li><a href="#H.CWMP:2.Inform and Notification Requirements">Inform and Notification Requirements</a></li>
+        <ul> <!-- Inform and Notification Requirements -->
+          <li><a href="#H.CWMP:2.Forced Inform Parameters">Forced Inform Parameters</a></li>
+          <li><a href="#H.CWMP:2.Forced Active Notification Parameters">Forced Active Notification Parameters</a></li>
+          <li><a href="#H.CWMP:2.Default Active Notification Parameters">Default Active Notification Parameters</a></li>
+          <li><a href="#H.CWMP:2.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></li>
+        </ul> <!-- Inform and Notification Requirements -->
+        <li><a href="#H.CWMP:2.Profile Definitions">Profile Definitions</a></li>
+        <ul> <!-- Profile Definitions -->
+          <li><a href="#H.CWMP:2.Notation">Notation</a></li>
+        </ul> <!-- Profile Definitions -->
+      </ul> <!-- Data Model -->
+      <li><a href="#H.USP:2.12 Data Model">USP:2.12 Data Model</a></li>
+      <ul> <!-- USP:2.12 Data Model -->
+        <li><a href="#H.USP:2.12 Data Model">Data Model Definition</a></li>
+        <ul> <!-- Data Model Definition -->
+          <li><a href="#D.USP:2.Root.">Root.</a></li>
+        </ul> <!-- Data Model Definition -->
+        <li><a href="#H.USP:2.Inform and Notification Requirements">Inform and Notification Requirements</a></li>
+        <ul> <!-- Inform and Notification Requirements -->
+          <li><a href="#H.USP:2.Forced Inform Parameters">Forced Inform Parameters</a></li>
+          <li><a href="#H.USP:2.Forced Active Notification Parameters">Forced Active Notification Parameters</a></li>
+          <li><a href="#H.USP:2.Default Active Notification Parameters">Default Active Notification Parameters</a></li>
+          <li><a href="#H.USP:2.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></li>
+        </ul> <!-- Inform and Notification Requirements -->
+        <li><a href="#H.USP:2.Profile Definitions">Profile Definitions</a></li>
+        <ul> <!-- Profile Definitions -->
+          <li><a href="#H.USP:2.Notation">Notation</a></li>
+        </ul> <!-- Profile Definitions -->
+      </ul> <!-- Data Model -->
+      <li><a href="#H.Service:1.1 Data Model">Service:1.1 Data Model</a></li>
+      <ul> <!-- Service:1.1 Data Model -->
+        <li><a href="#H.Service:1.1 Data Model">Data Model Definition</a></li>
+        <ul> <!-- Data Model Definition -->
+          <li><a href="#D.Service:1.Service.{i}.">Service.{i}.</a></li>
+        </ul> <!-- Data Model Definition -->
+        <li><a href="#H.Service:1.Inform and Notification Requirements">Inform and Notification Requirements</a></li>
+        <ul> <!-- Inform and Notification Requirements -->
+          <li><a href="#H.Service:1.Forced Inform Parameters">Forced Inform Parameters</a></li>
+          <li><a href="#H.Service:1.Forced Active Notification Parameters">Forced Active Notification Parameters</a></li>
+          <li><a href="#H.Service:1.Default Active Notification Parameters">Default Active Notification Parameters</a></li>
+          <li><a href="#H.Service:1.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></li>
+        </ul> <!-- Inform and Notification Requirements -->
+        <li><a href="#H.Service:1.Profile Definitions">Profile Definitions</a></li>
+        <ul> <!-- Profile Definitions -->
+          <li><a href="#H.Service:1.Notation">Notation</a></li>
         </ul>
       </ul>
     </ul> <!-- Table of Contents -->
@@ -202,7 +257,7 @@ and parameter is shown in the <b>Version</b> column.<p>
           <td class="pc">-</td>
           <td class="p"><p><i>P3</i>.  Enumeration of:<p>
 <ul>
-  <li><i><a name="D.Version:1.Root.Child.P3.a">a</a></i>
+  <li><i><a name="D.Version:1.Root.Child.P3.a">a</a></i> (Added in v1.3.4)
   <li><i><a name="D.Version:1.Root.Child.P3.b">b</a></i>
   <li><i><a name="D.Version:1.Root.Child.P3.c">c</a></i>
 </ul></td>
@@ -348,6 +403,406 @@ and parameter is shown in the <b>Version</b> column.<p>
         </tr>
       </tbody>
     </table> <!-- Another:1 -->
+    <h1><a name="H.CWMP:2.12 Data Model">CWMP:2.12 Data Model</a></h1>
+    <p>For a given implementation of this data model, the Agent MUST indicate
+support for the highest version number of any object or parameter that
+it supports.  For example, even if the Agent supports only a single
+parameter that was introduced in version 2.12, then it will indicate
+support for version 2.12.  The version number associated with each object
+and parameter is shown in the <b>Version</b> column.<p>
+
+    <table width="100%" border="1" cellpadding="2" cellspacing="0"> <!-- Data Model Definition -->
+      <tbody>
+        <tr>
+          <th width="10%" class="g">Name</th>
+          <th width="10%" class="g">Type</th>
+          <!-- <th class="g">Syntax</th> -->
+          <th width="10%" class="gc">Write</th>
+          <th width="50%" class="g">Description</th>
+          <th width="10%" class="gc">Object Default</th>
+          <th width="10%" class="gc">Version</th>
+          <!-- <th width="10%" class="gc">Spec</th> -->
+        </tr>
+        <tr>
+          <td class="o" title="Root."><a name="D.CWMP:2.Root"></a><a name="D.CWMP:2.Root.">Root.</a></td>
+          <td class="o" title="object">object</td>
+          <!-- <td class="o">object</td> -->
+          <td class="oc">-</td>
+          <td class="o"><i>Root</i>.</td>
+          <td class="oc">-</td>
+          <td class="oc" title="">2.0</td>
+          <!-- <td class="oc"></td> -->
+        </tr>
+        <tr>
+          <td class="o" title="Root.Diag."><a name="D.CWMP:2.Root.Diag"></a><a name="D.CWMP:2.Root.Diag.">Root.Diag.</a></td>
+          <td class="o" title="object">object</td>
+          <!-- <td class="o">object</td> -->
+          <td class="oc">-</td>
+          <td class="o">&nbsp;</td>
+          <td class="oc">-</td>
+          <td class="oc" title="">2.0</td>
+          <!-- <td class="oc"></td> -->
+        </tr>
+        <tr>
+          <td class="p" title="Root.Diag.DiagnosticState"><a name="D.CWMP:2.Root.Diag.DiagnosticState">DiagnosticState</a></td>
+          <td class="p" title="string">string</td>
+          <!-- <td class="p">string</td> -->
+          <td class="pc">W</td>
+          <td class="p">TBD.</td>
+          <td class="pc">-</td>
+          <td class="pc" title="">2.0</td>
+          <!-- <td class="pc"></td> -->
+        </tr>
+        <tr>
+          <td class="p" title="Root.Diag.InputArg"><a name="D.CWMP:2.Root.Diag.InputArg">InputArg</a></td>
+          <td class="p" title="unsignedInt">unsignedInt</td>
+          <!-- <td class="p">unsignedInt</td> -->
+          <td class="pc">-</td>
+          <td class="p"><i>InputArg</i>.</td>
+          <td class="pc">-</td>
+          <td class="pc" title="">2.0</td>
+          <!-- <td class="pc"></td> -->
+        </tr>
+        <tr>
+          <td class="p" title="Root.Diag.OutputArg"><a name="D.CWMP:2.Root.Diag.OutputArg">OutputArg</a></td>
+          <td class="p" title="unsignedInt">unsignedInt</td>
+          <!-- <td class="p">unsignedInt</td> -->
+          <td class="pc">W</td>
+          <td class="p"><i>OutputArg</i>.</td>
+          <td class="pc">-</td>
+          <td class="pc" title="">2.0</td>
+          <!-- <td class="pc"></td> -->
+        </tr>
+      </tbody>
+    </table> <!-- Data Model Definition -->
+    <h2><a name="H.CWMP:2.Inform and Notification Requirements">Inform and Notification Requirements</a></h2>
+    <h3><a name="H.CWMP:2.Forced Inform Parameters">Forced Inform Parameters</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Forced Inform Parameters -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Forced Inform Parameters -->
+    <h3><a name="H.CWMP:2.Forced Active Notification Parameters">Forced Active Notification Parameters</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Forced Active Notification Parameters -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Forced Active Notification Parameters -->
+    <h3><a name="H.CWMP:2.Default Active Notification Parameters">Default Active Notification Parameters</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Default Active Notification Parameters -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Default Active Notification Parameters -->
+    <h3><a name="H.CWMP:2.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Parameters for which Active Notification MAY be Denied -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Parameters for which Active Notification MAY be Denied -->
+    <h2><a name="H.CWMP:2.Profile Definitions">Profile Definitions</a></h2>
+    <h3><a name="H.CWMP:2.Notation">Notation</a></h3>
+    The following abbreviations are used to specify profile requirements:<p>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0">
+      <tbody>
+        <tr>
+          <th class="gc">Abbreviation</th>
+          <th class="g">Description</th>
+        </tr>
+        <tr>
+          <td class="pc">R</td>
+          <td>Read support is REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">W</td>
+          <td>Both Read and Write support is REQUIRED.  This MUST NOT be specified for a parameter that is defined as read-only.</td>
+        </tr>
+        <tr>
+          <td class="pc">P</td>
+          <td>The object is REQUIRED to be present.</td>
+        </tr>
+        <tr>
+          <td class="pc">C</td>
+          <td>Creation and deletion of instances of the object is REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">A</td>
+          <td>Creation of instances of the object is REQUIRED, but deletion is not REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">D</td>
+          <td>Deletion of instances of the object is REQUIRED, but creation is not REQUIRED.</td>
+        </tr>
+      </tbody>
+    </table>
+    <h1><a name="H.USP:2.12 Data Model">USP:2.12 Data Model</a></h1>
+    <p>For a given implementation of this data model, the Agent MUST indicate
+support for the highest version number of any object or parameter that
+it supports.  For example, even if the Agent supports only a single
+parameter that was introduced in version 2.12, then it will indicate
+support for version 2.12.  The version number associated with each object
+and parameter is shown in the <b>Version</b> column.<p>
+
+    <table width="100%" border="1" cellpadding="2" cellspacing="0"> <!-- Data Model Definition -->
+      <tbody>
+        <tr>
+          <th width="10%" class="g">Name</th>
+          <th width="10%" class="g">Type</th>
+          <!-- <th class="g">Syntax</th> -->
+          <th width="10%" class="gc">Write</th>
+          <th width="50%" class="g">Description</th>
+          <th width="10%" class="gc">Object Default</th>
+          <th width="10%" class="gc">Version</th>
+          <!-- <th width="10%" class="gc">Spec</th> -->
+        </tr>
+        <tr>
+          <td class="o" title="Root."><a name="D.USP:2.Root"></a><a name="D.USP:2.Root.">Root.</a></td>
+          <td class="o" title="object">object</td>
+          <!-- <td class="o">object</td> -->
+          <td class="oc">-</td>
+          <td class="o"><i>Root</i>.</td>
+          <td class="oc">-</td>
+          <td class="oc" title="">2.12</td>
+          <!-- <td class="oc"></td> -->
+        </tr>
+        <tr>
+          <td class="c" title="Root.Diag()."><a name="D.USP:2.Root.Diag()"></a><a name="D.USP:2.Root.Diag().">Diag()</a></td>
+          <td class="c" title="object">command</td>
+          <!-- <td class="c">object</td> -->
+          <td class="cc">-</td>
+          <td class="c">&nbsp;</td>
+          <td class="cc">-</td>
+          <td class="cc" title="">2.12</td>
+          <!-- <td class="cc"></td> -->
+        </tr>
+        <tr>
+          <td class="d" title="Root.Diag().">&rArr; Input.</td>
+          <td class="d" title="object">arguments</td>
+          <!-- <td class="d">object</td> -->
+          <td class="dc">-</td>
+          <td class="d">Input arguments.</td>
+          <td class="dc">-</td>
+          <td class="dc" title=""></td>
+          <!-- <td class="dc"></td> -->
+        </tr>
+        <tr>
+          <td class="f" title="Root.Diag().InputArg"><a name="D.USP:2.Root.Diag().InputArg">&rArr; InputArg</a></td>
+          <td class="f" title="unsignedInt">unsignedInt</td>
+          <!-- <td class="f">unsignedInt</td> -->
+          <td class="fc">W</td>
+          <td class="f"><i>InputArg</i>.</td>
+          <td class="fc">-</td>
+          <td class="fc" title="">2.0</td>
+          <!-- <td class="fc"></td> -->
+        </tr>
+        <tr>
+          <td class="d" title="Root.Diag().">&lArr; Output.</td>
+          <td class="d" title="object">arguments</td>
+          <!-- <td class="d">object</td> -->
+          <td class="dc">-</td>
+          <td class="d">Output arguments.</td>
+          <td class="dc">-</td>
+          <td class="dc" title=""></td>
+          <!-- <td class="dc"></td> -->
+        </tr>
+        <tr>
+          <td class="f" title="Root.Diag().OutputArg"><a name="D.USP:2.Root.Diag().OutputArg">&lArr; OutputArg</a></td>
+          <td class="f" title="unsignedInt">unsignedInt</td>
+          <!-- <td class="f">unsignedInt</td> -->
+          <td class="fc">-</td>
+          <td class="f"><i>OutputArg</i>.</td>
+          <td class="fc">-</td>
+          <td class="fc" title="">2.0</td>
+          <!-- <td class="fc"></td> -->
+        </tr>
+      </tbody>
+    </table> <!-- Data Model Definition -->
+    <h2><a name="H.USP:2.Inform and Notification Requirements">Inform and Notification Requirements</a></h2>
+    <h3><a name="H.USP:2.Forced Inform Parameters">Forced Inform Parameters</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Forced Inform Parameters -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Forced Inform Parameters -->
+    <h3><a name="H.USP:2.Forced Active Notification Parameters">Forced Active Notification Parameters</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Forced Active Notification Parameters -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Forced Active Notification Parameters -->
+    <h3><a name="H.USP:2.Default Active Notification Parameters">Default Active Notification Parameters</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Default Active Notification Parameters -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Default Active Notification Parameters -->
+    <h3><a name="H.USP:2.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Parameters for which Active Notification MAY be Denied -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Parameters for which Active Notification MAY be Denied -->
+    <h2><a name="H.USP:2.Profile Definitions">Profile Definitions</a></h2>
+    <h3><a name="H.USP:2.Notation">Notation</a></h3>
+    The following abbreviations are used to specify profile requirements:<p>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0">
+      <tbody>
+        <tr>
+          <th class="gc">Abbreviation</th>
+          <th class="g">Description</th>
+        </tr>
+        <tr>
+          <td class="pc">R</td>
+          <td>Read support is REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">W</td>
+          <td>Both Read and Write support is REQUIRED.  This MUST NOT be specified for a parameter that is defined as read-only.</td>
+        </tr>
+        <tr>
+          <td class="pc">P</td>
+          <td>The object is REQUIRED to be present.</td>
+        </tr>
+        <tr>
+          <td class="pc">C</td>
+          <td>Creation and deletion of instances of the object is REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">A</td>
+          <td>Creation of instances of the object is REQUIRED, but deletion is not REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">D</td>
+          <td>Deletion of instances of the object is REQUIRED, but creation is not REQUIRED.</td>
+        </tr>
+      </tbody>
+    </table>
+    <h1><a name="H.Service:1.1 Data Model">Service:1.1 Data Model</a></h1>
+    <p>For a given implementation of this data model, the Agent MUST indicate
+support for the highest version number of any object or parameter that
+it supports.  For example, even if the Agent supports only a single
+parameter that was introduced in version 1.1, then it will indicate
+support for version 1.1.  The version number associated with each object
+and parameter is shown in the <b>Version</b> column.<p>
+
+    <table width="100%" border="1" cellpadding="2" cellspacing="0"> <!-- Data Model Definition -->
+      <tbody>
+        <tr>
+          <th width="10%" class="g">Name</th>
+          <th width="10%" class="g">Type</th>
+          <!-- <th class="g">Syntax</th> -->
+          <th width="10%" class="gc">Write</th>
+          <th width="50%" class="g">Description</th>
+          <th width="10%" class="gc">Object Default</th>
+          <th width="10%" class="gc">Version</th>
+          <!-- <th width="10%" class="gc">Spec</th> -->
+        </tr>
+        <tr>
+          <td class="p" title="ServiceNumberOfEntries"><a name="D.Service:1.ServiceNumberOfEntries">ServiceNumberOfEntries</a></td>
+          <td class="p" title="unsignedInt">unsignedInt</td>
+          <!-- <td class="p">unsignedInt</td> -->
+          <td class="pc">-</td>
+          <td class="p">The number of entries in the <i>Service</i> table.</td>
+          <td class="pc">-</td>
+          <td class="pc" title="">1.0</td>
+          <!-- <td class="pc"></td> -->
+        </tr>
+        <tr>
+          <td class="o" title="Service.{i}."><a name="D.Service:1.Service"></a><a name="D.Service:1.Service.{i}.">Service.{i}.</a></td>
+          <td class="o" title="object">object</td>
+          <!-- <td class="o">object</td> -->
+          <td class="oc">-</td>
+          <td class="o"><i>Service</i>.</td>
+          <td class="oc">-</td>
+          <td class="oc" title="">1.0</td>
+          <!-- <td class="oc"></td> -->
+        </tr>
+      </tbody>
+    </table> <!-- Data Model Definition -->
+    <h2><a name="H.Service:1.Inform and Notification Requirements">Inform and Notification Requirements</a></h2>
+    <h3><a name="H.Service:1.Forced Inform Parameters">Forced Inform Parameters</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Forced Inform Parameters -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Forced Inform Parameters -->
+    <h3><a name="H.Service:1.Forced Active Notification Parameters">Forced Active Notification Parameters</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Forced Active Notification Parameters -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Forced Active Notification Parameters -->
+    <h3><a name="H.Service:1.Default Active Notification Parameters">Default Active Notification Parameters</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Default Active Notification Parameters -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Default Active Notification Parameters -->
+    <h3><a name="H.Service:1.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></h3>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Parameters for which Active Notification MAY be Denied -->
+      <tbody>
+        <tr>
+          <th class="g">Parameter</th>
+        </tr>
+      </tbody>
+    </table> <!-- Parameters for which Active Notification MAY be Denied -->
+    <h2><a name="H.Service:1.Profile Definitions">Profile Definitions</a></h2>
+    <h3><a name="H.Service:1.Notation">Notation</a></h3>
+    The following abbreviations are used to specify profile requirements:<p>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0">
+      <tbody>
+        <tr>
+          <th class="gc">Abbreviation</th>
+          <th class="g">Description</th>
+        </tr>
+        <tr>
+          <td class="pc">R</td>
+          <td>Read support is REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">W</td>
+          <td>Both Read and Write support is REQUIRED.  This MUST NOT be specified for a parameter that is defined as read-only.</td>
+        </tr>
+        <tr>
+          <td class="pc">P</td>
+          <td>The object is REQUIRED to be present.</td>
+        </tr>
+        <tr>
+          <td class="pc">C</td>
+          <td>Creation and deletion of instances of the object is REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">A</td>
+          <td>Creation of instances of the object is REQUIRED, but deletion is not REQUIRED.</td>
+        </tr>
+        <tr>
+          <td class="pc">D</td>
+          <td>Deletion of instances of the object is REQUIRED, but creation is not REQUIRED.</td>
+        </tr>
+      </tbody>
+    </table>
     <p>
     <hr>
     Generated by <a href="https://www.broadband-forum.org">Broadband Forum</a> <a href="https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool">report.pl</a>.<p>
