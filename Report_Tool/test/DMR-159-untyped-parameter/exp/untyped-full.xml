@@ -28,9 +28,6 @@
       <description>
         {{param}}.
       </description>
-      <syntax>
-        </>
-      </syntax>
     </parameter>
   </model>
 </dm:document>

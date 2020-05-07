@@ -6976,6 +6976,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             $nullValue = defined $nullValue ?
                 qq{ nullValue="$nullValue"} : qq{};
 
+            if ($type) {
             print qq{$i  <syntax$hidden$command>\n};
             if ($listmap) {
                 my $ended = ($minLMLength || $maxLMLength) ? '' : '/';
@@ -7056,6 +7057,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             print qq{$i    <default type="$deftype" value="$default"$defstat/>\n}
             if defined $default;
             print qq{$i  </syntax>\n};
+            } # end if ($type)
             print qq{$i</parameter>\n};
             $node->{xml2}->{element} = '';
         }
