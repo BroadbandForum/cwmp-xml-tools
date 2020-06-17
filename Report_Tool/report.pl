@@ -1654,6 +1654,7 @@ sub expand_bibliography
     foreach my $reference ($bibliography->findnodes('reference')) {
         my $id = $reference->findvalue('@id');
         my $name = $reference->findvalue('name');
+        $name =~ s/^\s*|\s*$//g;
 
         my ($dupref) =
             grep {$_->{id} eq $id} @{$pnode->{bibliography}->{references}};
@@ -1684,6 +1685,7 @@ sub expand_bibliography
         my $hash = {id => $id, name => $name, file => $file};
         foreach my $element (qw{title organization category date hyperlink}) {
             my $value = $reference->findvalue($element);
+            $value =~ s/^\s*|\s*$//g;
             $hash->{$element} = $value ? $value : '';
         }
 
@@ -10721,7 +10723,6 @@ sub inout_remove
         $name =~ s/(\(\)\.)(In|Out)put\./$1/;
     }
 
-    #tmsg "$oname -> $name ($where)" if $where;
     return $name, {text => $text, where => $where};
 }
 
@@ -10749,7 +10750,6 @@ sub inout_restore
         die "inout_restore: unsupported 'where' value $where";
     }
 
-    #tmsg "  $oname -> $name" if $where;
     return $name
 }
 
