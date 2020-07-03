@@ -1,4 +1,6 @@
-DIRS = $(shell for d in * ; do [ -d $$d -a -f $$d/makefile ] && echo $$d ; done)
+DIRS := $(shell for d in * ; do [ -d $$d -a -f $$d/makefile ] && echo $$d ; done)
+
+DIRS := $(filter-out steve, $(DIRS))
 
 all: $(DIRS:%=all-%)
 

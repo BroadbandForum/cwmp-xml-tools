@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-0-1"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-8
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+             urn:broadband-forum-org:cwmp:datamodel-report-0-1
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-report.xsd"
+             spec="urn:example-com:single" file="single.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <bibliography>
+    <description>
+      Bibliography description.
+      This is another line and another paragraph.
+      This is a new paragraph.
+    </description>
+  </bibliography>
+
+  <template id="Bill">
+    Bill template paragraph 1.
+    Bill template paragraph 2.
+    * Bill template list
+    ** Bill template list
+       Bill template verbatim
+  </template>
+
+  <template id="Fred">
+    Fred template (inline)
+  </template>
+
+  <model name="Single:1.0">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1" version="1.1">
+      <description>
+        Root object.
+      </description>
+      <parameter name="P1" access="readOnly" version="1.2.3">
+        <description>
+          This paragraph is all on one line.
+          This is another paragraph.
+          * This is a list item
+          * And another
+            This is verbatim text
+            So is this
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter> 
+      <parameter name="P2" access="readOnly" version="1.2"
+        xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0">
+        <description>
+          This shows that the dmr namespace can be defined at any level if desired,
+          but generated XML will always use the namespace from the top-level element.
+          
+          This paragraph is all on one line. This is another sentence.
+          This is the same paragraph.
+               
+          This is a new paragraph.
+          * This is a list item
+          * And another
+            and its continuation?
+      
+            This is verbatim text
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+      <parameter name="P3" access="readOnly">
+        <description>
+          Start of sentence: {{template|Bill}} :end of sentence.
+          Start of sentence: {{template|Fred}} :end of sentence.
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter> 
+    </object>
+  </model>
+ </dm:document>
