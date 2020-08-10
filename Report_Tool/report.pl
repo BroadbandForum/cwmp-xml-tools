@@ -171,6 +171,7 @@ use String::Tokenizer;
 use Text::Balanced qw{extract_bracketed};
 # XXX causes problems, e.g. need aspell (if restore should use "require")
 #use Text::SpellChecker;
+use Text::Wrap qw{wrap};
 use URI::Split qw(uri_split);
 use XML::LibXML;
 
@@ -221,14 +222,14 @@ $tool_cmd_line = util_clean_cmd_line($tool_cmd_line);
 my $xsiurn = qq{https://www.w3.org/2001/XMLSchema-instance};
 
 # XXX these are defaults that are used only if missing from the DM instance
-#     (they should match the current versions of the DM and DMR schemas)
-my $dmver = qq{1-5};
+#     (they should match the latest versions of the DM and DMR schemas)
+my $dmver = qq{1-8};
 my $dmrver = qq{0-1};
 my $dmurn = qq{urn:broadband-forum-org:cwmp:datamodel-${dmver}};
 my $dmrurn = qq{urn:broadband-forum-org:cwmp:datamodel-report-${dmrver}};
 
 # XXX these have to match the current version of the DT schema
-my $dtver = qq{1-3};
+my $dtver = qq{1-5};
 my $dturn = qq{urn:broadband-forum-org:cwmp:devicetype-${dtver}};
 my $dtloc = qq{https://www.broadband-forum.org/cwmp/}.
     qq{cwmp-devicetype-${dtver}.xsd};
@@ -334,6 +335,7 @@ our $version = 0;
 our $warnbibref = undef;
 our $noxmllink = 0;
 our $writonly = 0;
+our $xmllinelength = 79;
 
 # These options are appropropriate for USP; if the --usp option is enabled,
 # they are automatically set if the filename ends '-usp.xml', '-usp-diffs.xml'
@@ -436,7 +438,8 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'verbose:i' => \$verbose,
            'version' => \$version,
            'warnbibref:i' => \$warnbibref,
-           'writonly' => \$writonly) or pod2usage(2);
+           'writonly' => \$writonly,
+           'xmllinelength:i' => \$xmllinelength) or pod2usage(2);
 pod2usage(2) if $report && $special;
 pod2usage(1) if $help;
 
@@ -823,6 +826,27 @@ sub enable_usp_options
     }
 }
 
+# Wrapper to be used instead of $node->findvalue('description') etc.
+# It uses the DMR schema version to decide whether to convert from multi-line
+# to single-line paragraphs
+sub findvalue_text
+{
+    my ($node, $name) = @_;
+
+    # we check the child node in case the namespace is set on it directly
+
+    my $value = '';
+    my $children = $node->findnodes($name);
+    if ($children && @$children) {
+        my $child = $children->[0];
+        $value = $child->findvalue('.');
+        my $multi = has_multiline_paras($child);
+        $value = html_whitespace($value, $multi);
+    }
+
+    return $value;
+}
+
 # Parse and expand a data model definition file.
 # XXX also allows protobuf schemas to be listed but doesn't parse them
 # XXX also does minimal expansion of schema files
@@ -864,7 +888,7 @@ sub expand_toplevel
     }
     else {
         $spec = $toplevel->findvalue('@spec');
-        my $description = $toplevel->findvalue('description');
+        my $description = findvalue_text($toplevel, 'description');
         $description = undef unless $description;
         my @models = $toplevel->findnodes('model');
         my $hash = {name => $file, spec => $spec, appdate => $appdate,
@@ -910,13 +934,13 @@ sub expand_toplevel
 
     # pick up description
     # XXX hmm... putting this stuff on root isn't right is it?
-    $root->{description} = $toplevel->findvalue('description');
+    $root->{description} = findvalue_text($toplevel, 'description');
     $root->{descact} = $toplevel->findvalue('description/@action');
 
     # XXX experimentally add annotation (should perhaps use !!!annotation!!!
     #     to cause it to be highlighted); should do this everywhere and use a
     #     utility
-    my $annotation = $toplevel->findvalue('annotation');
+    my $annotation = findvalue_text($toplevel, 'annotation');
     $root->{description} .=
         (($root->{description} && $annotation) ? "\n" : "") . $annotation;
 
@@ -1161,7 +1185,7 @@ sub expand_import
     }
 
     # get description
-    my $fdescription = $toplevel->findvalue('description');
+    my $fdescription = findvalue_text($toplevel, 'description');
 
     # collect top-level item declarations
     my @models = ();
@@ -1314,7 +1338,7 @@ sub expand_dataType
     my $name = $dataType->findvalue('@name');
     my $base = $dataType->findvalue('@base');
     my $status = $dataType->findvalue('@status');
-    my $description = $dataType->findvalue('description');
+    my $description = findvalue_text($dataType, 'description');
     my $descact = $dataType->findvalue('description/@action');
     my $descdef = $dataType->findnodes('description')->size();
     # XXX not getting many list attributes or any map attributes
@@ -1428,7 +1452,7 @@ sub expand_dataType
             my $access = util_strip($value->findvalue('@access'));
             my $status = $value->findvalue('@status');
             my $optional = $value->findvalue('@optional');
-            my $description = $value->findvalue('description');
+            my $description = findvalue_text($value, 'description');
             my $descact = $value->findvalue('description/@action');
             my $descdef = $value->findnodes('description')->size();
             $value = $value->findvalue('@value');
@@ -1515,8 +1539,7 @@ sub expand_template
     my $file = $context->[0]->{file};
 
     my $id = $template->{id};
-    my $value = $template->textContent;
-    $value =~ s/^\s+|\s+$//g;
+    my $value = findvalue_text($template, '.');
 
     if (defined $root->{templates}->{$id}) {
       d0msg "{$file}$id: ignored description template (already defined)";
@@ -1587,7 +1610,7 @@ sub expand_definitions
     my $Lfile = $context->[0]->{lfile};
     my $Lspec = $context->[0]->{lspec};
 
-    my $description = $definitions->findvalue('description');
+    my $description = findvalue_text($definitions, 'description');
     update_refs($description, $file, $spec);
 
     d1msg "expand_${which}";
@@ -1602,7 +1625,7 @@ sub expand_definitions
 
     foreach my $item ($definitions->findnodes('item')) {
         my $id = $item->findvalue('@id');
-        my $description = $item->findvalue('description');
+        my $description = findvalue_text($item, 'description');
         update_refs($description, $file, $spec);
 
         d1msg "expand_${which}_item id=$id";
@@ -1630,7 +1653,7 @@ sub expand_bibliography
     my $Lfile = $context->[0]->{lfile};
     my $Lspec = $context->[0]->{lspec};
 
-    my $description = $bibliography->findvalue('description');
+    my $description = findvalue_text($bibliography, 'description');
     my $descact = $bibliography->findvalue('description/@action');
     my $descdef = $bibliography->findnodes('description')->size();
 
@@ -1804,7 +1827,7 @@ sub expand_model
     $ref = $model->findvalue('@base') unless $ref;
     my $status = $model->findvalue('@status');
     my $isService = boolean($model->findvalue('@isService'));
-    my $description = $model->findvalue('description');
+    my $description = findvalue_text($model, 'description');
     my $descact = $model->findvalue('description/@action');
     my $descdef = $model->findnodes('description')->size();
 
@@ -2004,7 +2027,7 @@ sub expand_model_object
     my $mountType = $markmounttype ? $object->findvalue('@mountType|@mounttype') :'';
     my $status = $object->findvalue('@status');
     my $id = $object->findvalue('@id');
-    my $description = $object->findvalue('description');
+    my $description = findvalue_text($object, 'description');
     my $descact = $object->findvalue('description/@action');
     my $descdef = $object->findnodes('description')->size();
 
@@ -2409,7 +2432,7 @@ sub expand_model_arguments
     my $type = 'object';
     my $access = 'readOnly';
     my $status = 'current';
-    my $description = $arguments->findvalue('description');
+    my $description = findvalue_text($arguments, 'description');
     $description = (ucfirst($which) . ' arguments.') unless $description;
 
     my $version = version($arguments,
@@ -2537,7 +2560,7 @@ sub expand_model_parameter
         $hasPattern = 1 if $values;
     }
     my $units = $parameter->findvalue('syntax/*/units/@value');
-    my $description = $parameter->findvalue('description');
+    my $description = findvalue_text($parameter, 'description');
     my $descact = $parameter->findvalue('description/@action');
     my $descdef = $parameter->findnodes('description')->size();
     my $default = $parameter->findvalue('syntax/default/@type') ?
@@ -2711,7 +2734,7 @@ sub expand_model_parameter
         my $status = $value->findvalue('@status');
         my $optional = $value->findvalue('@optional');
         my $action = $value->findvalue('@action');
-        my $description = $value->findvalue('description');
+        my $description = findvalue_text($value, 'description');
         my $descact = $value->findvalue('description/@action');
         my $descdef = $value->findnodes('description')->size();
         my $cvalue = $value->findvalue('@value');
@@ -2904,7 +2927,7 @@ sub expand_model_profile
     my $model = $profile->findvalue('@model');
     my $status = $profile->findvalue('@status');
     my $id = $profile->findvalue('@id');
-    my $description = $profile->findvalue('description');
+    my $description = findvalue_text($profile, 'description');
     # XXX descact too
 
     # XXX don't we have a utility for this?
@@ -3151,7 +3174,7 @@ sub expand_model_profile_object
     my $name = $object->findvalue('@ref');
     my $access = util_strip($object->findvalue('@requirement'));
     my $status = $object->findvalue('@status');
-    my $description = $object->findvalue('description');
+    my $description = findvalue_text($object, 'description');
     my $descact = $object->findvalue('description/@action');
     my $descdef = $object->findnodes('description')->size();
 
@@ -3273,7 +3296,7 @@ sub expand_model_profile_parameter
     my $name = $parameter->findvalue('@ref');
     my $access = util_strip($parameter->findvalue('@requirement'));
     my $status = $parameter->findvalue('@status');
-    my $description = $parameter->findvalue('description');
+    my $description = findvalue_text($parameter, 'description');
     my $descact = $parameter->findvalue('description/@action');
     my $descdef = $parameter->findnodes('description')->size();
 
@@ -5400,6 +5423,31 @@ sub version_string
     return $value;
 }
 
+# Given an XML node, determine the DMR schema version as a hyphen-separated
+# string, e.g. 0-1 or 1-0 (default is 0-1, NOT $dmrver)
+sub dmr_schema_version
+{
+    my ($node) = @_;
+
+    my $version = '0-1'; # default is NOT $dmrver
+    my $nodes = $node->findnodes('namespace::dmr');
+    if ($nodes && @$nodes) {
+        my $namespace = $nodes->[0];
+        $version = $namespace->declaredURI();
+        $version =~ s/.*cwmp:datamodel-report-//;
+    }
+
+    return $version;
+}
+
+# Given an XML node, determine whether any text content has multi-line
+# paragraphs (this is indicated by any DMR schema version other than 0-1)
+sub has_multiline_paras
+{
+    my ($node) = @_;
+    return dmr_schema_version($node) ne '0-1' ? 1 : 0;
+}
+
 # Parse a data model definition file.
 sub parse_file
 {
@@ -5432,7 +5480,6 @@ sub parse_file
 
     # XXX expect these all to be the same if processing multiple documents,
     #     but should check; really should keep separate for each document
-    my $tns =
     my $xsi = 'xsi';
     my @nslist = $toplevel->getNamespaces();
     for my $ns (@nslist) {
@@ -5466,13 +5513,13 @@ sub parse_file
 
             $root->{schemaLocation} .= qq{$nsn $loc };
         }
-        $root->{schemaLocation} .= qq{urn:broadband-forum-org:cwmp:datamodel-report-0-1 https://www.broadband-forum.org/cwmp/cwmp-datamodel-report.xsd } unless
+        $root->{schemaLocation} .= qq{urn:broadband-forum-org:cwmp:datamodel-report-$dmrver https://www.broadband-forum.org/cwmp/cwmp-datamodel-report.xsd } unless
             $root->{schemaLocation} =~ /cwmp:datamodel-report-/;
         chop $root->{schemaLocation};
     }
 
     # XXX if no dmr, use default
-    $root->{dmr} = "urn:broadband-forum-org:cwmp:datamodel-report-0-1"
+    $root->{dmr} = "urn:broadband-forum-org:cwmp:datamodel-report-$dmrver"
         unless $root->{dmr};
 
     # capture the first comment in the first file
@@ -5878,11 +5925,17 @@ sub tab_escape {
 # have to work harder to avoid nesting objects :(
 my $xml_objact = 0;
 
+# this is used for both the xml and xml2 reports
+my $xml_wrap = 0;
+
 sub xml_node
 {
     my ($node, $indent) = @_;
 
     $indent = 0 unless $indent;
+
+    # the xml report doesn't support wrapping
+    $xml_wrap = 0;
 
     # generic node properties
     my $changed = $node->{changed};
@@ -5908,7 +5961,8 @@ sub xml_node
     my $dchanged = util_node_is_modified($node) && $changed->{description};
     ($description, $descact) = get_description($description, $descact,
                                                $dchanged, $history);
-    $description = xml_escape($description, {indent => $i.'  '});
+    $description = xml_escape($description, {indent => $i.'  ',
+                                             wrap => $xml_wrap});
 
     # XXX why can status be undefined... but seemingly nothing else?
     $status = $status && $status ne 'current' ? qq{ status="$status"} : qq{};
@@ -6229,7 +6283,8 @@ $i             spec="$lspec">
                                                            $descact, $dchanged,
                                                            $history);
                 $description = xml_escape($description,
-                                          {indent => $i.'        '});
+                                          {indent => $i.'        ',
+                                           wrap => $xml_wrap});
 
                 $optional = $optional ? qq{ optional="true"} : qq{};
                 $access = $access ne 'readWrite' ? qq{ access="$access"} : qq{};
@@ -6280,7 +6335,8 @@ sub xml_datatypes
         my $maxInclusive = $dataType->{syntax}->{ranges}->[0]->{maxInclusive};
         my $values = $dataType->{values};
 
-        $description = xml_escape($description, {indent => $i.'    '});
+        $description = xml_escape($description, {indent => $i.'    ',
+                                                 wrap => $xml_wrap});
 
         $base = $base ? qq{ base="$base"} : qq{};
         $listMinInclusive = defined $listMinInclusive ? qq{ minItems="$listMinInclusive"} : qq{};
@@ -6316,7 +6372,8 @@ sub xml_datatypes
 
                 my $description = $cvalue->{description};
                 $description = xml_escape($description,
-                                          {indent => $j.'      '});
+                                          {indent => $j.'      ',
+                                           wrap => $xml_wrap});
 
                 $optional = $optional ? qq{ optional="true"} : qq{};
                 $access = $access ne 'readWrite'? qq{ access="$access"} : qq{};
@@ -6356,7 +6413,8 @@ sub xml_definitions
         print qq{$i  <$element>\n};
 
         my $description = $definitions->{description};
-        $description = xml_escape($description, {indent => $i.'    '});
+        $description = xml_escape($description, {indent => $i.'    ',
+                                                 wrap => $xml_wrap});
         print qq{$i    <description>$description</description>\n} if
             $description;
 
@@ -6364,7 +6422,8 @@ sub xml_definitions
             my $id = $item->{id};
             my $description = $item->{description};
 
-            $description = xml_escape($description, {indent => $i.'      '});
+            $description = xml_escape($description, {indent => $i.'      ',
+                                                     wrap => $xml_wrap});
 
             print qq{$i    <item id="$id">\n};
             print qq{$i      <description>$description</description>\n} if
@@ -6389,6 +6448,9 @@ sub xml_bibliography
 
     my $description = $bibliography->{description};
     my $references = $bibliography->{references};
+
+    $description = xml_escape($description,
+                              {indent => $i.'    ', wrap => $xml_wrap});
 
     print qq{$i  <bibliography>\n};
     print qq{$i    <description>$description</description>\n} if $description;
@@ -6442,14 +6504,11 @@ sub xml_templates
     $indent = 0 unless $indent;
     my $i = "  " x $indent;
 
-    # XXX hash key order is undefined, so output them in alphabetical order
-    # XXX no special leading whitespace processing seems to be done for
-    #     templates, so don't worry about multi-line values
+    # hash key order is undefined, so output them in alphabetical order
     foreach my $id (sort keys %$templates) {
-        my $value = xml_escape($templates->{$id});
-        print qq{$i  <template id="$id">\n};
-        print qq{$i    $value\n};
-        print qq{$i  </template>\n};
+        my $value = xml_escape($templates->{$id}, {indent => $i . '  ',
+                                                   wrap => $xml_wrap});
+        print qq{$i  <template id="$id">$value</template>\n};
     }
 }
 
@@ -6490,7 +6549,8 @@ sub xml_escape {
         $value =~ s/\n/\&#10;/g;
     }
 
-    $value = xml_whitespace($value, $opts->{indent}) if $opts->{indent};
+    $value = xml_whitespace($value, $opts->{indent} || '', $opts->{wrap})
+        if $opts->{indent} || $opts->{wrap};
 
     return $value;
 }
@@ -6503,15 +6563,42 @@ sub xml_escape {
 # separated by "\n$I  "
 sub xml_whitespace
 {
-    my ($value, $i) = @_;
+    my ($value, $i, $wrap) = @_;
 
     return $value unless $value;
 
+    # this never passes the second ($multi) argument because multi-line
+    # paragraphs have already been converted to single-line paragraphs
     $value = html_whitespace($value);
+
+    # if requested, wrap paragraphs with empty line paragraph separators
+    # XXX there's no attempt to suppress unnecessary empty lines, e.g.
+    #     between list items or between verbatim lines
+    if ($wrap) {
+        my $length = $xmllinelength > length($i) + 2 ?
+            $xmllinelength - length($i) - 2 : 1;
+        $Text::Wrap::columns = $length + 1;
+        $Text::Wrap::huge = 'overflow'; # huge words won't be split
+        $Text::Wrap::unexpand = 0;      # this prevents tab characters
+        my $paras = [];
+        foreach my $para (split /\n/, $value) {
+            if ($xmllinelength > 0) {
+                # indent subsequent list item lines (cosmetic)
+                my ($prefix) = ($para =~ /^([*#:]*\s*)/);
+                my $j = ' ' x length($prefix);
+                $para = wrap('', $j, $para);
+            }
+            push @$paras, $para;
+        }
+        my $text = join "\n\n", @$paras;
+        #tmsg "wrap: <$value> -> <$text>";
+        $value = $text;
+    }
 
     my $text = qq{};
     foreach my $line (split /\n/, $value) {
-        $text .= qq{\n$i  $line};
+        $text .= qq{\n};
+        $text .= qq{$i  $line} if $line ne '';
     }
 
     $text .= qq{\n$i} if $text;
@@ -6550,6 +6637,7 @@ sub xml_changed
 my $xml2_dtprofiles = [];
 my $xml2_ucprofiles = [];
 my $xml2_objlevel = 0;
+# see xml_node for the $xml_wrap declaration
 
 sub xml2_node
 {
@@ -6595,6 +6683,8 @@ sub xml2_node
         my $schemaLocation = $node->{schemaLocation} || '';
         my $specattr = 'spec';
 
+        $xml_wrap = ($dmr !~ /-0-1$/) ? 1 : 0;
+
         $comment = qq{<!--$comment-->} if $comment;
 
         # will use in XML comment, so quietly change "--" to "-"
@@ -6624,7 +6714,8 @@ sub xml2_node
                                                    $dchanged, $history, 1);
         #$description = clean_description($description, $node->{name})
         #    if $canonical;
-        $description = xml_escape($description, {indent => $i.'  '});
+        $description = xml_escape($description, {indent => $i.'  ',
+                                                 wrap => $xml_wrap});
 
         # XXX have to hard-code DT stuff (can't get this from input files)
         my $d = @$dtprofiles ? qq{dt} : qq{dm};
@@ -6910,7 +7001,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                                                    $dchanged, $history, 1);
         #$description = clean_description($description, $node->{name})
         #    if $canonical;
-        $description = xml_escape($description, {indent => $i.'  '});
+        $description = xml_escape($description, {indent => $i.'  ',
+                                                 wrap => $xml_wrap});
         my $descname = !@$dtprofiles ? qq{description} : qq{annotation};
 
         my $end_element = (@{$node->{nodes}} || $description || $syntax) ? '' : '/';
@@ -7076,7 +7168,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 #$description = clean_description($description, $node->{name})
                 #    if $canonical;
                 $description = xml_escape($description,
-                                          {indent => $i.'        '});
+                                          {indent => $i.'        ',
+                                           wrap => $xml_wrap});
 
                 $optional = $optional ? qq{ optional="true"} : qq{};
                 $access = $access ne 'readWrite' ? qq{ access="$access"} : qq{};
@@ -8831,7 +8924,7 @@ sub html_escape {
 # Process whitespace
 sub html_whitespace
 {
-    my ($inval) = @_;
+    my ($inval, $multi) = @_;
 
     return $inval unless $inval;
 
@@ -8859,16 +8952,44 @@ sub html_whitespace
     }
     $len = 0 unless defined $len;
 
-    # remove it
+    # remove the common prefix and convert to single-line paragraphs; if
+    # generating XML, xml_escape() will wrap them if needed
     my $outval = '';
+    my $newpar = 0;
+    my $islist = 0;
     foreach my $line (@lines) {
-        next if $line =~ /^\s*$/;
-        $line = substr($line, $len);
-        $outval .= $line . "\n";
-    }
+        # remove the common prefix (whitespace-only lines might be shorter)
+        my $len2 = $len <= length($line) ? $len : length($line);
+        $line = substr($line, $len2);
 
-    # remove trailing newline
-    chomp $outval;
+        # NOTE: $newpar and $islist only affect the output if $multi is true,
+        # i.e. if this is the initial conversion of multi-line paragraphs to
+        # single-line paragraphs
+
+        # $newpar indicates that we already know that this is a new paragraph;
+        # it's also a new paragraph if it's a list item...
+        ($newpar, $islist) = (1, 1) if $line =~ /^[*#:]/;
+
+        # ...or if not in a list item and it starts with whitespace
+        $newpar = 1 if !$islist && $line =~ /^\s/;
+
+        # remove leading whitespace if in a list item (cosmetic)
+        $line =~ s/^\s*// if $multi && $islist;
+        #tmsg "multi $multi newpar $newpar islist $islist line <$line>";
+
+        # non-empty line: add separator and text
+        if ($line !~ /^\s*$/) {
+            $outval .= ((!$multi || $newpar) ? "\n" : " ") if $outval;
+            $outval .= $line;
+            $newpar = 0;
+        }
+
+        # empty line: add nothing; next line will start a new paragraph
+        else {
+            $newpar = 1;
+            $islist = 0;
+        }
+    }
     return $outval;
 }
 
@@ -14849,6 +14970,7 @@ B<report.pl>
 [--version]
 [--warnbibref[=i(1)]]
 [--writonly]
+[--xmllinelength=i(79)]
 DM-instance...
 
 =over
@@ -15636,6 +15758,14 @@ setting it to -1 is the same as setting B<--nowarnbibref> and suppresses various
 =item B<--writonly>
 
 reports only on writable parameters (should, but does not, suppress reports of read-only objects that contain no writable parameters)
+
+=item B<--xmllinelength=i(79)>
+
+affects only the B<xml> report and cwmp-datamodel-report (dmr) versions 1.0 or higher
+
+sets the maximum line length when wrapping descriptions and other multi-line text such as templates (long words won't be split, so lines can be longer)
+
+setting it to 0 disables wrapping
 
 =back
 
