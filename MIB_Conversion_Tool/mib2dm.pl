@@ -134,7 +134,7 @@ use Pod::Usage;
 use XML::LibXML;
 
 # cwmp-datamodel schema version
-my $schema_version = "1-5";
+my $schema_version = "1-7";
 
 # command-line options
 my $components = 0;
@@ -1365,8 +1365,8 @@ sub output_xml
     my $bmodel = '';
 
     # start of XML
-    my $spec = $root->{spec};
-    my $file = $root->{file};
+    my $spec = $root->{spec} || '';
+    my $file = $root->{file} || '';
     output $i, qq{<?xml version="1.0" encoding="UTF-8"?>};
     output $i, qq{<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-$schema_version"};
     output $i, qq{             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-0-1"};
@@ -1504,6 +1504,7 @@ sub output_xml
 
     # output bibliography
     if ($bibrefs) {
+        $i++;
         output $i, qq{<bibliography>};
         $i++;
         foreach my $name (sort keys %$bibrefs) {
@@ -1516,6 +1517,7 @@ sub output_xml
         }
         $i--;
         output $i, qq{</bibliography>};
+        $i--;
     }
 
     # determine whether will create top-level component and model
@@ -2169,7 +2171,7 @@ sub process_reference
 
     # try to translate doc to id
     my $id = $doc;
-    while (my ($name, $bibref) = each $bibrefs) {
+    while (my ($name, $bibref) = each %$bibrefs) {
         $id = $bibref->{id} if $doc =~ /$bibref->{regex}/;
     }
 
@@ -2204,7 +2206,7 @@ sub xml_escape
 
     # XXX try to protect against nested {{param}} by ignoring strings preceded
     #     by periods
-    while (my ($from, $to) = each $transforms) {
+    while (my ($from, $to) = each %$transforms) {
         next unless $value =~ /\b\Q$from\E\b/;
         my $bar = qq{|};
         ($to, my $rel) = relative_path($name, $from, $to);
@@ -2218,7 +2220,7 @@ sub xml_escape
     #     done because a particular MIB was lax about case
     #foreach my $enum (sort {length($b) <=> length($a)} keys %$value_map) {
     #    my $objects = $value_map->{$enum};
-    while (my ($enum, $objects) = each $value_map) {
+    while (my ($enum, $objects) = each %$value_map) {
         # split $enum - value(code) - into value and code
         my ($val, $cod) = $enum =~ /^(.*)\((\d+)\)$/;
 
