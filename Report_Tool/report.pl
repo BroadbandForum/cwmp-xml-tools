@@ -1872,7 +1872,7 @@ sub expand_model
         $highestVersion->{major} = $majorVersion;
         $highestVersion->{minor} = $minorVersion;
     }
-    my $version = {major => $majorVersion, minor => $minorVersion};
+    my ($version) = version_parse(qq{$majorVersion.$minorVersion});
     undef $majorVersion;
     undef $minorVersion;
 
@@ -2251,6 +2251,16 @@ sub version
         emsg "$path: version $version_string < inherited $default_string";
     }
 
+    # check that the version isn't more than the model version; ignore the
+    # patch level because model versions don't have patch levels
+    if ($opts->{modelversion} &&
+        version_compare($hash, $opts->{modelversion},
+                        {ignorepatch => 1}) > 0) {
+        my $version_string = version_string($hash);
+        my $model_string = version_string($opts->{modelversion});
+        emsg "$path: version $version_string > model $model_string";
+    }
+
     return $hash;
 }
 
@@ -2295,11 +2305,13 @@ sub version_parse
 # perl <=> operator)
 sub version_compare
 {
-    my ($first, $second) = @_;
+    my ($first, $second, $opts) = @_;
     if ($first->{major} != $second->{major}) {
         return $first->{major} <=> $second->{major};
     } elsif ($first->{minor} != $second->{minor}) {
         return $first->{minor} <=> $second->{minor};
+    } elsif ($opts->{ignorepatch}) {
+        return 0;
     } else {
         return $first->{patch} <=> $second->{patch};
     }
@@ -2577,6 +2589,7 @@ sub expand_model_parameter
 
     my $version = version($parameter,
                           {default => $pnode->{version}, path => $path,
+                           modelversion => $mnode->{version},
                            ignoreminor => ($pnode == $mnode)});
 
     $status = util_maybe_deleted($status);
@@ -2739,6 +2752,7 @@ sub expand_model_parameter
         my $descdef = $value->findnodes('description')->size();
         my $cvalue = $value->findvalue('@value');
         my $vversion = version($value, {default => $version,
+                                        modelversion => $mnode->{version},
                                         path => qq{$path.$cvalue}});
 
         $status = util_maybe_deleted($status);
@@ -4474,7 +4488,33 @@ sub add_parameter
 
         my $dynamic = $pnode->{dynamic};
 
+        # this is overridden below if changes are detected
         my $lspec_ = fix_lspec($Lspec, $version);
+
+        # check for values recently added to parameters defined in earlier
+        # versions
+        # XXX this is just one of many checks that could be made; see the
+        #     earlier 'changed' logic
+        # XXX comparisons ignore the patch version because model versions don't
+        #     have patch versions
+        my $changed = {};
+        if (%$values && version_compare($version, $mnode->{version},
+                                        {ignorepath => 1}) < 0) {
+            foreach my $value (sort {$values->{$a}->{i} <=>
+                                         $values->{$b}->{i}} keys %$values) {
+                my $cvalue = $values->{$value};
+                if (version_compare($cvalue->{version}, $mnode->{version},
+                                    {ignorepatch => 1}) == 0) {
+                    $changed->{values}->{$value}->{added} = 1;
+                }
+            }
+        }
+
+        # update the last spec (lspec) if changes were detected
+        if (keys %$changed) {
+            $lspec_ = fix_lspec($Lspec, $mnode->{version});
+        }
+
         mark_changed($pnode, $Lfile, $lspec_);
 
         # XXX I think this is to with components and auto-removing defaults
@@ -4501,7 +4541,7 @@ sub add_parameter
                   dynamic => $dynamic, version => $version,
                   activeNotify => $activeNotify, forcedInform => $forcedInform,
                   units => $units, nodes => [], history => undef,
-                  errors => {}};
+                  errors => {}, changed => $changed};
         # if previous is defined, it's a hint to insert this node after the
         # node of this name, if it exists
         my $index = @{$pnode->{nodes}};

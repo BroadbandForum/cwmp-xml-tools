@@ -1,4 +1,5 @@
 (E) Root.Child.P3.b: version 1.0 < inherited 1.1
+(E) Root.Child.P3.c: version 1.4 > model 1.3
 (E) Another:1: major version 2 != inherited 1
 (E) Root.Diag().InputArg: version 2.0 < inherited 2.12
 (E) Root.Diag().OutputArg: version 2.0 < inherited 2.12
