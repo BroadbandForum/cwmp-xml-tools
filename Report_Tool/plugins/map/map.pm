@@ -1371,7 +1371,7 @@ sub output_root_open
 };
     # XXX hard-code bibref import
     output $i+1, qq{
-<import file="tr-069-biblio.xml" spec="urn:broadband-forum-org:tr-069-biblio"/>
+<import file="tr-069-biblio.xml" spec="urn:broadband-forum-org:tr-069"/>
 };
 
 }

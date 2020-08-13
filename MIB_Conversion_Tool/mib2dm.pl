@@ -1790,8 +1790,14 @@ sub output_xml
                     "object";
             }
             if ($tpath) {
+                # XXX this is not a problem (it's just saying that multiple
+                #     objects are sent with the notification); but it is
+                #     bad logic, because it's just being used to determine
+                #     where to place the notification in the data model; the
+                #     result is that it goes in the last-mentioned object, and
+                #     that's OK
                 if ($path && $tpath ne $path) {
-                    w0msg "$nname: object $name maps to different " .
+                    d0msg "$nname: object $name maps to different " .
                         "object $tpath (previously mapped to $path)";
                 }
                 $path = $tpath;
@@ -2052,7 +2058,13 @@ sub analyse_notification
         }
         if ($tpath) {
             if ($path && $tpath ne $path) {
-                w0msg "$nname: object $name maps to different " .
+                # XXX this is not a problem (it's just saying that multiple
+                #     objects are sent with the notification); but it is
+                #     bad logic, because it's just being used to determine
+                #     where to place the notification in the data model; the
+                #     result is that it goes in the last-mentioned object, and
+                #     that's OK
+                d0msg "$nname: object $name maps to different " .
                     "object $tpath (previously mapped to $path)";
             }
             $path = $tpath;
