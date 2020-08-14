@@ -57,7 +57,7 @@
           <string>
             <enumeration value="a" version="1.3.4"/>
             <enumeration value="b" version="1.0"/>
-            <enumeration value="c" version="1.1"/>
+            <enumeration value="c" version="1.4"/>
           </string>
         </syntax>
       </parameter>
