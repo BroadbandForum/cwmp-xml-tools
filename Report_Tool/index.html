@@ -2,12 +2,12 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title></title>
+<title>report.pl - generate Broadband Forum USP and CWMP data model reports</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rev="made" href="mailto:_networkd@osx352.sd.apple.com" />
+<link rev="made" href="mailto:_securityagent@osx382.sd.apple.com" />
 </head>
 
-<body style="background-color: white">
+<body>
 
 
 
@@ -21,11 +21,11 @@
 
 <h1 id="NAME">NAME</h1>
 
-<p>report.pl - generate report on TR-069 DM instances (data model definitions)</p>
+<p>report.pl - generate Broadband Forum USP and CWMP data model reports</p>
 
 <h1 id="SYNOPSIS">SYNOPSIS</h1>
 
-<p><b>report.pl</b> [--allbibrefs] [--altnotifreqstyle] [--autobase] [--autodatatype] [--automodel] [--bibrefdocfirst] [--canonical] [--catalog=s]... [--commandcolor=s]... [--compare] [--components] [--configfile=s(&quot;&quot;)] [--cwmpindex=s(..)] [--cwmppath=s(cwmp)] [--debugpath=p(&quot;&quot;)] [--deletedeprecated] [--diffs] [--diffsext=s(diffs)]... [--dtprofile=s]... [--dtspec[=s]] [--dtuuid[=s]] [--exitcode] [--help] [--ignore=p(&quot;&quot;)] [--ignoreenableparameter] [--immutablenonfunctionalkeys] [--importsuffix=s(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--loglevel=tn(i)] [--logoalt=s()] [--logoref=s()] [--logosrc=s()] [--marktemplates] [--maxchardiffs=i(5)] [--maxworddiffs=i(10)] [--noautomodel] [--nocomments] [--nofontstyles] [--nohyphenate] [--nolinks] [--nologprefix] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--noshowreadonly] [--notemplates] [--nowarnbibref] [--nowarnenableparameter] [--nowarnnumentries] [--nowarnredef] [--nowarnreport] [--nowarnprofbadref] [--nowarnstaticdefault] [--nowarnuniquekeys] [--nowarnwtref] [--noxmllink] [--objpat=p(&quot;&quot;)] [--option=n=v]... [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]... [--quiet] [--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...] [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion] [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)] [--trpage=s(http://www.broadband-forum.org/technical/download)] [--ucprofile=s]... [--ugly] [--upnpdm] [--verbose[=i(1)]] [--version] [--warnbibref[=i(1)]] [--writonly] DM-instance...</p>
+<p><b>report.pl</b> [--allbibrefs] [--alldatatypes] [--altnotifreqstyle] [--autobase] [--autodatatype] [--automodel] [--bibrefdocfirst] [--canonical] [--catalog=s]... [--clampversion=s]... [--commandcolor=s]... [--compare] [--components] [--configfile=s(&quot;&quot;)] [--cwmpindex=s(..)] [--cwmppath=s(cwmp)] [--debugpath=p(&quot;&quot;)] [--deletedeprecated] [--diffs] [--diffsext=s(diffs)]... [--dtprofile=s]... [--dtspec[=s]] [--dtuuid[=s]] [--exitcode] [--help] [--ignore=p(&quot;&quot;)] [--ignoreenableparameter] [--immutablenonfunctionalkeys] [--importsuffix=s(&quot;&quot;)] [--include=d]... [--info] [--lastonly] [--loglevel=tn(i)] [--logoalt=s()] [--logoref=s()] [--logosrc=s()] [--markmounttype] [--marktemplates] [--maxchardiffs=i(5)] [--maxworddiffs=i(10)] [--noautomodel] [--nocomments] [--nofontstyles] [--nohyphenate] [--nolinks] [--nologprefix] [--nomodels] [--noobjects] [--noparameters] [--noprofiles] [--noshowreadonly] [--notemplates] [--nowarnbibref] [--nowarnenableparameter] [--nowarnnumentries] [--nowarnredef] [--nowarnreport] [--nowarnprofbadref] [--nowarnstaticdefault] [--nowarnuniquekeys] [--nowarnwtref] [--noxmllink] [--objpat=p(&quot;&quot;)] [--option=n=v]... [--outfile=s] [--pedantic[=i(1)]] [--plugindir=d]... [--plugin=s]... [--quiet] [--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...] [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion] [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)] [--trpage=s(https://www.broadband-forum.org/technical/download)] [--ucprofile=s]... [--ugly] [--upnpdm] [--usp] [--verbose[=i(1)]] [--version] [--warnbibref[=i(1)]] [--writonly] [--xmllinelength=i(79)] DM-instance...</p>
 
 <ul>
 
@@ -59,13 +59,23 @@
 
 <p>usually only bibliographic references that are referenced from within the data model definition are listed in the report; this isn&#39;t much help when generating a list of bibliographic references without a data model! that&#39;s what this option is for; currently it affects only <b>html</b> reports</p>
 
+<p>see also <b>--alldatatypes</b></p>
+
+</dd>
+<dt id="alldatatypes"><b>--alldatatypes</b></dt>
+<dd>
+
+<p>usually only data types that are referenced from within the data model definition are listed in the report; this isn&#39;t much help when generating a list of data types without a data model! that&#39;s what this option is for; currently it affects only <b>html</b> reports</p>
+
+<p>see also <b>--allbibrefs</b></p>
+
 </dd>
 <dt id="altnotifreqstyle"><b>--altnotifreqstyle</b></dt>
 <dd>
 
 <p>enables an &quot;alternative notification requirements style&quot; that affects the HTML report&#39;s &quot;Inform and Notification Requirements&quot; section; when enabled, this section is called &quot;Notification Requirements&quot; and contains only a &quot;Parameters for which Value Change Notification MAY be Denied&quot; section</p>
 
-<p>note: use of this option is appropriate when generating reports for data models that will be used with USP</p>
+<p>note: use of this option is appropriate when generating reports for data models that will be used with USP; the <b>--usp</b> option enables it automatically</p>
 
 </dd>
 <dt id="autobase"><b>--autobase</b></dt>
@@ -109,9 +119,21 @@
 <dt id="catalog-s"><b>--catalog=s</b>...</dt>
 <dd>
 
-<p>can be specified multiple times; XML catalogs (http://en.wikipedia.org/wiki/XML_Catalog); the current directory and any directories specified via <b>--include</b> are searched when locating XML catalogs</p>
+<p>can be specified multiple times; XML catalogs (https://en.wikipedia.org/wiki/XML_Catalog); the current directory and any directories specified via <b>--include</b> are searched when locating XML catalogs</p>
 
 <p>XML catalogs are used only when processing URL-valued <b>schemaLocation</b> attributes during DM instance validation; it is not necessary to use XML catalogs in order to validate DM instances; see <b>--loglevel</b></p>
+
+</dd>
+<dt id="clampversion-s"><b>--clampversion=s</b>...</dt>
+<dd>
+
+<p>sets the &quot;clamp version&quot;, which should be a version string of the form &quot;major.minor&quot; or &quot;major.minor.patch&quot;</p>
+
+<p>any versions, e.g. parameter or object versions, that are less than the clamp version will be clamped (i.e. set to) the clamp version; this is useful (for example) for avoiding warnings when including a component that contains parameters or objects that were defined before the parent entity was defined</p>
+
+<p>note: this option is only used when it&#39;s a valid version of the current data model; if not, it will be quietly ignored</p>
+
+<p>note: the <b>--usp</b> option enables this option automatically (with the value &quot;2.12&quot;)</p>
 
 </dd>
 <dt id="commandcolor-s"><b>--commandcolor=s</b>...</dt>
@@ -173,7 +195,7 @@
 
 <p>affects only the <b>htmlbbf</b> report; specifies the location of the XML and HTML files relative to the BBF CWMP index page</p>
 
-<p>defaults to <b>cwmp</b> (sub-directory), which will work for the BBF web site; can be set to a URL such as <b>http://www.broadband-forum.org/cwmp</b> to generate a local BBF CWMP index page that references published content</p>
+<p>defaults to <b>cwmp</b> (sub-directory), which will work for the BBF web site; can be set to a URL such as <b>https://www.broadband-forum.org/cwmp</b> to generate a local BBF CWMP index page that references published content</p>
 
 </dd>
 <dt id="debugpath-p"><b>--debugpath=p(&quot;&quot;)</b></dt>
@@ -251,7 +273,7 @@
 
 <p>causes the <b>enableParameter</b> attribute to be ignored when generating unique key text for the HTML report</p>
 
-<p>note: use of this option is appropriate when generating reports for data models that will be used with USP</p>
+<p>note: use of this option is appropriate when generating reports for data models that will be used with USP; the <b>--usp</b> option enables it automatically</p>
 
 </dd>
 <dt id="immutablenonfunctionalkeys"><b>--immutablenonfunctionalkeys</b></dt>
@@ -259,7 +281,7 @@
 
 <p>causes non-functional unique keys to be treated as immutable when generating unique key text for the HTML report</p>
 
-<p>note: use of this option is appropriate when generating reports for data models that will be used with USP</p>
+<p>note: use of this option is appropriate when generating reports for data models that will be used with USP; the <b>--usp</b> option enables it automatically</p>
 
 </dd>
 <dt id="importsuffix-s"><b>--importsuffix=s(&quot;&quot;)</b></dt>
@@ -290,7 +312,9 @@
 <dt id="info"><b>--info</b></dt>
 <dd>
 
-<p>outputs details of author, date, version etc.</p>
+<p>outputs a single line showing the version and date</p>
+
+<p>(<b>--version</b> outputs the same information)</p>
 
 </dd>
 <dt id="lastonly"><b>--lastonly</b></dt>
@@ -376,7 +400,7 @@
 <p>if any other <b>--logoxxx</b> options are specified, the default is an empty string</p>
 
 </dd>
-<dt id="logoref-s-http:-www.broadband-forum.org"><b>--logoref=s(&quot;http://www.broadband-forum.org/&quot;)</b></dt>
+<dt id="logoref-s-https:-www.broadband-forum.org"><b>--logoref=s(&quot;https://www.broadband-forum.org/&quot;)</b></dt>
 <dd>
 
 <p>URL visited when the logo image in the top left-hand corner of the HTML report is clicked</p>
@@ -384,12 +408,20 @@
 <p>if any other <b>--logoxxx</b> options are specified, the default is an empty string</p>
 
 </dd>
-<dt id="logosrc-s-http:-www.broadband-forum.org-images-logo-broadband-forum.gif"><b>--logosrc=s(&quot;http://www.broadband-forum.org/images/logo-broadband-forum.gif&quot;)</b></dt>
+<dt id="logosrc-s-https:-www.broadband-forum.org-images-logo-broadband-forum.gif"><b>--logosrc=s(&quot;https://www.broadband-forum.org/images/logo-broadband-forum.gif&quot;)</b></dt>
 <dd>
 
 <p>URL of logo image in the top left-hand corner of the HTML report</p>
 
 <p>if any other <b>--logoxxx</b> options are specified, the default is an empty string</p>
+
+</dd>
+<dt id="markmounttype"><b>--markmounttype</b></dt>
+<dd>
+
+<p>mark mountable objects and mount point objects in color and text (only applicable for USP)</p>
+
+<p>note: this option is only applicable to USP; the <b>--usp</b> option enables it automatically</p>
 
 </dd>
 <dt id="marktemplates"><b>--marktemplates</b></dt>
@@ -603,10 +635,20 @@
 <p>this has the same effect as setting <b>--loglevel</b> to &quot;w&quot; (warning) followed by the pedantic value minus one, e.g. &quot;w1&quot; for <b>--pedantic=2</b></p>
 
 </dd>
+<dt id="plugindir-d"><b>--plugindir=d</b>...</dt>
+<dd>
+
+<p>can be specified multiple times; specifies directories to search for plugins; defaults to the <b>--include</b> directories</p>
+
+<p>all <b>--plugindir</b> subdirectories are also searched for plugins</p>
+
+</dd>
 <dt id="plugin-s"><b>--plugin=s</b>...</dt>
 <dd>
 
 <p>can be specified multiple times; defines external plugins that can define additional report types</p>
+
+<p>plugins are searched for in the <b>--plugindir</b> directories (and their subdirectories)</p>
 
 <ul>
 
@@ -691,10 +733,24 @@
 <p>causes use of config file field name FIELD-SUFFIX rather than FIELD (the default); e.g. a value of &quot;usp&quot; means that the title will be taken from &quot;title-usp&quot; rather than &quot;title&quot;</p>
 
 </dd>
+<dt id="htmlbbf_createfragment-VALUE"><b>htmlbbf_createfragment=VALUE</b></dt>
+<dd>
+
+<p>causes generation of a fragment of HTML, suitable for inclusion in an HTML document (the option value is ignored, but should be &quot;true&quot;)</p>
+
+</dd>
 <dt id="htmlbbf_deprecatedmodels-MODELS"><b>htmlbbf_deprecatedmodels=MODELS</b></dt>
 <dd>
 
 <p>causes the specified data models to be marked as deprecated (the option value is a space-separated list of model names and major versions, e.g. &quot;InternetGatewayDevice:1 Device:1&quot;)</p>
+
+<p>it may be possible (although less convenient) to achieve the same effect with <b>--htmlbbf_deprecatedpattern</b></p>
+
+</dd>
+<dt id="htmlbbf_deprecatedpattern-PATTERN"><b>htmlbbf_deprecatedpattern=PATTERN</b></dt>
+<dd>
+
+<p>causes any files whose names match the pattern to be marked as deprecated</p>
 
 </dd>
 <dt id="htmlbbf_omitcommonxml-VALUE"><b>htmlbbf_omitcommonxml=VALUE</b></dt>
@@ -702,11 +758,25 @@
 
 <p>causes any XML files whose names end with <b>-common.xml</b> to be ignored (the option value is ignored, but should be &quot;true&quot;)</p>
 
+<p>deprecated because the same effect can be achieved with <b>--htmlbbf_omitpattern</b> and a pattern of &quot;-common\.xml$&quot;</p>
+
+</dd>
+<dt id="htmlbbf_omitpattern-PATTERN"><b>htmlbbf_omitpattern=PATTERN</b></dt>
+<dd>
+
+<p>causes any files whose names match the specified pattern to be ignored</p>
+
 </dd>
 <dt id="htmlbbf_onlyfullxml-VALUE"><b>htmlbbf_onlyfullxml=VALUE</b></dt>
 <dd>
 
 <p>causes only full XML to be included; affects only data model XML, not component or support XML (the option value is ignored, but should be &quot;true&quot;)</p>
+
+</dd>
+<dt id="htmlbbf_protobufurlprefix-VALUE"><b>htmlbbf_protobufurlprefix=VALUE</b></dt>
+<dd>
+
+<p>the URL prefix to be used when generating URLs for protobuf schemas; defaults to <b>--cwmppath</b></p>
 
 </dd>
 </dl>
@@ -930,7 +1000,7 @@
 <p>the default value is the latest version of TR-106 that is referenced elsewhere in the data model (or <b>TR-106</b> if it is not referenced elsewhere)</p>
 
 </dd>
-<dt id="trpage-s-http:-www.broadband-forum.org-technical-download"><b>--trpage=s(http://www.broadband-forum.org/technical/download/)</b></dt>
+<dt id="trpage-s-https:-www.broadband-forum.org-technical-download"><b>--trpage=s(https://www.broadband-forum.org/technical/download/)</b></dt>
 <dd>
 
 <p>indicates the location of the PDF versions of BBF standards; is concatenated with the filename (trailing slash is added if necessary)</p>
@@ -942,18 +1012,45 @@
 <p>affects only the <b>xml</b> report; can be specified multiple times; defines use case profiles whose requirements will be checked against the <b>--dtprofile</b> profiles</p>
 
 </dd>
-<dt id="upnpdm"><b>--upnpdm</b></dt>
-<dd>
-
-<p>transforms output (currently HTML only) so it looks like a <b>UPnP DM</b> (Device Management) data model definition</p>
-
-</dd>
 <dt id="ugly"><b>--ugly</b></dt>
 <dd>
 
 <p>disables some prettifications, e.g. inserting spaces to encourage line breaks</p>
 
 <p>this is deprecated because it has been replaced with the more specific <b>--nohyphenate</b> and <b>--showsyntax</b></p>
+
+</dd>
+<dt id="upnpdm"><b>--upnpdm</b></dt>
+<dd>
+
+<p>transforms output (currently HTML only) so it looks like a <b>UPnP DM</b> (Device Management) data model definition</p>
+
+</dd>
+<dt id="usp"><b>--usp</b></dt>
+<dd>
+
+<p>specifies that the file is intended for use with USP and automatically enables the corresponding options, namely:</p>
+
+<ul>
+
+<li><p><b>altnotifreqstyle</b></p>
+
+</li>
+<li><p><b>clampversion=2.12</b></p>
+
+</li>
+<li><p><b>ignoreenableparameter</b></p>
+
+</li>
+<li><p><b>immutablenonfunctionalkeys</b></p>
+
+</li>
+<li><p><b>markmounttype</b></p>
+
+</li>
+</ul>
+
+<p>if the file &quot;looks like&quot; a USP file, e.g., it ends <b>-usp.xml</b> or <b>-usp-full.xml</b>, then this option is set automatically</p>
 
 </dd>
 <dt id="verbose-i-1"><b>--verbose[=i(1)]</b></dt>
@@ -967,7 +1064,9 @@
 <dt id="version"><b>--version</b></dt>
 <dd>
 
-<p>outputs a single line showing the version</p>
+<p>outputs a single line showing the version and date</p>
+
+<p>(<b>--info</b> now outputs the same information)</p>
 
 </dd>
 <dt id="warnbibref-i-1"><b>--warnbibref[=i(1)]</b></dt>
@@ -982,6 +1081,16 @@
 <dd>
 
 <p>reports only on writable parameters (should, but does not, suppress reports of read-only objects that contain no writable parameters)</p>
+
+</dd>
+<dt id="xmllinelength-i-79"><b>--xmllinelength=i(79)</b></dt>
+<dd>
+
+<p>affects only the <b>xml</b> report and cwmp-datamodel-report (dmr) versions 1.0 or higher</p>
+
+<p>sets the maximum line length when wrapping descriptions and other multi-line text such as templates (long words won&#39;t be split, so lines can be longer)</p>
+
+<p>setting it to 0 disables wrapping</p>
 
 </dd>
 </dl>

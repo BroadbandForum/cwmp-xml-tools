@@ -24,7 +24,7 @@
     </reference>
   </bibliography>
   <model name="Enable:1.0">
-    <parameter name="TableNumberOfEntries" access="readOnly" dmr:version="1.0">
+    <parameter name="TableNumberOfEntries" access="readOnly" version="1.0">
       <description>
         {{numentries}}
       </description>
@@ -32,7 +32,7 @@
         <unsignedInt/>
       </syntax>
     </parameter>
-    <object name="Table.{i}." access="readOnly" numEntriesParameter="TableNumberOfEntries" minEntries="0" maxEntries="unbounded" dmr:version="1.0">
+    <object name="Table.{i}." access="readOnly" numEntriesParameter="TableNumberOfEntries" minEntries="0" maxEntries="unbounded" version="1.0">
       <description>
         This table references an invalid key. This should be (but isn't) detected.
       </description>
@@ -42,7 +42,7 @@
       <uniqueKey>
         <parameter ref="InvalidKey"/>
       </uniqueKey>
-      <parameter name="ValidKey" access="readWrite" dmr:version="1.0">
+      <parameter name="ValidKey" access="readWrite" version="1.0">
         <syntax>
           <unsignedInt/>
         </syntax>

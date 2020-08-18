@@ -57,7 +57,7 @@
     </reference>
   </bibliography>
   <model name="Test:1.0">
-    <parameter name="Aaron" access="readOnly" dmr:version="1.0">
+    <parameter name="Aaron" access="readOnly" version="1.0">
       <description>
         {{datatype|expand}}
       </description>
@@ -65,7 +65,7 @@
         <dataType ref="Ordinary"/>
       </syntax>
     </parameter>
-    <parameter name="Arthur" access="readOnly" dmr:version="1.0">
+    <parameter name="Arthur" access="readOnly" version="1.0">
       <description>
         This is an example parameter with an expanded data type. {{datatype|expand}}
       </description>
@@ -73,7 +73,7 @@
         <dataType ref="Ordinary"/>
       </syntax>
     </parameter>
-    <parameter name="Barry" access="readOnly" dmr:version="1.0">
+    <parameter name="Barry" access="readOnly" version="1.0">
       <description>
         This is an example parameter with an explicit data type reference {{datatype}} and an expanded data type. {{datatype|expand}}
       </description>
@@ -81,7 +81,7 @@
         <dataType ref="Ordinary"/>
       </syntax>
     </parameter>
-    <parameter name="Fred" access="readOnly" dmr:version="1.0">
+    <parameter name="Fred" access="readOnly" version="1.0">
       <description>
         This is an example parameter also with an explicit data type reference {{datatype}} and an expanded data type. {{datatype|expand}}
       </description>
@@ -89,7 +89,7 @@
         <dataType ref="ULDescription"/>
       </syntax>
     </parameter>
-    <parameter name="Joe" access="readOnly" dmr:version="1.0">
+    <parameter name="Joe" access="readOnly" version="1.0">
       <description>
         This is an example parameter with an expanded data type. {{datatype|expand}}
       </description>
@@ -97,7 +97,7 @@
         <dataType ref="OLDescription"/>
       </syntax>
     </parameter>
-    <parameter name="Bert" access="readOnly" dmr:version="1.0">
+    <parameter name="Bert" access="readOnly" version="1.0">
       <description>
         This is an example parameter with an expanded data type. {{datatype|expand}}
       </description>

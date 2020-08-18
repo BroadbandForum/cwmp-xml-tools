@@ -33,7 +33,7 @@
     {cwmp}C template (new).
   </template>
   <model name="Model:1.0">
-    <parameter name="Parameter" access="readOnly" dmr:version="1.0">
+    <parameter name="Parameter" access="readOnly" version="1.0">
       <description>
         Parameter.
         * A: {{template|A}}
