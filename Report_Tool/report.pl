@@ -2413,11 +2413,13 @@ sub expand_model_command
     return $nnode;
 }
 
+# returns the command node (true) if within a command, or undef (false) if not
 sub is_command
 {
     my ($node) = @_;
-    return 0 unless $node->{type};
-    return ($node->{is_command} || is_command($node->{pnode})) ? 1 : 0;
+    return undef unless $node->{type};
+    return $node if $node->{is_command};
+    return is_command($node->{pnode});
 }
 
 # Expand a data model command's input and output arguments
@@ -2529,11 +2531,13 @@ sub expand_model_notification
     return expand_model_event $context, $mnode, $pnode, $notification;
 }
 
+# returns the event node (true) if within a event, or undef (false) if not
 sub is_event
 {
     my ($node) = @_;
-    return 0 unless $node->{type};
-    return ($node->{is_event} || is_event($node->{pnode})) ? 1 : 0;
+    return undef unless $node->{type};
+    return $node if $node->{is_event};
+    return is_event($node->{pnode});
 }
 
 # Expand a data model parameter.
@@ -6923,11 +6927,10 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $description = '';
                 $descact = 'replace';
             }
-            # XXX this allows two levels of nested argument objects; would
-            #     need a recursive utility for the general case
             if ($command_or_event) {
                 if ($nested_argument_object) {
-                    $name = $node->{pnode}->{name} . $node->{name};
+                    $name = $node->{path};
+                    $name =~ s/\Q$command_or_event->{path}\E//;
                 } else {
                     $name = $node->{name};
                 }
@@ -8526,8 +8529,15 @@ END
             if ($command_or_event) {
                 my $arrow = is_argoutput($node) ? '&lArr;' : '&rArr;';
                 $tname = $node->{name};
+                # need special logic to handle nested command arguments
+                if (!$is_command && !$is_event && !$is_arguments &&
+                    $node->{type} eq 'object') {
+                    $tname = $node->{path};
+                    $tname =~ s/\Q$command_or_event->{path}\E//;
+                }
                 $tname = "$arrow " . $tname unless $is_command || $is_event;
-                $version  = '' if $is_arguments;   # Do not display a version for OUTPUT/INPUT arguments
+                # don't display a version for 'Input' and 'Output'
+                $version  = '' if $is_arguments;
             }
             # account for --ignoreinputoutputinpaths, which means that
             # arguments 'input'/'output' path is the same as its parent

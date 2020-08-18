@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-8
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd"
+             spec="urn:example-com:nested" file="nested.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <component name="Args">
+    <object name="A.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+      <description>
+        {{object}}
+      </description>
+    </object>
+    <object name="A.{i}.B.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+      <description>
+        {{object}}
+      </description>
+    </object>
+    <object name="A.{i}.B.{i}.C.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+      <description>
+        {{object}}
+      </description>
+    </object>
+    <object name="A.{i}.B.{i}.C.{i}.D.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+      <description>
+        {{object}}
+      </description>
+    </object>
+  </component>
+
+  <model name="Nested:1.0">
+    <object name="Root." access="readOnly"  minEntries="1" maxEntries="1">
+      <description>
+        {{object}}.
+      </description>
+      <command name="Command()">
+        <description>
+          {{command}}.
+        </description>
+        <output>
+          <component ref="Args"/>
+        </output>
+      </command>
+    </object>
+  </model>
+</dm:document>
