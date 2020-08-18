@@ -712,7 +712,7 @@ $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
 {
     my $parser = XML::LibXML->new(line_numbers => 1);
     foreach my $catalog (@$catalogs) {
-        my ($dir, $file) = find_file($catalog, '');
+        my ($dir, $file) = find_file($catalog, {predir => ''});
         if (!$dir) {
             fmsg "XML catalog $file not found";
         } else {
@@ -864,7 +864,7 @@ sub expand_toplevel
 
     # if XML is supplied directly, use it rather than reading the file
     my ($dir, $rpath) = (undef, undef);
-    ($dir, $file, $rpath) = find_file($file, '') unless $xml;
+    ($dir, $file, $rpath) = find_file($file, {predir => ''}) unless $xml;
 
     # parse file / XML
     my $toplevel = parse_file($dir, $file, $xml);
@@ -1099,7 +1099,8 @@ sub expand_import
     d1msg "expand_import file=$file spec=$spec";
 
     my $ofile = $file;
-    (my $dir, $file, my $corr, my $rpath) = find_file($file, $cdir);
+    (my $dir, $file, my $corr, my $rpath) =
+        find_file($file, {predir => $cdir, import_spec => $spec});
 
     my $tfile = $file;
     $file =~ s/\.xml//;
@@ -1272,6 +1273,7 @@ sub expand_import
             next;
         }
         my $ddir  = $elem->{dir};
+        my $dspec = $elem->{spec};
         my $dfile = $elem->{file};
 
         # find the actual element (first check whether we have already seen it)
@@ -1281,9 +1283,13 @@ sub expand_import
         if ($fitem) {
             d0msg "{$file}$ref: $element already found in $dfile";
         } elsif ($dfile eq $file) {
+            # XXX I don't think this code is ever executed
             ($fitem) = $toplevel->findnodes(qq{.//$element\[\@name="$ref"\]});
         } else {
-            (my $ddir, $dfile, my $corr) = find_file($dfile.'.xml', $ddir);
+            # XXX I don't think this code is ever executed
+            (my $ddir, $dfile, my $corr) =
+                find_file($dfile.'.xml', {predir => $ddir,
+                                          import_spec => $dspec});
             # XXX not sure that we want $depth here; we are already one level
             #     from when we were called
             w0msg "$file.xml: import $dfile.xml: corrigendum number " .
@@ -5603,12 +5609,12 @@ sub parse_file
         # search for file; on failure, extract just the file name and try
         # again; don't report failure (schema validation will do this)
         my $fdir = $dir;
-        my ($dir, $file) = find_file($path, $fdir);
+        my ($dir, $file) = find_file($path, {predir => $fdir});
         if (!$dir) {
             (my $scheme_ignore, my $auth_ignore, $path) = uri_split($path);
             (my $vol_ignore, my $dir_ignore, $path) =
                 File::Spec->splitpath($path);
-            ($dir, $file) = find_file($path, $fdir);
+            ($dir, $file) = find_file($path, {predir => $fdir});
         }
         if ($dir) {
             $path = File::Spec->catfile($dir, $file);
@@ -5659,12 +5665,25 @@ sub parse_file
 #     tr-069-i-a-c-biblio.xml would continue to find tr-069-biblio.xml)
 sub find_file
 {
-    my ($file, $predir, $always_exact) = @_;
+    my ($file, $opts) = @_;
 
-    # XXX $predir must always be supplied; an empty value means the current
-    #     directory; warn if undefined because this indicates that the caller
-    #     has made a mistake (still need to add dir to some data structures)
+    # opts must always be supplied
+    my $predir = $opts->{predir}; # no default (see below)
+    my $always_exact = $opts->{always_exact} || 0;
+    my $import_spec = $opts->{import_spec} || '';
+
+    # $predir must always be supplied; an empty value means the current
+    # directory; warn if undefined because this indicates that the caller
+    # has made a mistake (still need to add dir to some data structures)
     w0msg "find_file: $file: predir is undefined" unless defined $predir;
+
+    # if $import_spec is supplied, we currently only use its "a" (amendment)
+    my $import_spec_a = undef;
+    if ($import_spec) {
+        my ($prefix_ignore, $name_ignore, $i_ignore, $a, $c_ignore,
+            $label_ignore) = spec_parse($import_spec);
+        $import_spec_a = $a;
+    }
 
     # search path
     my $dirs = [];
@@ -5690,7 +5709,7 @@ sub find_file
     # highest corrigendum number
     # XXX for the htmlbbf report, only do this for non XML files or if
     #     explicitly requested (this is so the htmlbbf report will always
-    #     search for the highest corrigendum number
+    #     search for the highest corrigendum number)
     if ($report ne 'htmlbbf' || $ffile !~ /\.xml$/ || $always_exact) {
         foreach my $dir (@$dirs) {
             if (-r File::Spec->catfile($dir, $ffile)) {
@@ -5724,11 +5743,24 @@ sub find_file
                 File::Spec->catfile($dir, qq{$name-$i-*-*$label.xml}));
             foreach my $file (@files) {
                 # remove directory part
-                (my $vol_ignore, my $dir_ignore, $file) =
+                my ($vol_ignore, $dir_ignore, $tfile) =
                     File::Spec->splitpath($file);
-                # XXX assumes no special RE chars anywhere...
-                my ($n) = $file =~ /^$name-$i-(\d+)-\d+$label\.xml$/;
-                if (defined $n && (!defined $a || $n > $a)) {
+                my ($n) = $tfile =~ /^\Q$name\E-$i-(\d+)-\d+\Q$label\E\.xml$/;
+
+                # if importing a specific amendment, peek at the file to
+                # extract its amendment from its spec
+                my $is_candidate = 1;
+                if (defined $import_spec_a) {
+                    my $spec = peek_file($file);
+                    my ($prefix_ignore, $name_ignore, $i_ignore, $spec_a,
+                        $c_ignore, $label_ignore) = spec_parse($spec);
+                    # if the amendments don't match, this isn't a candidate
+                    $is_candidate = 0 if
+                        defined($spec_a) && $spec_a != $import_spec_a;
+                }
+
+                # note the highest candidate amendment
+                if ($is_candidate && defined $n && (!defined $a || $n > $a)) {
                     $a = $n;
                 }
             }
@@ -5768,26 +5800,52 @@ sub find_file
     return ($fdir, $ffile, $corr, $rpath);
 }
 
-# Parse a spec, returning prefix, name, i, a, c and label (use c to determine
-# whether the spec was valid)
+# Peek at an XML file, looking for and returning the value of its top-level
+# spec attribute
+sub peek_file
+{
+    my ($file) = @_;
+
+    # this is only called for files that are known to exist, so we don't
+    # expect to fail to open it
+    my $fd;
+    if (!open($fd, "<", $file)) {
+        die "can't open $file for reading: $!";
+    }
+
+    # read the lines, looking for spec="value" (allow extra whitespace and
+    # allow both single and double quotes)
+    my $spec = '';
+    while (my $line = <$fd>) {
+        if ($line =~ /spec\s*=\s*['"]([^'"]+)['"]/) {
+            $spec = $1;
+            last;
+        }
+    }
+
+    close($fd);
+    return $spec;
+}
+
+# Parse a spec, returning prefix, name, i, a, c and label (c and label are
+# optional, so use defined(a) to determine whether the spec was valid)
+# note: -1 is returned for absent c
 sub spec_parse
 {
     my ($spec) = @_;
 
-    # support specs of the form prefix:name-i-a-c[label] where name is of the
+    # support specs of the form prefix:name-i-a[-c][label] where name is of the
     # form "xx-nnn", i, a and c are numeric, and label is more-or-less
     # arbitrary text (but has to contain at least one non-digit)
     my ($prefix, $name, $i, $a, $c, $label) =
-        $spec =~ /^(.*):(\w+-\d+)-(\d+)-(\d+)-(\d+)(\d*\D.*)?$/;
-    $label = '' unless $label;
-
-    # the label is optional, so use c to determine whether the spec is valid
+        $spec =~ /^(.*):(\w+-\d+)-(\d+)-(\d+)(?:-(\d+))?(\d*\D.*)?$/;
+    $c = -1 unless defined $c;
+    $label = '' unless defined $label;
     return ($prefix, $name, $i, $a, $c, $label);
 }
 
 # Check whether specs match (this is intended for checking whether a spec in
 # one file matches the spec in an imported file)
-# XXX not (yet) using spec_parse because it requires the corrigendum number
 sub specs_match
 {
     my ($spec, $fspec) = @_;
@@ -5795,19 +5853,18 @@ sub specs_match
     # spec is spec from import and fspec is spec from file; if spec omits the
     # corrigendum number it matches all corrigendum numbers
 
-    # support specs that end name-i-a[-c][label] where name is of the form
-    # "xx-nnn", i, a and c are numeric, and label is more-or-less arbitrary
-    # text (but has to contain at least one non-digit)
-    my ($c, $label) = $spec =~ /[^-]+-\d+-\d+-\d+(?:-(\d+))?(\d*\D.*)?$/;
-    $label = '' unless $label;
+    # defined a indicates valid spec; >= 0 c indicates specified corrigendum
+    my ($prefix_ignore, $name_ignore, $i_ignore, $a, $c, $label) =
+        spec_parse($spec);
 
-    # if corrigendum number is defined, require exact match
-    return ($fspec eq $spec) if defined $c;
+    # if valid and corrigendum number is defined, require exact match
+    return ($fspec eq $spec) if defined $a && $c >= 0;
 
-    # if corrigendum number is undefined in spec, remove it from fspec (if
+    # if corrigendum number is absent from spec, remove it from fspec (if
     # present) before comparing
-    ($c) = $fspec =~ /[^-]+-\d+-\d+-\d+(?:-(\d+))?(?:\d*\D.*)?$/;
-    $fspec =~ s/-\d+\Q$label\E$/$label/ if defined $c;
+    ($prefix_ignore, $name_ignore, $i_ignore, $a, $c, $label) =
+        spec_parse($fspec);
+    $fspec =~ s/-\d+\Q$label\E$/$label/ if defined $a && $c >= 0;
     return ($fspec eq $spec);
 }
 
@@ -5822,12 +5879,14 @@ sub spec_compare
     my ($prefix2, $name2, $i2, $a2, $c2, $label2) = spec_parse($spec2);
 
     # +1 if either spec is invalid (what else can we do?)
-    return +1 if !defined($c1) || !defined($c2);
+    return +1 if !defined($a1) || !defined($a2);
 
     # +1 if prefix:name doesn't match
     return +1 if qq{$prefix1:$name1} ne qq{$prefix2:$name2};
 
     # compare issue, then amendment then corrigendum
+    # XXX should we worry about one having a corrigendum (c >= 0) and the
+    #     other not (c == -1)?
     return ($i1 <=> $i2) ? ($i1 <=> $i2) : ($a1 <=> $a2) ? ($a1 <=> $a2) :
         ($c1 <=> $c2);
 
@@ -5848,7 +5907,7 @@ sub fix_lspec
 
     # if the lspec doesn't match the pattern, just return it unchanged
     my ($prefix, $name, $i, $a, $c, $label) = spec_parse($lspec_);
-    return $lspec_ unless defined $c;
+    return $lspec_ unless defined $a;
 
     # use the major and minor versions to override the issue and amendment as
     # explained earlier
@@ -5858,6 +5917,8 @@ sub fix_lspec
     }
 
     # ignore the label as explained earlier
+    # XXX should we worry about one having a corrigendum (c >= 0) and the
+    #     other not (c == -1)?
     return qq{$prefix:$name-$i-$a-$c};
 }
 
@@ -6631,7 +6692,6 @@ sub xml_whitespace
             push @$paras, $para;
         }
         my $text = join "\n\n", @$paras;
-        #tmsg "wrap: <$value> -> <$text>";
         $value = $text;
     }
 
@@ -9015,7 +9075,6 @@ sub html_whitespace
 
         # remove leading whitespace if in a list item (cosmetic)
         $line =~ s/^\s*// if $multi && $islist;
-        #tmsg "multi $multi newpar $newpar islist $islist line <$line>";
 
         # non-empty line: add separator and text
         if ($line !~ /^\s*$/) {
@@ -11260,7 +11319,8 @@ sub htmlbbf_init
 
     require Config::IniFiles;
 
-    my ($dir, $file) = main::find_file($configfile, '', 1);
+    my ($dir, $file) = main::find_file($configfile,
+                                       {predir => '', always_exact => 1});
     $configfile = File::Spec->catfile($dir, $file) if $dir;
 
     my %config;
@@ -12496,8 +12556,9 @@ END
                     $link && $link !~ /^\#/ && $link !~ /^http/) {
                     my ($ovol, $odir, $ofile) = File::Spec->splitpath($outfile);
                     if (defined $odir) {
-                        my ($dir) = find_file($link, File::Spec->
-                                              catpath($ovol, $odir), 1);
+                        my $predir = File::Spec->catpath($ovol, $odir);
+                        my ($dir) = find_file($link, {predir => $predir,
+                                                      always_exact => 1});
                         emsg "hyperlink to non-existent $link" unless $dir;
                     }
                 }
