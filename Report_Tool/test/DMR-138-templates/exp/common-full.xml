@@ -30,7 +30,7 @@
     {common}B template (provides default value; OK to see this).
   </template>
   <model name="Model:1.0">
-    <parameter name="Parameter" access="readOnly" dmr:version="1.0">
+    <parameter name="Parameter" access="readOnly" version="1.0">
       <description>
         Parameter.
         * A: {{template|A}}

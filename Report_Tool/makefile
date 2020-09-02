@@ -35,7 +35,9 @@ LINUXL = /usr/lib/libxml2.so.2 \
          /usr/lib/libiconv_hook.so.1 \
          /lib/libz.so.1
 
-FILES = report.$(PLATFORM) report.$(PLATFORM).info
+# XXX don't build these by default
+#FILES = report.$(PLATFORM) report.$(PLATFORM).info
+FILES =
 
 # don't assume that can execute ./report.pl under Windows
 ifneq "$(PLATFORM)" "exe"
@@ -68,10 +70,7 @@ DOCKER-IMAGE = $(DOCKER-ORG)/$(DOCKER-NAME):$(DOCKER-TAG)
 DOCKER-IMAGE-RELEASE = $(DOCKER-ORG)/$(DOCKER-NAME):$(DOCKER-TAG-RELEASE)
 DOCKER-IMAGE-LATEST = $(DOCKER-ORG)/$(DOCKER-NAME):$(DOCKER-TAG-LATEST)
 
-# default target no longer builds FILES
-all: test
-
-old: $(FILES)
+all: $(FILES) test
 
 install: docker-push
 

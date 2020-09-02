@@ -24,7 +24,7 @@
     </reference>
   </bibliography>
   <model name="CommandArgumentRefs:1.0">
-    <object name="Object." access="readOnly" minEntries="1" maxEntries="1" dmr:version="1.0">
+    <object name="Object." access="readOnly" minEntries="1" maxEntries="1" version="1.0">
       <description>
         These are references to:
         * Command().Array {{object|Command().Array}}
@@ -39,7 +39,7 @@
         * Command().Input.Array.{i}.Param {{param|Command().Input.Array.{i}.Param}}
         * Command().Input.Param {{param|Command().Input.Param}}
       </description>
-      <command name="Command()" dmr:version="1.0">
+      <command name="Command()" version="1.0">
         <description>
           These are references to:
           * Array {{object|Array}}
@@ -54,11 +54,11 @@
           * Input.Array.{i}.Param {{param|Input.Array.{i}.Param}}
           * Input.Param {{param|Input.Param}}
         </description>
-        <input dmr:version="1.0">
+        <input>
           <description>
             Input arguments.
           </description>
-          <parameter name="Param" dmr:version="1.0">
+          <parameter name="Param" version="1.0">
             <description>
               Scalar.
             </description>
@@ -66,11 +66,11 @@
               <unsignedInt/>
             </syntax>
           </parameter>
-          <object name="Array.{i}." minEntries="0" maxEntries="unbounded" dmr:version="1.0">
+          <object name="Array.{i}." minEntries="0" maxEntries="unbounded" version="1.0">
             <description>
               Array.
             </description>
-            <parameter name="Param" dmr:version="1.0">
+            <parameter name="Param" version="1.0">
               <description>
                 Scalar.
               </description>
@@ -80,11 +80,11 @@
             </parameter>
           </object>
         </input>
-        <output dmr:version="1.0">
+        <output>
           <description>
             Output arguments.
           </description>
-          <parameter name="Another" dmr:version="1.0">
+          <parameter name="Another" version="1.0">
             <description>
               These are references to:
               * Array {{object|Array}}

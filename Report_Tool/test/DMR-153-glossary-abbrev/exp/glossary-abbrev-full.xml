@@ -61,7 +61,7 @@
     </reference>
   </bibliography>
   <model name="GlossaryAbbrev:1.0">
-    <object name="MyObject." access="readOnly" minEntries="1" maxEntries="1" dmr:version="1.0">
+    <object name="MyObject." access="readOnly" minEntries="1" maxEntries="1" version="1.0">
       <description>
         {{abbref|TLA}} is an abbreviation and {{gloref|Term}} is a term.
         Reference to {{gloref|Undefined Term}} and {{abbref|UNDEF}}.

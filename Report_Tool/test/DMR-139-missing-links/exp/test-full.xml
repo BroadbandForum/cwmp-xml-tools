@@ -31,11 +31,11 @@
     </reference>
   </bibliography>
   <model name="Test:1.0">
-    <object name="MyObject." access="readOnly" minEntries="1" maxEntries="1" dmr:version="1.0">
+    <object name="MyObject." access="readOnly" minEntries="1" maxEntries="1" version="1.0">
       <description>
         This is a reference to {{param|MyParam}}.
       </description>
-      <parameter name="MyParam" access="readOnly" dmr:version="1.0">
+      <parameter name="MyParam" access="readOnly" version="1.0">
         <description>
           This is my parameter. Here's its expanded data type:
           {{datatype|expand}}
@@ -44,7 +44,7 @@
           <dataType ref="MyDataType"/>
         </syntax>
       </parameter>
-      <parameter name="OtherParam" access="readOnly" dmr:version="1.0">
+      <parameter name="OtherParam" access="readOnly" version="1.0">
         <description>
           This is another parameter.
         </description>

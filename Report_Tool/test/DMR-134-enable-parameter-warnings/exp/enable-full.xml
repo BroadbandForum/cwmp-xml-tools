@@ -24,7 +24,7 @@
     </reference>
   </bibliography>
   <model name="Enable:1.0">
-    <parameter name="TableNumberOfEntries" access="readOnly" dmr:version="1.0">
+    <parameter name="TableNumberOfEntries" access="readOnly" version="1.0">
       <description>
         {{numentries}}
       </description>
@@ -32,7 +32,7 @@
         <unsignedInt/>
       </syntax>
     </parameter>
-    <object name="Table.{i}." access="readWrite" numEntriesParameter="TableNumberOfEntries" minEntries="0" maxEntries="unbounded" dmr:version="1.0">
+    <object name="Table.{i}." access="readWrite" numEntriesParameter="TableNumberOfEntries" minEntries="0" maxEntries="unbounded" version="1.0">
       <description>
         This is a writeable table with no enableParameter. It should result in a report tool warning.
         However, the --ignoreenableparameter option should (but current doesn't) suppress the warning.
@@ -40,7 +40,7 @@
       <uniqueKey>
         <parameter ref="Key"/>
       </uniqueKey>
-      <parameter name="Key" access="readWrite" dmr:version="1.0">
+      <parameter name="Key" access="readWrite" version="1.0">
         <syntax>
           <unsignedInt/>
         </syntax>

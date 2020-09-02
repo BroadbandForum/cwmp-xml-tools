@@ -1,28 +1,31 @@
 Usage:
-    report.pl [--allbibrefs] [--altnotifreqstyle] [--autobase]
-    [--autodatatype] [--automodel] [--bibrefdocfirst] [--canonical]
-    [--catalog=s]... [--commandcolor=s]... [--compare] [--components]
-    [--configfile=s("")] [--cwmpindex=s(..)] [--cwmppath=s(cwmp)]
-    [--debugpath=p("")] [--deletedeprecated] [--diffs]
-    [--diffsext=s(diffs)]... [--dtprofile=s]... [--dtspec[=s]]
-    [--dtuuid[=s]] [--exitcode] [--help] [--ignore=p("")]
-    [--ignoreenableparameter] [--immutablenonfunctionalkeys]
-    [--importsuffix=s("")] [--include=d]... [--info] [--lastonly]
-    [--loglevel=tn(i)] [--logoalt=s()] [--logoref=s()] [--logosrc=s()]
-    [--marktemplates] [--maxchardiffs=i(5)] [--maxworddiffs=i(10)]
-    [--noautomodel] [--nocomments] [--nofontstyles] [--nohyphenate]
-    [--nolinks] [--nologprefix] [--nomodels] [--noobjects] [--noparameters]
+    report.pl [--allbibrefs] [--alldatatypes] [--altnotifreqstyle]
+    [--autobase] [--autodatatype] [--automodel] [--bibrefdocfirst]
+    [--canonical] [--catalog=s]... [--clampversion=s]...
+    [--commandcolor=s]... [--compare] [--components] [--configfile=s("")]
+    [--cwmpindex=s(..)] [--cwmppath=s(cwmp)] [--debugpath=p("")]
+    [--deletedeprecated] [--diffs] [--diffsext=s(diffs)]...
+    [--dtprofile=s]... [--dtspec[=s]] [--dtuuid[=s]] [--exitcode] [--help]
+    [--ignore=p("")] [--ignoreenableparameter]
+    [--immutablenonfunctionalkeys] [--importsuffix=s("")] [--include=d]...
+    [--info] [--lastonly] [--loglevel=tn(i)] [--logoalt=s()] [--logoref=s()]
+    [--logosrc=s()] [--markmounttype] [--marktemplates]
+    [--maxchardiffs=i(5)] [--maxworddiffs=i(10)] [--noautomodel]
+    [--nocomments] [--nofontstyles] [--nohyphenate] [--nolinks]
+    [--nologprefix] [--nomodels] [--noobjects] [--noparameters]
     [--noprofiles] [--noshowreadonly] [--notemplates] [--nowarnbibref]
     [--nowarnenableparameter] [--nowarnnumentries] [--nowarnredef]
     [--nowarnreport] [--nowarnprofbadref] [--nowarnstaticdefault]
     [--nowarnuniquekeys] [--nowarnwtref] [--noxmllink] [--objpat=p("")]
-    [--option=n=v]... [--outfile=s] [--pedantic[=i(1)]] [--plugin=s]...
-    [--quiet] [--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...]
+    [--option=n=v]... [--outfile=s] [--pedantic[=i(1)]] [--plugindir=d]...
+    [--plugin=s]... [--quiet]
+    [--report=html|htmlbbf|(null)|tab|text|xls|xml|xsd|other...]
     [--showdiffs] [--showreadonly] [--showspec] [--showsyntax] [--showunion]
     [--sortobjects] [--special=s] [--thisonly] [--tr106=s(TR-106)]
-    [--trpage=s(http://www.broadband-forum.org/technical/download)]
-    [--ucprofile=s]... [--ugly] [--upnpdm] [--verbose[=i(1)]] [--version]
-    [--warnbibref[=i(1)]] [--writonly] DM-instance...
+    [--trpage=s(https://www.broadband-forum.org/technical/download)]
+    [--ucprofile=s]... [--ugly] [--upnpdm] [--usp] [--verbose[=i(1)]]
+    [--version] [--warnbibref[=i(1)]] [--writonly] [--xmllinelength=i(79)]
+    DM-instance...
 
     *   the most common options are --include, --loglevel and --report=html
 
@@ -38,6 +41,16 @@ Options:
         without a data model! that's what this option is for; currently it
         affects only html reports
 
+        see also --alldatatypes
+
+    --alldatatypes
+        usually only data types that are referenced from within the data
+        model definition are listed in the report; this isn't much help when
+        generating a list of data types without a data model! that's what
+        this option is for; currently it affects only html reports
+
+        see also --allbibrefs
+
     --altnotifreqstyle
         enables an "alternative notification requirements style" that
         affects the HTML report's "Inform and Notification Requirements"
@@ -46,7 +59,8 @@ Options:
         Notification MAY be Denied" section
 
         note: use of this option is appropriate when generating reports for
-        data models that will be used with USP
+        data models that will be used with USP; the --usp option enables it
+        automatically
 
     --autobase
         causes automatic addition of base attributes when models, parameters
@@ -86,13 +100,29 @@ Options:
 
     --catalog=s...
         can be specified multiple times; XML catalogs
-        (http://en.wikipedia.org/wiki/XML_Catalog); the current directory
+        (https://en.wikipedia.org/wiki/XML_Catalog); the current directory
         and any directories specified via --include are searched when
         locating XML catalogs
 
         XML catalogs are used only when processing URL-valued schemaLocation
         attributes during DM instance validation; it is not necessary to use
         XML catalogs in order to validate DM instances; see --loglevel
+
+    --clampversion=s...
+        sets the "clamp version", which should be a version string of the
+        form "major.minor" or "major.minor.patch"
+
+        any versions, e.g. parameter or object versions, that are less than
+        the clamp version will be clamped (i.e. set to) the clamp version;
+        this is useful (for example) for avoiding warnings when including a
+        component that contains parameters or objects that were defined
+        before the parent entity was defined
+
+        note: this option is only used when it's a valid version of the
+        current data model; if not, it will be quietly ignored
+
+        note: the --usp option enables this option automatically (with the
+        value "2.12")
 
     --commandcolor=s...
         sets the background colors to be used (in the HTML report) for
@@ -147,7 +177,7 @@ Options:
 
         defaults to cwmp (sub-directory), which will work for the BBF web
         site; can be set to a URL such as
-        http://www.broadband-forum.org/cwmp to generate a local BBF CWMP
+        https://www.broadband-forum.org/cwmp to generate a local BBF CWMP
         index page that references published content
 
     --debugpath=p("")
@@ -219,14 +249,16 @@ Options:
         unique key text for the HTML report
 
         note: use of this option is appropriate when generating reports for
-        data models that will be used with USP
+        data models that will be used with USP; the --usp option enables it
+        automatically
 
     --immutablenonfunctionalkeys
         causes non-functional unique keys to be treated as immutable when
         generating unique key text for the HTML report
 
         note: use of this option is appropriate when generating reports for
-        data models that will be used with USP
+        data models that will be used with USP; the --usp option enables it
+        automatically
 
     --importsuffix=s("")
         specifies a suffix which, if specified, will be appended (preceded
@@ -247,7 +279,9 @@ Options:
             names
 
     --info
-        outputs details of author, date, version etc.
+        outputs a single line showing the version and date
+
+        (--version outputs the same information)
 
     --lastonly
         reports only on items that were defined or last modified in the
@@ -331,19 +365,26 @@ Options:
         if any other --logoxxx options are specified, the default is an
         empty string
 
-    --logoref=s("http://www.broadband-forum.org/")
+    --logoref=s("https://www.broadband-forum.org/")
         URL visited when the logo image in the top left-hand corner of the
         HTML report is clicked
 
         if any other --logoxxx options are specified, the default is an
         empty string
 
-    --logosrc=s("http://www.broadband-forum.org/images/logo-broadband-forum.
-    gif")
+    --logosrc=s("https://www.broadband-forum.org/images/logo-broadband-forum
+    .gif")
         URL of logo image in the top left-hand corner of the HTML report
 
         if any other --logoxxx options are specified, the default is an
         empty string
+
+    --markmounttype
+        mark mountable objects and mount point objects in color and text
+        (only applicable for USP)
+
+        note: this option is only applicable to USP; the --usp option
+        enables it automatically
 
     --marktemplates
         mark selected template expansions with &&&& followed by
@@ -513,9 +554,18 @@ Options:
         this has the same effect as setting --loglevel to "w" (warning)
         followed by the pedantic value minus one, e.g. "w1" for --pedantic=2
 
+    --plugindir=d...
+        can be specified multiple times; specifies directories to search for
+        plugins; defaults to the --include directories
+
+        all --plugindir subdirectories are also searched for plugins
+
     --plugin=s...
         can be specified multiple times; defines external plugins that can
         define additional report types
+
+        plugins are searched for in the --plugindir directories (and their
+        subdirectories)
 
         *   currently each plugin must correspond to a file of the same name
             but with a .pm (Perl Module) extension; for example,
@@ -603,19 +653,42 @@ Options:
                 than FIELD (the default); e.g. a value of "usp" means that
                 the title will be taken from "title-usp" rather than "title"
 
+            htmlbbf_createfragment=VALUE
+                causes generation of a fragment of HTML, suitable for
+                inclusion in an HTML document (the option value is ignored,
+                but should be "true")
+
             htmlbbf_deprecatedmodels=MODELS
                 causes the specified data models to be marked as deprecated
                 (the option value is a space-separated list of model names
                 and major versions, e.g. "InternetGatewayDevice:1 Device:1")
 
+                it may be possible (although less convenient) to achieve the
+                same effect with --htmlbbf_deprecatedpattern
+
+            htmlbbf_deprecatedpattern=PATTERN
+                causes any files whose names match the pattern to be marked
+                as deprecated
+
             htmlbbf_omitcommonxml=VALUE
                 causes any XML files whose names end with -common.xml to be
                 ignored (the option value is ignored, but should be "true")
+
+                deprecated because the same effect can be achieved with
+                --htmlbbf_omitpattern and a pattern of "-common\.xml$"
+
+            htmlbbf_omitpattern=PATTERN
+                causes any files whose names match the specified pattern to
+                be ignored
 
             htmlbbf_onlyfullxml=VALUE
                 causes only full XML to be included; affects only data model
                 XML, not component or support XML (the option value is
                 ignored, but should be "true")
+
+            htmlbbf_protobufurlprefix=VALUE
+                the URL prefix to be used when generating URLs for protobuf
+                schemas; defaults to --cwmppath
 
             see OD-290 and OD-148 for more details
 
@@ -804,7 +877,7 @@ Options:
         elsewhere in the data model (or TR-106 if it is not referenced
         elsewhere)
 
-    --trpage=s(http://www.broadband-forum.org/technical/download/)
+    --trpage=s(https://www.broadband-forum.org/technical/download/)
         indicates the location of the PDF versions of BBF standards; is
         concatenated with the filename (trailing slash is added if
         necessary)
@@ -814,16 +887,33 @@ Options:
         defines use case profiles whose requirements will be checked against
         the --dtprofile profiles
 
-    --upnpdm
-        transforms output (currently HTML only) so it looks like a UPnP DM
-        (Device Management) data model definition
-
     --ugly
         disables some prettifications, e.g. inserting spaces to encourage
         line breaks
 
         this is deprecated because it has been replaced with the more
         specific --nohyphenate and --showsyntax
+
+    --upnpdm
+        transforms output (currently HTML only) so it looks like a UPnP DM
+        (Device Management) data model definition
+
+    --usp
+        specifies that the file is intended for use with USP and
+        automatically enables the corresponding options, namely:
+
+        *   altnotifreqstyle
+
+        *   clampversion=2.12
+
+        *   ignoreenableparameter
+
+        *   immutablenonfunctionalkeys
+
+        *   markmounttype
+
+        if the file "looks like" a USP file, e.g., it ends -usp.xml or
+        -usp-full.xml, then this option is set automatically
 
     --verbose[=i(1)]
         enables verbose output; the higher the level the more the output
@@ -832,7 +922,9 @@ Options:
         followed by the verbose value minus one, e.g. "d2" for --verbose=3
 
     --version
-        outputs a single line showing the version
+        outputs a single line showing the version and date
+
+        (--info now outputs the same information)
 
     --warnbibref[=i(1)]
         enables bibliographic reference warnings (these warnings are also
@@ -846,4 +938,14 @@ Options:
     --writonly
         reports only on writable parameters (should, but does not, suppress
         reports of read-only objects that contain no writable parameters)
+
+    --xmllinelength=i(79)
+        affects only the xml report and cwmp-datamodel-report (dmr) versions
+        1.0 or higher
+
+        sets the maximum line length when wrapping descriptions and other
+        multi-line text such as templates (long words won't be split, so
+        lines can be longer)
+
+        setting it to 0 disables wrapping
 
