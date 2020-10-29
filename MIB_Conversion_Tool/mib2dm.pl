@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011, 2012  Pace Plc
 # Copyright (C) 2012, 2013, 2014  Cisco Systems
-# Copyright (C) 2016, 2017, 2018, 2019  Honu Ltd
+# Copyright (C) 2016, 2017, 2018, 2019, 2020  Honu Ltd
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -48,9 +48,6 @@
 # XXX need to think about further operations to perform, e.g. prefix removal
 #     and more sophisticated name mapping (have only really tried to do this
 #     for enumerated values)
-
-# XXX ranges in typedefs aren't handled as multi-valued; mins and maxes are
-#     concatenated, e.g. for DateAndTime
 
 # XXX check for appropriateness of all ucfirst calls
 
@@ -277,6 +274,13 @@ my $dm_object_info = {
     ifIndex => {
         model => 'Interfaces_Model:1.0',
         path => 'ifTable.{i}.',
+        access => 'readOnly',
+        minEntries => '0',
+        maxEntries => 'unbounded',
+    },
+    docsIf3CmtsCmRegStatusId => {
+        model => 'DocsIf3Mib_Model:1.0',
+        path => 'docsIf3CmtsCmRegStatusEntry.{i}.',
         access => 'readOnly',
         minEntries => '0',
         maxEntries => 'unbounded',
@@ -1661,6 +1665,13 @@ sub output_xml
             $paccess = $info->{access};
             $pminEntries = $info->{minEntries};
             $pmaxEntries = $info->{maxEntries};
+
+            # XXX this error suggests that dm_object_info needs to be updated
+            if (!defined $ppath) {
+                d0msg "$name: undefined $key (output_xml); " .
+                    "update dm_object_info?";
+                $ppath = '';
+            }
         }
 
         my $cname = ucfirst $name;
@@ -1725,7 +1736,13 @@ sub output_xml
             # the first shared key was already handled
             foreach my $key (@shared[1 .. $#shared]) {
                 my $column = $tree_node->{$key};
-                output_parameter($column, $i, {parent => $table->{row}});
+                if (!defined $column) {
+                    w0msg "$name: undefined column $key (output_xml)";
+                } elsif (!defined $column->{name}) {
+                    w0msg "$name: undefined name $column->{name} (output_xml)";
+                } else {
+                    output_parameter($column, $i, {parent => $table->{row}});
+                }
             }
 	    foreach my $column (@{$table->{row}->{columns}}) {
                 if ($ignorerowstatus &&
@@ -2029,6 +2046,13 @@ sub analyse_linkage
     if (@shared) {
         my $list = join ', ', @shared;
         $ppath = $dm_object_info->{$shared[0]}->{path};
+
+        # XXX this error suggests that dm_object_info needs to be updated
+        if (!defined $ppath) {
+            w0msg "$name: undefined $shared[0] (analyze_linkage); " .
+                    "update dm_object_info?";
+            $ppath = '';
+        }
     }
 
     return $ppath . $oname . '.';
@@ -2083,6 +2107,14 @@ sub output_parameter
     my ($parameter, $i, $opts) = @_;
 
     my $name = $parameter->{name};
+
+    # XXX this error suggests that dm_object_info needs to be updated
+    if (!defined $name) {
+        d0msg "undefined parameter name; parameter ignored " .
+            "(output_parameter); update dm_object_info?";
+        return;
+    }
+
     my $oid = $parameter->{oid};
     my $status = $parameter->{status};
     my $default = $parameter->{default};
