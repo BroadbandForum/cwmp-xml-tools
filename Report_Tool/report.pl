@@ -1936,6 +1936,7 @@ sub expand_model_component
     # (suppress clampversion logic here, because this _is_ clampversion logic)
     my $version = version($component,
                           {default => $pnode->{version}, path => $Path,
+                           specversion => spec_version($spec),
                            modelversion => $mnode->{version},
                            ignoreminor => ($pnode == $mnode),
                            noclampversion => 1});
@@ -2090,6 +2091,8 @@ sub expand_model_object
     # will always be the model node
     my $version = version($object,
                           {default => $pnode->{version}, path => $path,
+                           specversion => spec_version($spec),
+                           modelversion => $mnode->{version},
                            ignoreminor => ($pnode == $mnode),
                            clampversion => $Version});
 
@@ -2280,6 +2283,14 @@ sub version
         my $version_string = version_string($hash);
         my $default_string = version_string($default);
         emsg "$path: version $version_string < inherited $default_string";
+    }
+
+    # check that the version isn't more than the spec version
+    if ($opts->{specversion} &&
+        version_compare($hash, $opts->{specversion}) > 0) {
+        my $version_string = version_string($hash);
+        my $spec_string = version_string($opts->{specversion});
+        emsg "$path: version $version_string > spec $spec_string";
     }
 
     # check that the version isn't more than the model version; ignore the
@@ -2622,6 +2633,7 @@ sub expand_model_parameter
 
     my $version = version($parameter,
                           {default => $pnode->{version}, path => $path,
+                           specversion => spec_version($spec),
                            modelversion => $mnode->{version},
                            ignoreminor => ($pnode == $mnode),
                            clampversion => $Version});
@@ -5896,6 +5908,17 @@ sub spec_parse
     $c = -1 unless defined $c;
     $label = '' unless defined $label;
     return ($prefix, $name, $i, $a, $c, $label);
+}
+
+# Parse a spec, returning undef or a version hash
+sub spec_version
+{
+    my ($spec) = @_;
+
+    my ($prefix, $name, $i, $a, $c, $label) = spec_parse($spec);
+    return undef unless defined $a;
+
+    return {major => $i, minor => $a, patch => ($c >= 0 ? $c : undef)};
 }
 
 # Check whether specs match (this is intended for checking whether a spec in
