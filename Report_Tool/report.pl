@@ -2020,6 +2020,7 @@ sub expand_model_object
     my $spec = $context->[0]->{spec};
     my $Lfile = $context->[0]->{lfile};
     my $Lspec = $context->[0]->{lspec};
+    my $Path = $context->[0]->{path};
 
     my $name = $object->findvalue('@name');
     my $ref = $object->findvalue('@ref');
@@ -2085,16 +2086,24 @@ sub expand_model_object
     #     object node?
     my $previous = dmr_previous($object);
     my $prevnode = $object->previousSibling()->previousSibling();
-    if (!defined $previous &&
-        $prevnode && $prevnode->findvalue('local-name()') eq 'object') {
+    if (!defined $previous && $prevnode &&
+        $prevnode->findvalue('local-name()') =~ /object|command|event/) {
         $previous = $prevnode->findvalue('@name');
         $previous = $prevnode->findvalue('@ref') unless $previous;
         $previous = $prevnode->findvalue('@base') unless $previous;
-        # previous node could be at a lower level than this node, e.g.
-        # it might be A.B.C but we are A.D, so adjust to be the previous
-        # node at this level
-        $previous = adjust_level($previous,
-                                 $pnode->{path} . ($ref ? $ref : $name));
+
+        # some of the logic only applies to objects (names end with '.'),
+        # as opposed to (more) parameter-like commands and events
+        if ($previous && $previous =~ /\.$/) {
+            # prefix component path argument if expanding a component
+            $previous = $Path . $previous if $Path;
+
+            # previous node could be at a lower level than this node, e.g.
+            # it might be A.B.C but we are A.D, so adjust to be the previous
+            # node at this level
+            $previous = adjust_level($previous,
+                                     $pnode->{path} . ($ref ? $ref : $name));
+        }
         $previous = undef if $previous eq '';
     }
     # XXX this isn't working in a component (need to prefix component path)
@@ -2370,7 +2379,7 @@ sub adjust_level
     my @fcomps = split /\./, $first;
     my @scomps = split /\./, $second;
 
-    return '' if $#scomps >= $#fcomps;
+    return '' if $#scomps > $#fcomps;
 
     my $temp = (join '.', @fcomps[0..$#scomps]) . '.';
     $temp =~ s/\{/\.\{/g;
@@ -3964,6 +3973,20 @@ sub add_object
         if ($context->[0]->{previousObject}) {
             $previous = $context->[0]->{previousObject} unless $previous;
             undef $context->[0]->{previousObject};
+        }
+        # if the context contains "previousParameter", it's from a component
+        # reference, and applies only to the first new object
+        # XXX this is intended for events and commands
+        if ($context->[0]->{previousParameter}) {
+            $previous = $context->[0]->{previousParameter} unless $previous;
+            undef $context->[0]->{previousParameter};
+        }
+
+        # XXX if previous is set but isn't a full path, it's a parameter,
+        #     command or event name, so convert to full path
+        if ($previous && $previous !~ /\.$/) {
+            $previous = $pnode->{path} . $previous .
+                ($previous =~ /[!)]/ ? '.' : '');
         }
 
         emsg "unnamed object (after $previouspath)" unless $name;

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+  xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-0-1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-8
+  https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+  urn:broadband-forum-org:cwmp:datamodel-report-0-1
+  https://www.broadband-forum.org/cwmp/cwmp-datamodel-report.xsd"
+  spec="urn:example-com:previous" file="previous.xml">
+
+  <import file="tr-069-biblio.xml"/>
+  
+  <component name="Root">
+    <object name="Root." access="readOnly"  minEntries="1" maxEntries="1">
+      <description>
+        {{object}}
+      </description>
+      <parameter name="A" access="readOnly">
+        <description>
+          {{param}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+      <parameter name="B" access="readOnly">
+        <description>
+          {{param}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+      <parameter name="C" access="readOnly">
+        <description>
+          {{param}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+    </object>
+    <object name="Root.Foo." access="readOnly"  minEntries="1" maxEntries="1">
+      <description>
+        {{object}}
+      </description>
+    </object>
+    <object name="Root.Goo." access="readOnly"  minEntries="1" maxEntries="1">
+      <description>
+        {{object}}
+      </description>
+    </object>
+  </component>
+  
+  <component name="Objects">
+    <object name="X." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}}
+      </description>
+    </object>    
+    <object name="Y." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}}
+      </description>
+    </object>    
+    <object name="Z." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}}
+      </description>
+    </object>    
+  </component>
+  
+  <component name="Params">
+    <parameter name="X" access="readOnly">
+      <description>
+        {{param}}
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>    
+    <parameter name="Y" access="readOnly">
+      <description>
+        {{param}}
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+    <parameter name="Z" access="readOnly">
+      <description>
+        {{param}}
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+  </component>
+
+  <component name="Commands">
+    <command name="X()">
+      <description>
+        {{event}}
+      </description>
+    </command>    
+    <command name="Y()">
+      <description>
+        {{event}}
+      </description>
+    </command>
+    <command name="Z()">
+      <description>
+        {{event}}
+      </description>
+    </command>
+  </component>
+  
+  <component name="Events">
+    <event name="X!">
+      <description>
+        {{event}}
+      </description>
+    </event>    
+    <event name="Y!">
+      <description>
+        {{event}}
+      </description>
+    </event>    
+    <event name="Z!">
+      <description>
+        {{event}}
+      </description>
+    </event>    
+  </component>
+  
+  <model name="CWMP:1.0">
+    <component ref="Root"/>
+  </model>
+  
+  <model name="USP:1.0">
+    <component ref="Root"/>
+  </model>
+  
+  <model name="CWMP:1.1" base="CWMP:1.0">
+    <component ref="Objects" path="Root." dmr:previousObject="Foo."/>
+    <component ref="Params" path="Root." dmr:previousParameter="A"/>
+  </model>
+
+  <model name="USP:1.1" base="USP:1.0">
+    <component ref="Objects" path="Root." dmr:previousObject="Foo."/>
+    <component ref="Commands" path="Root." dmr:previousParameter="A"/>
+    <component ref="Events" path="Root." dmr:previousParameter="B"/>
+  </model>
+</dm:document>
