@@ -185,7 +185,7 @@ my $tool_version_date = q{2020-10-21};
 # update the version number when making a new release
 # a "+" after the version number indicates an interim version
 # (e.g. "422+" means v422 + changes, and "423" means v423)
-my $tool_version_number = q{426};
+my $tool_version_number = q{426+};
 
 # tool name and version is conventionally reported as "name#version"
 my $tool_name = q{report.pl};
@@ -345,7 +345,7 @@ our $xmllinelength = 79;
 my $usp_options = {
     altnotifreqstyle => {ref => \$altnotifreqstyle},
     clampversion => {ref => \$clampversion, value => '2.12'},
-    ignoreenableparameter => {ref =>, \$ignoreenableparameter},
+    ignoreenableparameter => {ref => \$ignoreenableparameter},
     immutablenonfunctionalkeys => {ref => \$immutablenonfunctionalkeys},
     markmounttype => {ref => \$markmounttype}
 };
@@ -2400,7 +2400,6 @@ sub expand_model_uniqueKey
 
 # Expand a data model command
 # XXX very basic...
-# XXX need to remove @notify support
 sub expand_model_command
 {
     my ($context, $mnode, $pnode, $command) = @_;
@@ -2411,10 +2410,8 @@ sub expand_model_command
     $fpath =~ s/\.$//;
     $objects->{$fpath} = $nnode;
     $parameters->{$fpath} = $nnode;
-    my $is_async = $command->findvalue('@async');
-    my $notify = $command->findvalue('@notify') || 'OperationComplete';
-    $nnode->{is_async} = $is_async;
-    $nnode->{notify} = $notify;
+    my $is_async = boolean($command->findvalue('@async'));
+    $nnode->{is_async} = $is_async if $is_async;
     $nnode->{is_command} = 1;
     return $nnode;
 }
@@ -2931,7 +2928,7 @@ sub expand_model_parameter
     $nnode->{id} = $id if $id;
 
     # XXX hack the mandatory attribute (only valid in commands)
-    $nnode->{is_mandatory} = $is_mandatory;
+    $nnode->{is_mandatory} = $is_mandatory if $is_mandatory;
 }
 
 # Expand a data model profile.
@@ -3898,7 +3895,7 @@ sub add_object
         if ($access ne $nnode->{access})
         {
             # Create Error if access got demoted!
-            if ($nnode->{access} eq 'readWrite')
+            if (!$is_dt && $nnode->{access} eq 'readWrite')
             {
                 emsg "$path: access got demoted from $nnode->{access} to $access";
             }
@@ -4174,7 +4171,8 @@ sub add_parameter
             # Create Error if access got demoted!
             my $access_level = {readOnly => 0, writeOnceReadOnly => 1,
                                 readWrite => 2};
-            if ($access_level->{$access} < $access_level->{$nnode->{access}})
+            if (!$is_dt &&
+                $access_level->{$access} < $access_level->{$nnode->{access}})
             {
                 emsg "$path: access got demoted from $nnode->{access} to $access";
             }

@@ -32,7 +32,9 @@ DIFF = diff
 DIFFFLAGS =
 
 DMXML += $(wildcard *.xml)
-DMFULLXML += $(DMXML:%.xml=$(targetdir)%-full.xml)
+ifneq "$(DMFULL)" "false"
+  DMFULLXML += $(DMXML:%.xml=$(targetdir)%-full.xml)
+endif
 DMHTML += $(DMXML:%.xml=$(targetdir)%.html) \
 	  $(DMXML:%.xml=$(targetdir)%-diffs.html) \
 	  $(DMFULLXML:%.xml=%.html) \
