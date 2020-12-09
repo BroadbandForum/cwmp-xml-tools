@@ -1919,6 +1919,7 @@ sub expand_model_component
     my $Lfile = $context->[0]->{lfile};
     my $Lspec = $context->[0]->{lspec};
     my $Path = $context->[0]->{path};
+    my $Version = $context->[0]->{version};
 
     my $path = $component->findvalue('@path');
     my $name = $component->findvalue('@ref');
@@ -1930,6 +1931,16 @@ sub expand_model_component
     my $hash = dmr_previous($component, 1);
     $hash->{previousObject} = $path . $hash->{previousObject} if
         $hash->{previousObject};
+
+    # check for version, inheriting from parent if not explicitly provided
+    # (suppress clampversion logic here, because this _is_ clampversion logic)
+    my $version = version($component,
+                          {default => $pnode->{version}, path => $Path,
+                           specversion => spec_version($spec),
+                           modelversion => $mnode->{version},
+                           ignoreminor => ($pnode == $mnode),
+                           noclampversion => 1});
+    $version = $Version unless $version->{defined};
 
     d1msg "expand_model_component path=$path ref=$name";
 
@@ -1993,6 +2004,7 @@ sub expand_model_component
     unshift @$context, {dir => $dir, file => $file, spec => $spec,
                         lfile => $Lfile, lspec => $Lspec,
                         path => $Path, name => $name,
+                        version => $version,
                         previousParameter => $hash->{previousParameter},
                         previousObject => $hash->{previousObject},
                         previousProfile => $hash->{previousProfile}};
@@ -2021,6 +2033,7 @@ sub expand_model_object
     my $Lfile = $context->[0]->{lfile};
     my $Lspec = $context->[0]->{lspec};
     my $Path = $context->[0]->{path};
+    my $Version = $context->[0]->{version};
 
     my $name = $object->findvalue('@name');
     my $ref = $object->findvalue('@ref');
@@ -2078,7 +2091,10 @@ sub expand_model_object
     # will always be the model node
     my $version = version($object,
                           {default => $pnode->{version}, path => $path,
-                           ignoreminor => ($pnode == $mnode)});
+                           specversion => spec_version($spec),
+                           modelversion => $mnode->{version},
+                           ignoreminor => ($pnode == $mnode),
+                           clampversion => $Version});
 
     # determine name of previous sibling (if any) as a hint for where to
     # create the new node
@@ -2239,6 +2255,7 @@ sub version
     my ($hash, $default) = version_parse($version, $opts);
 
     # clamp if version is less than clampversion
+    # XXX clampversion is not used if the noclampversion option is set
     # XXX clampversion is only used if the major versions match; this is to
     #     avoid the TR-181-specific default clampversion from causing problems
     #     with v1 models
@@ -2247,11 +2264,13 @@ sub version
     #     from causing problems with v2 models to which it doesn't apply
     ($clampversionHash) = version_parse($clampversion) if
         defined($clampversion) and !$clampversionHash;
-    $hash = util_copy($clampversionHash) if
-        $clampversionHash &&
-        $hash->{major} == $clampversionHash->{major} &&
-        version_compare($hash, $clampversionHash) < 0 &&
-        version_compare($clampversionHash, $highestVersion) <= 0;
+    my $localClampversionHash = $opts->{noclampversion} ? undef :
+        $opts->{clampversion} ? $opts->{clampversion} : $clampversionHash;
+    $hash = util_copy($localClampversionHash) if
+        $localClampversionHash &&
+        $hash->{major} == $localClampversionHash->{major} &&
+        version_compare($hash, $localClampversionHash) < 0 &&
+        version_compare($localClampversionHash, $highestVersion) <= 0;
 
     # check major version is the same as the inherited major version
     if ($hash->{major} != $default->{major}) {
@@ -2264,6 +2283,14 @@ sub version
         my $version_string = version_string($hash);
         my $default_string = version_string($default);
         emsg "$path: version $version_string < inherited $default_string";
+    }
+
+    # check that the version isn't more than the spec version
+    if ($opts->{specversion} &&
+        version_compare($hash, $opts->{specversion}) > 0) {
+        my $version_string = version_string($hash);
+        my $spec_string = version_string($opts->{specversion});
+        emsg "$path: version $version_string > spec $spec_string";
     }
 
     # check that the version isn't more than the model version; ignore the
@@ -2561,6 +2588,7 @@ sub expand_model_parameter
     my $spec = $context->[0]->{spec};
     my $Lfile = $context->[0]->{lfile};
     my $Lspec = $context->[0]->{lspec};
+    my $Version = $context->[0]->{version};
 
     my $name = $parameter->findvalue('@name');
     my $ref = $parameter->findvalue('@ref');
@@ -2605,8 +2633,10 @@ sub expand_model_parameter
 
     my $version = version($parameter,
                           {default => $pnode->{version}, path => $path,
+                           specversion => spec_version($spec),
                            modelversion => $mnode->{version},
-                           ignoreminor => ($pnode == $mnode)});
+                           ignoreminor => ($pnode == $mnode),
+                           clampversion => $Version});
 
     $status = util_maybe_deleted($status);
     update_refs($description, $file, $spec);
@@ -5880,6 +5910,17 @@ sub spec_parse
     return ($prefix, $name, $i, $a, $c, $label);
 }
 
+# Parse a spec, returning undef or a version hash
+sub spec_version
+{
+    my ($spec) = @_;
+
+    my ($prefix, $name, $i, $a, $c, $label) = spec_parse($spec);
+    return undef unless defined $a;
+
+    return {major => $i, minor => $a, patch => ($c >= 0 ? $c : undef)};
+}
+
 # Check whether specs match (this is intended for checking whether a spec in
 # one file matches the spec in an imported file)
 sub specs_match
@@ -7770,7 +7811,9 @@ sub html_create_anchor
     my $hash = $anchors->{$aname};
     if (defined $hash) {
         if ($label ne $hash->{label}) {
-            w0msg "html_create_anchor: warning: $aname label changed";
+            w0msg "html_create_anchor: warning: $aname label changed; " .
+                "can't have input and output command arguments with the " .
+                "same name!";
             $hash->{label} = $label;
             $hash->{def} = $adef;
             $hash->{ref} = $aref;
@@ -9682,9 +9725,11 @@ sub html_template_numentries
     $text .= qq{{{marktemplate|numentries}}} if $marktemplates;
 
     if (is_command($node) || is_event($node)) {
+        my $what = is_command($node) ? 'command' : 'event';
+        w1msg "$path: unexpected numEntries parameter is within a $what";
         return '';
     } elsif (!$table) {
-        emsg "$path: invalid use of {{numentries}}; parameter is " .
+        emsg "$path: invalid numEntries parameter is " .
             "not associated with a table" unless util_is_deleted($node);
         return undef;
     } else {
