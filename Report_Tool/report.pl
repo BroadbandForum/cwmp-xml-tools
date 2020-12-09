@@ -14679,7 +14679,8 @@ sub sanity_node
     # parameter sanity checks
     if ($parameter) {
         # keep track of used types for output
-        $used_data_type_list->{$node->{'type'} eq 'dataType' ?  $node->{'syntax'}->{'ref'} : $node->{'type'}} = 1;
+        my $typeinfo = get_typeinfo($type, $syntax);
+        $used_data_type_list->{$typeinfo->{value}} = 1;
 
         # XXX this isn't always an error; depends on whether table entries
         #     correspond to device configuration
