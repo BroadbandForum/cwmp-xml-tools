@@ -9453,7 +9453,10 @@ sub html_template
          {name => 'ignore', text => q{}},
          # 'templ' should be deprecated in favor of 'template'
          {name => 'templ', text => \&html_template_template},
-         {name => 'template', text => \&html_template_template}
+         {name => 'template', text => \&html_template_template},
+         {name => 'deprecated', text2 => \&html_template_deprecated},
+         {name => 'obsoleted', text2 => \&html_template_obsoleted},
+         {name => 'deleted', text2 => \&html_template_deleted}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -10347,6 +10350,15 @@ sub html_template_paramref
                 "$path" if !$showdiffs;
             $invalid = '!';
         }
+        # XXX should combine this with the above 'deleted' check; should also
+        #     check for referencing "more deprecated" items
+        elsif (!$invalid && $parameters->{$fpath}->{status} &&
+               ($parameters->{$fpath}->{status} =~
+                /deprecated|obsoleted|deleted/)) {
+            my $status = $parameters->{$fpath}->{status};
+            w0msg "$object$param: reference to $status $entity $path";
+            $invalid = '!';
+        }
     }
 
     $name = qq{''$name$invalid''};
@@ -10876,6 +10888,48 @@ sub html_template_mount
             qq{can be mounted}
     };
     return qq{This object is $mount_map->{$mount_type}.};
+}
+
+# mark an item as being deprecated; arguments are:
+# - ver: version (i.a or i.a.c) in which it was deprecated
+# - msg: message explaining the deprecation; this must make sense in this
+#        context: "This xxx was deprecated in <arg1> <arg2>."
+sub html_template_deprecated
+{
+    my ($opts, $ver, $msg) = @_;
+    return html_template_status_helper($opts, $ver, $msg, 'deprecated');
+}
+
+# mark an item as being obsoleted
+sub html_template_obsoleted
+{
+    my ($opts, $ver, $msg) = @_;
+    return html_template_status_helper($opts, $ver, $msg, 'obsoleted');
+}
+
+# mark an item as being deleted
+sub html_template_deleted
+{
+    my ($opts, $ver, $msg) = @_;
+    return html_template_status_helper($opts, $ver, $msg, 'deleted');
+}
+
+# helper that implements the above deprecated / obsoleted / deleted logic
+sub html_template_status_helper
+{
+    my ($opts, $ver, $msg, $transition) = @_;
+
+    # XXX this currently just generates a message; it should also (where
+    #     "STATUS" is "deprecated", "obsoleted" or "deleted):
+    #     - check that, if status="STATUS", there's a corresponding
+    #       {{STATUS}} template reference
+    #     - warn if any non-STATUS items reference STATUS items
+    #     - check for STATUS transitions: deprecated to obsoleted after two
+    #       releases and obsoleted to deleted at the third release
+    #     - check any other rules that can be checked automatically
+
+    my $item_type = $opts->{syntax} ? 'parameter' : $opts->{type};
+    return qq{This $item_type was $transition in $ver $msg.};
 }
 
 # Generate relative path given...
