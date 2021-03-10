@@ -10338,25 +10338,22 @@ sub html_template_paramref
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
 
-    # XXX don't warn further if this item has been deleted
-    if (!util_is_deleted($opts->{node})) {
-        emsg "$object$param: reference to invalid $entity $path"
-            if $invalid && !$automodel;
-        # XXX make this nicer (not sure why test of status is needed here but
-        #     upnpdm triggers "undefined" errors otherwise
-        if (!$invalid && $parameters->{$fpath}->{status} &&
-            $parameters->{$fpath}->{status} eq 'deleted') {
-            w0msg "$object$param: reference to deleted $entity ".
-                "$path" if !$showdiffs;
-            $invalid = '!';
-        }
-        # XXX should combine this with the above 'deleted' check; should also
-        #     check for referencing "more deprecated" items
-        elsif (!$invalid && $parameters->{$fpath}->{status} &&
-               ($parameters->{$fpath}->{status} =~
-                /deprecated|obsoleted|deleted/)) {
-            my $status = $parameters->{$fpath}->{status};
-            w0msg "$object$param: reference to $status $entity $path";
+    # check for invalid or inappropriate references
+    if (util_is_deleted($opts->{node})) {
+        # don't warn further if this entity has been deleted
+    } elsif ($invalid) {
+        emsg "$object$param: reference to invalid $entity $path" unless
+            $automodel;
+    } else {
+        my $statlev = {current => 0, deprecated => 1, obsoleted => 2,
+                       deleted => 3};
+        my $entstat = $opts->{node}->{status};
+        my $refstat = $parameters->{$fpath}->{status};
+        if ($entstat && $refstat && $refstat =~ /deprecated|obsoleted|deleted/
+            && $statlev->{$refstat} > $statlev->{$entstat}) {
+            # XXX this is currently at warning level 1 because Device:2 data
+            #     model issues are currently causing build failures
+            w1msg "$object$param: reference to $refstat $entity $path";
             $invalid = '!';
         }
     }
