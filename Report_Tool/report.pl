@@ -9729,7 +9729,7 @@ sub html_template_numentries
 
     if (is_command($node) || is_event($node)) {
         my $what = is_command($node) ? 'command' : 'event';
-        w1msg "$path: unexpected numEntries parameter is within a $what";
+        w0msg "$path: unexpected numEntries parameter is within a $what";
         return '';
     } elsif (!$table) {
         emsg "$path: invalid numEntries parameter is " .
