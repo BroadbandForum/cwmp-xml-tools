@@ -9454,9 +9454,15 @@ sub html_template
          # 'templ' should be deprecated in favor of 'template'
          {name => 'templ', text => \&html_template_template},
          {name => 'template', text => \&html_template_template},
-         {name => 'deprecated', text2 => \&html_template_deprecated},
-         {name => 'obsoleted', text2 => \&html_template_obsoleted},
-         {name => 'deleted', text2 => \&html_template_deleted}
+         {name => 'deprecated',
+          text1 => \&html_template_deprecated,
+          text2 => \&html_template_deprecated},
+         {name => 'obsoleted',
+          text1 => \&html_template_obsoleted,
+          text2 => \&html_template_obsoleted},
+         {name => 'deleted',
+          text1 => \&html_template_deleted,
+          text2 => \&html_template_deleted}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -10050,7 +10056,9 @@ sub html_template_enum
     my ($opts) = @_;
 
     # pass node if supplied; otherwise values
-    my $node_or_values = $opts->{node} ? $opts->{node} : $opts->{values};
+    # XXX beware autovivification! check for _empty_ node
+    my $node_or_values = $opts->{node} && %{$opts->{node}} ?
+        $opts->{node} : $opts->{values};
 
     # XXX not using atstart (was "atstart or newline")
     my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
@@ -10060,7 +10068,7 @@ sub html_template_enum
     # only output the prefix if there are any values
     my $escaped_values = xml_escape(get_values($node_or_values, !$nolinks));
     w0msg "$opts->{node}->{path}: inappropriate use of {{enum}} template"
-        if $opts->{node} && !$escaped_values;
+        if $opts->{node} && $opts->{node}->{path} && !$escaped_values;
     return $escaped_values ? ($pref . $escaped_values) : "";
 }
 
@@ -10069,7 +10077,9 @@ sub html_template_pattern
     my ($opts) = @_;
 
     # pass node if supplied; otherwise values
-    my $node_or_values = $opts->{node} ? $opts->{node} : $opts->{values};
+    # XXX beware autovivification! check for _empty_ node
+    my $node_or_values = $opts->{node} && %{$opts->{node}} ?
+        $opts->{node} : $opts->{values};
 
     # XXX not using atstart (was "atstart or newline")
     my $pref = ($opts->{newline}) ? "" : $opts->{list} ?
@@ -10079,7 +10089,7 @@ sub html_template_pattern
     # only output the prefix if there are any values
     my $escaped_values = xml_escape(get_values($node_or_values, !$nolinks));
     w0msg "$opts->{node}->{path}: inappropriate use of {{pattern}} template"
-        if $opts->{node} && !$escaped_values;
+        if $opts->{node} && $opts->{node}->{path} && !$escaped_values;
     return $escaped_values ? ($pref . $escaped_values) : "";
 }
 
@@ -10293,6 +10303,15 @@ sub html_template_paramref
     my $object = $opts->{object};
     my $param = $opts->{param};
 
+    # if scope is defined but isn't a known scope, assume it's a status and
+    # treat it as a temporary entity status
+    my $scopes = "normal|absolute|model";
+    my $entstat = $opts->{node}->{status};
+    if ($scope && $scope !~ /$scopes/) {
+        $entstat = $scope;
+        $scope = undef;
+    }
+
     # this routine is used for parameters, commands and events, so use
     # variables to ensure that the correct terms are used in messages
     my $template = $opts->{is_commandref} ? 'command' :
@@ -10300,14 +10319,15 @@ sub html_template_paramref
     my $entity = $opts->{is_commandref} ? 'command' :
         $opts->{is_eventref} ? 'event' : 'parameter';
 
-    # if no object (e.g. in data type description) return $name or the entity
-    return ($name ? qq{''$name''} : $entity) unless $object;
+    # if no object or parameter (e.g. in data type description) return $name
+    # or the entity type
+    return ($name ? qq{''$name''} : $entity) unless $object || $param;
 
     # parameterless case (no "name") is special
     unless ($name) {
         # validate scope, in case (for example) {{param||name}} was mistyped
         # for {{param|name}}
-        if ($scope && $scope !~ /normal|absolute|model/) {
+        if ($scope && $scope !~ /$scopes/) {
             emsg "$object: possible inadvertently empty name argument in " .
                 "{{$template||$scope}}";
         } elsif (!$param) {
@@ -10347,13 +10367,10 @@ sub html_template_paramref
     } else {
         my $statlev = {current => 0, deprecated => 1, obsoleted => 2,
                        deleted => 3};
-        my $entstat = $opts->{node}->{status};
         my $refstat = $parameters->{$fpath}->{status};
         if ($entstat && $refstat && $refstat =~ /deprecated|obsoleted|deleted/
             && $statlev->{$refstat} > $statlev->{$entstat}) {
-            # XXX this is currently at warning level 1 because Device:2 data
-            #     model issues are currently causing build failures
-            w1msg "$object$param: reference to $refstat $entity $path";
+            w0msg "$object$param: reference to $refstat $entity $path";
             $invalid = '!';
         }
     }
@@ -10405,6 +10422,15 @@ sub html_template_objectref
 
     my $object = $opts->{object};
     my $param = $opts->{param};
+
+    # if scope is defined but isn't a known scope, assume it's a status and
+    # treat it as a temporary object status
+    my $scopes = "normal|absolute|model";
+    my $objstat = $opts->{node}->{status};
+    if ($scope && $scope !~ /$scopes/) {
+        $objstat = $scope;
+        $scope = undef;
+    }
 
     # if there's no object, e.g. this is within a data type definition, just
     # return $name or the word 'object'
@@ -10488,16 +10514,20 @@ sub html_template_objectref
 
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
-    # XXX don't warn further if this item has been deleted
-    if (!util_is_deleted($opts->{node})) {
-        emsg "$object$param: reference to invalid object $path"
-            if $invalid && !$automodel;
-        # XXX make this nicer (not sure why test of status is needed here but
-        #     upnpdm triggers "undefined" errors otherwise
-        if (!$invalid && $objects->{$fpath}->{status} &&
-            $objects->{$fpath}->{status} eq 'deleted') {
-            w0msg "$object$param: reference to deleted object $path"
-                if !$showdiffs;
+
+    # check for invalid or inappropriate references
+    if (util_is_deleted($opts->{node})) {
+        # don't warn further if this item has been deleted
+    } elsif ($invalid) {
+        emsg "$object$param: reference to invalid object $path" unless
+            $automodel;
+    } else {
+        my $statlev = {current => 0, deprecated => 1, obsoleted => 2,
+                       deleted => 3};
+        my $refstat = $objects->{$fpath}->{status};
+        if ($objstat && $refstat && $refstat =~ /deprecated|obsoleted|deleted/
+            && $statlev->{$refstat} > $statlev->{$objstat}) {
+            w0msg "$object$param: reference to $refstat object $path";
             $invalid = '!';
         }
     }
@@ -10912,21 +10942,71 @@ sub html_template_deleted
 }
 
 # helper that implements the above deprecated / obsoleted / deleted logic
+# (note that this can be called from sanity_node, which will pass only the node
+# in opts)
 sub html_template_status_helper
 {
     my ($opts, $ver, $msg, $transition) = @_;
 
-    # XXX this currently just generates a message; it should also (where
-    #     "STATUS" is "deprecated", "obsoleted" or "deleted):
-    #     - check that, if status="STATUS", there's a corresponding
-    #       {{STATUS}} template reference
-    #     - warn if any non-STATUS items reference STATUS items
-    #     - check for STATUS transitions: deprecated to obsoleted after two
-    #       releases and obsoleted to deleted at the third release
-    #     - check any other rules that can be checked automatically
+    my $object = $opts->{object};
+    my $param = $opts->{param};
+    my $node = $opts->{node};
 
-    my $item_type = $opts->{syntax} ? 'parameter' : $opts->{type};
-    return qq{This $item_type was $transition in $ver $msg.};
+    my $status = $node->{status};
+    my $type = $opts->{type} || $node->{type};
+    my $syntax = $opts->{syntax} || $node->{syntax};
+
+    # empty param means that this is called from sanity_node(), so be quiet
+    my $quiet = !defined $param;
+
+    # count errors
+    my $errors = 0;
+
+    # the 'ver' argument is of the form n.m[.p] or n.m[.p]-n.m[.p]
+    my $versions = [];
+    my @vercomps = $ver ? split /-/, $ver : ();
+    foreach my $vercomp (@vercomps) {
+        if ($vercomp !~ /^\d+\.\d+(\.\d+)?$/) {
+            emsg "$object$param: $transition version $vercomp isn't of the " .
+                "form n.m[.p]" unless $quiet;
+            $errors++;
+        }
+        my ($version) = version_parse($vercomp);
+        push @$versions, $version;
+    }
+
+    # check that a version was specified
+    if (!$versions->[0]) {
+        emsg "$object$param: {{$transition}} version is empty" unless $quiet;
+        $errors++;
+    }
+
+    # check that, if there are multiple versions, they are increasing
+    if ($versions->[1] &&
+        version_compare($versions->[0], $versions->[1]) >= 0) {
+        emsg "$object$param: {{$transition}} version range $ver isn't " .
+            "increasing" unless $quiet;
+        $errors++;
+    }
+
+    # warn if this transition is invalid
+    my $statlev = {current => 0, deprecated => 1, obsoleted => 2,
+                   deleted => 3};
+    if ($statlev->{$transition} > $statlev->{$status}) {
+        emsg "$object$param: is $status, so {{$transition}} is invalid"
+            unless $quiet;
+        $errors++;
+    }
+
+    # if there are no errors, store the versions for use by sanity_node()
+    $node->{status_transitions}->{$transition} = $versions unless $errors;
+
+    # expand the template
+    my $item_type = $syntax ? 'parameter' : $type;
+    my $TRANSITION = uc $transition;
+    my $ver_ = version_string($versions->[0]);
+    my $msg_ = $msg ? qq{ $msg} : qq{};
+    return qq{This $item_type was $TRANSITION in $ver_$msg_.};
 }
 
 # Generate relative path given...
@@ -14560,9 +14640,6 @@ sub sanity_node
         }
     }
 
-    # no warnings for deleted items
-    return if util_is_deleted($node);
-
     my $is_dt = $node->{is_dt};
     my $path = $node->{path};
     my $name = $node->{name};
@@ -14589,6 +14666,7 @@ sub sanity_node
     $minEntries = '1' unless defined $minEntries;
     $maxEntries = '1' unless defined $maxEntries;
 
+    # commands and events are treated as parameters
     my $object = ($type && $type eq 'object');
     my $parameter = ($type &&
                      $type !~ /model|object|profile|parameterRef|objectRef/);
@@ -14604,6 +14682,99 @@ sub sanity_node
         #     which isn't clever enough (need to do bottom up or multi pass)
         $node->{type} = '' unless $node->{nodes};
     }
+
+    # deprecated / obsoleted / deleted status checks are here so that they
+    # apply to deleted items
+    if ($status && $status =~ /deprecated|obsoleted|deleted/) {
+        # get the full description so can check for the expected templates
+        # XXX this logic is copied from html_node()
+        my $changed = $node->{changed};
+        my $history = $node->{history};
+        my $descact = $node->{descact};
+        my $dchanged = util_node_is_modified($node) &&
+            $changed->{description};
+        (my $fulldesc) = get_description($description, $descact,
+                                         $dchanged, $history, 1);
+
+        # expand the related templates (see html_template()); this has
+        # to be done here because templates haven't yet been expanded
+        # (and are only expanded for HTML reports anyway)
+        my $inval = $fulldesc;
+        my $opts = {node => $node};
+        while (my ($temp) = $inval =~ /(\{\{.*)/) {
+            my $tref = extract_bracketed($temp, '{}');
+            if (!defined($tref)) {
+                # invalid template reference will be reported later
+                $inval =~ s/\{\{/\[\[/;
+                next;
+            }
+            my ($transition, $args) =
+                $tref =~ /^\{\{([^\|\}]*)(?:\|(.*))?\}\}$/;
+            if ($transition =~ /deprecated|obsoleted|deleted/) {
+                my $ver = $args;
+                $ver =~ s/\|.*//;
+                html_template_status_helper($opts, $ver, 'MSG',
+                                            $transition);
+            }
+            $inval =~ s/\Q$tref\E/REPLACEMENT/;
+        }
+
+        # status_transitions indicates which status templates were found
+        # and which versions they specified
+        my $transitions = $node->{status_transitions};
+        my $modver = $node->{mnode}->{version};
+
+        # check that the appropriate status template is present
+        w0msg "$path: is $status but has no {{$status}} template"
+            unless $transitions->{$status};
+
+        # check for late (overdue) or too-early transitions
+        if ($transitions) {
+            # escalations are 'from' version, 'to' version, from -> to delta
+            my ($dep_to_obs, $obs_to_del) = (2, 1);
+            my $escalations = [
+                ['deprecated', 'obsoleted', $dep_to_obs],
+                ['deprecated', 'deleted', $dep_to_obs + $obs_to_del],
+                ['obsoleted', 'deleted', $obs_to_del]
+                ];
+            foreach my $escalation (@$escalations) {
+                my ($from, $to, $delta) = @$escalation;
+
+                # can't check anything if we don't know the 'from' version
+                next unless $transitions->{$from};
+
+                # the first 'from' version is when the transition occurred;
+                my $fromver = $transitions->{$from}->[0];
+                my $fromver_string = version_string($fromver);
+                # XXX this could be checked during template expansion?
+                next unless $fromver->{major} == $modver->{major};
+
+                # the last 'from' version (which might be the same as the
+                # first one) is used for 'next transition' warnings
+                my $fromver2 = $transitions->{$from}->[-1];
+                my $expected_minor = $fromver2->{minor} + $delta;
+
+                # check for a late (overdue) transition
+                if ($status eq $from) {
+                    w0msg "$path: was $from at $fromver_string and should " .
+                        "be $to at $fromver->{major}.$expected_minor" if
+                        $modver->{minor} >= $expected_minor;
+                }
+
+                # check for a too-early transition
+                # XXX this doesn't use $transitions->{$to}; is this correct?
+                if ($status eq $to) {
+                    w0msg "$path: was $from at $fromver_string and " .
+                        "shouldn't be $to until " .
+                        "$fromver->{major}.$expected_minor" if
+                        $modver->{minor} < $expected_minor;
+                }
+            }
+        }
+    }
+
+    # no further warnings for deleted items
+    return if util_is_deleted($node);
 
     # glossary / abbreviations sanity checks
     # XXX maybe should only check referenced items?
