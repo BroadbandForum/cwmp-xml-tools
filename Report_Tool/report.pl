@@ -11281,8 +11281,9 @@ sub html_font
 
     # XXX experimental -- -> en-dash (not --- -> em-dash for now because that
     #     conflicts with deleted text; change char sequence for deleted text?)
+    #     DISABLED because it wasn't used and it can create unwanted en-dashes
     #$inval =~ s|---|&#8212;|g;
-    $inval =~ s|--|&#8211;|g;
+    #$inval =~ s|--|&#8211;|g;
 
     # XXX "%%" anchor expansion should be elsewhere (hyperlink?)
     # XXX need to escape special characters out of anchors and references
