@@ -10300,6 +10300,9 @@ sub html_template_paramref
 {
     my ($opts, $name, $scope) = @_;
 
+    # save original name for later
+    my $oname = $name;
+
     my $object = $opts->{object};
     my $param = $opts->{param};
 
@@ -10337,12 +10340,6 @@ sub html_template_paramref
         return qq{''$param''};
     }
 
-    # warn if {{param}} is used to reference a command or event
-    w0msg "$object$param: should use {{command}} to reference a command"
-        if $name =~ /\(\)$/ && !$opts->{is_commandref};
-    w0msg "$object$param: should use {{event}} to reference an event"
-        if $name =~ /!$/ && !$opts->{is_eventref};
-
     # when showing diffs, "name" can include deleted and inserted text
     $name =~ s|\-\-\-(.*?)\-\-\-||g;
     $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
@@ -10357,6 +10354,23 @@ sub html_template_paramref
 
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
+
+    # warn if {{param}} is used to reference a command or event, or if the
+    # given name omits the trailing () or !
+    my $is_command = !$invalid ? $parameters->{$fpath}->{is_command} : undef;
+    my $is_event = !$invalid ? $parameters->{$fpath}->{is_event} : undef;
+    if ($name =~ /\(\)$/ || $is_command) {
+        w0msg "$object$param: should use {{command}} to reference $name"
+            unless $opts->{is_commandref};
+        w0msg "$object$param: command reference $oname should be $name"
+            unless $oname =~ /\(\)$/;
+    }
+    if ($name =~ /!$/ || $is_event) {
+        w0msg "$object$param: should use {{event}} to reference $name"
+            unless $opts->{is_eventref};
+        w0msg "$object$param: event reference $oname should be $name"
+            unless $oname =~ /!$/;
+    }
 
     # check for invalid or inappropriate references
     if (util_is_deleted($opts->{node})) {
