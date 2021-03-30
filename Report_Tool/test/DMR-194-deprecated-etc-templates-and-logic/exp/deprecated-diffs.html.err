@@ -1,6 +1,8 @@
 (W) Automobile: was deprecated at 1.1 and should be obsoleted at 1.3
-(W) Automobile: was deprecated at 1.1 and should be deleted at 1.4
+(W) Diesel: is deleted but has no {{deprecated}} template
 (W) Diesel: is deleted but has no {{deleted}} template
+(W) EtypeJaguar: is deleted but has no {{deprecated}} template
+(W) EtypeJaguar: is deleted but has no {{obsoleted}} template
 (E) Automobile: is deprecated, so {{obsoleted}} is invalid
 (W) Bicycle: reference to deleted parameter Diesel
 (W) Canoe: reference to deprecated parameter Automobile

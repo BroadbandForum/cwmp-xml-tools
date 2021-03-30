@@ -1,0 +1,3 @@
+(W) Container.: was deprecated at 1.1 and should be obsoleted at 1.3
+(W) Canoe: reference to deprecated parameter Container.FlyingMachine
+(W) Canoe: reference to deprecated object Container.Child.

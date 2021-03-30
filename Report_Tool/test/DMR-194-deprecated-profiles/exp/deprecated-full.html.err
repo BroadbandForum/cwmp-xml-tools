@@ -1,0 +1,6 @@
+(W) Container.: was deprecated at 1.1 and should be obsoleted at 1.3
+(W) profile Advanced:2 is current but should be obsoleted because of Automobile, EtypeJaguar
+(W) profile AdvancedDiesel:2 is current but should be obsoleted because of Automobile, EtypeJaguar
+(E) Bicycle: reference to invalid parameter Diesel
+(W) Canoe: reference to deprecated parameter Container.FlyingMachine
+(W) Canoe: reference to deprecated object Container.Child.
