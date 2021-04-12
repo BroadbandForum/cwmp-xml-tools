@@ -200,7 +200,7 @@ The value MUST NOT change once it's been assigned.</td>
       <tr>
         <td><a name="T.Dbm1000">Dbm1000</a></td>
         <td class="pc"><a href="#T.int">int</a></td>
-        <td>The value is measured in <i>dBm/1000</i>, i.e. the value divided by 1000 is dB relative to 1 mW.  For example, -12345 means -12.345 dBm, 0 means 0 dBm (1 mW) and 12345 means 12.345 dBm.</td>
+        <td>The value is measured in <i>dBm/1000</i>, i.e. the value divided by 1000 is dB relative to 1 mW. For example, -12345 means -12.345 dBm, 0 means 0 dBm (1 mW) and 12345 means 12.345 dBm.</td>
       </tr>
       <tr>
         <td><a name="T.IEEE_EUI64">IEEE_EUI64</a></td>
@@ -220,12 +220,12 @@ Possible patterns:<p>
         <td><a name="T.IPAddress">IPAddress</a></td>
         <td class="pc"><a href="#T.string">string</a>(45)</td>
         <td><p>IP address, i.e. IPv4 address (or IPv4 subnet mask) or IPv6 address.<p>
-All IPv4 addresses and subnet masks MUST be represented as strings in IPv4 dotted-decimal notation.  Here are some examples of valid IPv4 address textual representations:<p>
+All IPv4 addresses and subnet masks MUST be represented as strings in IPv4 dotted-decimal notation. Here are some examples of valid IPv4 address textual representations:<p>
 <ul>
   <li>216.52.29.100
   <li>192.168.1.254
 </ul><p>
-All IPv6 addresses MUST be represented using any of the 3 standard textual representations defined in [<a href="#R.RFC4291">RFC4291</a>] Sections 2.2.1, 2.2.2 and 2.2.3.  Both lower-case and upper-case letters can be used, but use of lower-case letters is RECOMMENDED.  Here are some examples of valid IPv6 address textual representations:<p>
+All IPv6 addresses MUST be represented using any of the 3 standard textual representations defined in [<a href="#R.RFC4291">RFC4291</a>] Sections 2.2.1, 2.2.2 and 2.2.3. Both lower-case and upper-case letters can be used, but use of lower-case letters is RECOMMENDED. Here are some examples of valid IPv6 address textual representations:<p>
 <ul>
   <li>1080:0:0:800:ba98:3210:11aa:12dd
   <li>1080::800:ba98:3210:11aa:12dd
@@ -242,7 +242,7 @@ Unspecified or inapplicable addresses (or IPv4 subnet masks) MUST be represented
   <li>IPv4 example: 192.168.1.0/24
   <li>IPv6 example: 2001:edff:fe6a:f76::/64
 </ul><p>
-If the IP address part is unspecified or inapplicable, it MUST be an empty string unless otherwise specified by the parameter definition.  In this case the IP prefix will be of the form "/n".<p>
+If the IP address part is unspecified or inapplicable, it MUST be an empty string unless otherwise specified by the parameter definition. In this case the IP prefix will be of the form "/n".<p>
 If the entire IP prefix is unspecified or inapplicable, it MUST be an empty string unless otherwise specified by the parameter definition.</td>
       </tr>
       <tr>
@@ -424,7 +424,7 @@ Can be any IPv6 prefix that is permitted by the <i>IPPrefix</i> data type.</td>
       <tr>
         <td><a name="T.MACAddress">MACAddress</a></td>
         <td class="pc"><a href="#T.string">string</a>(17)</td>
-        <td><p>All MAC addresses are represented as strings of 12 hexadecimal digits (digits 0-9, letters A-F or a-f) displayed as six pairs of digits separated by colons.  Unspecified or inapplicable MAC addresses MUST be represented as empty strings unless otherwise specified by the parameter definition.  Possible patterns:<p>
+        <td><p>All MAC addresses are represented as strings of 12 hexadecimal digits (digits 0-9, letters A-F or a-f) displayed as six pairs of digits separated by colons. Unspecified or inapplicable MAC addresses MUST be represented as empty strings unless otherwise specified by the parameter definition.  Possible patterns:<p>
 <ul>
   <li><i>&lt;Empty&gt;</i> (an empty string)
   <li><i>([0-9A-Fa-f][0-9A-Fa-f]:){5}([0-9A-Fa-f][0-9A-Fa-f])</i>
@@ -478,7 +478,7 @@ See [Clause 5.15.2.2/<a href="#R.3GPP-TS.23.501">3GPP-TS.23.501</a>].</td>
         <td class="pc"><a href="#T.unsignedInt">unsignedInt</a></td>
         <td><p>A 32-bit statistics parameter, e.g. a byte counter.<p>
 This data type SHOULD NOT be used for statistics parameters whose values might become greater than the maximum value that can be represented as an <i>unsignedInt</i> (i.e. 0xffffffff, referred to below as <i>maxval</i>). <i>StatsCounter64</i> SHOULD be used for such parameters.<p>
-The value <i>maxval</i> indicates that no data is available for this parameter.  In the unlikely event that the actual value of the statistic is <i>maxval</i>, the CPE SHOULD return <i>maxval - 1</i>.<p>
+The value <i>maxval</i> indicates that no data is available for this parameter. In the unlikely event that the actual value of the statistic is <i>maxval</i>, the CPE SHOULD return <i>maxval - 1</i>.<p>
 The actual value of the statistic might be greater than <i>maxval</i>. Such values SHOULD wrap around through zero.<p>
 The term <i>packet</i> is to be interpreted as the transmission unit appropriate to the protocol layer in question, e.g. an IP packet or an Ethernet frame.</td>
       </tr>
@@ -504,12 +504,12 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       <tr>
         <td><a name="T.URL">URL</a></td>
         <td class="pc"><a href="#T.URI">URI</a>(2048)</td>
-        <td>Uniform Resource Locator.  See [<a href="#R.RFC3986">RFC3986</a>] (URI), [<a href="#R.IANA-uri-schemes">IANA-uri-schemes</a>], and individual URI scheme RFCs such as [<a href="#R.RFC7252">RFC7252</a>] (<i>coap</i>, <i>coaps</i>) and [<a href="#R.RFC7230">RFC7230</a>] (<i>http</i>, <i>https</i>).</td>
+        <td>Uniform Resource Locator. See [<a href="#R.RFC3986">RFC3986</a>] (URI), [<a href="#R.IANA-uri-schemes">IANA-uri-schemes</a>], and individual URI scheme RFCs such as [<a href="#R.RFC7252">RFC7252</a>] (<i>coap</i>, <i>coaps</i>) and [<a href="#R.RFC7230">RFC7230</a>] (<i>http</i>, <i>https</i>).</td>
       </tr>
       <tr>
         <td><a name="T.UUID">UUID</a></td>
         <td class="pc"><a href="#T.string">string</a>(36:36)</td>
-        <td><p>Universally Unique Identifier.  See [<a href="#R.RFC4122">RFC4122</a>].  Possible patterns:<p>
+        <td><p>Universally Unique Identifier. See [<a href="#R.RFC4122">RFC4122</a>].  Possible patterns:<p>
 <ul>
   <li><i>[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}</i>
 </ul></td>
@@ -540,11 +540,13 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.3GPP-TS.24.008"></a>[<a href="https://www.3gpp.org/ftp/Specs/html-info/24008.htm">3GPP-TS.24.008</a>]</td>
-        <td>3GPP TS 24.008, <em>Mobile radio interface Layer 3 specification; Core network protocols; Stage 3</em>, 3GPP CT WG1.</td>
+        <td>3GPP TS 24.008, <em>Mobile radio interface Layer 3 specification; Core network protocols;
+        Stage 3</em>, 3GPP CT WG1.</td>
       </tr>
       <tr>
         <td><a name="R.3GPP-TS.24.301"></a>[<a href="https://www.3gpp.org/ftp/Specs/html-info/24301.htm">3GPP-TS.24.301</a>]</td>
-        <td>3GPP TS 24.301, <em>Non-Access-Stratum (NAS) protocol for Evolved Packet System (EPS); Stage 3</em>, 3GPP CT WG1.</td>
+        <td>3GPP TS 24.301, <em>Non-Access-Stratum (NAS) protocol for Evolved Packet System (EPS);
+        Stage 3</em>, 3GPP CT WG1.</td>
       </tr>
       <tr>
         <td><a name="R.3GPP-TS.24.501"></a>[<a href="https://www.3gpp.org/ftp/Specs/html-info/24501.htm">3GPP-TS.24.501</a>]</td>
@@ -560,15 +562,18 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.802.11-2007"></a>[<a href="https://standards.ieee.org/getieee802/download/802.11-2007.pdf">802.11-2007</a>]</td>
-        <td>IEEE Std 802.11-2007, <em>Wireless LAN Medium Access Control (MAC) and Physical Layer (PHY) Specifications</em>, IEEE, 2007.</td>
+        <td>IEEE Std 802.11-2007, <em>Wireless LAN Medium Access Control (MAC) and Physical Layer (PHY)
+        Specifications</em>, IEEE, 2007.</td>
       </tr>
       <tr>
         <td><a name="R.802.11-2012"></a>[<a href="https://standards.ieee.org/getieee802/download/802.11-2012.pdf">802.11-2012</a>]</td>
-        <td>IEEE Std 802.11-2012, <em>Wireless LAN Medium Access Control (MAC) and Physical Layer (PHY) Specifications</em>, IEEE, March 2012.</td>
+        <td>IEEE Std 802.11-2012, <em>Wireless LAN Medium Access Control (MAC) and Physical Layer (PHY)
+        Specifications</em>, IEEE, March 2012.</td>
       </tr>
       <tr>
         <td><a name="R.802.11-2016"></a>[<a href="https://ieeexplore.ieee.org/document/7786995">802.11-2016</a>]</td>
-        <td>IEEE Std 802.11-2016, <em>Wireless LAN Medium Access Control (MAC) and Physical Layer (PHY) Specifications</em>, IEEE, December 2016.</td>
+        <td>IEEE Std 802.11-2016, <em>Wireless LAN Medium Access Control (MAC) and Physical Layer (PHY)
+        Specifications</em>, IEEE, December 2016.</td>
       </tr>
       <tr>
         <td><a name="R.802.11a-1999"></a>[<a href="https://standards.ieee.org/getieee802/download/802.11a-1999.pdf">802.11a-1999</a>]</td>
@@ -576,7 +581,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.802.11ac-2013"></a>[<a href="https://www.ieee802.org/11/Reports/tgac_update.htm">802.11ac-2013</a>]</td>
-        <td>IEEE Std 802.11ac-2013, <em>Enhancements for Very High Throughput for Operation in Bands below 6 GHz</em>, IEEE, December 2013.</td>
+        <td>IEEE Std 802.11ac-2013, <em>Enhancements for Very High Throughput for Operation in Bands below 6
+        GHz</em>, IEEE, December 2013.</td>
       </tr>
       <tr>
         <td><a name="R.802.11ax"></a>[802.11ax]</td>
@@ -608,7 +614,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.802.1AX-2014"></a>[<a href="https://ieeexplore.ieee.org/servlet/opac?punumber=6997981">802.1AX-2014</a>]</td>
-        <td>IEEE Std 802.1AX-2014, <em>IEEE Standard for Local and metropolitan area networks -- Link Aggregation</em>, IEEE, 2014.</td>
+        <td>IEEE Std 802.1AX-2014, <em>IEEE Standard for Local and metropolitan area networks -- Link
+        Aggregation</em>, IEEE, 2014.</td>
       </tr>
       <tr>
         <td><a name="R.802.1D-2004"></a>[<a href="https://standards.ieee.org/getieee802/download/802.1D-2004.pdf">802.1D-2004</a>]</td>
@@ -624,7 +631,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.802.1x-2004"></a>[<a href="https://standards.ieee.org/getieee802/download/802.1X-2004.pdf">802.1x-2004</a>]</td>
-        <td>IEEE Std 802.1x-2004, <em>Standards for Local and Metropolitan Area Networks: Port based Network Access Control</em>, IEEE, 2004.</td>
+        <td>IEEE Std 802.1x-2004, <em>Standards for Local and Metropolitan Area Networks: Port based Network
+        Access Control</em>, IEEE, 2004.</td>
       </tr>
       <tr>
         <td><a name="R.802.3-2015"></a>[<a href="https://ieeexplore.ieee.org/servlet/opac?punumber=7428774">802.3-2015</a>]</td>
@@ -648,7 +656,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.DLNA-NDIG"></a>[<a href="https://www.dlna.org/industry/certification/guidelines/">DLNA-NDIG</a>]</td>
-        <td>DLNA Networked Device Interoperability Guidelines, <em>DLNA Networked Device Interoperability Guidelines, Volume 2: Media Format Profiles.</em>, DLNA, October 2006.</td>
+        <td>DLNA Networked Device Interoperability Guidelines, <em>DLNA Networked Device Interoperability Guidelines, Volume 2: Media
+        Format Profiles.</em>, DLNA, October 2006.</td>
       </tr>
       <tr>
         <td><a name="R.DNS-SD"></a>[<a href="https://tools.ietf.org/html/rfc6763">DNS-SD</a>]</td>
@@ -660,11 +669,14 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.DSLite-options"></a>[<a href="https://tools.ietf.org/html/rfc6334">DSLite-options</a>]</td>
-        <td>RFC 6334, <em>Dynamic Host Configuation Protocol for IPv6 (DHCPv6) Option for Dual-Stack Lite</em>, IETF, 2011.</td>
+        <td>RFC 6334, <em>Dynamic Host Configuation Protocol for IPv6 (DHCPv6) Option for
+        Dual-Stack Lite</em>, IETF, 2011.</td>
       </tr>
       <tr>
         <td><a name="R.ETSIBRAN"></a>[<a href="https://www.etsi.org/deliver/etsi_en/301800_301899/301893/01.08.01_60/en_301893v010801p.pdf">ETSIBRAN</a>]</td>
-        <td>ETSI EN 301 893, <em>Broadband Radio Access Networks (BRAN); 5 GHz high performance RLAN; Harmonized EN covering the essential requirements of article 3.2 of the RTTE Directive</em>, ETSI.</td>
+        <td>ETSI EN 301 893, <em>Broadband Radio Access Networks (BRAN); 5 GHz high performance RLAN;
+        Harmonized EN covering the essential requirements of article 3.2 of the
+        RTTE Directive</em>, ETSI.</td>
       </tr>
       <tr>
         <td><a name="R.FWEREG"></a>[<a href="https://tools.ietf.org/html/draft-allan-5g-fmc-encapsulation">FWEREG</a>]</td>
@@ -676,27 +688,33 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.G.9701"></a>[<a href="https://www.itu.int/rec/T-REC-G.9701-201412-P">G.9701</a>]</td>
-        <td>G.9701, <em>Fast access to subscriber terminals (G.fast)- Physical layer specification</em>, ITU-T, 2014.</td>
+        <td>G.9701, <em>Fast access to subscriber terminals (G.fast)- Physical layer
+        specification</em>, ITU-T, 2014.</td>
       </tr>
       <tr>
         <td><a name="R.G.9954"></a>[<a href="https://www.itu.int/rec/T-REC-G.9954/en">G.9954</a>]</td>
-        <td>G.9954, <em>Phoneline networking transceivers - Enhanced physical, media access, and link layer specifications (HPNA 3.0 and 3.1)</em>, ITU-T, 2007.</td>
+        <td>G.9954, <em>Phoneline networking transceivers - Enhanced physical, media access,
+        and link layer specifications (HPNA 3.0 and 3.1)</em>, ITU-T, 2007.</td>
       </tr>
       <tr>
         <td><a name="R.G.9960"></a>[<a href="https://www.itu.int/rec/T-REC-G.9960-201006-P">G.9960</a>]</td>
-        <td>G.9960, <em>Unified high-speed wire-line based home networking transceivers - System architecture and physical layer specification</em>, ITU-T.</td>
+        <td>G.9960, <em>Unified high-speed wire-line based home networking transceivers -
+        System architecture and physical layer specification</em>, ITU-T.</td>
       </tr>
       <tr>
         <td><a name="R.G.9961"></a>[<a href="https://www.itu.int/rec/T-REC-G.9961-201006-P">G.9961</a>]</td>
-        <td>G.9961, <em>Unified high-speed wire-line based home networking transceivers - Data link layer specification</em>, ITU-T.</td>
+        <td>G.9961, <em>Unified high-speed wire-line based home networking transceivers - Data
+        link layer specification</em>, ITU-T.</td>
       </tr>
       <tr>
         <td><a name="R.G.9962"></a>[<a href="https://www.itu.int/rec/T-REC-G.9962-201308-P">G.9962</a>]</td>
-        <td>G.9962, <em>Unified high-speed wire-line based home networking transceivers - Management specification</em>, ITU-T.</td>
+        <td>G.9962, <em>Unified high-speed wire-line based home networking transceivers -
+        Management specification</em>, ITU-T.</td>
       </tr>
       <tr>
         <td><a name="R.G.9964"></a>[<a href="https://www.itu.int/rec/T-REC-G.9962-201308-P">G.9964</a>]</td>
-        <td>G.9964, <em>Unified high-speed wire-line based home networking transceivers - Power spectral density specification</em>, ITU-T.</td>
+        <td>G.9964, <em>Unified high-speed wire-line based home networking transceivers - Power
+        spectral density specification</em>, ITU-T.</td>
       </tr>
       <tr>
         <td><a name="R.G.9973"></a>[<a href="https://www.itu.int/rec/T-REC-G.9973-201110-I/en">G.9973</a>]</td>
@@ -716,7 +734,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.G.997.1"></a>[<a href="https://www.itu.int/rec/T-REC-G.997.1">G.997.1</a>]</td>
-        <td>G.997.1, <em>Physical layer management for digital subscriber line (DSL) transceivers</em>, ITU-T.</td>
+        <td>G.997.1, <em>Physical layer management for digital subscriber line (DSL)
+        transceivers</em>, ITU-T.</td>
       </tr>
       <tr>
         <td><a name="R.G.997.2"></a>[<a href="https://www.itu.int/rec/T-REC-G.997.2-201505-I">G.997.2</a>]</td>
@@ -760,11 +779,14 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.ICSA-Residential"></a>[<a href="https://www.icsalabs.com/sites/default/files/residential.pdf">ICSA-Residential</a>]</td>
-        <td>ICSA Residential Modular Firewall Certification Criteria, <em>Required Services Security Policy - Residential Category module - version 4.1</em>, ICSA Labs, 2008.</td>
+        <td>ICSA Residential Modular Firewall Certification Criteria, <em>Required Services Security Policy - Residential Category module -
+        version 4.1</em>, ICSA Labs, 2008.</td>
       </tr>
       <tr>
         <td><a name="R.IEEE1905.1a"></a>[<a href="https://www.IEEE.org">IEEE1905.1a</a>]</td>
-        <td>IEEE 1905.1a, <em>IEEE Std 1905.1a, Convergent Digital Home Network for Heterogeneous Technologies Amendment 1: Support of new MAC/PHYs and enhancements, IEEE, December 2014.</em>, IEEE, December 2014.</td>
+        <td>IEEE 1905.1a, <em>IEEE Std 1905.1a, Convergent Digital Home Network for Heterogeneous
+        Technologies Amendment 1: Support of new MAC/PHYs and enhancements,
+        IEEE, December 2014.</em>, IEEE, December 2014.</td>
       </tr>
       <tr>
         <td><a name="R.IEEE_EUI64"></a>[<a href="https://standards.ieee.org/regauth/oui/tutorials/EUI64.html">IEEE_EUI64</a>]</td>
@@ -792,15 +814,18 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.ISO3166-1"></a>[<a href="https://www.iso.org/iso/country_codes.htm">ISO3166-1</a>]</td>
-        <td>ISO 3166-1, <em>Codes for the representation of names of countries and their subdivisions - Part 1: Country codes</em>, ISO, 2006.</td>
+        <td>ISO 3166-1, <em>Codes for the representation of names of countries and their
+        subdivisions - Part 1: Country codes</em>, ISO, 2006.</td>
       </tr>
       <tr>
         <td><a name="R.ISO639-1"></a>[<a href="https://www.iso.org/iso/language_codes">ISO639-1</a>]</td>
-        <td>ISO 639-1, <em>Codes for the representation of names of Languages - Part 1: Alpha-2 code</em>, ISO, 2002.</td>
+        <td>ISO 639-1, <em>Codes for the representation of names of Languages - Part 1: Alpha-2
+        code</em>, ISO, 2002.</td>
       </tr>
       <tr>
         <td><a name="R.ISO646-1991"></a>[ISO646-1991]</td>
-        <td>ISO/IEC 646-1991, <em>Information Technology - ISO 7-bit coded character set for information interchange</em>, ISO, 1991.</td>
+        <td>ISO/IEC 646-1991, <em>Information Technology - ISO 7-bit coded character set for information
+        interchange</em>, ISO, 1991.</td>
       </tr>
       <tr>
         <td><a name="R.ITU-E.118"></a>[<a href="https://www.itu.int/rec/T-REC-E.118-200605-I/en">ITU-E.118</a>]</td>
@@ -812,7 +837,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.ITU-X.733"></a>[<a href="https://www.itu.int/rec/T-REC-X.733/en">ITU-X.733</a>]</td>
-        <td>ITU X.733, <em>Information technology - Open Systems Interconnection - Systems Management: Alarm reporting function</em>, International Telecommunication Union, February 1992.</td>
+        <td>ITU X.733, <em>Information technology - Open Systems Interconnection - Systems
+        Management: Alarm reporting function</em>, International Telecommunication Union, February 1992.</td>
       </tr>
       <tr>
         <td><a name="R.JJ-300.00"></a>[<a href="https://www.ttc.or.jp/jp/document_list/pdf/e/STD/JJ-300.00(E)v1.1.pdf">JJ-300.00</a>]</td>
@@ -912,7 +938,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.RFC1877"></a>[<a href="https://tools.ietf.org/html/rfc1877">RFC1877</a>]</td>
-        <td>RFC 1877, <em>PPP Internet Protocol Control Protocol Extensions for Name Server Addresses</em>, IETF, 1995.</td>
+        <td>RFC 1877, <em>PPP Internet Protocol Control Protocol Extensions for Name Server
+        Addresses</em>, IETF, 1995.</td>
       </tr>
       <tr>
         <td><a name="R.RFC1974"></a>[<a href="https://tools.ietf.org/html/rfc1974">RFC1974</a>]</td>
@@ -944,7 +971,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.RFC2474"></a>[<a href="https://tools.ietf.org/html/rfc2474">RFC2474</a>]</td>
-        <td>RFC 2474, <em>Definition of the Differentiated Services Field (DS Field) in the IPv4 and IPv6 Headers</em>, IETF.</td>
+        <td>RFC 2474, <em>Definition of the Differentiated Services Field (DS Field) in the IPv4
+        and IPv6 Headers</em>, IETF.</td>
       </tr>
       <tr>
         <td><a name="R.RFC2581"></a>[<a href="https://tools.ietf.org/html/rfc2581">RFC2581</a>]</td>
@@ -1040,11 +1068,13 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.RFC3633"></a>[<a href="https://tools.ietf.org/html/rfc3633">RFC3633</a>]</td>
-        <td>RFC 3633, <em>IPv6 Prefix Options for Dynamic Host Configuration Protocol (DHCP) version 6</em>, IETF, 2003.</td>
+        <td>RFC 3633, <em>IPv6 Prefix Options for Dynamic Host Configuration Protocol (DHCP)
+        version 6</em>, IETF, 2003.</td>
       </tr>
       <tr>
         <td><a name="R.RFC3646"></a>[<a href="https://tools.ietf.org/html/rfc3646">RFC3646</a>]</td>
-        <td>RFC 3646, <em>DNS Configuration options for Dynamic Host Configuration Protocol for IPv6 (DHCPv6)</em>, IETF, 2003.</td>
+        <td>RFC 3646, <em>DNS Configuration options for Dynamic Host Configuration Protocol for
+        IPv6 (DHCPv6)</em>, IETF, 2003.</td>
       </tr>
       <tr>
         <td><a name="R.RFC3775"></a>[<a href="https://tools.ietf.org/html/rfc3775">RFC3775</a>]</td>
@@ -1052,7 +1082,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.RFC3925"></a>[<a href="https://tools.ietf.org/html/rfc3925">RFC3925</a>]</td>
-        <td>RFC 3925, <em>Vendor-Identifying Vendor Options for Dynamic Host Configuration Protocol version 4 (DHCPv4)</em>, IETF.</td>
+        <td>RFC 3925, <em>Vendor-Identifying Vendor Options for Dynamic Host Configuration
+        Protocol version 4 (DHCPv4)</em>, IETF.</td>
       </tr>
       <tr>
         <td><a name="R.RFC3927"></a>[<a href="https://tools.ietf.org/html/rfc3927">RFC3927</a>]</td>
@@ -1092,7 +1123,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.RFC4242"></a>[<a href="https://tools.ietf.org/html/rfc4242">RFC4242</a>]</td>
-        <td>RFC 4242, <em>Information Refresh Time Option for Dynamic Host Configuration Protocol for IPv6 (DHCPv6)</em>, IETF, 2005.</td>
+        <td>RFC 4242, <em>Information Refresh Time Option for Dynamic Host Configuration Protocol
+        for IPv6 (DHCPv6)</em>, IETF, 2005.</td>
       </tr>
       <tr>
         <td><a name="R.RFC4291"></a>[<a href="https://tools.ietf.org/html/rfc4291">RFC4291</a>]</td>
@@ -1124,15 +1156,18 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.RFC4632"></a>[<a href="https://tools.ietf.org/html/rfc4632">RFC4632</a>]</td>
-        <td>RFC 4632, <em>Classless Inter-domain Routing (CIDR): The Internet Address Assignment and Aggregation Plan</em>, IETF, 2006.</td>
+        <td>RFC 4632, <em>Classless Inter-domain Routing (CIDR): The Internet Address Assignment
+        and Aggregation Plan</em>, IETF, 2006.</td>
       </tr>
       <tr>
         <td><a name="R.RFC4719"></a>[<a href="https://tools.ietf.org/html/rfc4719">RFC4719</a>]</td>
-        <td>RFC 4719, <em>Transport of Ethernet Frames over Layer 2 Tunneling Protocol Version 3 (L2TPv3)</em>, IETF, November 2006.</td>
+        <td>RFC 4719, <em>Transport of Ethernet Frames over Layer 2 Tunneling Protocol Version 3
+        (L2TPv3)</em>, IETF, November 2006.</td>
       </tr>
       <tr>
         <td><a name="R.RFC4835"></a>[<a href="https://tools.ietf.org/html/rfc4835">RFC4835</a>]</td>
-        <td>RFC 4835, <em>Cryptographic Algorithm Implementation Requirements for Encapsulating Security Payload (ESP) and Authentication Header (AH)</em>, IETF, 2007.</td>
+        <td>RFC 4835, <em>Cryptographic Algorithm Implementation Requirements for Encapsulating
+        Security Payload (ESP) and Authentication Header (AH)</em>, IETF, 2007.</td>
       </tr>
       <tr>
         <td><a name="R.RFC4861"></a>[<a href="https://tools.ietf.org/html/rfc4861">RFC4861</a>]</td>
@@ -1148,15 +1183,18 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.RFC5139"></a>[<a href="https://tools.ietf.org/html/rfc5139">RFC5139</a>]</td>
-        <td>RFC 5139, <em>Revised Civic Location Format For Presence Information Data Format Location Object (PIDF-LO)</em>, IETF, February 2008.</td>
+        <td>RFC 5139, <em>Revised Civic Location Format For Presence Information Data Format
+        Location Object (PIDF-LO)</em>, IETF, February 2008.</td>
       </tr>
       <tr>
         <td><a name="R.RFC5280"></a>[<a href="https://tools.ietf.org/html/rfc5280">RFC5280</a>]</td>
-        <td>RFC 5280, <em>Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile</em>, IETF, May 2008.</td>
+        <td>RFC 5280, <em>Internet X.509 Public Key Infrastructure Certificate and Certificate
+        Revocation List (CRL) Profile</em>, IETF, May 2008.</td>
       </tr>
       <tr>
         <td><a name="R.RFC5491"></a>[<a href="https://tools.ietf.org/html/rfc5491">RFC5491</a>]</td>
-        <td>RFC 5491, <em>GEOPRIV Presence Information Data Format Location Object (PIDF-LO) Usage Clarification, Considerations, and Recommendations</em>, IETF, March 2009.</td>
+        <td>RFC 5491, <em>GEOPRIV Presence Information Data Format Location Object (PIDF-LO)
+        Usage Clarification, Considerations, and Recommendations</em>, IETF, March 2009.</td>
       </tr>
       <tr>
         <td><a name="R.RFC5625"></a>[<a href="https://tools.ietf.org/html/rfc5625">RFC5625</a>]</td>
@@ -1164,7 +1202,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.RFC5969"></a>[<a href="https://tools.ietf.org/html/rfc5969">RFC5969</a>]</td>
-        <td>RFC 5969, <em>IPv6 Rapid Deployment on IPv4 Infrastructures (6rd) - Protocol Specification</em>, IETF, 2010.</td>
+        <td>RFC 5969, <em>IPv6 Rapid Deployment on IPv4 Infrastructures (6rd) - Protocol
+        Specification</em>, IETF, 2010.</td>
       </tr>
       <tr>
         <td><a name="R.RFC5996"></a>[<a href="https://tools.ietf.org/html/rfc5996">RFC5996</a>]</td>
@@ -1200,7 +1239,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.RFC6970"></a>[<a href="https://tools.ietf.org/html/rfc6970">RFC6970</a>]</td>
-        <td>RFC 6970, <em>Universal Plug and Play (UPnP) Internet Gateway Device (IGD) - Port Control Protocol (PCP) Interworking Function</em>, IETF, 2013.</td>
+        <td>RFC 6970, <em>Universal Plug and Play (UPnP) Internet Gateway Device (IGD) - Port
+        Control Protocol (PCP) Interworking Function</em>, IETF, 2013.</td>
       </tr>
       <tr>
         <td><a name="R.RFC7159"></a>[<a href="https://tools.ietf.org/html/rfc7159">RFC7159</a>]</td>
@@ -1224,11 +1264,13 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.RFC7395"></a>[<a href="https://tools.ietf.org/html/rfc7395">RFC7395</a>]</td>
-        <td>RFC 7395, <em>An Extensible Messaging and Presence Protocol (XMPP) Subprotocol for WebSocket</em>, IETF, October 2014.</td>
+        <td>RFC 7395, <em>An Extensible Messaging and Presence Protocol (XMPP) Subprotocol for
+        WebSocket</em>, IETF, October 2014.</td>
       </tr>
       <tr>
         <td><a name="R.RFC7398"></a>[<a href="https://tools.ietf.org/html/rfc7398">RFC7398</a>]</td>
-        <td>RFC 7398, <em>A Reference Path and Measurement Points for Large-Scale Measurement of Broadband Performance</em>, IETF, February 2015.</td>
+        <td>RFC 7398, <em>A Reference Path and Measurement Points for Large-Scale Measurement of
+        Broadband Performance</em>, IETF, February 2015.</td>
       </tr>
       <tr>
         <td><a name="R.RFC7468"></a>[<a href="http://tools.ietf.org/html/rfc7468">RFC7468</a>]</td>
@@ -1244,7 +1286,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.RFC7598"></a>[<a href="https://tools.ietf.org/html/rfc7598">RFC7598</a>]</td>
-        <td>RFC 7598, <em>DHCPv6 Options for configuration of Softwire Address and Port Mapped Clients</em>, IETF, July 2015.</td>
+        <td>RFC 7598, <em>DHCPv6 Options for configuration of Softwire Address and Port Mapped
+        Clients</em>, IETF, July 2015.</td>
       </tr>
       <tr>
         <td><a name="R.RFC7599"></a>[<a href="https://tools.ietf.org/html/rfc7599">RFC7599</a>]</td>
@@ -1276,7 +1319,8 @@ The interpretation of the UER value is as defined in [Clause A.2.2.1/<a href="#R
       </tr>
       <tr>
         <td><a name="R.TR-143"></a>[<a href="https://www.broadband-forum.org/technical/download/TR-143.pdf">TR-143</a>]</td>
-        <td>TR-143 Amendment 3, <em>Enabling Network Throughput Performance Tests and Statistical Monitoring</em>, Broadband Forum, May 2017.</td>
+        <td>TR-143 Amendment 3, <em>Enabling Network Throughput Performance Tests and Statistical
+        Monitoring</em>, Broadband Forum, May 2017.</td>
       </tr>
       <tr>
         <td><a name="R.TR-159"></a>[<a href="https://www.broadband-forum.org/technical/download/TR-159.pdf">TR-159</a>]</td>
@@ -2141,7 +2185,7 @@ A value of 0 means that the USP Endpoint will not attempt to retransmit the requ
           <td class="c" title="object">command</td>
           <!-- <td class="c">object</td> -->
           <td class="cc">-</td>
-          <td class="c"><p>If the <a href="#D.Device:2.Device.LocalAgent.Controller.{i}.E2ESession."><i>E2ESession</i></a> is enabled then this command will either request to start or restart a Session Context with the remote endpoint.<p>
+          <td class="c"><p><b>[ASYNC]</b>  If the <a href="#D.Device:2.Device.LocalAgent.Controller.{i}.E2ESession."><i>E2ESession</i></a> is enabled then this command will either request to start or restart a Session Context with the remote endpoint.<p>
 If the <a href="#D.Device:2.Device.LocalAgent.Controller.{i}.E2ESession."><i>E2ESession</i></a> is not enabled and there is an active Session Context then this command will terminate that Session Context with the remote endpoint.<p>
 If the <a href="#D.Device:2.Device.LocalAgent.Controller.{i}.E2ESession."><i>E2ESession</i></a> is not enabled and there is no active Session Context then this command does nothing.</td>
           <td class="cc">-</td>
@@ -2200,8 +2244,8 @@ The value of this parameter is automatically populated by the USP Agent upon <a 
         </tr>
         <tr>
           <td class="p" title="Device.LocalAgent.Subscription.{i}.ID"><a name="D.Device:2.Device.LocalAgent.Subscription.{i}.ID">ID</a></td>
-          <td class="p" title="string&shy;(1:, 64)">string&shy;(1:, 64)</td>
-          <!-- <td class="p">string&shy;(1:, 64)</td> -->
+          <td class="p" title="string&shy;(1:64)">string&shy;(1:64)</td>
+          <!-- <td class="p">string&shy;(1:64)</td> -->
           <td class="pc">W</td>
           <td class="p"><p>Unique identifier of the <a href="#D.Device:2.Device.LocalAgent.Subscription.{i}."><i>Subscription</i></a> itself, which is specific to the USP Controller that creates the instance of the <a href="#D.Device:2.Device.LocalAgent.Subscription.{i}."><i>Subscription</i></a>.<p>
 This value is used as the <i>subscription_id</i> element of every Notification message from a USP Agent to a USP Controller caused by this subscription entry.</td>

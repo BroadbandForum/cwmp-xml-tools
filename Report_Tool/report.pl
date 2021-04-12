@@ -797,6 +797,14 @@ our $range_for_type = {
 
 our $used_data_type_list = {};  # keep track of used data types for output
 
+our $status_levels = {current => 0, deprecated => 1, obsoleted => 2,
+                      deleted => 3};
+
+our $status_names = {};
+while (my ($name, $level) = each %$status_levels) {
+   $status_names->{$level} = $name;
+}
+
 # File info from htmlbbf config file (declared here because it's used in some
 # template expansions).
 our $htmlbbf_info = {};
@@ -2339,7 +2347,7 @@ sub version_parse
     $hash->{minor} = $default->{minor} unless defined $hash->{minor};
     $hash->{patch} = $default->{patch} unless defined $hash->{patch};
 
-    return $hash, $default;
+    return wantarray ? ($hash, $default) : $hash;
 }
 
 # Compare two versions, returning -1, 0, or 1 depending on whether the first
@@ -3071,18 +3079,23 @@ sub expand_model_profile
         }
 
         # otherwise check anyway for previous version (this allows later
-        # versions to be defined both using base and standalone)
+        # versions to be defined either using base or standalone)
         else {
             # improve this; handle redef of prof / obj / par; add version...
             # make generated xml2 valid (need types)
-            # XXX currently only copes with one previous version
-            ($baseprof) = grep {
+            my @baseprofs = grep {
                 my ($a) = ($name =~ /([^:]*)/);
                 my ($b) = ($_->{name} =~ /([^:]*)/);
                 $_->{type} eq 'profile' && $a eq $b;
             } @{$mnode->{nodes}};
+            # if there are multiple matches, this is the last (highest) one
+            $baseprof = $baseprofs[-1] if @baseprofs;
             if ($baseprof) {
                 $base = $baseprof->{name};
+                # undefine $baseprof so base profiles are never implicit
+                # (this is a change of behavior but it's OK because no models
+                # rely on implicit base profiles)
+                undef $baseprof;
                 $baseauto = 1;
             }
         }
@@ -3115,15 +3128,15 @@ sub expand_model_profile
         # baseauto = 2 if base was specified and extends duplicates it
         # baseauto = 3 if base was specified incorrectly via extends
         if ($baseauto == 1) {
-            w1msg "{$file}$name: base profile $base omitted and therefore " .
-                "determined automatically";
+            # this is no longer an error; in this case $baseprof is undefined
+            # and $base can be used to check for missing profile items
+            #w0msg "{$file}$name: base profile $base omitted and therefore " .
+            #    "determined automatically";
         } elsif ($baseauto == 2) {
             w0msg "{$file}$name: base profile $base specified incorrectly " .
                 "via both \"base\" and \"extends\"";
         } elsif ($baseauto == 3) {
-            # XXX maybe this should be w0msg but that would generate warnings
-            #     for existing data models that were not previously generated
-            w1msg "{$file}$name: base profile $base specified incorrectly " .
+            w0msg "{$file}$name: base profile $base specified incorrectly " .
                 "via \"extends\"";
         }
 
@@ -3197,6 +3210,9 @@ sub expand_model_profile
 
         # store the profile definition for later expansion of internal profiles
         $profiles->{$fpath}->{definition} = $profile;
+
+        # also store the profile node
+        $profiles->{$fpath}->{node} = $nnode;
     }
 
     # will expand internal "extends" profiles, then the current profile
@@ -4710,7 +4726,7 @@ sub invalid_refs
         }
     }
 
-    # invalid ref type (programming error
+    # invalid ref type (programming error)
     else {
         die "invalid_refs: undefined ref type $reftype";
     }
@@ -8365,7 +8381,8 @@ END
             return;
         }
 
-        return if !$showdiffs && util_is_deleted($node);
+        # XXX experiment with disabling this so can see deleted profiles etc.
+        #return if !$showdiffs && util_is_deleted($node);
 
         # XXX there's some double escaping going on here...
         my $name = html_escape($object ? $path : $node->{name},
@@ -8460,7 +8477,11 @@ END
                 $tdclass = 'f';
             }
         }
-        $tdclass .= 'd' if $showdiffs && util_is_deleted($node);
+        # XXX experiment with only checking the actual node status for Refs
+        my $is_ref = $node->{type} =~ /Ref$/;
+        $tdclass .= 'd' if
+            (($is_ref && $node->{status} eq 'deleted') ||
+             (!$is_ref && $showdiffs && util_is_deleted($node)));
 
         my $tdclasstyp = $tdclass;
         if ($showdiffs && util_node_is_modified($node) &&
@@ -8636,7 +8657,9 @@ END
             #     mentioned above (use $node->{name} because $name has been
             #     escaped)
             return unless $node->{name};
-            my $anchor = html_create_anchor(qq{$name Profile}, 'heading',
+            my $stat = $node->{status} ne 'current' ?
+                qq{ [} . uc($node->{status}) . qq{]} : qq{};
+            my $anchor = html_create_anchor(qq{$name Profile$stat}, 'heading',
                                             {node => $node});
             my $panchor = html_create_anchor($node, 'profile');
             print <<END;
@@ -8732,12 +8755,22 @@ END
             # XXX need to use origdesc because description has already been
             #     escaped and an originally empty one might no longer be empty
             if ($origdesc) {
+                $footnote = $description;
+            }
+            # XXX assume that an explicit description indicates if the node
+            #     is deprecated, obsoleted or deleted
+            elsif ($node->{status} ne 'current') {
+                my $entity = $parameter ? 'parameter' : $node->{type};
+                $entity =~ s/Ref$//;
+                my $ucstatus = uc $node->{status};
+                $footnote = html_escape("This $entity is $ucstatus.");
+            }
+            if ($footnote) {
                 my $anchor = html_create_anchor($node, 'profoot');
                 # XXX pretty horrible way to get the profile node
-                my $Pnode = $object ?
-                    $node->{pnode} : $node->{pnode}->{pnode};
-                push @{$Pnode->{html_footnotes}}, {anchor => $anchor,
-                                                   description => $description};
+                my $Pnode = $object ? $node->{pnode} : $node->{pnode}->{pnode};
+                push @{$Pnode->{html_footnotes}},
+                {anchor => $anchor, description => $footnote};
                 # XXX this isn't honoring $nolinks; I am thinking that this
                 #     would be better handled within html_create_anchor()
                 $footnote = qq{<sup>$anchor->{ref}</sup>};
@@ -10308,6 +10341,8 @@ sub html_template_paramref
 
     # if scope is defined but isn't a known scope, assume it's a status and
     # treat it as a temporary entity status
+    # XXX should support comma-separated list, e.g. 'normal,deprecated'
+    # XXX should treat 'deprecated' etc. as the expected refstat
     my $scopes = "normal|absolute|model";
     my $entstat = $opts->{node}->{status};
     if ($scope && $scope !~ /$scopes/) {
@@ -10379,11 +10414,10 @@ sub html_template_paramref
         emsg "$object$param: reference to invalid $entity $path" unless
             $automodel;
     } else {
-        my $statlev = {current => 0, deprecated => 1, obsoleted => 2,
-                       deleted => 3};
-        my $refstat = $parameters->{$fpath}->{status};
+        my $refnode = $parameters->{$fpath};
+        my $refstat = node_status($refnode);
         if ($entstat && $refstat && $refstat =~ /deprecated|obsoleted|deleted/
-            && $statlev->{$refstat} > $statlev->{$entstat}) {
+            && $status_levels->{$refstat} > $status_levels->{$entstat}) {
             w0msg "$object$param: reference to $refstat $entity $path";
             $invalid = '!';
         }
@@ -10439,6 +10473,8 @@ sub html_template_objectref
 
     # if scope is defined but isn't a known scope, assume it's a status and
     # treat it as a temporary object status
+    # XXX should support comma-separated list, e.g. 'normal,deprecated'
+    # XXX should treat 'deprecated' etc. as the expected refstat
     my $scopes = "normal|absolute|model";
     my $objstat = $opts->{node}->{status};
     if ($scope && $scope !~ /$scopes/) {
@@ -10446,9 +10482,9 @@ sub html_template_objectref
         $scope = undef;
     }
 
-    # if there's no object, e.g. this is within a data type definition, just
-    # return $name or the word 'object'
-    return ($name ? qq{''$name''} : 'object') unless $object;
+    # if no object or parameter (e.g. in data type description) return $name
+    # or the word 'object'
+    return ($name ? qq{''$name''} : 'object') unless $object || $param;
 
     my $mpref = util_full_path($opts->{node}, 1);
 
@@ -10536,11 +10572,10 @@ sub html_template_objectref
         emsg "$object$param: reference to invalid object $path" unless
             $automodel;
     } else {
-        my $statlev = {current => 0, deprecated => 1, obsoleted => 2,
-                       deleted => 3};
-        my $refstat = $objects->{$fpath}->{status};
+        my $refnode = $objects->{$fpath};
+        my $refstat = node_status($refnode);
         if ($objstat && $refstat && $refstat =~ /deprecated|obsoleted|deleted/
-            && $statlev->{$refstat} > $statlev->{$objstat}) {
+            && $status_levels->{$refstat} > $status_levels->{$objstat}) {
             w0msg "$object$param: reference to $refstat object $path";
             $invalid = '!';
         }
@@ -11004,9 +11039,7 @@ sub html_template_status_helper
     }
 
     # warn if this transition is invalid
-    my $statlev = {current => 0, deprecated => 1, obsoleted => 2,
-                   deleted => 3};
-    if ($statlev->{$transition} > $statlev->{$status}) {
+    if ($status_levels->{$transition} > $status_levels->{$status}) {
         emsg "$object$param: is $status, so {{$transition}} is invalid"
             unless $quiet;
         $errors++;
@@ -11015,8 +11048,13 @@ sub html_template_status_helper
     # if there are no errors, store the versions for use by sanity_node()
     $node->{status_transitions}->{$transition} = $versions unless $errors;
 
+    # deprecation reasons are mandatory
+    w0msg "$object$param: no reason for deprecation is given" unless
+        $transition ne 'deprecated' || $msg;
+
     # expand the template
-    my $item_type = $syntax ? 'parameter' : $type;
+    my $item_type = $syntax && %$syntax ? 'parameter' : $type;
+    $item_type =~ s/Ref$//;
     my $TRANSITION = uc $transition;
     my $ver_ = version_string($versions->[0]);
     my $msg_ = $msg ? qq{ $msg} : qq{};
@@ -14698,8 +14736,9 @@ sub sanity_node
     }
 
     # deprecated / obsoleted / deleted status checks are here so that they
-    # apply to deleted items
-    if ($status && $status =~ /deprecated|obsoleted|deleted/) {
+    # can also apply to deleted items
+    if (($parameter || $object) &&
+        $status && $status =~ /deprecated|obsoleted|deleted/) {
         # get the full description so can check for the expected templates
         # XXX this logic is copied from html_node()
         my $changed = $node->{changed};
@@ -14738,19 +14777,26 @@ sub sanity_node
         my $transitions = $node->{status_transitions};
         my $modver = $node->{mnode}->{version};
 
-        # check that the appropriate status template is present
-        w0msg "$path: is $status but has no {{$status}} template"
-            unless $transitions->{$status};
+        # check that the appropriate status templates are present
+        for (my $level = 1; $level <= $status_levels->{$status}; $level++) {
+            my $sname = $status_names->{$level};
+            w0msg "$path: is $status but has no {{$sname}} template"
+                unless $transitions->{$sname};
+        }
 
         # check for late (overdue) or too-early transitions
         if ($transitions) {
             # escalations are 'from' version, 'to' version, from -> to delta
             my ($dep_to_obs, $obs_to_del) = (2, 1);
+
+            # this is the order in which infractions will be checked
             my $escalations = [
+                ['obsoleted', 'deleted', $obs_to_del],
                 ['deprecated', 'obsoleted', $dep_to_obs],
-                ['deprecated', 'deleted', $dep_to_obs + $obs_to_del],
-                ['obsoleted', 'deleted', $obs_to_del]
+                ['deprecated', 'deleted', $dep_to_obs + $obs_to_del]
                 ];
+
+            my $warnings = 0;
             foreach my $escalation (@$escalations) {
                 my ($from, $to, $delta) = @$escalation;
 
@@ -14768,20 +14814,24 @@ sub sanity_node
                 my $fromver2 = $transitions->{$from}->[-1];
                 my $expected_minor = $fromver2->{minor} + $delta;
 
-                # check for a late (overdue) transition
-                if ($status eq $from) {
-                    w0msg "$path: was $from at $fromver_string and should " .
-                        "be $to at $fromver->{major}.$expected_minor" if
-                        $modver->{minor} >= $expected_minor;
+                # don't warn more than once
+                if ($warnings > 0) {
                 }
 
                 # check for a too-early transition
-                # XXX this doesn't use $transitions->{$to}; is this correct?
-                if ($status eq $to) {
+                elsif ($status eq $to && $modver->{minor} < $expected_minor) {
                     w0msg "$path: was $from at $fromver_string and " .
-                        "shouldn't be $to until " .
-                        "$fromver->{major}.$expected_minor" if
-                        $modver->{minor} < $expected_minor;
+                        "shouldn't be $to until $fromver->{major}." .
+                        "$expected_minor";
+                    $warnings++;
+                }
+
+                # check for a late (overdue) transition
+                elsif ($status eq $from &&
+                       $modver->{minor} >= $expected_minor) {
+                    w0msg "$path: was $from at $fromver_string and should " .
+                        "be $to at $fromver->{major}.$expected_minor";
+                    $warnings++;
                 }
             }
         }
@@ -15032,14 +15082,212 @@ sub sanity_node
     }
 
     # profile sanity checks
-    # XXX allow "abstract profiles" that reference objects that aren't defined
-    #     when the profile is defined, but are defined later
-    if ($profile && !$automodel) {
+    # XXX ignore any fake unnamed profiles
+    if ($profile && $name && !$automodel) {
+        # determine the model version at which this profile was added
+        # XXX there should be a utility for this
+        my $fpath = util_full_path($node);
+        my $defmodel = $profiles->{$fpath}->{defmodel};
+        $defmodel =~ s/.*://;
+        my $profver = version_parse($defmodel);
+
         foreach my $path (sort keys %{$node->{errors}}) {
             my $fpath = util_full_path($node, 1) . $path;
             emsg "profile $name references invalid $path"
                 unless $objects->{$fpath};
         }
+
+        # check whether the profile status is consistent with its contents
+        my $levels = {};
+        my $highest = profile_status($node, $levels, $profver);
+        w0msg("profile $name is $status but should be " .
+              "$status_names->{$highest} because of " .
+              join ', ', sort keys %{$levels->{$highest}})
+            if $highest > $status_levels->{$status};
+
+        # warn of any profile item statuses that are lower (less deprecated)
+        # than the statuses of the referenced items
+        for (my $level = 0; $level < 4; $level++) {
+            my $plevels = $levels->{$level};
+            foreach my $path (sort keys %$plevels) {
+                my $plevel = $plevels->{$path};
+                w0msg "profile $name $path is $status_names->{$plevel} but " .
+                    "should be $status_names->{$level}" if
+                    $plevel < $level;
+            }
+        }
+
+        # if the base profile is implicit, check that the profile contains
+        # all of the base profile's non-deprecated items
+        my $base = $node->{base};
+        if ($base && !$node->{baseprof}) {
+            d0msg "$type $name";
+            my $levels = {notSpecified => 1,
+                          present => 2, readOnly => 2,
+                          create => 3, delete => 4,
+                          createDelete => 5, readWrite => 5};
+            my $fpath = $mpref . $base;
+            my $pinfo = $profiles->{$fpath};
+            my $Pnode = $pinfo->{node};
+            my $baseitems = profile_items($Pnode, {}, 1);
+            my $profitems = profile_items($node, {}, 1);
+            foreach my $path (sort keys %$baseitems) {
+                my $baseaccess = $baseitems->{$path};
+                my $profaccess = $profitems->{$path};
+                if (!$profaccess) {
+                    emsg "profile $name needs to reference $path " .
+                        "($baseaccess)" if $path;
+                } elsif ($levels->{$profaccess} < $levels->{$baseaccess}) {
+                    emsg "profile $name has reduced requirement ".
+                        "($profaccess) for $path ($baseaccess)";
+
+                }
+            }
+        }
+    }
+}
+
+# Traverse a profile and its children, determining the highest ("most
+# deprecated") status level in the tree
+#
+# Note:
+# * This calls itself recursively, so the node argument isn't necessarily a
+#   profile node
+# * The status level is that of the referenced item, not of the item within
+#   the profile
+sub profile_status
+{
+    my ($node, $levels, $profver, $highest, $indent) = @_;
+    $highest = 0 unless defined $highest;
+    $indent = 0 unless defined $indent;
+
+    my $type = $node->{type} || '';
+    my $path = $node->{path} || '';
+    my $status = $node->{status} || 'current';
+
+    # if this is a reference, find the referenced item
+    my $item = $node;
+    if ($type =~ /Ref$/) {
+        my $fpath = util_full_path($node);
+        my $hash = $type eq 'objectRef' ? $objects : $parameters;
+        $item = $hash->{$fpath};
+        if (!$item) {
+            emsg "$type $fpath not found (programming error?)";
+            return $highest;
+        }
+    }
+
+    # note if this node's status is the highest so far
+    my $item_status = $item->{status} || 'current';
+    my $level = $status_levels->{$item_status};
+    $highest = $level if $level > $highest;
+
+    # update the levels structure
+    $levels->{$level}->{$node->{path}} = $status_levels->{$status} if
+        $levels && $path;
+
+    d0msg "  " x $indent . "$type $path level $level highest $highest " .
+        "profver " . version_string($profver);
+
+    # if it's a profile, expand its base and extends profiles
+    if ($type eq 'profile') {
+        my $mpref = util_full_path($node, 1);
+        my $base = $node->{base};
+        my $baseprof = $node->{baseprof};
+        my $extends = $node->{extends};
+        # if $base is defined but $baseprof is undefined, it's an implicit
+        # base and is not inherited from
+        my $base_extends = "";
+        $base_extends .= $base if $base && $baseprof;
+        $base_extends .= " " if $base_extends && $extends;
+        $base_extends .= $extends if $extends;
+        foreach my $base (split /\s+/, $base_extends) {
+            my $fpath = $mpref . $base;
+            my $pinfo = $profiles->{$fpath};
+            my $Pnode = $pinfo->{node};
+            $highest = profile_status($Pnode, $levels, $profver, $highest,
+                                      $indent + 1);
+        }
+    }
+
+    # traverse all its children
+    foreach my $child (@{$node->{nodes}}) {
+        $highest = profile_status($child, $levels, $profver, $highest,
+                                  $indent + 1);
+    }
+
+    return $highest;
+}
+
+# Traverse a profile and its children, collecting a hash of all non-deprecated
+# profile item paths and access requirements
+#
+# Note:
+# * This calls itself recursively, so the node argument isn't necessarily a
+#   profile node
+sub profile_items
+{
+    my ($node, $items, $indent) = @_;
+    $items = {} unless defined $items;
+    $indent = 0 unless defined $indent;
+
+    my $type = $node->{type} || '';
+    my $path = $node->{path} || '';
+    my $status = $node->{status} || 'current';
+
+    # access will be 'notSpecified' for profile nodes
+    my $access = $node->{access} || 'notSpecified';
+
+    # note the path and access requirement if this item (node) is current
+    $items->{$path} = $access
+        if $access ne 'notSpecified' && $status_levels->{$status} == 0;
+
+    d0msg "  " x $indent . "$type $path $status $access";
+
+    # if it's a profile, expand its base and extends profiles
+    if ($type eq 'profile') {
+        my $mpref = util_full_path($node, 1);
+        my $base = $node->{base};
+        my $baseprof = $node->{baseprof};
+        my $extends = $node->{extends};
+        # if $base is defined but $baseprof is undefined, it's an implicit
+        # base and is not inherited from
+        my $base_extends = "";
+        $base_extends .= $base if $base && $baseprof;
+        $base_extends .= " " if $base_extends && $extends;
+        $base_extends .= $extends if $extends;
+        foreach my $base (split /\s+/, $base_extends) {
+            my $fpath = $mpref . $base;
+            my $pinfo = $profiles->{$fpath};
+            my $Pnode = $pinfo->{node};
+            $items = profile_items($Pnode, $items, $indent + 1);
+        }
+    }
+
+    # traverse all its children
+    foreach my $child (@{$node->{nodes}}) {
+        $items = profile_items($child, $items, $indent + 1);
+    }
+
+    return $items;
+}
+
+# Get a node's effective status, i.e. the "most deprecated" (highest) status
+# of it and its parents.
+sub node_status
+{
+    my ($node, $highest) = @_;
+    $highest = 'current' unless $highest;
+
+    my $status = $node->{status} || 'current';
+    if ($status_levels->{$status} > $status_levels->{$highest}) {
+        $highest = $status;
+    }
+
+    if (!$node->{pnode}) {
+        return $highest;
+    } else {
+        return node_status($node->{pnode}, $highest);
     }
 }
 

@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
-    <title>enable-full.xml (canonical)</title>
+    <title>deprecated.xml (canonical)</title>
     <style type="text/css">
       p, li, body { font-family: helvetica,arial,sans-serif; font-size: 8pt; }
       h1 { font-family: helvetica,arial,sans-serif; font-size: 14pt; }
@@ -75,7 +75,7 @@
     <table width="100%" border="0">
       <tr>
         <td width="25%" valign="middle"><a href="https://www.broadband-forum.org/"><img width="100%" src="https://www.broadband-forum.org/images/logo-broadband-forum.gif" alt="Broadband Forum" style="border:0px;"/></a><br><h3>&nbsp;&nbsp;&nbsp;&nbsp;DATA MODEL DEFINITION</h3></td>
-        <td width="50%" align="center" valign="middle"><h1><br><a href="../cwmp#enable-full.xml">enable-full.xml</a> (canonical)</h1></td>
+        <td width="50%" align="center" valign="middle"><h1><br><a href="../cwmp#deprecated.xml">deprecated.xml</a> (canonical)</h1></td>
         <td width="25%"/>
       </tr>
     </table>
@@ -85,22 +85,28 @@
     <ul> <!-- Table of Contents -->
       <li><a href="#H.Data Types">Data Types</a></li>
       <li><a href="#H.References">References</a></li>
-      <li><a href="#H.Enable:1.0 Data Model">Enable:1.0 Data Model</a></li>
-      <ul> <!-- Enable:1.0 Data Model -->
-        <li><a href="#H.Enable:1.0 Data Model">Data Model Definition</a></li>
+      <li><a href="#H.Deprecated:1.5 Data Model">Deprecated:1.5 Data Model</a></li>
+      <ul> <!-- Deprecated:1.5 Data Model -->
+        <li><a href="#H.Deprecated:1.5 Data Model">Data Model Definition</a></li>
         <ul> <!-- Data Model Definition -->
-          <li><a href="#D.Enable:1.Table.{i}.">Table.{i}.</a></li>
+          <li><a href="#D.Deprecated:1.Container.">Container.</a></li>
+          <li><a href="#D.Deprecated:1.Container.Child.">Container.Child.</a></li>
         </ul> <!-- Data Model Definition -->
-        <li><a href="#H.Enable:1.Inform and Notification Requirements">Inform and Notification Requirements</a></li>
+        <li><a href="#H.Deprecated:1.Inform and Notification Requirements">Inform and Notification Requirements</a></li>
         <ul> <!-- Inform and Notification Requirements -->
-          <li><a href="#H.Enable:1.Forced Inform Parameters">Forced Inform Parameters</a></li>
-          <li><a href="#H.Enable:1.Forced Active Notification Parameters">Forced Active Notification Parameters</a></li>
-          <li><a href="#H.Enable:1.Default Active Notification Parameters">Default Active Notification Parameters</a></li>
-          <li><a href="#H.Enable:1.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></li>
+          <li><a href="#H.Deprecated:1.Forced Inform Parameters">Forced Inform Parameters</a></li>
+          <li><a href="#H.Deprecated:1.Forced Active Notification Parameters">Forced Active Notification Parameters</a></li>
+          <li><a href="#H.Deprecated:1.Default Active Notification Parameters">Default Active Notification Parameters</a></li>
+          <li><a href="#H.Deprecated:1.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></li>
         </ul> <!-- Inform and Notification Requirements -->
-        <li><a href="#H.Enable:1.Profile Definitions">Profile Definitions</a></li>
+        <li><a href="#H.Deprecated:1.Profile Definitions">Profile Definitions</a></li>
         <ul> <!-- Profile Definitions -->
-          <li><a href="#H.Enable:1.Notation">Notation</a></li>
+          <li><a href="#H.Deprecated:1.Notation">Notation</a></li>
+          <li><a href="#H.Deprecated:1.Baseline:1 Profile [OBSOLETED]">Baseline:1 Profile [OBSOLETED]</a></li>
+          <li><a href="#H.Deprecated:1.Advanced:1 Profile [OBSOLETED]">Advanced:1 Profile [OBSOLETED]</a></li>
+          <li><a href="#H.Deprecated:1.AdvancedDiesel:1 Profile [DELETED]">AdvancedDiesel:1 Profile [DELETED]</a></li>
+          <li><a href="#H.Deprecated:1.Advanced:2 Profile">Advanced:2 Profile</a></li>
+          <li><a href="#H.Deprecated:1.AdvancedDiesel:2 Profile">AdvancedDiesel:2 Profile</a></li>
         </ul>
       </ul>
     </ul> <!-- Table of Contents -->
@@ -127,8 +133,14 @@ For some unsignedInt types, a value range is given using the form unsignedInt[<i
         <td>Simple Object Access Protocol (SOAP) 1.1, W3C.</td>
       </tr>
     </table> <!-- References -->
-    <h1><a name="H.Enable:1.0 Data Model">Enable:1.0 Data Model</a></h1>
-    <p>
+    <h1><a name="H.Deprecated:1.5 Data Model">Deprecated:1.5 Data Model</a></h1>
+    <p>For a given implementation of this data model, the Agent MUST indicate
+support for the highest version number of any object or parameter that
+it supports.  For example, even if the Agent supports only a single
+parameter that was introduced in version 1.5, then it will indicate
+support for version 1.5.  The version number associated with each object
+and parameter is shown in the <b>Version</b> column.<p>
+
     <table width="100%" border="1" cellpadding="2" cellspacing="0"> <!-- Data Model Definition -->
       <tbody>
         <tr>
@@ -142,42 +154,84 @@ For some unsignedInt types, a value range is given using the form unsignedInt[<i
           <!-- <th width="10%" class="gc">Spec</th> -->
         </tr>
         <tr>
-          <td class="p" title="TableNumberOfEntries"><a name="D.Enable:1.TableNumberOfEntries">TableNumberOfEntries</a></td>
+          <td class="p" title="Automobile"><a name="D.Deprecated:1.Automobile">Automobile</a></td>
           <td class="p" title="unsignedInt">unsignedInt</td>
           <!-- <td class="p">unsignedInt</td> -->
           <td class="pc">-</td>
-          <td class="p">The number of entries in the <a href="#D.Enable:1.Table.{i}."><i>Table</i></a> table.</td>
+          <td class="p"><p>An <i>Automobile</i>.<p>
+This parameter was DEPRECATED in 1.1 because I bought a <a href="#D.Deprecated:1.Bicycle"><i>Bicycle</i></a>.<p>
+This parameter was OBSOLETED in 1.3 because it's about time.</td>
           <td class="pc">-</td>
           <td class="pc" title="">1.0</td>
           <!-- <td class="pc"></td> -->
         </tr>
         <tr>
-          <td class="o" title="Table.{i}."><a name="D.Enable:1.Table"></a><a name="D.Enable:1.Table.{i}.">Table.{i}.</a></td>
+          <td class="p" title="Bicycle"><a name="D.Deprecated:1.Bicycle">Bicycle</a></td>
+          <td class="p" title="unsignedInt">unsignedInt</td>
+          <!-- <td class="p">unsignedInt</td> -->
+          <td class="pc">-</td>
+          <td class="p">A <i>Bicycle</i>. This is much better than an <a href="#D.Deprecated:1.Automobile"><i>Automobile</i></a>, and much worse than a <i>Diesel</i>.</td>
+          <td class="pc">-</td>
+          <td class="pc" title="">1.1</td>
+          <!-- <td class="pc"></td> -->
+        </tr>
+        <tr>
+          <td class="p" title="Canoe"><a name="D.Deprecated:1.Canoe">Canoe</a></td>
+          <td class="p" title="unsignedInt">unsignedInt</td>
+          <!-- <td class="p">unsignedInt</td> -->
+          <td class="pc">-</td>
+          <td class="p">A <i>Canoe</i>. So much better than an <a href="#D.Deprecated:1.Automobile"><i>Automobile</i></a>, and much worse than a <a href="#D.Deprecated:1.Container.FlyingMachine"><i>Container.FlyingMachine!</i></a> or a <a href="#D.Deprecated:1.Container.Child."><i>Container.Child!</i></a>.</td>
+          <td class="pc">-</td>
+          <td class="pc" title="">1.1</td>
+          <!-- <td class="pc"></td> -->
+        </tr>
+        <tr>
+          <td class="p" title="EtypeJaguar"><a name="D.Deprecated:1.EtypeJaguar">EtypeJaguar</a></td>
+          <td class="p" title="unsignedInt">unsignedInt</td>
+          <!-- <td class="p">unsignedInt</td> -->
+          <td class="pc">-</td>
+          <td class="p"><p>An <i>EtypeJaguar</i>. Fun but not worth it? Better buy a <a href="#D.Deprecated:1.Canoe"><i>Canoe</i></a>.<p>
+This parameter was DEPRECATED in 1.2 for obvious reasons.<p>
+This parameter was OBSOLETED in 1.4.</td>
+          <td class="pc">-</td>
+          <td class="pc" title="">1.1</td>
+          <!-- <td class="pc"></td> -->
+        </tr>
+        <tr>
+          <td class="o" title="Container."><a name="D.Deprecated:1.Container"></a><a name="D.Deprecated:1.Container.">Container.</a></td>
           <td class="o" title="object">object</td>
           <!-- <td class="o">object</td> -->
-          <td class="oc">W</td>
-          <td class="o"><p>This is a writeable table with no enableParameter. It should result in a report tool warning.<p>
-However, the --ignoreenableparameter option should (but current doesn't) suppress the warning.<p>
-<p>
-At most one entry in this table can exist with a given value for <a href="#D.Enable:1.Table.{i}.Key"><i>Key</i></a>.  On creation of a new table entry, the Agent MUST choose an initial value for <a href="#D.Enable:1.Table.{i}.Key"><i>Key</i></a> such that the new entry does not conflict with any existing entries.</td>
+          <td class="oc">-</td>
+          <td class="o"><p>A <i>Container</i>.<p>
+This object was DEPRECATED in 1.1 because I want to.</td>
           <td class="oc">-</td>
           <td class="oc" title="">1.0</td>
           <!-- <td class="oc"></td> -->
         </tr>
         <tr>
-          <td class="p" title="Table.{i}.Key"><a name="D.Enable:1.Table.{i}.Key">Key</a></td>
+          <td class="p" title="Container.FlyingMachine"><a name="D.Deprecated:1.Container.FlyingMachine">FlyingMachine</a></td>
           <td class="p" title="unsignedInt">unsignedInt</td>
           <!-- <td class="p">unsignedInt</td> -->
-          <td class="pc">W</td>
-          <td class="p">&nbsp;</td>
+          <td class="pc">-</td>
+          <td class="p">A <i>FlyingMachine</i>.</td>
           <td class="pc">-</td>
           <td class="pc" title="">1.0</td>
           <!-- <td class="pc"></td> -->
         </tr>
+        <tr>
+          <td class="o" title="Container.Child."><a name="D.Deprecated:1.Container.Child"></a><a name="D.Deprecated:1.Container.Child.">Container.Child.</a></td>
+          <td class="o" title="object">object</td>
+          <!-- <td class="o">object</td> -->
+          <td class="oc">-</td>
+          <td class="o">A <i>Child</i>.</td>
+          <td class="oc">-</td>
+          <td class="oc" title="">1.0</td>
+          <!-- <td class="oc"></td> -->
+        </tr>
       </tbody>
     </table> <!-- Data Model Definition -->
-    <h2><a name="H.Enable:1.Inform and Notification Requirements">Inform and Notification Requirements</a></h2>
-    <h3><a name="H.Enable:1.Forced Inform Parameters">Forced Inform Parameters</a></h3>
+    <h2><a name="H.Deprecated:1.Inform and Notification Requirements">Inform and Notification Requirements</a></h2>
+    <h3><a name="H.Deprecated:1.Forced Inform Parameters">Forced Inform Parameters</a></h3>
     <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Forced Inform Parameters -->
       <tbody>
         <tr>
@@ -185,7 +239,7 @@ At most one entry in this table can exist with a given value for <a href="#D.Ena
         </tr>
       </tbody>
     </table> <!-- Forced Inform Parameters -->
-    <h3><a name="H.Enable:1.Forced Active Notification Parameters">Forced Active Notification Parameters</a></h3>
+    <h3><a name="H.Deprecated:1.Forced Active Notification Parameters">Forced Active Notification Parameters</a></h3>
     <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Forced Active Notification Parameters -->
       <tbody>
         <tr>
@@ -193,7 +247,7 @@ At most one entry in this table can exist with a given value for <a href="#D.Ena
         </tr>
       </tbody>
     </table> <!-- Forced Active Notification Parameters -->
-    <h3><a name="H.Enable:1.Default Active Notification Parameters">Default Active Notification Parameters</a></h3>
+    <h3><a name="H.Deprecated:1.Default Active Notification Parameters">Default Active Notification Parameters</a></h3>
     <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Default Active Notification Parameters -->
       <tbody>
         <tr>
@@ -201,7 +255,7 @@ At most one entry in this table can exist with a given value for <a href="#D.Ena
         </tr>
       </tbody>
     </table> <!-- Default Active Notification Parameters -->
-    <h3><a name="H.Enable:1.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></h3>
+    <h3><a name="H.Deprecated:1.Parameters for which Active Notification MAY be Denied">Parameters for which Active Notification MAY be Denied</a></h3>
     <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Parameters for which Active Notification MAY be Denied -->
       <tbody>
         <tr>
@@ -209,8 +263,8 @@ At most one entry in this table can exist with a given value for <a href="#D.Ena
         </tr>
       </tbody>
     </table> <!-- Parameters for which Active Notification MAY be Denied -->
-    <h2><a name="H.Enable:1.Profile Definitions">Profile Definitions</a></h2>
-    <h3><a name="H.Enable:1.Notation">Notation</a></h3>
+    <h2><a name="H.Deprecated:1.Profile Definitions">Profile Definitions</a></h2>
+    <h3><a name="H.Deprecated:1.Notation">Notation</a></h3>
     The following abbreviations are used to specify profile requirements:<p>
     <table width="60%" border="1" cellpadding="2" cellspacing="0">
       <tbody>
@@ -244,6 +298,116 @@ At most one entry in this table can exist with a given value for <a href="#D.Ena
         </tr>
       </tbody>
     </table>
+    <h3><a name="P.Deprecated:1.Baseline:1"></a><a name="H.Deprecated:1.Baseline:1 Profile [OBSOLETED]">Baseline:1 Profile [OBSOLETED]</a></h3>
+    This table defines the <i>Baseline:1</i> profile for the <i>Deprecated:1</i> data model.  The minimum REQUIRED version for this profile is <i>Deprecated:1.0</i>.<p>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Baseline:1 Profile [OBSOLETED] -->
+      <tbody>
+        <tr>
+          <th width="80%" class="g">Name</th>
+          <th width="20%" class="gc">Requirement</th>
+        </tr>
+        <tr>
+          <td class="p"><a href="#D.Deprecated:1.Automobile">Automobile</a></td>
+          <td class="pc">R<sup><a href="#P.Deprecated:1.Baseline:1.Automobile">1</a></sup></td>
+        </tr>
+      </tbody>
+    </table> <!-- Baseline:1 -->
+    <table width="60%" border="0">
+      <tbody>
+        <tr>
+          <td width="1%"><sup><a name="P.Deprecated:1.Baseline:1.Automobile">1</a></sup></td>
+          <td>This parameter is OBSOLETED.</td>
+        </tr>
+      </tbody>
+    </table>
+    <h3><a name="P.Deprecated:1.Advanced:1"></a><a name="H.Deprecated:1.Advanced:1 Profile [OBSOLETED]">Advanced:1 Profile [OBSOLETED]</a></h3>
+    The <i>Advanced:1</i> profile for the <i>Deprecated:1</i> data model is defined as the union of the <i>Baseline:1</i> profile and the additional requirements defined in this table.  The minimum REQUIRED version for this profile is <i>Deprecated:1.1</i>.<p>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Advanced:1 Profile [OBSOLETED] -->
+      <tbody>
+        <tr>
+          <th width="80%" class="g">Name</th>
+          <th width="20%" class="gc">Requirement</th>
+        </tr>
+        <tr>
+          <td class="p"><a href="#D.Deprecated:1.Automobile">Automobile</a></td>
+          <td class="pc">R<sup><a href="#P.Deprecated:1.Advanced:1.Automobile">1</a></sup></td>
+        </tr>
+        <tr>
+          <td class="p"><a href="#D.Deprecated:1.Bicycle">Bicycle</a></td>
+          <td class="pc">R</td>
+        </tr>
+        <tr>
+          <td class="p"><a href="#D.Deprecated:1.Canoe">Canoe</a></td>
+          <td class="pc">R</td>
+        </tr>
+        <tr>
+          <td class="p"><a href="#D.Deprecated:1.EtypeJaguar">EtypeJaguar</a></td>
+          <td class="pc">R<sup><a href="#P.Deprecated:1.Advanced:1.EtypeJaguar">2</a></sup></td>
+        </tr>
+      </tbody>
+    </table> <!-- Advanced:1 -->
+    <table width="60%" border="0">
+      <tbody>
+        <tr>
+          <td width="1%"><sup><a name="P.Deprecated:1.Advanced:1.Automobile">1</a></sup></td>
+          <td>This parameter is OBSOLETED.</td>
+        </tr>
+        <tr>
+          <td width="1%"><sup><a name="P.Deprecated:1.Advanced:1.EtypeJaguar">2</a></sup></td>
+          <td>This parameter is OBSOLETED.</td>
+        </tr>
+      </tbody>
+    </table>
+    <h3><a name="P.Deprecated:1.AdvancedDiesel:1"></a><a name="H.Deprecated:1.AdvancedDiesel:1 Profile [DELETED]">AdvancedDiesel:1 Profile [DELETED]</a></h3>
+    The <i>AdvancedDiesel:1</i> profile for the <i>Deprecated:1</i> data model is defined as the union of the <i>Advanced:1</i> profile and the additional requirements defined in this table.  The minimum REQUIRED version for this profile is <i>Deprecated:1.1</i>.<p>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- AdvancedDiesel:1 Profile [DELETED] -->
+      <tbody>
+        <tr>
+          <th width="80%" class="g">Name</th>
+          <th width="20%" class="gc">Requirement</th>
+        </tr>
+        <tr>
+          <td class="pd">Diesel</td>
+          <td class="pdc">R<sup><a href="#P.Deprecated:1.AdvancedDiesel:1.Diesel">1</a></sup></td>
+        </tr>
+      </tbody>
+    </table> <!-- AdvancedDiesel:1 -->
+    <table width="60%" border="0">
+      <tbody>
+        <tr>
+          <td width="1%"><sup><a name="P.Deprecated:1.AdvancedDiesel:1.Diesel">1</a></sup></td>
+          <td>This parameter is DELETED.</td>
+        </tr>
+      </tbody>
+    </table>
+    <h3><a name="P.Deprecated:1.Advanced:2"></a><a name="H.Deprecated:1.Advanced:2 Profile">Advanced:2 Profile</a></h3>
+    This table defines the <i>Advanced:2</i> profile for the <i>Deprecated:1</i> data model.  The minimum REQUIRED version for this profile is <i>Deprecated:1.5</i>.<p>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- Advanced:2 Profile -->
+      <tbody>
+        <tr>
+          <th width="80%" class="g">Name</th>
+          <th width="20%" class="gc">Requirement</th>
+        </tr>
+        <tr>
+          <td class="p"><a href="#D.Deprecated:1.Bicycle">Bicycle</a></td>
+          <td class="pc">R</td>
+        </tr>
+        <tr>
+          <td class="p"><a href="#D.Deprecated:1.Canoe">Canoe</a></td>
+          <td class="pc">R</td>
+        </tr>
+      </tbody>
+    </table> <!-- Advanced:2 -->
+    <h3><a name="P.Deprecated:1.AdvancedDiesel:2"></a><a name="H.Deprecated:1.AdvancedDiesel:2 Profile">AdvancedDiesel:2 Profile</a></h3>
+    The <i>AdvancedDiesel:2</i> profile for the <i>Deprecated:1</i> data model is defined as the union of the <i>AdvancedDiesel:1</i> profile and the additional requirements defined in this table.  The minimum REQUIRED version for this profile is <i>Deprecated:1.5</i>.<p>
+    <table width="60%" border="1" cellpadding="2" cellspacing="0"> <!-- AdvancedDiesel:2 Profile -->
+      <tbody>
+        <tr>
+          <th width="80%" class="g">Name</th>
+          <th width="20%" class="gc">Requirement</th>
+        </tr>
+      </tbody>
+    </table> <!-- AdvancedDiesel:2 -->
     <p>
     <hr>
     Generated by <a href="https://www.broadband-forum.org">Broadband Forum</a> <a href="https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool">report.pl</a>.<p>

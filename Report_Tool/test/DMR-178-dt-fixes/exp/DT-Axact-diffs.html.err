@@ -1,0 +1,65 @@
+(W) Device.DSL.Line.{i}.StandardsSupported: is obsoleted but has no {{deprecated}} template
+(W) Device.DSL.Line.{i}.StandardsSupported: is obsoleted but has no {{obsoleted}} template
+(W) Device.DSL.Line.{i}.StandardUsed: is obsoleted but has no {{deprecated}} template
+(W) Device.DSL.Line.{i}.StandardUsed: is obsoleted but has no {{obsoleted}} template
+(W) Device.Ghn.Interface.{i}.ConnectionType: is obsoleted but has no {{deprecated}} template
+(W) Device.Ghn.Interface.{i}.ConnectionType: is obsoleted but has no {{obsoleted}} template
+(W) Device.WiFi.Radio.{i}.Upstream: is obsoleted but has no {{deprecated}} template
+(W) Device.WiFi.Radio.{i}.Upstream: is obsoleted but has no {{obsoleted}} template
+(W) Device.WiFi.Radio.{i}.CenterFrequencySegement0: is deprecated but has no {{deprecated}} template
+(W) Device.WiFi.Radio.{i}.CenterFrequencySegement1: is deprecated but has no {{deprecated}} template
+(W) Device.WiFi.AccessPoint.{i}.RetryLimit: is obsoleted but has no {{deprecated}} template
+(W) Device.WiFi.AccessPoint.{i}.RetryLimit: is obsoleted but has no {{obsoleted}} template
+(W) Device.WiFi.AccessPoint.{i}.MaxAssociatedDevices: is obsoleted but has no {{deprecated}} template
+(W) Device.WiFi.AccessPoint.{i}.MaxAssociatedDevices: is obsoleted but has no {{obsoleted}} template
+(W) Device.PPP.Interface.{i}.PPPoA.: is obsoleted but has no {{deprecated}} template
+(W) Device.PPP.Interface.{i}.PPPoA.: is obsoleted but has no {{obsoleted}} template
+(W) Device.MAP.Domain.{i}.PSIDOffset: is obsoleted but has no {{deprecated}} template
+(W) Device.MAP.Domain.{i}.PSIDOffset: is obsoleted but has no {{obsoleted}} template
+(W) Device.MAP.Domain.{i}.PSIDLength: is obsoleted but has no {{deprecated}} template
+(W) Device.MAP.Domain.{i}.PSIDLength: is obsoleted but has no {{obsoleted}} template
+(W) Device.MAP.Domain.{i}.PSID: is obsoleted but has no {{deprecated}} template
+(W) Device.MAP.Domain.{i}.PSID: is obsoleted but has no {{obsoleted}} template
+(W) Device.Hosts.Host.{i}.Alias: is obsoleted but has no {{deprecated}} template
+(W) Device.Hosts.Host.{i}.Alias: is obsoleted but has no {{obsoleted}} template
+(W) Device.Hosts.Host.{i}.AddressSource: is obsoleted but has no {{deprecated}} template
+(W) Device.Hosts.Host.{i}.AddressSource: is obsoleted but has no {{obsoleted}} template
+(W) Device.Hosts.Host.{i}.LeaseTimeRemaining: is obsoleted but has no {{deprecated}} template
+(W) Device.Hosts.Host.{i}.LeaseTimeRemaining: is obsoleted but has no {{obsoleted}} template
+(W) Device.Hosts.Host.{i}.VendorClassID: is obsoleted but has no {{deprecated}} template
+(W) Device.Hosts.Host.{i}.VendorClassID: is obsoleted but has no {{obsoleted}} template
+(W) Device.Hosts.Host.{i}.ClientID: is obsoleted but has no {{deprecated}} template
+(W) Device.Hosts.Host.{i}.ClientID: is obsoleted but has no {{obsoleted}} template
+(W) Device.Hosts.Host.{i}.UserClassID: is obsoleted but has no {{deprecated}} template
+(W) Device.Hosts.Host.{i}.UserClassID: is obsoleted but has no {{obsoleted}} template
+(W) Device.LocalAgent.MTP.{i}.CoAP.IsEncrypted: is deprecated but has no {{deprecated}} template
+(W) Device.LocalAgent.Controller.{i}.ScheduleTimer().: is deprecated but has no {{deprecated}} template
+(W) Device.LocalAgent.Controller.{i}.Timer!.: is deprecated but has no {{deprecated}} template
+(W) Device.STOMP.Connection.{i}.IsEncrypted: is deprecated but has no {{deprecated}} template
+(W) profile ADSL2:1 is current but should be obsoleted because of Device.DSL.Line.{i}.StandardUsed, Device.DSL.Line.{i}.StandardsSupported
+(W) profile ADSL2:1 Device.DSL.Line.{i}.StandardUsed is current but should be obsoleted
+(W) profile ADSL2:1 Device.DSL.Line.{i}.StandardsSupported is current but should be obsoleted
+(W) profile ADSL2:2 is current but should be obsoleted because of Device.DSL.Line.{i}.StandardUsed, Device.DSL.Line.{i}.StandardsSupported
+(W) profile ADSL2:2 Device.DSL.Line.{i}.StandardUsed is current but should be obsoleted
+(W) profile ADSL2:2 Device.DSL.Line.{i}.StandardsSupported is current but should be obsoleted
+(W) profile VDSL2:1 is current but should be obsoleted because of Device.DSL.Line.{i}.StandardUsed, Device.DSL.Line.{i}.StandardsSupported
+(W) profile VDSL2:1 Device.DSL.Line.{i}.StandardUsed is current but should be obsoleted
+(W) profile VDSL2:1 Device.DSL.Line.{i}.StandardsSupported is current but should be obsoleted
+(W) profile VDSL2:2 is current but should be obsoleted because of Device.DSL.Line.{i}.StandardUsed, Device.DSL.Line.{i}.StandardsSupported
+(W) profile VDSL2:2 Device.DSL.Line.{i}.StandardUsed is current but should be obsoleted
+(W) profile VDSL2:2 Device.DSL.Line.{i}.StandardsSupported is current but should be obsoleted
+(W) profile VDSL2:3 is current but should be obsoleted because of Device.DSL.Line.{i}.StandardUsed, Device.DSL.Line.{i}.StandardsSupported
+(W) profile VDSL2:3 Device.DSL.Line.{i}.StandardUsed is current but should be obsoleted
+(W) profile VDSL2:3 Device.DSL.Line.{i}.StandardsSupported is current but should be obsoleted
+(W) profile MAPAdv:1 is current but should be obsoleted because of Device.MAP.Domain.{i}.PSID, Device.MAP.Domain.{i}.PSIDLength, Device.MAP.Domain.{i}.PSIDOffset
+(W) profile MAPAdv:1 Device.MAP.Domain.{i}.PSID is current but should be obsoleted
+(W) profile MAPAdv:1 Device.MAP.Domain.{i}.PSIDLength is current but should be obsoleted
+(W) profile MAPAdv:1 Device.MAP.Domain.{i}.PSIDOffset is current but should be obsoleted
+(W) profile WiFiRadio:1 is current but should be obsoleted because of Device.WiFi.Radio.{i}.Upstream
+(W) profile WiFiRadio:1 Device.WiFi.Radio.{i}.Upstream is current but should be obsoleted
+(W) profile Hosts:1 is current but should be obsoleted because of Device.Hosts.Host.{i}.AddressSource, Device.Hosts.Host.{i}.LeaseTimeRemaining
+(W) profile Hosts:1 Device.Hosts.Host.{i}.AddressSource is current but should be obsoleted
+(W) profile Hosts:1 Device.Hosts.Host.{i}.LeaseTimeRemaining is current but should be obsoleted
+(W) profile Hosts:2 is current but should be obsoleted because of Device.Hosts.Host.{i}.AddressSource, Device.Hosts.Host.{i}.LeaseTimeRemaining
+(W) profile Hosts:2 Device.Hosts.Host.{i}.AddressSource is current but should be obsoleted
+(W) profile Hosts:2 Device.Hosts.Host.{i}.LeaseTimeRemaining is current but should be obsoleted

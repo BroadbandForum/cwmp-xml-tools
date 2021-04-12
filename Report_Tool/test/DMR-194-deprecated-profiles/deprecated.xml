@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document
+  xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+  xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="
+    urn:broadband-forum-org:cwmp:datamodel-1-8
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+    urn:broadband-forum-org:cwmp:datamodel-report-1-0
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+  spec="urn:example-com:deprecated"
+  file="deprecated.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="Deprecated:1.0">
+    <parameter name="Automobile" access="readOnly">
+      <description>
+        An {{param}}.
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+
+    <profile name="Baseline:1" status="obsoleted">
+      <parameter ref="Automobile" requirement="readOnly" status="obsoleted"/>
+    </profile>
+  </model>
+
+
+  <model name="Deprecated:1.1" base="Deprecated:1.0">
+    <parameter base="Automobile" access="readOnly" status="deprecated">
+      <description action="append">
+        {{deprecated|1.1|because I bought a {{param|Bicycle}}}}
+      </description>
+    </parameter>
+
+    <parameter name="Bicycle" access="readOnly" version="1.1">
+      <description>
+        A {{param}}. This is much better than an {{param|Automobile|obsoleted}},
+        and much worse than a {{param|Diesel|deleted}}.
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+
+    <parameter name="Canoe" access="readOnly" version="1.1">
+      <description>
+        A {{param}}. So much better than an {{param|Automobile|obsoleted}}, and
+        much worse than a {{param|Container.FlyingMachine}} or a
+        {{object|Container.Child}}.
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+
+    <parameter name="Diesel" access="readOnly" version="1.1">
+      <description>
+        A {{param}}. Terrible.
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+
+    <parameter name="EtypeJaguar" access="readOnly" version="1.1">
+      <description>
+        An {{param}}. Fun but not worth it? Better buy a {{param|Canoe}}.
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+
+    <object name="Container." access="readOnly" minEntries="1" maxEntries="1" status="deprecated">
+      <description>
+        A {{object}}.
+        
+        {{deprecated|1.1|because I want to}}
+      </description>
+
+      <parameter name="FlyingMachine" access="readOnly">
+        <description>
+          A {{param}}.
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+    </object>
+
+    <profile name="Advanced:1" extends="Baseline:1" status="obsoleted">
+      <parameter ref="Automobile" requirement="readOnly" status="obsoleted"/>
+      <parameter ref="Bicycle" requirement="readOnly"/>
+      <parameter ref="Canoe" requirement="readOnly"/>
+      <parameter ref="EtypeJaguar" requirement="readOnly" status="obsoleted"/>
+    </profile>
+
+    <profile name="AdvancedDiesel:1" extends="Advanced:1" status="deleted">
+      <parameter ref="Diesel" requirement="readOnly" status="deleted"/>
+    </profile>
+  </model>
+
+  <model name="Deprecated:1.2" base="Deprecated:1.1">
+    <parameter base="Diesel" access="readOnly" status="deprecated">
+      <description action="append">
+        {{deprecated|1.2|because it's dirty}}
+      </description>
+    </parameter>
+
+    <parameter base="EtypeJaguar" access="readOnly" status="deprecated">
+      <description action="append">
+        {{deprecated|1.2|for obvious reasons}}
+      </description>
+    </parameter>
+
+    <object name="Container.Child." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        A {{object}}.
+      </description>
+    </object> 
+  </model>
+
+
+  <model name="Deprecated:1.3" base="Deprecated:1.2">
+    <!-- XXX you shouldn't have to repeat the status; currently omitted means 'current' -->
+    <parameter base="Automobile" access="readOnly" status="obsoleted">
+      <description action="append">
+        {{obsoleted|1.3-1.5|because it's about time}}
+      </description>
+    </parameter>
+  </model>
+
+  <model name="Deprecated:1.4" base="Deprecated:1.3">
+    <parameter base="Diesel" access="readOnly" status="obsoleted">
+      <description action="append">
+        {{obsoleted|1.4}}
+      </description>
+    </parameter>
+
+    <parameter base="EtypeJaguar" access="readOnly" status="obsoleted">
+      <description action="append">
+        {{obsoleted|1.4-1.5}}
+      </description>
+    </parameter>
+  </model>
+
+  <model name="Deprecated:1.5" base="Deprecated:1.4">
+    <parameter base="Diesel" access="readOnly" status="deleted">
+      <description action="append">
+        {{deleted|1.5}}
+      </description>
+    </parameter>
+
+    <profile name="Advanced:2">
+      <parameter ref="Bicycle" requirement="readOnly"/>
+      <parameter ref="Canoe" requirement="readOnly"/>
+    </profile>
+
+    <profile name="AdvancedDiesel:2" base="AdvancedDiesel:1"/>
+  </model>
+</dm:document>
