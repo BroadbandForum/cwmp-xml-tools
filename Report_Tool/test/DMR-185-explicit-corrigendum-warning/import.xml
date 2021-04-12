@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-8
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd"
+               spec="urn:example-com:import" file="import.xml">
+
+  <import file="tr-069-1-6-0-biblio.xml"/>
+
+  <import file="tr-106-1-2-0-types.xml" spec="urn:broadband-forum-org:tr-106-1-2-0"/>
+
+</dm:document>

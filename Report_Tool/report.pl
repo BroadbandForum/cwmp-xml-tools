@@ -1113,8 +1113,18 @@ sub expand_import
     my $tfile = $file;
     $file =~ s/\.xml//;
 
+    # warn if the filename included a corrigendum numer
     w0msg "$cfile.xml: import $ofile: corrigendum number should " .
-        "be omitted" if $corr && $depth == 1;
+        "be omitted" if $corr;
+
+    # similarly check that the spec (if supplied) doesn't include a corrigendum
+    # number
+    if ($spec) {
+        my ($prefix_ignore, $name_ignore, $i_ignore, $a_ignore, $c,
+            $label_ignore) = spec_parse($spec);
+        w0msg "$cfile.xml: import $spec: corrigendum number should " .
+            "be omitted" if $c >= 0;
+    }
 
     # if one or more top-level file has the same name, use the final directory
     # component to differentiate them (this is common when comparing versions
