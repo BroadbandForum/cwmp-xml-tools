@@ -125,7 +125,7 @@
   </model>
 
 
-    <model name="Deprecated:1.3" base="Deprecated:1.2">
+  <model name="Deprecated:1.3" base="Deprecated:1.2">
     <!-- XXX you shouldn't have to repeat the status; currently omitted means 'current' -->
     <parameter base="Automobile" access="readOnly" status="obsoleted">
       <description action="append">
@@ -155,7 +155,10 @@
       </description>
     </parameter>
 
-    <profile name="Advanced:2" base="Advanced:1"/>
+    <profile name="Advanced:2">
+      <parameter ref="Bicycle" requirement="readOnly"/>
+      <parameter ref="Canoe" requirement="readOnly"/>
+    </profile>
 
     <profile name="AdvancedDiesel:2" base="AdvancedDiesel:1"/>
   </model>

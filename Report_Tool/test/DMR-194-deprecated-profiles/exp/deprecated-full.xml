@@ -100,7 +100,10 @@
     <profile name="AdvancedDiesel:1" extends="Advanced:1" status="deleted" version="1.0">
       <parameter ref="Diesel" status="deleted" requirement="readOnly"/>
     </profile>
-    <profile name="Advanced:2" base="Advanced:1" version="1.0"/>
+    <profile name="Advanced:2" base="Advanced:1" version="1.0">
+      <parameter ref="Bicycle" requirement="readOnly"/>
+      <parameter ref="Canoe" requirement="readOnly"/>
+    </profile>
     <profile name="AdvancedDiesel:2" base="AdvancedDiesel:1" version="1.0"/>
   </model>
 </dm:document>

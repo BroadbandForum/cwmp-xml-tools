@@ -3079,18 +3079,23 @@ sub expand_model_profile
         }
 
         # otherwise check anyway for previous version (this allows later
-        # versions to be defined both using base and standalone)
+        # versions to be defined either using base or standalone)
         else {
             # improve this; handle redef of prof / obj / par; add version...
             # make generated xml2 valid (need types)
-            # XXX currently only copes with one previous version
-            ($baseprof) = grep {
+            my @baseprofs = grep {
                 my ($a) = ($name =~ /([^:]*)/);
                 my ($b) = ($_->{name} =~ /([^:]*)/);
                 $_->{type} eq 'profile' && $a eq $b;
             } @{$mnode->{nodes}};
+            # if there are multiple matches, this is the last (highest) one
+            $baseprof = $baseprofs[-1] if @baseprofs;
             if ($baseprof) {
                 $base = $baseprof->{name};
+                # undefine $baseprof so base profiles are never implicit
+                # (this is a change of behavior but it's OK because no models
+                # rely on implicit base profiles)
+                undef $baseprof;
                 $baseauto = 1;
             }
         }
@@ -3123,8 +3128,10 @@ sub expand_model_profile
         # baseauto = 2 if base was specified and extends duplicates it
         # baseauto = 3 if base was specified incorrectly via extends
         if ($baseauto == 1) {
-            w0msg "{$file}$name: base profile $base omitted and therefore " .
-                "determined automatically";
+            # this is no longer an error; in this case $baseprof is undefined
+            # and $base can be used to check for missing profile items
+            #w0msg "{$file}$name: base profile $base omitted and therefore " .
+            #    "determined automatically";
         } elsif ($baseauto == 2) {
             w0msg "{$file}$name: base profile $base specified incorrectly " .
                 "via both \"base\" and \"extends\"";
@@ -4719,7 +4726,7 @@ sub invalid_refs
         }
     }
 
-    # invalid ref type (programming error
+    # invalid ref type (programming error)
     else {
         die "invalid_refs: undefined ref type $reftype";
     }
@@ -8472,9 +8479,9 @@ END
         }
         # XXX experiment with only checking the actual node status for Refs
         my $is_ref = $node->{type} =~ /Ref$/;
-        $tdclass .= 'd' if $showdiffs &&
+        $tdclass .= 'd' if
             (($is_ref && $node->{status} eq 'deleted') ||
-             (!$is_ref && util_is_deleted($node)));
+             (!$is_ref && $showdiffs && util_is_deleted($node)));
 
         my $tdclasstyp = $tdclass;
         if ($showdiffs && util_node_is_modified($node) &&
@@ -15098,7 +15105,8 @@ sub sanity_node
               join ', ', sort keys %{$levels->{$highest}})
             if $highest > $status_levels->{$status};
 
-        # warn of any profile statuses that are lower than item statuses
+        # warn of any profile item statuses that are lower (less deprecated)
+        # than the statuses of the referenced items
         for (my $level = 0; $level < 4; $level++) {
             my $plevels = $levels->{$level};
             foreach my $path (sort keys %$plevels) {
@@ -15108,20 +15116,53 @@ sub sanity_node
                     $plevel < $level;
             }
         }
+
+        # if the base profile is implicit, check that the profile contains
+        # all of the base profile's non-deprecated items
+        my $base = $node->{base};
+        if ($base && !$node->{baseprof}) {
+            d0msg "$type $name";
+            my $levels = {notSpecified => 1,
+                          present => 2, readOnly => 2,
+                          create => 3, delete => 4,
+                          createDelete => 5, readWrite => 5};
+            my $fpath = $mpref . $base;
+            my $pinfo = $profiles->{$fpath};
+            my $Pnode = $pinfo->{node};
+            my $baseitems = profile_items($Pnode, {}, 1);
+            my $profitems = profile_items($node, {}, 1);
+            foreach my $path (sort keys %$baseitems) {
+                my $baseaccess = $baseitems->{$path};
+                my $profaccess = $profitems->{$path};
+                if (!$profaccess) {
+                    emsg "profile $name needs to reference $path " .
+                        "($baseaccess)" if $path;
+                } elsif ($levels->{$profaccess} < $levels->{$baseaccess}) {
+                    emsg "profile $name has reduced requirement ".
+                        "($profaccess) for $path ($baseaccess)";
+
+                }
+            }
+        }
     }
 }
 
-# traverse a profile and its children, determining the highest ("most
-# deprecated") status level in the tree (this calls itself recursively, so
-# the node isn't necessarily a profile node)
+# Traverse a profile and its children, determining the highest ("most
+# deprecated") status level in the tree
+#
+# Note:
+# * This calls itself recursively, so the node argument isn't necessarily a
+#   profile node
+# * The status level is that of the referenced item, not of the item within
+#   the profile
 sub profile_status
 {
     my ($node, $levels, $profver, $highest, $indent) = @_;
     $highest = 0 unless defined $highest;
     $indent = 0 unless defined $indent;
 
-    my $type = $node->{type};
-    my $path = $node->{path} || '<Empty>';
+    my $type = $node->{type} || '';
+    my $path = $node->{path} || '';
     my $status = $node->{status} || 'current';
 
     # if this is a reference, find the referenced item
@@ -15130,33 +15171,20 @@ sub profile_status
         my $fpath = util_full_path($node);
         my $hash = $type eq 'objectRef' ? $objects : $parameters;
         $item = $hash->{$fpath};
-        # XXX this shouldn't die here
-        die "$type $fpath not found; programming error?" unless $item;
-    }
-
-    # if this node's status last changed at or before the version at which
-    # the profile was added, ignore it for calculating the highest node status
-    # XXX this relies on status_transitions having been set, which should be
-    #     the case; ignore profiles here because status_transitions won't be
-    #     set for them (this won't affect the results, because profile status
-    #     can be derived from its contents)
-    my $item_status = $item->{status} || 'current';
-    my $ignore = $type eq 'profile' ? 1 : 0;
-    if ($item->{status_transitions} &&
-        $item->{status_transitions}->{$item_status}) {
-        my $tranver = $item->{status_transitions}->{$item_status}->[0];
-        $ignore = 1 if $profver && version_compare($tranver, $profver) <= 0;
+        if (!$item) {
+            emsg "$type $fpath not found (programming error?)";
+            return $highest;
+        }
     }
 
     # note if this node's status is the highest so far
+    my $item_status = $item->{status} || 'current';
     my $level = $status_levels->{$item_status};
-    if (!$ignore && $level > $highest) {
-        $highest = $level;
-    }
+    $highest = $level if $level > $highest;
 
     # update the levels structure
     $levels->{$level}->{$node->{path}} = $status_levels->{$status} if
-        !$ignore && $levels && $node->{path};
+        $levels && $path;
 
     d0msg "  " x $indent . "$type $path level $level highest $highest " .
         "profver " . version_string($profver);
@@ -15165,8 +15193,14 @@ sub profile_status
     if ($type eq 'profile') {
         my $mpref = util_full_path($node, 1);
         my $base = $node->{base};
+        my $baseprof = $node->{baseprof};
         my $extends = $node->{extends};
-        my $base_extends = $base . ($base && $extends ? " " : "") . $extends;
+        # if $base is defined but $baseprof is undefined, it's an implicit
+        # base and is not inherited from
+        my $base_extends = "";
+        $base_extends .= $base if $base && $baseprof;
+        $base_extends .= " " if $base_extends && $extends;
+        $base_extends .= $extends if $extends;
         foreach my $base (split /\s+/, $base_extends) {
             my $fpath = $mpref . $base;
             my $pinfo = $profiles->{$fpath};
@@ -15183,6 +15217,59 @@ sub profile_status
     }
 
     return $highest;
+}
+
+# Traverse a profile and its children, collecting a hash of all non-deprecated
+# profile item paths and access requirements
+#
+# Note:
+# * This calls itself recursively, so the node argument isn't necessarily a
+#   profile node
+sub profile_items
+{
+    my ($node, $items, $indent) = @_;
+    $items = {} unless defined $items;
+    $indent = 0 unless defined $indent;
+
+    my $type = $node->{type} || '';
+    my $path = $node->{path} || '';
+    my $status = $node->{status} || 'current';
+
+    # access will be 'notSpecified' for profile nodes
+    my $access = $node->{access} || 'notSpecified';
+
+    # note the path and access requirement if this item (node) is current
+    $items->{$path} = $access
+        if $access ne 'notSpecified' && $status_levels->{$status} == 0;
+
+    d0msg "  " x $indent . "$type $path $status $access";
+
+    # if it's a profile, expand its base and extends profiles
+    if ($type eq 'profile') {
+        my $mpref = util_full_path($node, 1);
+        my $base = $node->{base};
+        my $baseprof = $node->{baseprof};
+        my $extends = $node->{extends};
+        # if $base is defined but $baseprof is undefined, it's an implicit
+        # base and is not inherited from
+        my $base_extends = "";
+        $base_extends .= $base if $base && $baseprof;
+        $base_extends .= " " if $base_extends && $extends;
+        $base_extends .= $extends if $extends;
+        foreach my $base (split /\s+/, $base_extends) {
+            my $fpath = $mpref . $base;
+            my $pinfo = $profiles->{$fpath};
+            my $Pnode = $pinfo->{node};
+            $items = profile_items($Pnode, $items, $indent + 1);
+        }
+    }
+
+    # traverse all its children
+    foreach my $child (@{$node->{nodes}}) {
+        $items = profile_items($child, $items, $indent + 1);
+    }
+
+    return $items;
 }
 
 # Get a node's effective status, i.e. the "most deprecated" (highest) status
