@@ -7146,6 +7146,9 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $node->{xml2}->{element} = '';
                 return;
             }
+            if ($base && !$node->{baseprof}) {
+                $base = '';
+            }
         } elsif ($element =~ /(\w+)Ref$/) {
             $element = $1; # parameter or object
             $ref = $name;
