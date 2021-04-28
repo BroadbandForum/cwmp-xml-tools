@@ -8241,12 +8241,9 @@ sub html_node
     # font (--nofontstyles doesn't affect use of blue and red)
     my $font_oc = $nofontstyles ? '/* ' : '';
     my $font_cc = $nofontstyles ? ' */' : '';
-    my $h1font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
-        qq{font-size: 14pt;${font_cc}};
-    my $h2font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
-        qq{font-size: 12pt;${font_cc}};
-    my $h3font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
-        qq{font-size: 10pt;${font_cc}};
+    my $h1font = qq{${font_oc}font-size: 14pt;${font_cc}};
+    my $h2font = qq{${font_oc}font-size: 12pt;${font_cc}};
+    my $h3font = qq{${font_oc}font-size: 10pt;${font_cc}};
     my $font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
         qq{font-size: 8pt;${font_cc}};
     my $fontnew = qq{color: blue;};
@@ -8416,64 +8413,64 @@ $do_not_edit
       h3 { $h3font }
       sup { $sup_valign }
       span, span.o, div, div.o { $font }
-      span.n, div.n { $font $fontnew }
-      span.i, div.i { $font $fontnew }
-      span.d, div.d { $font $fontdel $strike }
+      span.n, div.n { $fontnew }
+      span.i, div.i { $fontnew }
+      span.d, div.d { $fontdel $strike }
       table { $table }
       th { $row $font }
-      th.c { $row $font $center }
-      th.g { $row $font $theader_bg }
-      th.gc { $row $font $theader_bg $center }
-      tr, tr.o { $row $font }
-      tr.n { $row $font $fontnew }
-      td.o { $row $font $object_bg }
-      td.m { $row $font $mountableobject_bg }
-      td.q { $row $font $mountpoint_bg }
-      td.c { $row $font $command_bg }
-      td.d { $row $font $arguments_bg }
-      td.e { $row $font $argobject_bg }
-      td.f { $row $font $argparam_bg }
-      td, td.p { $row $font }
-      td.oc { $row $font $object_bg $center }
-      td.mc { $row $font $mountableobject_bg $center }
-      td.qc { $row $font $mountpoint_bg $center }
-      td.cc { $row $font $command_bg $center }
-      td.dc { $row $font $arguments_bg $center }
-      td.ec { $row $font $argobject_bg $center }
-      td.fc { $row $font $argparam_bg $center }
-      td.pc { $row $font $center }
-      td.on { $row $font $object_bg $fontnew }
-      td.mn { $row $font $mountableobject_bg $fontnew }
-      td.qn { $row $font $mountpoint_bg $fontnew }
-      td.cn { $row $font $command_bg $fontnew }
-      td.dn { $row $font $arguments_bg $fontnew }
-      td.en { $row $font $argobject_bg $fontnew }
-      td.fn { $row $font $argparam_bg $fontnew }
-      td.od { $row $font $object_bg $fontdel $strike }
-      td.md { $row $font $mountableobject_bg $fontdel $strike }
-      td.qd { $row $font $mountpoint_bg $fontdel $strike }
-      td.cd { $row $font $command_bg $fontdel $strike }
-      td.dd { $row $font $arguments_bg $fontdel $strike }
-      td.ed { $row $font $argobject_bg $fontdel $strike }
-      td.fd { $row $font $argparam_bg $fontdel $strike }
-      td.pn { $row $font $fontnew }
-      td.pd { $row $font $fontdel $strike }
-      td.onc { $row $font $object_bg $fontnew $center }
-      td.mnc { $row $font $mountableobject_bg $fontnew $center }
-      td.qnc { $row $font $mountpoint_bg $fontnew $center }
-      td.odc { $row $font $object_bg $fontdel $strike $center }
-      td.mdc { $row $font $mountableobject_bg $fontdel $strike $center }
-      td.qdc { $row $font $mountpoint_bg $fontdel $strike $center }
-      td.cnc { $row $font $command_bg $fontnew $center }
-      td.cdc { $row $font $command_bg $fontdel $strike $center }
-      td.dnc { $row $font $arguments_bg $fontnew $center }
-      td.ddc { $row $font $arguments_bg $fontdel $strike $center }
-      td.edc { $row $font $argobject_bg $fontdel $strike $center }
-      td.enc { $row $font $argobject_bg $fontnew $center }
-      td.fdc { $row $font $argparam_bg $fontdel $strike $center }
-      td.fnc { $row $font $argparam_bg $fontnew $center }
-      td.pnc { $row $font $fontnew $center }
-      td.pdc { $row $font $fontdel $strike $center }
+      th.c { $center }
+      th.g { $theader_bg }
+      th.gc { $theader_bg $center }
+      tr, tr.o { $row $font  }
+      tr.n { $fontnew }
+      td.o { $object_bg }
+      td.m { $mountableobject_bg }
+      td.q { $mountpoint_bg }
+      td.c { $command_bg }
+      td.d { $arguments_bg }
+      td.e { $argobject_bg }
+      td.f { $argparam_bg }
+      td, td.p { $font }
+      td.oc { $object_bg $center }
+      td.mc { $mountableobject_bg $center }
+      td.qc { $mountpoint_bg $center }
+      td.cc { $command_bg $center }
+      td.dc { $arguments_bg $center }
+      td.ec { $argobject_bg $center }
+      td.fc { $argparam_bg $center }
+      td.pc { $center }
+      td.on { $object_bg $fontnew }
+      td.mn { $mountableobject_bg $fontnew }
+      td.qn { $mountpoint_bg $fontnew }
+      td.cn { $command_bg $fontnew }
+      td.dn { $arguments_bg $fontnew }
+      td.en { $argobject_bg $fontnew }
+      td.fn { $argparam_bg $fontnew }
+      td.od { $object_bg $fontdel $strike }
+      td.md { $mountableobject_bg $fontdel $strike }
+      td.qd { $mountpoint_bg $fontdel $strike }
+      td.cd { $command_bg $fontdel $strike }
+      td.dd { $arguments_bg $fontdel $strike }
+      td.ed { $argobject_bg $fontdel $strike }
+      td.fd { $argparam_bg $fontdel $strike }
+      td.pn { $fontnew }
+      td.pd { $fontdel $strike }
+      td.onc { $object_bg $fontnew $center }
+      td.mnc { $mountableobject_bg $fontnew $center }
+      td.qnc { $mountpoint_bg $fontnew $center }
+      td.odc { $object_bg $fontdel $strike $center }
+      td.mdc { $mountableobject_bg $fontdel $strike $center }
+      td.qdc { $mountpoint_bg $fontdel $strike $center }
+      td.cnc { $command_bg $fontnew $center }
+      td.cdc { $command_bg $fontdel $strike $center }
+      td.dnc { $arguments_bg $fontnew $center }
+      td.ddc { $arguments_bg $fontdel $strike $center }
+      td.edc { $argobject_bg $fontdel $strike $center }
+      td.enc { $argobject_bg $fontnew $center }
+      td.fdc { $argparam_bg $fontdel $strike $center }
+      td.fnc { $argparam_bg $fontnew $center }
+      td.pnc { $fontnew $center }
+      td.pdc { $fontdel $strike $center }
       $hyperlink
     </style>
   </head>
