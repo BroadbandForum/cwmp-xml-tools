@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document
+  xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+  xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="
+    urn:broadband-forum-org:cwmp:datamodel-1-8
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+    urn:broadband-forum-org:cwmp:datamodel-report-1-0
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+  spec="urn:example-com:deprecated"
+  file="deprecated.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="Deprecated:1.0">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}}.
+      </description>
+
+      <parameter name="Automobile" access="readOnly">
+        <description>
+          An {{param}}.
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+
+      <parameter name="Bicycle" access="readOnly">
+        <description>
+          A {{param}}. This is much better than an {{param|Automobile}}.
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+    </object>
+  </model>
+
+  <model name="Deprecated:1.1" base="Deprecated:1.0">
+    <object base="Root." access="readOnly" minEntries="1" maxEntries="1"
+      status="deprecated">
+      <description action="append">
+        {{deprecated|1.1|because I say so}}
+      </description>
+    </object>
+  </model>
+</dm:document>

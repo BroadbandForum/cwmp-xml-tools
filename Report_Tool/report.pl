@@ -10357,7 +10357,7 @@ sub html_template_paramref
     # XXX should support comma-separated list, e.g. 'normal,deprecated'
     # XXX should treat 'deprecated' etc. as the expected refstat
     my $scopes = "normal|absolute|model";
-    my $entstat = $opts->{node}->{status};
+    my $entstat = node_status($opts->{node});
     if ($scope && $scope !~ /$scopes/) {
         $entstat = $scope;
         $scope = undef;
@@ -10489,7 +10489,7 @@ sub html_template_objectref
     # XXX should support comma-separated list, e.g. 'normal,deprecated'
     # XXX should treat 'deprecated' etc. as the expected refstat
     my $scopes = "normal|absolute|model";
-    my $objstat = $opts->{node}->{status};
+    my $objstat = node_status($opts->{node});
     if ($scope && $scope !~ /$scopes/) {
         $objstat = $scope;
         $scope = undef;
