@@ -1365,17 +1365,62 @@ sub expand_dataType
     my $description = findvalue_text($dataType, 'description');
     my $descact = $dataType->findvalue('description/@action');
     my $descdef = $dataType->findnodes('description')->size();
-    # XXX not getting many list attributes or any map attributes
+
+    # XXX not getting all list attributes or any map attributes
     my $list = $dataType->findnodes('list')->size();
     my $listMinItems = $dataType->findvalue('list/@minItems');
     my $listMaxItems = $dataType->findvalue('list/@maxItems');
+    my $listMinLength = $dataType->findvalue('list/size/@minLength');
+    my $listMaxLength = $dataType->findvalue('list/size/@maxLength');
     my $map = $dataType->findnodes('map')->size();
-    # XXX this won't handle multiple sizes or ranges
-    my $minLength = $dataType->findvalue('.//size/@minLength');
-    my $maxLength = $dataType->findvalue('.//size/@maxLength');
-    my $minInclusive = $dataType->findvalue('.//range/@minInclusive');
-    my $maxInclusive = $dataType->findvalue('.//range/@maxInclusive');
-    my $step = $dataType->findvalue('.//range/@step');
+
+    # handle multiple sizes
+    my $syntax;
+    foreach my $size ($dataType->findnodes('size')) {
+        my $minLength = $size->findvalue('@minLength');
+        my $maxLength = $size->findvalue('@maxLength');
+        my $status = $size->findvalue('@status');
+
+        # XXX this is brain dead handling of status="deleted"; should
+        #     check for a matching entry
+        if ($status && $status eq 'deleted') {
+            $syntax->{sizes} = [];
+            next;
+        }
+
+        $minLength = undef if $minLength eq '';
+        $maxLength = undef if $maxLength eq '';
+        if (defined $minLength || defined $maxLength) {
+            push @{$syntax->{sizes}}, {minLength => $minLength,
+                                       maxLength => $maxLength};
+        }
+    }
+
+    # handle multiple ranges
+    foreach my $range ($dataType->findnodes('range')) {
+        my $minInclusive = $range->findvalue('@minInclusive');
+        my $maxInclusive = $range->findvalue('@maxInclusive');
+        my $step = $range->findvalue('@step');
+        my $status = $range->findvalue('@status');
+
+        # XXX this is brain dead handling of status="deleted"; should
+        #     check for a matching entry
+        if ($status && $status eq 'deleted') {
+            $syntax->{ranges} = [];
+            next;
+        }
+
+        $minInclusive = undef if $minInclusive eq '';
+        $maxInclusive = undef if $maxInclusive eq '';
+        $step = undef if $step eq '';
+        if (defined $minInclusive || defined $maxInclusive ||
+            defined $step) {
+            push @{$syntax->{ranges}}, {minInclusive => $minInclusive,
+                                        maxInclusive => $maxInclusive,
+                                        step => $step};
+        }
+    }
+
     my $values = $dataType->findnodes('string/enumeration|enumeration');
     my $hasPattern = 0;
     if (!$values) {
@@ -1389,6 +1434,57 @@ sub expand_dataType
                        'unsignedLong')) {
         if ($dataType->findnodes($type)) {
             $prim = $type;
+
+            # process some facets (duplicate code)
+            my $typeNode = $dataType->findnodes($type)->[0];
+
+            # handle multiple sizes
+            foreach my $size ($typeNode->findnodes('size')) {
+                my $minLength = $size->findvalue('@minLength');
+                my $maxLength = $size->findvalue('@maxLength');
+                my $status = $size->findvalue('@status');
+
+                # XXX this is brain dead handling of status="deleted"; should
+                #     check for a matching entry
+                if ($status && $status eq 'deleted') {
+                    $syntax->{sizes} = [];
+                    next;
+                }
+
+                $minLength = undef if $minLength eq '';
+                $maxLength = undef if $maxLength eq '';
+                if (defined $minLength || defined $maxLength) {
+                    push @{$syntax->{sizes}}, {minLength => $minLength,
+                                               maxLength => $maxLength};
+                }
+            }
+
+            # handle multiple ranges
+            foreach my $range ($typeNode->findnodes('range')) {
+                my $minInclusive = $range->findvalue('@minInclusive');
+                my $maxInclusive = $range->findvalue('@maxInclusive');
+                my $step = $range->findvalue('@step');
+                my $status = $range->findvalue('@status');
+
+                # XXX this is brain dead handling of status="deleted"; should
+                #     check for a matching entry
+                if ($status && $status eq 'deleted') {
+                    $syntax->{ranges} = [];
+                    next;
+                }
+
+                $minInclusive = undef if $minInclusive eq '';
+                $maxInclusive = undef if $maxInclusive eq '';
+                $step = undef if $step eq '';
+                if (defined $minInclusive || defined $maxInclusive ||
+                    defined $step) {
+                    push @{$syntax->{ranges}}, {minInclusive => $minInclusive,
+                                                maxInclusive => $maxInclusive,
+                                                step => $step};
+                }
+            }
+
+            # we found the type, so exit the loop
             last;
         }
     }
@@ -1426,8 +1522,6 @@ sub expand_dataType
         #     type; should check that constraints are never extended
         # XXX really it would be better not to copy at all, and traverse the
         #     hierarchy as needed... but that would be more complicated
-        my $syntax;
-
         $syntax->{list} = $list;
         if ($list) {
             $listMinItems = undef if $listMinItems eq '';
@@ -1436,29 +1530,26 @@ sub expand_dataType
                 push @{$syntax->{listRanges}}, {minInclusive => $listMinItems,
                                                 maxInclusive => $listMaxItems};
             }
+            $listMinLength = undef if $listMinLength eq '';
+            $listMaxLength = undef if $listMaxLength eq '';
+            if (defined $listMinLength || defined $listMaxLength) {
+                push @{$syntax->{listSizes}}, {minLength => $listMinLength,
+                                               maxLength => $listMaxLength};
+            }
         }
 
         $syntax->{map} = $map;
 
-        $minLength = undef if $minLength eq '';
-        $maxLength = undef if $maxLength eq '';
-        if (defined $minLength || defined $maxLength) {
-            push @{$syntax->{sizes}}, {minLength => $minLength,
-                                       maxLength => $maxLength};
+        if ($syntax->{sizes}) {
+            # any new sizes override base type sizes
         } elsif ($btype && $btype->{syntax}->{sizes}) {
             foreach my $size (@{$btype->{syntax}->{sizes}}) {
                 push @{$syntax->{sizes}}, util_copy($size);
             }
         }
 
-        $minInclusive = undef if $minInclusive eq '';
-        $maxInclusive = undef if $maxInclusive eq '';
-        $step = undef if $step eq '';
-        if (defined $minInclusive || defined $maxInclusive ||
-            defined $step) {
-            push @{$syntax->{ranges}}, {minInclusive => $minInclusive,
-                                        maxInclusive => $maxInclusive,
-                                        step => $step};
+        if ($syntax->{ranges}) {
+            # any new ranges override base type ranges
         } elsif ($btype && $btype->{syntax}->{ranges}) {
             foreach my $range (@{$btype->{syntax}->{ranges}}) {
                 push @{$syntax->{ranges}}, util_copy($range);
@@ -2717,7 +2808,6 @@ sub expand_model_parameter
         }
 
         # handle multiple ranges
-        # XXX no support for status="deleted"
         foreach my $range ($type->findnodes('range')) {
             my $minInclusive = $range->findvalue('@minInclusive');
             my $maxInclusive = $range->findvalue('@maxInclusive');
@@ -5265,30 +5355,55 @@ sub remove_descact
 # columns)
 sub type_string
 {
-    my ($type, $syntax) = @_;
+    my ($type, $syntax, $opts) = @_;
 
-    my $psyntax = $syntax;
+    my $omitname = $opts->{omitname} || 0;
+
+    # base syntax (will be overridden below if necessary)
+    my $bsyntax = $syntax;
 
     my $typeinfo = get_typeinfo($type, $syntax);
     my ($value, $dataType) = ($typeinfo->{value}, $typeinfo->{dataType});
 
+    # if this refers to a named datatype, get the base syntax and base name
     if ($dataType) {
-        # XXX this syntax could be overridden by per-parameter syntax; should
-        #     be checking for that...
-        $syntax = base_syntax($value, 1);
+        $bsyntax = base_syntax($value, 1);
         $value = base_type($value, 1);
     }
 
-    # lists and maps are always strings at the CWMP level
-    if ($psyntax->{list}) {
-        $value = 'string';
-        $value .= add_size($psyntax, {list => 1});
-    } elsif ($psyntax->{map}) {
-        $value = 'string';
-        $value .= add_size($psyntax, {map => 1});
-    } else {
-        $value .= add_size($syntax);
-        $value .= add_range($syntax);
+    # lists/maps are represented (at the protocol level) as strings, so
+    # override the type name if the supplied syntax is a list/map
+    $value = 'string' if $syntax->{list} || $syntax->{map};
+
+    # omit the type name if requested
+    $value = '' if $omitname;
+
+    # add list/map sizes and ranges for the supplied syntax
+    if ($syntax->{list} || $syntax->{map}) {
+        my $opts = {list => $syntax->{list}, map => $syntax->{map},
+                    delimsdefault => 1};
+        $value .= add_size($syntax, $opts);
+        $value .= add_range($syntax, $opts);
+    }
+
+    # add sizes and ranges for the supplied syntax
+    $value .= add_size($syntax);
+    $value .= add_range($syntax);
+
+    # if this refers to a named datatype, add list/map sizes and ranges
+    # for the base syntax (sizes only if not specified by the supplied syntax)
+    if ($dataType && ($bsyntax->{list} || $bsyntax->{map})) {
+        my $opts = {list => $bsyntax->{list}, map => $bsyntax->{map},
+                    delimsdefault => 1};
+        $value .= add_size($bsyntax, $opts) unless $syntax->{listSizes};
+        $value .= add_range($bsyntax, $opts);
+    }
+
+    # if this refers to a named datatype, add size and ranges for base syntax
+    # (but only if not specified by the supplied syntax)
+    if ($dataType) {
+        $value .= add_size($bsyntax) unless $syntax->{sizes};
+        $value .= add_range($bsyntax) unless $syntax->{ranges};
     }
 
     return $value;
@@ -5344,7 +5459,7 @@ sub syntax_string
     my $typeinfo = get_typeinfo($type, $syntax, {human => $human});
     my ($value, $unsigned) = ($typeinfo->{value}, $typeinfo->{unsigned});
 
-    $value .= add_size($syntax, {human => $human, item => 1});
+    $value .= add_size($syntax, {human => $human, item => $list});
     $value .= add_range($syntax, {human => $human, unsigned => $unsigned});
 
     if ($list) {
@@ -5416,11 +5531,10 @@ sub add_size
 
     # special case where there is only a single size and no minLength (mostly
     # to avoid changing what people are already used to)
-    my $thing = $opts->{list} ? 'list' : $opts->{map} ? 'map' : 'item';
     if (@{$syntax->{$sizes}} == 1 &&
-        !$syntax->{$sizes}->[0]->{minLength} &&
-        $syntax->{$sizes}->[0]->{maxLength}) {
-        $value .= 'maximum ' . $thing . ' length ' if $opts->{human};
+        !defined $syntax->{$sizes}->[0]->{minLength} &&
+        defined $syntax->{$sizes}->[0]->{maxLength}) {
+        $value .= 'maximum number of characters ' if $opts->{human};
         $value .= $syntax->{$sizes}->[0]->{maxLength};
         $value .= ')';
         return $value;
@@ -5434,14 +5548,15 @@ sub add_size
         my $minlen = $size->{minLength};
         my $maxlen = $size->{maxLength};
 
-        $value .= ', ' unless $first;
+        $value .= ',' unless $first;
+        $value .= ' ' unless $first || !$opts->{human};
 
         if (!$opts->{human}) {
-            $value .= $minlen . ':' if $minlen;
-            $value .= $maxlen if $maxlen;
-        } elsif ($minlen && !$maxlen) {
+            $value .= $minlen . ':' if defined $minlen;
+            $value .= $maxlen if defined $maxlen;
+        } elsif (defined $minlen && !defined $maxlen) {
             $value .= 'at least ' . $minlen;
-        } elsif (!$minlen && $maxlen) {
+        } elsif (!defined $minlen && defined $maxlen) {
             $value .= 'up to ' . $maxlen;
         } elsif ($minlen == $maxlen) {
             $value .= $minlen;
@@ -5465,16 +5580,20 @@ sub add_range
 {
     my ($syntax, $opts) = @_;
 
+    my $delims = $opts->{list} || $opts->{map} ? ['[', ']'] : ['(', ')'];
+
+    my $default = $opts->{delimsdefault} ? "$delims->[0]$delims->[1]" : '';
+
     my $ranges = $opts->{list} ? 'listRanges' :
         $opts->{map} ? 'mapRanges' : 'ranges';
-    return '' unless defined $syntax->{$ranges} && @{$syntax->{$ranges}};
+    return $default unless defined $syntax->{$ranges} && @{$syntax->{$ranges}};
 
     my $value = '';
 
     # all ranges guarantee to have a defined minval or maxval (or both)
 
     $value .= ' ' if $opts->{human};
-    $value .= $opts->{human} ? '(' : '[';
+    $value .= $opts->{human} ? '(' : $delims->[0];
     $value .= 'value ' if $opts->{human} && !$opts->{list} && !$opts->{map};
 
     my $first = 1;
@@ -5485,7 +5604,8 @@ sub add_range
 
         $step = 1 unless defined $step;
 
-        $value .= ', ' unless $first;
+        $value .= ',' unless $first;
+        $value .= ' ' unless $first || !$opts->{human};
 
         if (!$opts->{human}) {
             if (defined $minval && defined $maxval && $minval == $maxval) {
@@ -5520,7 +5640,7 @@ sub add_range
 
     $value =~ s/(.*,)/$1 or/ if $opts->{human};
 
-    $value .= $opts->{human} ? ')' : ']';
+    $value .= $opts->{human} ? ')' : $delims->[1];
 
     return $value;
 }
@@ -6529,37 +6649,76 @@ sub xml_datatypes
         my $prim = $dataType->{prim};
         my $spec = $dataType->{spec};
         my $description = $dataType->{description};
-        my $list = $dataType->{syntax}->{list};
-        my $listMinInclusive = $dataType->{syntax}->{listRanges}->[0]->{minInclusive};
-        my $listMaxInclusive = $dataType->{syntax}->{listRanges}->[0]->{maxInclusive};
-        # XXX not handling multiple sizes or ranges
-        my $minLength = $dataType->{syntax}->{sizes}->[0]->{minLength};
-        my $maxLength = $dataType->{syntax}->{sizes}->[0]->{maxLength};
-        my $minInclusive = $dataType->{syntax}->{ranges}->[0]->{minInclusive};
-        my $maxInclusive = $dataType->{syntax}->{ranges}->[0]->{maxInclusive};
+        my $syntax = $dataType->{syntax};
+        my $listmap = $syntax->{list} ? 'list' : $syntax->{map} ? 'map' : '';
+        # not supprting multiple list/map sizes or ranges
+        my $minLMLength = $syntax->{${listmap}.'Sizes'}->[0]->{minLength};
+        my $maxLMLength = $syntax->{${listmap}.'Sizes'}->[0]->{maxLength};
+        my $minLMItems = $syntax->{${listmap}.'Ranges'}->[0]->{minInclusive};
+        my $maxLMItems = $syntax->{${listmap}.'Ranges'}->[0]->{maxInclusive};
+        my $sizes = $syntax->{sizes};
+        my $ranges = $syntax->{ranges};
         my $values = $dataType->{values};
 
         $description = xml_escape($description, {indent => $i.'    ',
                                                  wrap => $xml_wrap});
 
         $base = $base ? qq{ base="$base"} : qq{};
-        $listMinInclusive = defined $listMinInclusive ? qq{ minItems="$listMinInclusive"} : qq{};
-        $listMaxInclusive = defined $listMaxInclusive ? qq{ maxItems="$listMaxInclusive"} : qq{};
-        $minLength = defined $minLength ? qq{ minLength="$minLength"} : qq{};
-        $maxLength = defined $maxLength ? qq{ maxLength="$maxLength"} : qq{};
-        $minInclusive = defined $minInclusive ? qq{ minInclusive="$minInclusive"} : qq{};
-        $maxInclusive = defined $maxInclusive ? qq{ maxInclusive="$maxInclusive"} : qq{};
+        $minLMLength = defined $minLMLength && $minLMLength ne '' ?
+            qq{ minLength="$minLMLength"} : qq{};
+        $maxLMLength = defined $maxLMLength && $maxLMLength ne '' ?
+            qq{ maxLength="$maxLMLength"} : qq{};
+        $minLMItems = defined $minLMItems && $minLMItems ne '' ?
+            qq{ minItems="$minLMItems"} : qq{};
+        $maxLMItems = defined $maxLMItems && $maxLMItems ne '' ?
+            qq{ maxItems="$maxLMItems"} : qq{};
 
         print qq{$i  <dataType name="$name"$base>\n};
-        print qq{$i    <description>$description</description>\n} if $description;
+        print qq{$i    <description>$description</description>\n} if
+            $description;
+
+        if ($listmap) {
+            my $ended = ($minLMLength || $maxLMLength) ? '' : '/';
+            print qq{$i    <$listmap$minLMItems$maxLMItems$ended>\n};
+            print qq{$i      <size$minLMLength$maxLMLength/>\n} unless
+                $ended;
+            print qq{$i    </$listmap>\n} unless $ended;
+        }
+
         my $j = $i . ($prim ? '  ' : '');
-        print qq{$i    <list$listMinInclusive$listMaxInclusive/>\n} if $list;
         print qq{$i    <$prim>\n} if $prim;
 
-        print qq{$j    <size$minLength$maxLength/>\n} if
-            $minLength || $maxLength;
-        print qq{$j    <range$minInclusive$maxInclusive/>\n} if
-            $minInclusive || $maxInclusive;
+        if ($sizes && @$sizes) {
+            foreach my $size (@$sizes) {
+                my $minLength = $size->{minLength};
+                my $maxLength = $size->{maxLength};
+
+                $minLength = defined $minLength && $minLength ne '' ?
+                    qq{ minLength="$minLength"} : qq{};
+                $maxLength = defined $maxLength && $maxLength ne '' ?
+                    qq{ maxLength="$maxLength"} : qq{};
+
+                print qq{$j    <size$minLength$maxLength/>\n} if
+                    $minLength || $maxLength;
+            }
+        }
+
+        if ($ranges && @$ranges) {
+            foreach my $range (@$ranges) {
+                my $minInclusive = $range->{minInclusive};
+                my $maxInclusive = $range->{maxInclusive};
+                my $step = $range->{step};
+
+                $minInclusive = defined $minInclusive && $minInclusive ne '' ?
+                    qq{ minInclusive="$minInclusive"} : qq{};
+                $maxInclusive = defined $maxInclusive && $maxInclusive ne '' ?
+                    qq{ maxInclusive="$maxInclusive"} : qq{};
+                $step = defined $step && $step ne '' ? qq{ step="$step"} : qq{};
+
+                print qq{$j    <range$minInclusive$maxInclusive$step/>\n} if
+                    $minInclusive || $maxInclusive || $step;
+            }
+        }
 
         # XXX logic is similar to that in xml_node() but here there is no
         #     support for history or descact
@@ -8219,13 +8378,20 @@ END
       <th class="g">Description</th>
     </tr>
 END
-            # XXX this is still very basic; no ranges, lengths etc;
             foreach my $datatype (sort datatype_cmp @$datatypes) {
-              if ($used_data_type_list->{$datatype->{name}} || $used_data_type_list->{substr($datatype->{name}, 1)} || $alldatatypes) {
+                my $name = $datatype->{name};
+                my $syntax = $datatype->{syntax};
+
+                # ignore this data type if not used (unless including them all)
+                # XXX should use $mname (see below); then there's only one case
+                next unless
+                    $used_data_type_list->{$name} ||
+                    $used_data_type_list->{substr($name, 1)} ||
+                    $alldatatypes;
+
                 # primitive data type names begin with an underscore (to get
                 # around the fact that the DM Schema doesn't allow data type
                 # names to begin with a lower-case character
-                my $name = $datatype->{name};
                 my $prim = $name =~ /^_[a-z]/;
 
                 # ignore internal ("_UPPER") and marked ("%word%") type names
@@ -8257,16 +8423,11 @@ END
                 my $baseref = ($prim || $nolinks) ?
                     $mbase : $base_anchor->{ref};
 
-                # XXX not getting any list or map attributes
-                my $list = $datatype->{list};
-                my $map = $datatype->{map};
-
-                my $sizerange = '';
-                $sizerange .= add_size(base_syntax($name));
-                $sizerange .= add_range(base_syntax($name));
+                # get the type string (omit type name because we use $baseref)
+                my $typestring = type_string($name, $syntax, {omitname => 1});
 
                 # add potential bibref references from description
-                update_refs($description,"","");
+                update_refs($description, '', '');
 
                 # XXX this needs a generic utility that will escape any
                 #     description with full template expansion
@@ -8274,19 +8435,18 @@ END
                 #     a parameter report (c.f. UPnP relatedStateVariable)
                 $description = html_escape($description,
                                            {type => $base,
-                                            list => $list,
-                                            map => $map,
-                                            syntax => base_syntax($name),
+                                            list => $datatype->{list},
+                                            map => $datatype->{map},
+                                            syntax => $syntax,
                                             values => $values});
 
                 $html_buffer .= <<END;
       <tr>
         <td>$name_anchor->{def}</td>
-        <td class="pc">$baseref$sizerange</td>
+        <td class="pc">$baseref$typestring</td>
         <td>$description</td>
       </tr>
 END
-              }
             }
             $html_buffer .= <<END;
     </table> <!-- Data Types -->
