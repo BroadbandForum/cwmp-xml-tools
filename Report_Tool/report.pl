@@ -9297,11 +9297,11 @@ sub html_escape {
         $value = html_hyperlink($value);
     }
 
-    # XXX fudge wrap of very long names and types (firefox 3 supports &shy;)
-    $value =~ s/([^\d]\.)/$1&shy;/g if $opts->{fudge} && !$nohyphenate;
-    $value =~ s/&shy;$// if $opts->{fudge} && !$nohyphenate;
-    $value =~ s/\(/&shy;\(/g if $opts->{fudge} && !$nohyphenate;
-    $value =~ s/\[/&shy;\[/g if $opts->{fudge} && !$nohyphenate;
+    # Add zero-width-space as browser hint where to break long data types
+    $value =~ s/([^\d]\.)/$1&#8203;/g if $opts->{fudge} && !$nohyphenate;
+    $value =~ s/&#8203;$// if $opts->{fudge} && !$nohyphenate;
+    $value =~ s/\(/&#8203;\(/g if $opts->{fudge} && !$nohyphenate;
+    $value =~ s/\[/&#8203;\[/g if $opts->{fudge} && !$nohyphenate;
 
     # XXX try to hyphenate long words (firefox 3 supports &shy;)
     $value =~ s/([a-z_])([A-Z])/$1&shy;$2/g if
