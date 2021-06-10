@@ -10907,7 +10907,10 @@ sub html_template_reference
     #            exist in only some of the data models in which it is to be
     #            used (e.g. to reference the Host table, which doesn't exist in
     #            Device:1)
-    my ($delete, $ignore) = (0, 0);
+    # - deprecated|obsoleted|deleted : (allow reference to deprecated item)
+    #            pass this status as the {{object||scope}} argument ({{object}}
+    #            overloads scope and status)
+    my ($delete, $ignore, $status) = (0, 0, '');
     if (defined $arg2) {
         my @keys = split(/,/, $arg2);
         foreach my $key (@keys) {
@@ -10915,6 +10918,8 @@ sub html_template_reference
                 $delete = 1;
             } elsif ($key eq 'ignore') {
                 $ignore = 1;
+            } elsif ($key =~ /deprecated|obsoleted|deleted/) {
+                $status = $key;
             } else {
                 emsg "$path: {{reference}} has invalid argument: $arg2";
             }
@@ -11012,8 +11017,9 @@ sub html_template_reference
             return $text;
         }
 
+        # scope and status share the same argument (scope wins)
         $targetParent = object_references($targetParent,
-                                          $targetParentScope);
+                                          $targetParentScope || $status);
 
         $text .= qq{MUST be the Path Name of };
 
