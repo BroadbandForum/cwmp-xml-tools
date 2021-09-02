@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document
+  xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+  xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="
+    urn:broadband-forum-org:cwmp:datamodel-1-8
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+    urn:broadband-forum-org:cwmp:datamodel-report-1-0
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+  spec="urn:example-com:unique-keys-cwmp"
+  file="unique-keys-cwmp.xml">
+
+  <import file="unique-keys.xml">
+    <model ref="UniqueKeys:1.0" name="_UniqueKeys:1.0"/>
+  </import>
+
+  <import file="tr-069-biblio.xml"/>
+
+  <import file="tr-106-types.xml" spec="urn:broadband-forum-org:tr-106">
+    <dataType name="Alias" ref="_AliasUSP"/>
+  </import>
+
+  <model name="UniqueKeys:1.0" base="_UniqueKeys:1.0">
+    <description action="append">
+      USP model.
+    </description>
+  </model>
+</dm:document>
