@@ -11019,20 +11019,16 @@ sub html_template_reference
         if ($targetParent) {
             $targetParentFixed = 1;
             foreach my $tp (split ' ', $targetParent) {
-                my ($tpp) = relative_path($object, $tp, $targetParentScope);
-
-                # check for (and ignore) spurious trailing "{i}." when
-                # targetType is "row" (it's a common error)
-                if ($targetType eq 'row') {
-                    if ($tpp =~ /\{i\}\.$/) {
-                        w0msg "$path: trailing \"{i}.\" ignored in ".
-                            "targetParent (targetType \"row\"): $tp";
-                    } else {
-                        $tpp .= '{i}.';
-                    }
-                    # $tpp is now the table object (including "{i}.")
+                # check for spurious trailing "{i}." when targetType is "row"
+                # (it's a common error)
+                if ($targetType eq 'row' && $tp =~ /\{i\}\.$/) {
+                    w0msg "$path: trailing \"{i}.\" ignored in targetParent " .
+                        "(targetType \"row\"): $tp";
+                    $tp =~ s/\{i\}\.$//;
                 }
 
+                my ($tpp) = relative_path($object, $tp, $targetParentScope);
+                $tpp .= '{i}.' unless $tpp =~ /\{i\}\.$/;
                 my $mpref = util_full_path($opts->{node}, 1);
                 my $tpn = $objects->{$mpref.$tpp};
 
@@ -11313,6 +11309,9 @@ sub relative_path
     $scope = 'normal' unless $scope;
 
     my $name2 = $name;
+
+    # '.' is special and means 'current object'
+    $name = '' if $name eq '.';
 
     my $path;
 
