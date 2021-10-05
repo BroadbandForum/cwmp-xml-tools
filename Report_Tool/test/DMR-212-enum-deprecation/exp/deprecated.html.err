@@ -1,0 +1,4 @@
+(W) X.C: is deprecated but has no {{deprecated}} template
+(W) Z: is deprecated but has no {{deprecated}} template
+(E) X.B: is current, so {{deprecated}} is invalid
+(E) Z.a|b|c: is current, so {{deprecated}} is invalid
