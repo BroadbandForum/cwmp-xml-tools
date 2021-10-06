@@ -2160,6 +2160,7 @@ sub expand_model_object
     my $maxEntries = $object->findvalue('@maxEntries');
     my $numEntriesParameter = $object->findvalue('@numEntriesParameter');
     my $enableParameter = $object->findvalue('@enableParameter');
+    my $discriminatorParameter = $object->findvalue('@discriminatorParameter');
     my $mountType = $markmounttype ? $object->findvalue('@mountType|@mounttype') :'';
     my $status = $object->findvalue('@status');
     my $id = $object->findvalue('@id');
@@ -2256,6 +2257,8 @@ sub expand_model_object
     check_and_update($path, $nnode,
                      'numEntriesParameter', $numEntriesParameter);
     check_and_update($path, $nnode, 'enableParameter', $enableParameter);
+    check_and_update($path, $nnode,
+                     'discriminatorParameter', $discriminatorParameter);
     check_and_update($path, $nnode, 'mountType', $mountType);
 
     # XXX these are slightly different (just take first definition seen)
@@ -6448,10 +6451,12 @@ $i             spec="$lspec">
         my $maxEntries = $node->{maxEntries};
         my $numEntriesParameter = $node->{numEntriesParameter};
         my $enableParameter = $node->{enableParameter};
+        my $discriminatorParameter = $node->{discriminatorParameter};
         my $uniqueKeys = $node->{uniqueKeys};
 
         $numEntriesParameter = $numEntriesParameter ? qq{ numEntriesParameter="$numEntriesParameter"} : qq{};
         $enableParameter = $enableParameter ? qq{ enableParameter="$enableParameter"} : qq{};
+        $discriminatorParameter = $discriminatorParameter ? qq{ discriminatorParameter="$discriminatorParameter"} : qq{};
 
         # always at level 2; ignore indent
         $i = '    ';
@@ -6459,7 +6464,7 @@ $i             spec="$lspec">
         # close object if active
         print qq{$i</object>\n} if $xml_objact;
 
-        print qq{$i<object $basename="$path" access="$access" minEntries="$minEntries" maxEntries="$maxEntries"$numEntriesParameter$enableParameter$status>\n};
+        print qq{$i<object $basename="$path" access="$access" minEntries="$minEntries" maxEntries="$maxEntries"$numEntriesParameter$enableParameter$discriminatorParameter$status>\n};
         unless ($nocomments || $node->{descact} =~ /prefix|append/) {
             print qq{$i  <!-- changed: $schanged -->\n} if $schanged;
             if ($changed->{description}) {
@@ -7183,6 +7188,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         my $mountType = $node->{mountType};
         my $numEntriesParameter = $node->{numEntriesParameter};
         my $enableParameter = $node->{enableParameter};
+        my $discriminatorParameter = $node->{discriminatorParameter};
         my $status = $node->{status};
         my $activeNotify = $node->{activeNotify};
         my $forcedInform = $node->{forcedInform};
@@ -7265,6 +7271,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $name = '';
                 $numEntriesParameter = undef;
                 $enableParameter = undef;
+                $discriminatorParameter = undef;
                 $description = '';
                 $descact = 'replace';
             }
@@ -7365,6 +7372,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         $mountType = $mountType ? qq{ mountType="$mountType"} : qq{};
         $numEntriesParameter = $numEntriesParameter ? qq{ numEntriesParameter="$numEntriesParameter"} : qq{};
         $enableParameter = $enableParameter ? qq{ enableParameter="$enableParameter"} : qq{};
+        $discriminatorParameter = $discriminatorParameter ? qq{ discriminatorParameter="$discriminatorParameter"} : qq{};
         $status = $status ne 'current' ? qq{ status="$status"} : qq{};
 
         $activeNotify = (defined $activeNotify && $activeNotify ne 'normal') ?
@@ -7400,7 +7408,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             qq{ async="true"} : qq{};
         $addParams .= qq{ mandatory="true"} if $node->{is_mandatory} && $command_or_event;
 
-        print qq{$i<$element$name$base$ref$isService$extends$addParams$access$mountType$numEntriesParameter$enableParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version_string$noUniqueKeys$fixedObject$end_element>\n};
+        print qq{$i<$element$name$base$ref$isService$extends$addParams$access$mountType$numEntriesParameter$enableParameter$discriminatorParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version_string$noUniqueKeys$fixedObject$end_element>\n};
         $node->{xml2}->{element} = '' if $end_element;
         print qq{$i  <$descname>$description</$descname>\n} if $description;
         if ($uniqueKeys && !@$dtprofiles) {
@@ -8217,6 +8225,7 @@ sub html_node
                      uniqueKeys => $node->{uniqueKeys},
                      uniqueKeyDefs => $node->{uniqueKeyDefs},
                      enableParameter => $node->{enableParameter},
+                     discriminatorParameter => $node->{discriminatorParameter},
                      mountType => $node->{mountType},
                      values => $node->{values},
                      units => $node->{units},
@@ -15017,6 +15026,7 @@ sub sanity_node
     my $maxEntries = $node->{maxEntries};
     my $numEntriesParameter = $node->{numEntriesParameter};
     my $enableParameter = $node->{enableParameter};
+    my $discriminatorParameter = $node->{discriminatorParameter};
     my $description = $node->{description};
 
     my $mpref = util_full_path($node, 1);
