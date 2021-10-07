@@ -7454,6 +7454,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             # XXX a bit of a kludge...
             $type = 'dataType' if $ref;
 
+            undef $hidden if $command_or_event;
+            undef $command if $command_or_event;
             $deftype = 'parameter' if $deftype && $command_or_event;
 
             $base = $base ? qq{ base="$base"} : qq{};
@@ -8195,6 +8197,10 @@ sub html_node
     my $ppath = html_escape($node->{pnode}->{path}, {empty => ''});
     # XXX don't need to pass hidden, command, list, reference etc (are in
     #     syntax) but does no harm (now passing node too!) :(
+    # XXX DO need to pass hidden and command, because they are specifically
+    #     undefined for commands and events
+    my $hidden = $command_or_event ? undef : $node->{syntax}->{hidden};
+    my $command = $command_or_event ? undef : $node->{syntax}->{command};
     # XXX should work harder to define profile, object and parameter within
     #     profiles (so could use templates in descriptions)
     my $factory = ($node->{deftype} && $node->{deftype} eq 'factory') ?
@@ -8218,8 +8224,8 @@ sub html_node
                      syntax => $node->{syntax},
                      list => $node->{syntax}->{list},
                      map => $node->{syntax}->{map},
-                     hidden => $node->{syntax}->{hidden},
-                     command => $node->{syntax}->{command},
+                     hidden => $hidden,
+                     command => $command,
                      is_command => $is_command,
                      is_event => $is_event,
                      is_async => $node->{is_async},
