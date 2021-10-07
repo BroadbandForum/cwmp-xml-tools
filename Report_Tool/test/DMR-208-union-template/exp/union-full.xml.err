@@ -1,0 +1,2 @@
+(E) Root.C.: isn't a union object but has discriminatorParameter Type1 
+(E) Root.G.: is a union object but has no discriminatorParameter

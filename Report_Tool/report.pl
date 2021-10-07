@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011-2012  Pace Plc
 # Copyright (C) 2012-2014  Cisco Systems
-# Copyright (C) 2015-2020  Broadband Forum
+# Copyright (C) 2015-2021  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -8204,6 +8204,7 @@ sub html_node
                      object => $parameter_like ?
                          $ppath : $object ? $path : undef,
                      table => $node->{table},
+                     discriminatedObjects => $node->{discriminatedObjects},
                      profile => $profile ? $name : '',
                      access => $node->{access},
                      id => $node->{id},
@@ -9554,6 +9555,13 @@ sub html_template
         $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{mount}}";
     }
+    if (($p->{discriminatedObjects} || $p->{discriminatorParameter}) &&
+        $tinval !~ /\{\{union/ && $tinval !~ /\{\{nounion\}\}/) {
+        my $sep = !$tinval ? "" : "\n";
+        $sep = "  " if !$sep && $inval;
+        $inval .= $sep . "{{union}}";
+    }
+    # XXX may want to remove $union from here
     my ($multi, $fixed_ignore, $union) =
         util_is_multi_instance($p->{minEntries}, $p->{maxEntries});
     if (($multi || $union) &&
@@ -9623,6 +9631,8 @@ sub html_template
           text1 => \&html_template_profileref},
          {name => 'keys', text0 => \&html_template_keys},
          {name => 'nokeys', text0 => q{}},
+         {name => 'union', text0 => \&html_template_union},
+         {name => 'nounion', text0 => q{}},
          {name => 'entries', text0 => \&html_template_entries},
          {name => 'noentries', text0 => q{}},
          {name => 'list',
@@ -10112,6 +10122,48 @@ sub html_template_profdesc
         qq{and the additional requirements defined in this table} if $profnames;
     $text .= qq{.  The minimum REQUIRED version for this profile is }.
         qq{''$defmodel''.};
+
+    return $text;
+}
+
+sub html_template_union
+{
+    my ($opts) = @_;
+
+    my $node = $opts->{node};
+    my $path = $node->{path};
+    my $discriminatedObjects = $node->{discriminatedObjects};
+    my $discriminatorParameter = $node->{discriminatorParameter};
+
+    my $text = qq{};
+
+    # if $discriminatedObjects is defined, this is a discriminator parameter
+    if ($discriminatedObjects) {
+        $text .= qq{This parameter discriminates between the };
+        my @names = map {$_->{name} =~ s/\.$//r} @$discriminatedObjects;
+        $text .= util_list(\@names, qq{{{object|\$1}}});
+        $text .= qq{ union objects.};
+
+        # report on any unreferenced enumeration values
+        $node = util_follow_reference($node, 'enumerationRef');
+        my $values = $node->{values};
+        my @enums = $values ? sort map {$_} keys %$values : ();
+        my @unref = ();
+        foreach my $enum (@enums) {
+            push @unref, $enum unless grep {$_ eq $enum} @names;
+        }
+        w0msg "$path: values(s) " . util_list(\@unref) . " not referenced " .
+            "by a union object" if @unref;
+    }
+
+    # if $discriminatorParameter is defined, this is a discriminated object
+    elsif ($discriminatorParameter) {
+        my $oname = $node->{name};
+        $oname =~ s/\.$//;
+        $text .= qq{This object MUST be present if, and only if, } .
+            qq{{{param|#.$discriminatorParameter}} is } .
+                     qq{{{enum|$oname|#.$discriminatorParameter}}.};
+    }
 
     return $text;
 }
@@ -10931,22 +10983,8 @@ sub html_template_valueref
         }
     } else {
         my $node = $parameters->{$fpath};
-        # XXX experimental: try to follow enumerationRefs
-        my $syntax = $node->{syntax};
-        if ($syntax->{reference} && $syntax->{reference} eq 'enumerationRef') {
-            my $targetParam = $syntax->{targetParam};
-            my $targetParamScope = $syntax->{targetParamScope};
-            my ($targetPath) = relative_path($node->{pnode}->{path},
-                                             $targetParam, $targetParamScope);
-            if (!util_is_defined($parameters, $mpref.$targetPath)) {
-                emsg "$path: enumerationRef references non-existent ".
-                    "parameter $targetPath: ignored";
-            } else {
-                $path = $targetPath;
-                $fpath = $mpref . $path;
-                $node = $parameters->{$fpath};
-            }
-        }
+        # if it's an enumerationRef, get the referenced node
+        $node = util_follow_reference($node, 'enumerationRef');
         my $values = $node->{values};
         $invalid = (has_values($values) && has_value($values, $value)) ?
             '' : '?';
@@ -14244,6 +14282,47 @@ sub util_full_path
     return $text;
 }
 
+# Follow a reference, returning the referenced node; on error, a message is
+# output and the supplied node is returned
+# XXX this currently only follows enumerationRefs; pathRefs can be added later
+sub util_follow_reference
+{
+    my ($node, $reference) = @_;
+
+    my $path = $node->{path};
+    my $syntax = $node->{syntax};
+
+    # get the model name prefix, e.g. 'Device:2.'
+    my $mpref = util_full_path($node, 1);
+
+    # check that the reference exists
+    if (!$syntax->{reference} || $syntax->{reference} ne $reference) {
+        # no error message in this case
+    }
+
+    # enumerationRef
+    elsif ($syntax->{reference} eq  'enumerationRef') {
+        my $targetParam = $syntax->{targetParam};
+        my $targetParamScope = $syntax->{targetParamScope};
+        my ($targetPath) = relative_path($node->{pnode}->{path},
+                                         $targetParam, $targetParamScope);
+        if (!util_is_defined($parameters, $mpref.$targetPath)) {
+            emsg "$path: enumerationRef references invalid ".
+                "parameter $targetPath: ignored";
+        } else {
+            $node = $parameters->{$mpref.$targetPath};
+        }
+    }
+
+    # XXX instanceRef and pathRef aren't yet supported
+    else {
+        emsg "$path: unsupported reference type $reference: ignored";
+    }
+
+    # on success this is the referenced node
+    return $node;
+}
+
 # Heuristic determination of approval date of an XML file; the date is
 # returned as numeric 'yyyy-mm-dd' (i.e. will sort correctly) or as '' if
 # unknown
@@ -15254,11 +15333,12 @@ sub sanity_node
     # XXX for DT, need to check that things are not only defined but are not
     #     hidden
     if ($object) {
+        # get the full parent path
         my $fppath = util_full_path($node->{pnode});
-        my ($multi, $fixed) = util_is_multi_instance($minEntries, $maxEntries);
 
-        w1msg "$path: object is optional; was this intended?"
-            if $minEntries eq '0' && $maxEntries eq '1';
+        # determine whether this is a multi-instance, fixed or union object
+        my ($multi, $fixed, $union) =
+            util_is_multi_instance($minEntries, $maxEntries);
 
         emsg "$path: object is writable but not a table"
             if $access ne 'readOnly' && $maxEntries eq '1';
@@ -15315,6 +15395,40 @@ sub sanity_node
                     "$numEntriesParameter->{table}->{path}";
             } else {
                 $numEntriesParameter->{table} = $node;
+            }
+        }
+
+        # discriminator parameter checks:
+        # (a) has no discriminator parameter
+        if (!$discriminatorParameter) {
+            # check the object is not a union object
+            emsg "$path: is a union object but has no discriminatorParameter"
+                if $union;
+        }
+
+        # (b) has a discriminator parameter
+        else {
+            # check the object is a union object
+            emsg "$path: isn't a union object but has " .
+                "discriminatorParameter $discriminatorParameter "
+                unless $union;
+
+            # check whether the discriminator parameter exists
+            my $discParameter = $parameters->{$fppath.$discriminatorParameter};
+
+            # rely on the {{union}} template to generate {{param}} references
+            # and report any invalid references
+            if ($discParameter) {
+
+                # update the discriminator parameter's list of union objects
+                # (can be used in report generation)
+                push @{$discParameter->{discriminatedObjects}}, $node;
+
+                # rely on the {{union}} template to generate {{enum}} references
+                # and report any invalid references
+
+                # also rely on the {{union}} template to report any unreferenced
+                # discriminator parameter enumeration values
             }
         }
 
