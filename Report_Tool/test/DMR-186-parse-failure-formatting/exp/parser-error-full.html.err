@@ -1,0 +1,2 @@
+(E) validation error: out/parser-error-full.xml:10: Schemas validity error : Element '{urn:broadband-forum-org:cwmp:datamodel-1-8}document': No matching global declaration available for the validation root.
+(E) invalid bibrefs (need to use the --tr106 option?): SOAP1.1

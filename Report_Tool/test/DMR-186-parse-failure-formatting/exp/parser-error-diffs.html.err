@@ -1,0 +1,10 @@
+(F) parser error: ./parser-error.xml:19: parser error : Opening and ending tag mismatch: description line 18 and model
+(F) parser error:   </model>
+(F) parser error:           ^
+(F) parser error: ./parser-error.xml:20: parser error : Opening and ending tag mismatch: model line 16 and dm:document
+(F) parser error: </dm:document>
+(F) parser error:               ^
+(F) parser error: ./parser-error.xml:21: parser error : Premature end of data in tag document line 2
+(F) parser error: 
+(F) parser error: ^
+(E) invalid bibrefs (need to use the --tr106 option?): SOAP1.1

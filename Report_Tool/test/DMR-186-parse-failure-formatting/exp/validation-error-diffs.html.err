@@ -1,0 +1,7 @@
+(E) validation error: ./validation-error.xml:17: Schemas validity error : Element 'model': The attribute 'name' is required but missing.
+Use of uninitialized value $majorVersion in numeric gt (>) at ../../report.pl line 1986.
+Use of uninitialized value $majorVersion in numeric eq (==) at ../../report.pl line 1986.
+Use of uninitialized value $minorVersion in numeric gt (>) at ../../report.pl line 1986.
+Use of uninitialized value $majorVersion in concatenation (.) or string at ../../report.pl line 1992.
+Use of uninitialized value $minorVersion in concatenation (.) or string at ../../report.pl line 1992.
+(E) unnamed model (after )
