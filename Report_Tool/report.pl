@@ -10952,12 +10952,12 @@ sub html_template_valueref
 {
     my ($opts, $value, $name, $scope) = @_;
 
-    my $object = $opts->{object};
-    my $param = $opts->{param};
+    my $object = $opts->{object} || '';
+    my $param = $opts->{param} || '';
 
-    # if object or param not defined, we are probably in a data type definition
-    # so just return the italicised value
-    return qq{''$value''} unless defined($object) && defined($param);
+    # if object and param are empty, we are probably in a data type
+    # definition so just return the italicised value
+    return qq{''$value''} if !$object && !$param;
 
     my $this = $name ? 0 : 1;
     $name = $param unless $name;
@@ -10974,6 +10974,13 @@ sub html_template_valueref
     (my $path, $name, my $fpath, my $valid) =
         relative_path_helper($object, $param, $name, $scope, $mpref);
     my $invalid = $valid ? '' : '?';
+
+    # invalidity reason
+    my $reason = 'invalid';
+
+    # extra prefix and suffix text (see below)
+    my $prefix = '';
+    my $suffix = '';
 
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     if ($invalid) {
@@ -10996,11 +11003,10 @@ sub html_template_valueref
         # if it's an enumerationRef, get the referenced node
         $node = util_follow_reference($node, 'enumerationRef');
         my $values = $node->{values};
-        $invalid = (has_values($values) && has_value($values, $value)) ?
-            '' : '?';
+        my $has_values = has_values($values);
+        $invalid = ($has_values && has_value($values, $value)) ? '' : '?';
         $invalid = '' if $upnpdm;
-        # XXX experimental: check for dataType's enumeration values; no link
-        #     is generated
+        # check for dataType's values; no link is generated
         if ($invalid) {
             my $type = $node->{type};
             my $syntax = $node->{syntax};
@@ -11009,11 +11015,28 @@ sub html_template_valueref
             my ($dtdef) = grep {$_->{name} eq $dtname} @{$root->{dataTypes}};
             if ($dtdef && $dtdef->{values}) {
                 $values = $dtdef->{values};
-                $invalid = '' if $values->{$value};
+                if (!has_value($values, $value)) {
+                    # not defined on the data type, so an error
+                } elsif (!$has_values) {
+                    # defined on the data type and inherited by the parameter,
+                    # so not an error
+                    $invalid = '';
+                }
+                elsif (boolean($values->{$value}->{optional})) {
+                    # defined on the data type and not inherited by the
+                    # parameter, but optional so not an error
+                    $prefix = '---';
+                    $suffix = '---';
+                    $invalid = '';
+                } else {
+                    # defined on the data type and not inherited by the
+                    # parameter, and not optional so an error
+                    $reason = 'undeclared';
+                }
             }
         }
         if (!util_is_deleted($opts->{node})) {
-            emsg "$object$param: reference to invalid value $value"
+            emsg "$object$param: reference to $reason value $value"
                 if $invalid && !$automodel;
             if (!$invalid && $values->{$value}->{status} eq 'deleted') {
                 w0msg "$object$param: reference to deleted value ".
@@ -11030,7 +11053,7 @@ sub html_template_valueref
     $tvalue =~ s/\./_/g;
     my $sep = $upnpdm ? '/' : '.';
 
-    $value = qq{''$value$invalid''};
+    $value = qq{$prefix''$value$invalid''$suffix};
     $value = html_get_anchor(qq{$fpath$sep$tvalue}, 'value', $value)
         unless $this || $nolinks;
 

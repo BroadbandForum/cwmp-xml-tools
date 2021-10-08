@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-8
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+             urn:broadband-forum-org:cwmp:datamodel-report-0-1
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+             spec="urn:example-com:unsupported" file="unsupported.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <dataType name="Control">
+    <!-- XXX you need {{enum}} here; maybe not such a problem? -->
+    <description>
+      Set to {{enum|Requested}} to initiate. {{enum|Canceled}} indicates that it's
+      been canceled, and {{enum|Complete}} indicates that it's complete. {{enum}}
+    </description>
+    <string>
+      <enumeration value="Initial" access="readOnly"/>
+      <enumeration value="Requested"/>
+      <enumeration value="Canceled" access="readOnly" optional="true"></enumeration>
+      <enumeration value="Complete" access="readOnly"/>
+      <enumeration value="Error" access="readOnly" optional="true"/>
+    </string>
+  </dataType>
+
+  <model name="Unsupported:1.0">
+    <parameter name="Control1" access="readOnly">
+      <description>
+        {{datatype|expand}}
+        
+        Reference to invalid value {{enum|Fred}} and to additional value
+        {{enum|Error_Extra}}.
+      </description>
+      <syntax>
+        <dataType ref="Control"/>
+      </syntax>
+    </parameter>
+    <parameter name="Control2" access="readOnly">
+      <description>
+        {{datatype|expand}}.
+
+        Reference to invalid value {{enum|Fred}} and to additional value
+        {{enum|Error_Extra}}.
+      </description>
+      <syntax>
+        <dataType ref="Control">
+          <enumeration value="Initial"/>
+          <enumeration value="Requested"/>
+          <enumeration value="Error_Extra"/>
+        </dataType>
+      </syntax>
+    </parameter>
+    <parameter name="Control3" access="readOnly">
+      <description>
+        Reference to invalid value {{enum|Fred}} and to additional value
+        {{enum|Error_Extra}}.
+      </description>
+      <syntax>
+        <string>
+          <enumeration value="Initial"/>
+          <enumeration value="Requested"/>
+          <enumeration value="Error_Extra"/>
+        </string>
+      </syntax>
+    </parameter>
+  </model>
+</dm:document>
