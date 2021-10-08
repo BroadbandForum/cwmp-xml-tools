@@ -1,0 +1,2 @@
+(W) Root.Room.{i}.: numEntriesParameter (RoomEntriesNumber) should be named RoomNumberOfEntries
+(E) Root.DrawNumberOfEntries: invalid numEntries parameter is not associated with a table

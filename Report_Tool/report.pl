@@ -10030,6 +10030,8 @@ sub html_template_numentries
     my $path = $opts->{path};
     my $table = $opts->{table};
 
+    my $status = $node->{status} || 'current';
+
     my $text = qq{};
     $text .= qq{{{marktemplate|numentries}}} if $marktemplates;
 
@@ -10039,8 +10041,9 @@ sub html_template_numentries
         return '';
     } elsif (!$table) {
         emsg "$path: invalid numEntries parameter is " .
-            "not associated with a table" unless util_is_deleted($node);
-        return undef;
+            "not associated with a table"
+            unless $status ne 'current' || util_is_deleted($node);
+        return qq{};
     } else {
         my $tpath = $table->{path};
         $tpath =~ s/\.(\{i\}\.)?$//;
@@ -15407,6 +15410,13 @@ sub sanity_node
         }
 
         if ($numEntriesParameter) {
+            my $expected = $name;
+            $expected =~ s/\..*//;
+            $expected .= 'NumberOfEntries';
+            w0msg "$path: numEntriesParameter " .
+                "($numEntriesParameter->{name}) should be named $expected"
+                unless $numEntriesParameter->{name} eq $expected;
+
             emsg "$path: numEntriesParameter " .
                 "($numEntriesParameter->{name}) is writable" if
                 $numEntriesParameter->{access} ne 'readOnly';
