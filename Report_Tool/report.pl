@@ -9397,6 +9397,9 @@ sub html_whitespace
         my $len2 = $len <= length($line) ? $len : length($line);
         $line = substr($line, $len2);
 
+        # remove trailing whitespace
+        $line =~ s/\s*$//;
+
         # NOTE: $newpar and $islist only affect the output if $multi is true,
         # i.e. if this is the initial conversion of multi-line paragraphs to
         # single-line paragraphs
