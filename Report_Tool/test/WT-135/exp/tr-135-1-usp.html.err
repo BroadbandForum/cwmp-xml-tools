@@ -1,0 +1,4 @@
+(W) STBService.{i}.ServiceMonitoring.FetchSamples: should use {{command}} to reference ForceSample()
+(W) STBService.{i}.ServiceMonitoring.FetchSamples: command reference ForceSample should be ForceSample()
+(W) STBService.{i}.ServiceMonitoring.ReportEndTime: should use {{command}} to reference ForceSample()
+(W) STBService.{i}.ServiceMonitoring.ReportEndTime: command reference ForceSample should be ForceSample()

@@ -1,9 +1,14 @@
-# do 'make COMPARE=' to see the output
+# do 'make COMPARE=' to see the output (suggest defining a 'makec' alias for this)
 
 # makefiles set TOPDIR to point to here; the tool is in the parent directory
 TOOLDIR = $(TOPDIR)/..
 
-# XXX this needs to point to directory that contains schemas and support files
+# can set DMXMLDIR to be the location of additional XML (it's searched first)
+
+# can set REPORTFLAGS to additional report tool flags
+USERREPORTFLAGS := $(REPORTFLAGS)
+
+# this needs to point to directory that contains schemas and support files
 INCLUDE = $(TOOLDIR)/../../../install/cwmp
 
 targetdir = out/
@@ -11,9 +16,8 @@ expectdir = exp/
 
 REPORT = $(TOOLDIR)/report.pl
 
-USERREPORTFLAGS := $(REPORTFLAGS)
-
-REPORTFLAGS += --include=$(INCLUDE)
+REPORTFLAGS += $(DMXMLDIR:%=--include=%)
+REPORTFLAGS += $(INCLUDE:%=--include=%)
 REPORTFLAGS += --nowarnreport
 REPORTFLAGS += --canonical
 REPORTFLAGS += --quiet
@@ -22,7 +26,7 @@ REPORTXMLFLAGS = --report=xml
 REPORTHTMLFLAGS = --report=html
 REPORTTEXTFLAGS = --report=text
 
-REPORTDIFFSFLAGS = --diffs
+REPORTDIFFSFLAGS = --diffs --showdiffs
 
 CP = /bin/cp
 MKDIR = /bin/mkdir
@@ -35,15 +39,17 @@ DMXML += $(wildcard *.xml)
 ifneq "$(DMFULL)" "false"
   DMFULLXML += $(DMXML:%.xml=$(targetdir)%-full.xml)
 endif
-DMHTML += $(DMXML:%.xml=$(targetdir)%.html) \
-	  $(DMXML:%.xml=$(targetdir)%-diffs.html) \
-	  $(DMFULLXML:%.xml=%.html) \
-	  $(DMFULLXML:%.xml=%-diffs.html)
+
+DMHTML += $(DMXML:%.xml=$(targetdir)%-diffs.html) \
+	  $(DMXML:%.xml=$(targetdir)%.html)
+DMFULLHTML += $(DMFULLXML:%.xml=%-diffs.html) \
+	      $(DMFULLXML:%.xml=%.html)
 DMTEXT +=
 
-vpath %.xml $(targetdir)
+vpath %.xml $(DMXMLDIR) $(targetdir)
 
-TARGETS += $(DMFULLXML) $(DMHTML) $(DMTEXT)
+TARGETS += $(DMHTML) $(DMTEXT) \
+	   $(DMFULLXML) $(DMFULLHTML)
 
 PREFIX = $(notdir $(CURDIR))/$(notdir $@):
 
