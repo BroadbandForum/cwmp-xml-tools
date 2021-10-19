@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document
+  xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+  xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="
+    urn:broadband-forum-org:cwmp:datamodel-1-8
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+    urn:broadband-forum-org:cwmp:datamodel-report-1-0
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+  spec="urn:example-com:hidden"
+  file="hidden.xml">
+
+  <import file="tr-069-biblio.xml"/>
+  
+  <component name="Params">
+    <parameter name="Hidden" access="readOnly">
+      <description>
+        {{param}}.
+      </description>
+      <syntax hidden="true">
+        <string/>
+      </syntax>
+    </parameter>
+    <parameter name="Visible" access="readOnly">
+      <description>
+        {{param}}.
+      </description>
+      <syntax hidden="false">
+        <string/>
+      </syntax>
+    </parameter>
+  </component>
+
+  <model name="Hidden:1.0">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}}.
+      </description>
+      <component ref="Params"/>
+      <command name="Command()">
+        <input>
+          <component ref="Params"/>
+        </input>
+      </command>
+      <event name="Event!">
+        <component ref="Params"/>
+      </event>
+    </object>
+
+  </model>
+</dm:document>
