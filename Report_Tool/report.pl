@@ -330,6 +330,7 @@ our $ucprofiles = [];
 our $ugly = 0;
 our $usp = 0;
 our $upnpdm = 0;
+our $valuessuppliedoncreate = 0;
 our $verbose = undef;
 our $version = 0;
 our $warnbibref = undef;
@@ -347,7 +348,8 @@ my $usp_options = {
     clampversion => {ref => \$clampversion, value => '2.12'},
     ignoreenableparameter => {ref => \$ignoreenableparameter},
     immutablenonfunctionalkeys => {ref => \$immutablenonfunctionalkeys},
-    markmounttype => {ref => \$markmounttype}
+    markmounttype => {ref => \$markmounttype},
+    valuessuppliedoncreate => {ref => \$valuessuppliedoncreate}
 };
 
 # Parse command-line options
@@ -435,6 +437,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'ugly' => \$ugly,
            'upnpdm' => \$upnpdm,
            'usp' => \$usp,
+           'valuessuppliedoncreate' => \$valuessuppliedoncreate,
            'verbose:i' => \$verbose,
            'version' => \$version,
            'warnbibref:i' => \$warnbibref,
@@ -8192,6 +8195,7 @@ sub html_node
                      factory => $factory,
                      reference => $node->{syntax}->{reference},
                      uniqueKeys => $node->{uniqueKeys},
+                     uniqueKeyDefs => $node->{uniqueKeyDefs},
                      enableParameter => $node->{enableParameter},
                      mountType => $node->{mountType},
                      values => $node->{values},
@@ -9535,6 +9539,12 @@ sub html_template
         $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{keys}}";
     }
+    if ($p->{uniqueKeyDefs} && @{$p->{uniqueKeyDefs}} &&
+        $tinval !~ /\{\{keys/ && $tinval !~ /\{\{nokeys\}\}/) {
+        my $sep = !$tinval ? "" : "\n";
+        $sep = "  " if !$sep && $inval;
+        $inval .= $sep . "{{keys}}";
+    }
 
     # in template expansions, the @a array is arguments and the %p hash is
     # parameters (options)
@@ -10090,19 +10100,95 @@ sub html_template_keys
     my ($opts) = @_;
 
     my $node = $opts->{node};
+    my $param = $opts->{param};
     my $object = $opts->{object};
     my $access = $opts->{access};
     my $uniqueKeys = $opts->{uniqueKeys};
+    my $uniqueKeyDefs = $opts->{uniqueKeyDefs};
     my $enableParameter = $opts->{enableParameter};
+
+    # if uniqueKeyDefs is defined (see below) this is a parameter, so get
+    # access and enableParameter from the parent node
+    if ($uniqueKeyDefs) {
+        $access = $node->{pnode}->{access};
+        $enableParameter = $node->{pnode}->{enableParameter};
+    }
 
     # enableParameter is ignored (for example) for USP
     undef $enableParameter if $ignoreenableparameter;
 
+    # whether to add parameter-specific text to parameter descriptions (it
+    # was previously always added to object descriptions)
+    my $split_info = 1;
+
+    # collect information about the unique keys in a convenient form:
+
+    # 1. collect key information, distinguishing non-functional keys (aren't
+    #    affected by enable) and functional keys (are affected by enable)
+    my $keys = [[], []];
+    foreach my $uniqueKey (@{$uniqueKeys || $uniqueKeyDefs}) {
+        my $functional = $uniqueKey->{functional};
+        my $conditional = defined($enableParameter) && $functional;
+        push @{$keys->[$conditional]}, $uniqueKey;
+    }
+
+    # 2. collect non-functional and non-defaulted unique key parameters
+    my $mpref = util_full_path($node, 1);
+    my $numkeyparams;
+    my $nonfunc = []; # non-functional unique key parameters
+    my $nondflt = []; # non-defaulted unique key parameters
+    foreach my $uniqueKey (@{$keys->[0]}) {
+        my $functional = $uniqueKey->{functional};
+        my $keyparams = $uniqueKey->{keyparams};
+        foreach my $parameter (@$keyparams) {
+            push @$nonfunc, $parameter unless $functional;
+            my $fpath = $mpref . $object . $parameter;
+            my $defaulted =
+                util_is_defined($parameters, $fpath, 'default') &&
+                $parameters->{$fpath}->{deftype} eq 'object' &&
+                $parameters->{$fpath}->{defstat} ne 'deleted';
+            push @$nondflt, $parameter unless $defaulted;
+            $numkeyparams++;
+        }
+    }
+
+    # initialize the returned text
     my $text = qq{{{marktemplate|keys}}};
 
     # XXX various errors and warnings are suppressed if the object has been
     #     deleted; this case should be handled generally and not piecemeal
     my $is_deleted = util_is_deleted($node);
+
+    # if requested, output parameter-specific info; uniqueKeyDefs is only
+    # defined for parameters and maps them to their unique key definitions
+    if ($uniqueKeyDefs) {
+        if ($split_info) {
+            # output writable table non-defaulted key parameter text
+            if ($access ne 'readOnly' && grep {$_ eq $param} @$nondflt) {
+                $text .= !$valuessuppliedoncreate ? qq{The } :
+                    qq{If the value isn't assigned by the Controller on } .
+                    qq{creation, the };
+                $text .= qq{Agent MUST choose an initial value that };
+                if (@$nondflt > 1) {
+                    $text .= qq{(together with } .
+                        util_list($nondflt, qq{{{param|\$1}}}, [$param]) .
+                        qq{) };
+                }
+                $text .= qq{ doesn't conflict with any existing entries.\n};
+            }
+
+            # output immutable non-functional key parameter text
+            if ($immutablenonfunctionalkeys && grep {$_ eq $param} @$nonfunc) {
+                $text .= qq{This is a non-functional key and its value } .
+                    qq{MUST NOT change once it's been assigned by the } .
+                    qq{Controller or set internally by the Agent.\n};
+            }
+            chomp $text;
+        }
+        return $text;
+    }
+
+    # the rest of the function applies only to objects (tables)
 
     # warn if there is a unique key parameter that's a list (this has been
     # banned since TR-106a7) or a map
@@ -10112,7 +10198,6 @@ sub html_template_keys
     my $anystrong = 0;
     my $anylist = 0;
     my $anymap = 0;
-    my $mpref = util_full_path($opts->{node}, 1);
     foreach my $uniqueKey (@$uniqueKeys) {
         my $keyparams = $uniqueKey->{keyparams};
         foreach my $parameter (@$keyparams) {
@@ -10143,16 +10228,6 @@ sub html_template_keys
     w1msg "$object: unique key parameter is map-valued"
         if $anymap && !$is_deleted;
 
-    # for tables with enable parameters, need to generate separate text for
-    # non-functional (not affected by enable) and functional keys (affected
-    # by enable)
-    my $keys = [[], []];
-    foreach my $uniqueKey (@$uniqueKeys) {
-        my $functional = $uniqueKey->{functional};
-        my $conditional = defined($enableParameter) && $functional;
-        push @{$keys->[$conditional]}, $uniqueKey;
-    }
-
     # if have both unconditional and conditional keys, use separate paras
     my $sep_paras = @{$keys->[1]};
 
@@ -10173,34 +10248,15 @@ sub html_template_keys
             my $keyparams = $uniqueKey->{keyparams};
 
             $text .= qq{, or with } if $i > 0;
-            $text .= qq{all } if @$keyparams > 2;
             $text .= @$keyparams > 1 ?
                 qq{the same values } : qq{a given value };
             $text .= qq{for };
+            $text .= qq{both } if @$keyparams == 2;
+            $text .= qq{all of } if @$keyparams > 2;
             $text .= util_list($keyparams, qq{{{param|\$1}}});
             $i++;
         }
         $text .= qq{.};
-
-        # determine non-functional and non-defaulted unique key parameters
-        # for use below
-        my $numkeyparams;
-        my $nonfunc = []; # non-functional unique key parameters
-        my $nondflt = []; # non-defaulted unique key parameters
-        foreach my $uniqueKey (@{$keys->[0]}) {
-            my $functional = $uniqueKey->{functional};
-            my $keyparams = $uniqueKey->{keyparams};
-            foreach my $parameter (@$keyparams) {
-                push @$nonfunc, $parameter unless $functional;
-                my $fpath = $mpref . $object . $parameter;
-                my $defaulted =
-                    util_is_defined($parameters, $fpath, 'default') &&
-                    $parameters->{$fpath}->{deftype} eq 'object' &&
-                    $parameters->{$fpath}->{defstat} ne 'deleted';
-                push @$nondflt, $parameter unless $defaulted;
-                $numkeyparams++;
-            }
-        }
 
         # if the unique key is unconditional and includes at least one
         # writable parameter, check whether to output additional text about
@@ -10227,9 +10283,12 @@ sub html_template_keys
                 emsg "$object: all unique key parameters are " .
                     "defaulted; need enableParameter";
             }
-            if (@$nondflt) {
+            if (!$split_info && @$nondflt) {
                 $text .= qq{  On creation of a new table entry, the Agent } .
-                    qq{MUST choose };
+                    qq{MUST };
+                $text .= qq{(if not supplied by the Controller on creation) }
+                if $valuessuppliedoncreate;
+                $text .= qq{choose };
                 $text .= qq{an } if @$nondflt == 1;
                 $text .= qq{initial value};
                 $text .= qq{s} if @$nondflt > 1;
@@ -10240,7 +10299,7 @@ sub html_template_keys
             }
         }
 
-        if ($immutablenonfunctionalkeys && @$nonfunc) {
+        if (!$split_info && $immutablenonfunctionalkeys && @$nonfunc) {
             $text .= qq{  The non-functional key parameter};
             $text .= qq{s} if @$nonfunc > 1;
             $text .= qq{ };
@@ -14156,13 +14215,15 @@ sub util_default {
 # template containing "$1" to be substituted for each item.
 sub util_list
 {
-    my ($list, $template) = @_;
+    my ($list, $template, $exclude) = @_;
 
     $template = qq{\$1} unless $template;
+    $exclude = [] unless $exclude;
 
     my $i = 0;
     my $text = qq{};
     foreach my $item (@$list) {
+        next if grep {$item eq $_} @$exclude;
         $text .= (($i < @$list - 1) ? ', ' : ' and ') if $i > 0;
         my $temp = $template;
         $temp =~ s/\$1/$item/g;
@@ -15164,11 +15225,19 @@ sub sanity_node
         foreach my $uniqueKey (@{$node->{uniqueKeys}}) {
             $any_functional = 1 if $uniqueKey->{functional};
             my $keyparams = $uniqueKey->{keyparams};
-            foreach my $parameter (@$keyparams) {
-                my $ppath = $path . $parameter;
-                my $paccess = util_is_defined($parameters, $mpref.$ppath) ?
-                    $parameters->{$mpref.$ppath}->{access} : undef;
-                $any_writable = 1 if $paccess && $paccess ne 'readOnly';
+            foreach my $pname (@$keyparams) {
+                my $ppath = $path . $pname;
+                if (util_is_defined($parameters, $mpref.$ppath)) {
+                    my $parameter = $parameters->{$mpref.$ppath};
+                    my $paccess = $parameter->{access};
+                    $any_writable = 1 if $paccess && $paccess ne 'readOnly';
+
+                    # add a reference from each unique key parameter to its
+                    # unique keys (in theory there can be more than one)
+                    # XXX this can't be called 'uniqueKeys', because that
+                    #     get output when generating XML
+                    push @{$parameter->{uniqueKeyDefs}}, $uniqueKey;
+                }
             }
         }
 
@@ -15819,6 +15888,7 @@ B<report.pl>
 [--ugly]
 [--upnpdm]
 [--usp]
+[--valuessuppliedoncreate]
 [--verbose[=i(1)]]
 [--version]
 [--warnbibref[=i(1)]]
@@ -16586,9 +16656,17 @@ specifies that the file is intended for use with USP and automatically enables t
 
 =item * B<markmounttype>
 
+=item * B<valuessuppliedoncreate>
+
 =back
 
 if the file "looks like" a USP file, e.g., it ends B<-usp.xml> or B<-usp-full.xml>, then this option is set automatically
+
+=item B<--valuessuppliedoncreate>
+
+indicates that parameter values can be specified when an object instance is created
+
+note: use of this option is appropriate when generating reports for data models that will be used with USP; the B<--usp> option enables it automatically
 
 =item B<--verbose[=i(1)]>
 

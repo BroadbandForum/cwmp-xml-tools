@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document
+  xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+  xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="
+    urn:broadband-forum-org:cwmp:datamodel-1-8
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+    urn:broadband-forum-org:cwmp:datamodel-report-1-0
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+  spec="urn:example-com:unique-keys"
+  file="unique-keys.xml">
+
+  <import file="tr-106-types.xml" spec="urn:broadband-forum-org:tr-106">
+    <dataType name="Alias" ref="_AliasCommon"/>
+  </import>
+
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="UniqueKeys:1.0">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}} object.
+      </description>
+      <parameter name="DiningNumberOfEntries" access="readOnly">
+        <description>
+          {{numentries}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+      <parameter name="RoundNumberOfEntries" access="readOnly">
+        <description>
+          {{numentries}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+      <parameter name="FussballNumberOfEntries" access="readOnly">
+        <description>
+          {{numentries}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+    </object>
+
+    <object name="Root.Dining.{i}." access="readWrite" minEntries="0" maxEntries="unbounded"
+      numEntriesParameter="DiningNumberOfEntries" enableParameter="Enable">
+      <description>
+        {{object}} table.
+      </description>
+      <uniqueKey functional="false">
+        <parameter ref="Aardvark"/>
+      </uniqueKey>
+      <uniqueKey functional="false">
+        <parameter ref="Bison"/>
+        <parameter ref="Camel"/>
+        <parameter ref="Cat"/>
+      </uniqueKey>
+      <uniqueKey functional="true">
+        <parameter ref="Dromedary"/>
+      </uniqueKey>
+      <uniqueKey functional="true">
+        <parameter ref="Echidna"/>
+        <parameter ref="Fennec"/>
+      </uniqueKey>
+      <parameter name="Enable" access="readWrite">
+        <description>
+          {{param}} parameter.
+        </description>
+        <syntax>
+          <boolean/>
+          <default type="object" value="false"/>
+        </syntax>
+      </parameter>
+      <parameter name="Aardvark" access="readOnly">
+        <description>
+          {{param}} parameter (non-functional key).
+        </description>
+        <syntax>
+          <string/>
+          <default type="object" value="Annie"/>
+        </syntax>
+      </parameter>
+      <parameter name="Bison" access="readOnly">
+        <description>
+          {{param}} parameter (non-functional key, with {{param|Camel}} and {{param|Cat}}).
+        </description>
+        <syntax>
+          <string/>
+        </syntax>
+      </parameter>
+      <parameter name="Camel" access="readWrite">
+        <description>
+          {{param}} parameter (non-functional key, with {{param|Bison}} and {{param|Cat}}).
+        </description>
+        <syntax>
+          <string/>
+        </syntax>
+      </parameter>
+      <parameter name="Cat" access="readWrite">
+        <description>
+          {{param}} parameter (non-functional key, with {{param|Bison}} and {{param|Camel}}).
+        </description>
+        <syntax>
+          <string/>
+          <default type="object" value="Charlie"/>
+        </syntax>
+      </parameter>
+      <parameter name="Dromedary" access="readOnly">
+        <description>
+          {{param}} parameter (functional key).
+        </description>
+        <syntax>
+          <string/>
+          <default type="object" value="Danny"/>
+        </syntax>
+      </parameter>
+      <parameter name="Echidna" access="readOnly">
+        <description>
+          {{param}} parameter (functional key, with {{param|Fennec}}).
+        </description>
+        <syntax>
+          <string/>
+        </syntax>
+      </parameter>
+      <parameter name="Fennec" access="readWrite">
+        <description>
+          {{param}} parameter (functional key, with {{param|Echidna}}).
+        </description>
+        <syntax>
+          <string/>
+          <default type="object" value="Fanny"/>
+        </syntax>
+      </parameter>
+      <parameter name="Gorilla" access="readWrite">
+        <description>
+          {{param}} parameter (not a key).
+        </description>
+        <syntax>
+          <string/>
+        </syntax>
+      </parameter>
+    </object>
+
+    <object name="Root.Round.{i}." access="readWrite" minEntries="0" maxEntries="unbounded"
+      numEntriesParameter="RoundNumberOfEntries" enableParameter="Enable">
+      <description>
+        {{object}} table.
+      </description>
+      <uniqueKey functional="false">
+        <parameter ref="Alias"/>
+      </uniqueKey>
+      <uniqueKey functional="false">
+        <parameter ref="Name"/>
+      </uniqueKey>
+      <parameter name="Enable" access="readWrite">
+        <description>
+          {{param}} parameter.
+        </description>
+        <syntax>
+          <boolean/>
+          <default type="object" value="false"/>
+        </syntax>
+      </parameter>
+      <parameter name="Alias" access="readWrite">
+        <description>
+          {{datatype|expand}}
+          
+          '''Note that the CWMP and USP models are picking up the "common" Alias datatype description.
+          This problem can be investigated separately.'''
+        </description>
+        <syntax>
+          <dataType ref="Alias"/>
+        </syntax>
+      </parameter>
+      <parameter name="Name" access="readOnly">
+        <description>
+          {{param}} parameter.
+        </description>
+        <syntax>
+          <string/>
+          <default type="object" value="Nancy"/>
+        </syntax>
+      </parameter>
+    </object>
+
+    <object name="Root.Fussball.{i}." access="readOnly" minEntries="0" maxEntries="unbounded"
+      numEntriesParameter="FussballNumberOfEntries">
+      <description>
+        {{object}} table.
+      </description>
+      <uniqueKey functional="false">
+        <parameter ref="Alias"/>
+      </uniqueKey>
+      <uniqueKey functional="false">
+        <parameter ref="Name"/>
+      </uniqueKey>
+      <parameter name="Enable" access="readWrite">
+        <description>
+          {{param}} parameter.
+        </description>
+        <syntax>
+          <boolean/>
+        </syntax>
+      </parameter>
+      <parameter name="Alias" access="readWrite">
+        <description>
+          {{datatype|expand}}
+          
+          '''Note that the CWMP and USP models are picking up the "common" Alias datatype description.
+          This problem can be investigated separately.'''
+        </description>
+        <syntax>
+          <dataType ref="Alias"/>
+        </syntax>
+      </parameter>
+      <parameter name="Name" access="readOnly">
+        <description>
+          {{param}} parameter.
+        </description>
+        <syntax>
+          <string/>
+        </syntax>
+      </parameter>
+    </object>
+  </model>
+</dm:document>
