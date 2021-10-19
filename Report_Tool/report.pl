@@ -723,7 +723,9 @@ $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
             d0msg "loading XML catalog $tfile";
             eval { $parser->load_catalog($tfile) };
             if ($@) {
-                emsg $@;
+                foreach my $line (split "\n", $@) {
+                    emsg "parser error: " . $line;
+                }
             }
         }
     }
@@ -5742,7 +5744,9 @@ sub parse_file
     }
 
     if ($@) {
-        fmsg $@;
+        foreach my $line (split "\n", $@) {
+            fmsg "parser error: " . $line;
+        }
         return undef;
     }
     my $toplevel = $tree->getDocumentElement;
@@ -5866,14 +5870,14 @@ sub parse_file
     if ($@) {
         emsg "invalid auto-generated XML schema for $tfile:";
         foreach my $line (split "\n", $@) {
-            emsg $line;
+            emsg "parser error: " . $line;
         }
     } else {
         eval { $schema->validate($tree) };
         if ($@) {
             d0msg "failed to validate $tfile:";
             foreach my $line (split "\n", $@) {
-                emsg $line;
+                emsg "validation error: " . $line;
             }
         } else {
             d0msg "validated $tfile";

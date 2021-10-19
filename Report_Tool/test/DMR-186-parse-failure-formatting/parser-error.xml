@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document
+  xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-9"
+  xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="
+    urn:broadband-forum-org:cwmp:datamodel-1-9
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-9.xsd
+    urn:broadband-forum-org:cwmp:datamodel-report-1-0
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+  spec="urn:example-com:parser-error"
+  file="parser-error.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="ParserError:1.0">
+    <!-- this is unterminated -->
+    <description>
+  </model>
+</dm:document>
