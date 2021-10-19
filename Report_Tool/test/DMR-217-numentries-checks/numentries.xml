@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-8
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+             urn:broadband-forum-org:cwmp:datamodel-report-1-0
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+             spec="urn:example-com:numentries" file="numentries.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="NumEntries:1.0">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}}.
+      </description>
+      <parameter name="CompetitionNumberOfEntries" access="readOnly">
+        <description>
+          {{numentries}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+      <parameter name="RoomEntriesNumber" access="readOnly">
+        <description>
+          {{numentries}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+      <parameter name="LedgerEntriesNumber" access="readOnly"
+        status="deprecated">
+        <description>
+          {{numentries}}
+          
+          {{deprecated|1.0|because it doesn't follow naming rules}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+      <parameter name="LedgerNumberOfEntries" access="readOnly">
+        <description>
+          {{numentries}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+      <parameter name="DrawNumberOfEntries" access="readOnly">
+        <description>
+          {{numentries}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+    </object>
+
+    <object name="Root.Competition.{i}." access="readOnly" minEntries="0" maxEntries="unbounded"
+      numEntriesParameter="CompetitionNumberOfEntries" dmr:noUniqueKeys="true"/>
+
+    <object name="Root.Room.{i}." access="readOnly" minEntries="0" maxEntries="unbounded"
+      numEntriesParameter="RoomEntriesNumber" dmr:noUniqueKeys="true"/>
+
+    <object name="Root.Ledger.{i}." access="readOnly" minEntries="0" maxEntries="unbounded"
+      numEntriesParameter="LedgerNumberOfEntries" dmr:noUniqueKeys="true"/>
+  </model>
+</dm:document>
