@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-9"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-0-1"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-9
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-9.xsd
+             urn:broadband-forum-org:cwmp:datamodel-report-0-1
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-report.xsd"
+             spec="urn:example-com:secured" file="secured.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="Secured:1.0">
+    <parameter name="Hidden" access="readOnly">
+      <description>
+        {{param}}.
+      </description>
+      <syntax hidden="true">
+        <int/>
+      </syntax>
+    </parameter>
+    <parameter name="Secured" access="readOnly">
+      <description>
+        {{param}}.
+      </description>
+      <syntax secured="true">
+        <string/>
+      </syntax>
+    </parameter>
+    <parameter name="HiddenAndSecured" access="readOnly">
+      <description>
+        {{param}}.
+      </description>
+      <syntax hidden="true" secured="true">
+        <dateTime/>
+      </syntax>
+    </parameter>
+  </model>
+</dm:document>

@@ -2847,6 +2847,8 @@ sub expand_model_parameter
 
     $syntax->{hidden} = boolean($parameter->findvalue('syntax/@hidden')) if
         $parameter->findvalue('syntax/@hidden');
+    $syntax->{secured} = boolean($parameter->findvalue('syntax/@secured')) if
+        $parameter->findvalue('syntax/@secured');
     $syntax->{command} = boolean($parameter->findvalue('syntax/@command')) if
         $parameter->findvalue('syntax/@command');
     $syntax->{list} = defined(($parameter->findnodes('syntax/list'))[0]);
@@ -6570,6 +6572,7 @@ $i             spec="$lspec">
         if ($syntax && ($basename eq 'name' || $changed->{syntax} ||
                         $changed->{values} || $changed->{default})) {
             my $hidden = $syntax->{hidden};
+            my $secured = $syntax->{secured};
             my $command = $syntax->{command};
             my $base = $syntax->{base};
             my $ref = $syntax->{ref};
@@ -6592,6 +6595,7 @@ $i             spec="$lspec">
             $base = $base ? qq{ base="$base"} : qq{};
             $ref = $ref ? qq{ ref="$ref"} : qq{};
             $hidden = $hidden ? qq{ hidden="true"} : qq{};
+            $secured = $secured ? qq{ secured="true"} : qq{};
             $command = $command ? qq{ command="true"} : qq{};
             $minLength = defined $minLength && $minLength ne '' ?
                 qq{ minLength="$minLength"} : qq{};
@@ -6604,7 +6608,7 @@ $i             spec="$lspec">
             $step = defined $step && $step ne '' ? qq{ step="$step"} : qq{};
             $defstat = $defstat ne 'current' ? qq{ status="$defstat"} : qq{};
 
-            print qq{$i  <syntax$hidden$command>\n};
+            print qq{$i  <syntax$hidden$secured$command>\n};
             if ($list) {
                 my $ended = ($minLength || $maxLength) ? '' : '/';
                 print qq{$i    <list$ended>\n};
@@ -7433,6 +7437,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         #     because it handles multiple ranges and sizes
         if ($syntax) {
             my $hidden = $syntax->{hidden};
+            my $secured = $syntax->{secured};
             my $command = $syntax->{command};
             my $base = $syntax->{base};
             my $ref = $syntax->{ref};
@@ -7455,12 +7460,14 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             $type = 'dataType' if $ref;
 
             undef $hidden if $command_or_event;
+            undef $secured if $command_or_event;
             undef $command if $command_or_event;
             $deftype = 'parameter' if $deftype && $command_or_event;
 
             $base = $base ? qq{ base="$base"} : qq{};
             $ref = $ref ? qq{ ref="$ref"} : qq{};
             $hidden = $hidden ? qq{ hidden="true"} : qq{};
+            $secured = $secured ? qq{ secured="true"} : qq{};
             $command = $command ? qq{ command="true"} : qq{};
             $minLMLength = defined $minLMLength && $minLMLength ne '' ?
                 qq{ minLength="$minLMLength"} : qq{};
@@ -7506,7 +7513,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 qq{ nullValue="$nullValue"} : qq{};
 
             if ($type) {
-            print qq{$i  <syntax$hidden$command>\n};
+            print qq{$i  <syntax$hidden$secured$command>\n};
             if ($listmap) {
                 my $ended = ($minLMLength || $maxLMLength) ? '' : '/';
                 print qq{$i    <$listmap$minLMItems$maxLMItems$ended>\n};
@@ -8195,11 +8202,12 @@ sub html_node
     my $path = html_escape($node->{path}, {empty => ''});
     my $name = html_escape($node->{name}, {empty => ''});
     my $ppath = html_escape($node->{pnode}->{path}, {empty => ''});
-    # XXX don't need to pass hidden, command, list, reference etc (are in
-    #     syntax) but does no harm (now passing node too!) :(
-    # XXX DO need to pass hidden and command, because they are specifically
-    #     undefined for commands and events
+    # XXX don't need to pass hidden, secured, command, list, reference etc
+    #     (are in syntax) but does no harm (now passing node too!) :(
+    # XXX DO need to pass secured, because it's specifically undefined
+    #     for commands and events
     my $hidden = $command_or_event ? undef : $node->{syntax}->{hidden};
+    my $secured = $command_or_event ? undef : $node->{syntax}->{secured};
     my $command = $command_or_event ? undef : $node->{syntax}->{command};
     # XXX should work harder to define profile, object and parameter within
     #     profiles (so could use templates in descriptions)
@@ -8225,6 +8233,7 @@ sub html_node
                      list => $node->{syntax}->{list},
                      map => $node->{syntax}->{map},
                      hidden => $hidden,
+                     secured => $secured,
                      command => $command,
                      is_command => $is_command,
                      is_event => $is_event,
@@ -9542,13 +9551,19 @@ sub html_template
             $tinval !~ /\{\{pattern\}\}/ && $tinval !~ /\{\{nopattern\}\}/;
     }
 
-    # similarly auto-append {{hidden}}, {{command}}, {{factory}}, {{mount}},
-    # {{entries}} and {{keys}} if appropriate
+    # similarly auto-append {{hidden}}, {{secured}}, {{command}}, {{factory}},
+    # {{mount}}, {{entries}} and {{keys}} if appropriate
     if ($p->{hidden} && $tinval !~ /\{\{hidden/ &&
         $tinval !~ /\{\{nohidden\}\}/) {
         my $sep = !$tinval ? "" : "\n";
         $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{hidden}}";
+    }
+    if ($p->{secured} && $tinval !~ /\{\{secured/ &&
+        $tinval !~ /\{\{nosecured\}\}/) {
+        my $sep = !$tinval ? "" : "\n";
+        $sep = "  " if !$sep && $inval;
+        $inval .= $sep . "{{secured}}";
     }
     if ($p->{command} && $tinval !~ /\{\{command/ &&
         $tinval !~ /\{\{nocommand\}\}/) {
@@ -9673,6 +9688,17 @@ sub html_template
               q{When read, this parameter returns ''$a[0]'', }.
               q{regardless of the actual value.}},
          {name => 'nohidden',
+          text0 => q{}},
+         {name => 'secured',
+          text0 => q{{{marktemplate|secured}}}.
+              q{When read, this parameter returns {{null}}, }.
+              q{regardless of the actual value, unless the Controller has } .
+              q{a "secured" role.},
+          text1 => q{{{marktemplate|secured}}}.
+              q{When read, this parameter returns ''$a[0]'', }.
+              q{regardless of the actual value, unless the Controller has } .
+              q{a "secured" role.}},
+         {name => 'nosecured',
           text0 => q{}},
          # XXX async used to include p->{notify} but this is being removed
          {name => 'async',
@@ -15537,6 +15563,10 @@ sub sanity_node
 
         emsg "$path: read-only command parameter"
             if $syntax->{command} && $access eq 'readOnly';
+
+        w0msg "$path: parameter has both hidden and secured attributes set " .
+            "(secured takes precedence)"
+            if $syntax->{hidden} && $syntax->{secured};
 
         w1msg "$path: parameter has both hidden and command attributes set"
             if $syntax->{hidden} && $syntax->{command};
