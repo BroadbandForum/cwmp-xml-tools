@@ -812,6 +812,10 @@ while (my ($name, $level) = each %$status_levels) {
 # template expansions).
 our $htmlbbf_info = {};
 
+# Template variables that can be set via the {{setvar}} template and
+# got via the {{getvar}} template
+our $template_vars = {};
+
 # Enable USP options for USP files (never clear them)
 sub enable_usp_options
 {
@@ -5117,10 +5121,11 @@ sub get_values
         my $descact = $cvalue->{descact};
         my $readonly = $cvalue->{access} eq 'readOnly';
         my $optional = boolean($cvalue->{optional});
-        my $deprecated = $cvalue->{status} eq 'deprecated';
-        my $obsoleted = $cvalue->{status} eq 'obsoleted';
-        my $deleted = $cvalue->{status} eq 'deleted';
-        my $DELETED = $cvalue->{status} eq 'DELETED';
+        my $status = $cvalue->{status};
+        my $deprecated = $status eq 'deprecated';
+        my $obsoleted = $status eq 'obsoleted';
+        my $deleted = $status eq 'deleted';
+        my $DELETED = $status eq 'DELETED';
         my $version = $cvalue->{version};
 
         # DELETED (upper-case) means skip unconditionally
@@ -5140,6 +5145,11 @@ sub get_values
 
         # don't mark optional if deprecated or obsoleted
         $optional = 0 if $deprecated || $obsoleted;
+
+        # if already marked as deprecated or obsoleted, disable the
+        # auto-marking
+        $deprecated = 0 if $description =~ /\{\{deprecated\|/;
+        $obsoleted = 0 if $description =~ /\{\{obsoleted\|/;
 
         # indicate 'added in' if value added since parent was created
         # XXX versions might not be defined, e.g. in named data types
@@ -5175,7 +5185,14 @@ sub get_values
         # added_in is capitalized if it's the only item
         $added_in = $any_others ? lcfirst($added_in) : ucfirst($added_in);
 
+        # percent-escape any '|' chars in the value (to avoid problems using
+        # it as a template argument)
+        my $tvalue = $value;
+        $tvalue =~ s/\|/%7c/g;
+
         $list .= '* ';
+        $list .= "{{setvar|_value_name|$tvalue}}";
+        $list .= "{{setvar|_value_status|$status}}";
         $list .= ($deleted ? '---' : '+++') if $showdiffs && $changed;
         $list .= "''";
         if (!$anchor) {
@@ -5185,6 +5202,7 @@ sub get_values
             my $tvalue = $value;
             $tvalue =~ s/\\//g;
 
+            # XXX could use a template variable here
             $list .= qq{\@\@\@$value\@\@\@$tvalue\@\@\@};
         }
         $list .= "''";
@@ -5202,6 +5220,8 @@ sub get_values
         chop $list if $any;
         $list .= ($deleted ? '---' : '+++') if $showdiffs && $changed;
         $list .= ')' if $any;
+        $list .= '{{delvar|_value_name}}';
+        $list .= '{{delvar|_value_status}}';
         $list .= "\n";
     }
     chop $list;
@@ -9550,6 +9570,9 @@ sub html_template
     # parameters (options)
     my $templates =
         [
+         {name => 'setvar', text2 => \&html_template_setvar},
+         {name => 'getvar', text1 => \&html_template_getvar},
+         {name => 'delvar', text1 => \&html_template_delvar},
          {name => 'appdate', text1 => \&html_template_appdate},
          {name => 'docname', text1 => \&html_template_docname},
          {name => 'trname', text1 => \&html_template_trname},
@@ -9774,6 +9797,38 @@ sub html_template
     $inval =~ s/\]\]/\}\}/g;
 
     return $inval;
+}
+
+# set a template variable
+# - by convention, variables with names starting with underscores are internal
+sub html_template_setvar
+{
+    my ($opts, $name, $value) = @_;
+    $template_vars->{$name} = $value;
+    return qq{};
+}
+
+# get a template variable
+sub html_template_getvar
+{
+    my ($opts, $name) = @_;
+    my $path = $opts->{path} || '<unknown>';
+    my $value = $template_vars->{$name};
+    emsg "$path: undefined template variable $name" if !defined $value;
+    return $value;
+}
+
+# delete a template variable
+sub html_template_delvar
+{
+    my ($opts, $name) = @_;
+    my $path = $opts->{path} || '<unknown>';
+    if (!defined $template_vars->{$name}) {
+        emsg "$path: undefined template variable $name";
+    } else {
+        delete $template_vars->{$name};
+    }
+    return qq{};
 }
 
 # insert a mark, e.g. for a template expansion
@@ -11239,6 +11294,18 @@ sub html_template_status_helper
     my $type = $opts->{type} || $node->{type};
     my $syntax = $opts->{syntax} || $node->{syntax};
 
+    # get_values() sets these template variables
+    my $value_name = $template_vars->{_value_name};
+    $value_name =~ s/%7c/\|/g if $value_name;
+    my $value_status = $template_vars->{_value_status};
+
+    # if the template variables are set, use them
+    my $extra = $value_name ? qq{.$value_name} : qq{};
+    $status = $value_status if $value_status;
+
+    # this is used in warning and error messages
+    my $path = ($object || '') . ($param || '') . $extra;
+
     # empty param means that this is called from sanity_node(), so be quiet
     my $quiet = !defined $param;
 
@@ -11250,7 +11317,7 @@ sub html_template_status_helper
     my @vercomps = $ver ? split /-/, $ver : ();
     foreach my $vercomp (@vercomps) {
         if ($vercomp !~ /^\d+\.\d+(\.\d+)?$/) {
-            emsg "$object$param: $transition version $vercomp isn't of the " .
+            emsg "$path: $transition version $vercomp isn't of the " .
                 "form n.m[.p]" unless $quiet;
             $errors++;
         }
@@ -11260,21 +11327,21 @@ sub html_template_status_helper
 
     # check that a version was specified
     if (!$versions->[0]) {
-        emsg "$object$param: {{$transition}} version is empty" unless $quiet;
+        emsg "$path: {{$transition}} version is empty" unless $quiet;
         $errors++;
     }
 
     # check that, if there are multiple versions, they are increasing
     if ($versions->[1] &&
         version_compare($versions->[0], $versions->[1]) >= 0) {
-        emsg "$object$param: {{$transition}} version range $ver isn't " .
-            "increasing" unless $quiet;
+        emsg "$path: {{$transition}} version range $ver isn't increasing"
+            unless $quiet;
         $errors++;
     }
 
     # warn if this transition is invalid
     if ($status_levels->{$transition} > $status_levels->{$status}) {
-        emsg "$object$param: is $status, so {{$transition}} is invalid"
+        emsg "$path: is $status, so {{$transition}} is invalid"
             unless $quiet;
         $errors++;
     }
@@ -11283,16 +11350,19 @@ sub html_template_status_helper
     $node->{status_transitions}->{$transition} = $versions unless $errors;
 
     # deprecation reasons are mandatory
-    w0msg "$object$param: no reason for deprecation is given" unless
+    w0msg "$path: no reason for deprecation is given" unless
         $transition ne 'deprecated' || $msg;
 
     # expand the template
-    my $item_type = $syntax && %$syntax ? 'parameter' : $type;
+    my $item_type = $syntax && %$syntax ?
+        (!$value_name ? 'parameter' : 'value') : $type;
     $item_type =~ s/Ref$//;
     my $TRANSITION = uc $transition;
     my $ver_ = version_string($versions->[0]);
     my $msg_ = $msg ? qq{ $msg} : qq{};
-    return qq{This $item_type was $TRANSITION in $ver_$msg_.};
+    # don't append a period for values (matches get_values() logic)
+    my $per_ = !$value_name ? qq{.} : qq{};
+    return qq{This $item_type was $TRANSITION in $ver_$msg_$per_};
 }
 
 # Generate relative path given...
@@ -15078,6 +15148,30 @@ sub sanity_node
 
     # no further warnings for deleted items
     return if util_is_deleted($node);
+
+    # value sanity checks
+    if (util_is_defined($values)) {
+        foreach my $value (keys %$values) {
+            my $cvalue = $values->{$value};
+            # XXX hacked check for missing {{deprecated}} etc. template
+            #     (don't want to duplicate the earlier template expansion
+            #     logic)
+            my $status = $cvalue->{status};
+            if ($status && $status =~ /deprecated|obsoleted|deleted/) {
+                my $changed = $node->{changed};
+                my $history = $cvalue->{history};
+                my $description = $cvalue->{description};
+                my $descact = $cvalue->{descact};
+                my $dchanged = util_node_is_modified($node) &&
+                    $changed->{values}->{$value}->{description};
+                ($description, $descact) =
+                    get_description($description, $descact, $dchanged,
+                                    $history);
+                w0msg "$path.$value: is $status but has no {{$status}} " .
+                    "template" unless $description =~ /\{\{$status\|/;
+            }
+        }
+    }
 
     # glossary / abbreviations sanity checks
     # XXX maybe should only check referenced items?

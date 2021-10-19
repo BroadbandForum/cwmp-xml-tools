@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document
+  xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+  xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="
+    urn:broadband-forum-org:cwmp:datamodel-1-8
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+    urn:broadband-forum-org:cwmp:datamodel-report-1-0
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+  spec="urn:example-com:deprecated"
+  file="deprecated.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="Deprecated:1.0">
+    <parameter name="X" access="readOnly">
+      <description>
+        {{param}}.
+      </description>
+      <syntax>
+        <string>
+          <enumeration value="A">
+            <description>
+              Value.
+            </description>
+          </enumeration>
+          <enumeration value="B"/>
+          <enumeration value="C"/>
+        </string>
+      </syntax>
+    </parameter>
+    <parameter name="Y" access="readOnly">
+      <description>
+        {{param}}.
+      </description>
+      <syntax>
+        <string/>
+      </syntax>
+    </parameter>
+    <parameter name="Z" access="readOnly">
+      <description>
+        {{param}}.
+      </description>
+      <syntax>
+        <string>
+          <pattern value="a|b|c"/>
+        </string>
+      </syntax>
+    </parameter>
+  </model>
+  
+  <model name="Deprecated:1.1" base="Deprecated:1.0">
+    <parameter base="X" access="readOnly">
+      <syntax>
+        <string>
+          <enumeration value="A" status="deprecated">
+            <description action="append">
+              {{deprecated|1.1|because it's useless}}
+            </description>
+          </enumeration>
+          <enumeration value="B">
+            <description action="append">
+              {{deprecated|1.1|because it's useless}}
+            </description>
+          </enumeration>
+          <enumeration value="C" status="deprecated"/>
+          <enumeration value="D"/>
+        </string>
+      </syntax>
+    </parameter>
+    <parameter base="Y" access="readOnly" status="deprecated">
+      <description action="append">
+        {{deprecated|1.1|because it's useless}}
+      </description>
+    </parameter>
+    <parameter base="Z" access="readOnly" status="deprecated">
+      <syntax>
+        <string>
+          <pattern value="a|b|c">
+            <description action="append">
+              {{deprecated|1.1|because it's useless}}
+            </description>
+          </pattern>
+        </string>
+      </syntax>
+    </parameter>
+  </model>
+</dm:document>
