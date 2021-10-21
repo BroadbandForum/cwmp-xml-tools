@@ -1,7 +1,7 @@
 (E) Root.C.: isn't a union object but has discriminatorParameter Type1 
 (E) Root.G.: is a union object but has no discriminatorParameter
-(W) Root.Type1: values(s) X and Y not referenced by a union object
-(W) Root.Type2: values(s) F not referenced by a union object
+(W) Root.Type1: value(s) X and Y not referenced by a union object
+(W) Root.Type2: value(s) F not referenced by a union object
 (E) Root.C.: reference to invalid value C
 (E) Root.F.: reference to invalid parameter Root.Type3
 (E) Root.F.: reference to invalid parameter Root.Type3
