@@ -2177,6 +2177,7 @@ sub expand_model_object
     $maxEntries = 1 unless defined $maxEntries && $maxEntries ne '';
 
     my $fixedObject = dmr_fixedObject($object);
+    my $noDiscriminatorParameter = dmr_noDiscriminatorParameter($object);
     my $noUniqueKeys = dmr_noUniqueKeys($object);
 
     # XXX this is incomplete name / ref handling
@@ -2264,10 +2265,12 @@ sub expand_model_object
     check_and_update($path, $nnode, 'mountType', $mountType);
 
     # XXX these are slightly different (just take first definition seen)
-    $nnode->{noUniqueKeys} = $noUniqueKeys unless
-        $nnode->{noUniqueKeys};
     $nnode->{fixedObject} = $fixedObject unless
         $nnode->{fixedObject};
+    $nnode->{noDiscriminatorParameter} = $noDiscriminatorParameter unless
+        $nnode->{noDiscriminatorParameter};
+    $nnode->{noUniqueKeys} = $noUniqueKeys unless
+        $nnode->{noUniqueKeys};
 
     # XXX hack the id
     $nnode->{id} = $id if $id;
@@ -2342,6 +2345,49 @@ sub dmr_noUniqueKeys
     $noUniqueKeys = $element->findvalue('@dmr:noUniqueKeys') if $dmr;
 
     return $noUniqueKeys;
+}
+
+# Get "custom numEntries parameter" from @dmr:customNumEntriesParameter, if
+# present
+sub dmr_customNumEntriesParameter
+{
+    my ($element) = @_;
+
+    my $customNumEntriesParameter = '';
+
+    my $dmr = $element->lookupNamespaceURI('dmr');
+    $customNumEntriesParameter =
+        $element->findvalue('@dmr:customNumEntriesParameter') if $dmr;
+
+    return $customNumEntriesParameter;
+}
+
+# Get "no discriminator parameter" from @dmr:noDiscriminatorParameter, if
+# present
+sub dmr_noDiscriminatorParameter
+{
+    my ($element) = @_;
+
+    my $noDiscriminatorParameter = '';
+
+    my $dmr = $element->lookupNamespaceURI('dmr');
+    $noDiscriminatorParameter =
+        $element->findvalue('@dmr:noDiscriminatorParameter') if $dmr;
+
+    return $noDiscriminatorParameter;
+}
+
+# Get "no union object" from @dmr:noUnionObject, if present
+sub dmr_noUnionObject
+{
+    my ($element) = @_;
+
+    my $noUnionObject = '';
+
+    my $dmr = $element->lookupNamespaceURI('dmr');
+    $noUnionObject = $element->findvalue('@dmr:noUnionObject') if $dmr;
+
+    return $noUnionObject;
 }
 
 # Get the version attribute, falling back on dmr:version and then the
@@ -2745,6 +2791,8 @@ sub expand_model_parameter
     my $deftype = $parameter->findvalue('syntax/default/@type');
     my $defstat = $parameter->findvalue('syntax/default/@status');
 
+    my $customNumEntriesParameter = dmr_customNumEntriesParameter($parameter);
+
     # XXX this is incomplete name / ref handling
     # XXX WFL2 my $tname = $name ? $name : $ref;
     my $oname = $name;
@@ -2922,6 +2970,7 @@ sub expand_model_parameter
         my $vversion = version($value, {default => $version,
                                         modelversion => $mnode->{version},
                                         path => qq{$path.$cvalue}});
+        my $noUnionObject = dmr_noUnionObject($value);
 
         $status = util_maybe_deleted($status);
         update_refs($description, $file, $spec);
@@ -2934,7 +2983,7 @@ sub expand_model_parameter
                                description => $description,
                                descact => $descact, descdef => $descdef,
                                facet => $facet, version => $vversion,
-                               i => $i++};
+                               noUnionObject => $noUnionObject, i => $i++};
     }
     $values = $tvalues;
 
@@ -3084,6 +3133,10 @@ sub expand_model_parameter
 
     # XXX add some other stuff (really should be handled by add_parameter)
     check_and_update($nnode->{path}, $nnode, 'hasPattern', $hasPattern);
+
+    # XXX these are slightly different (just take first definition seen)
+    $nnode->{customNumEntriesParameter} = $customNumEntriesParameter unless
+        $nnode->{customNumEntriesParameter};
 
     # XXX hack the id
     $nnode->{id} = $id if $id;
@@ -7205,8 +7258,10 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         my $description = $node->{description};
         my $descact = $node->{descact};
         my $uniqueKeys = $node->{uniqueKeys};
-        my $noUniqueKeys = $node->{noUniqueKeys};
         my $fixedObject = $node->{fixedObject};
+        my $noDiscriminatorParameter = $node->{noDiscriminatorParameter};
+        my $noUniqueKeys = $node->{noUniqueKeys};
+        my $customNumEntriesParameter = $node->{customNumEntriesParameter};
         my $syntax = $node->{syntax};
         my $version = $node->{version};
         my $extendsprofs = $node->{extendsprofs};
@@ -7396,8 +7451,10 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         $extends = $extends ? qq{ extends="$extends"} : qq{};
 
         $version_string = $version_string ? qq{ version="$version_string"} : qq{};
-        $noUniqueKeys = $noUniqueKeys ? qq{ dmr:noUniqueKeys="$noUniqueKeys"} : qq{};
         $fixedObject = $fixedObject ? qq{ dmr:fixedObject="$fixedObject"} : qq{};
+        $noDiscriminatorParameter = $noDiscriminatorParameter ? qq{ dmr:noDiscriminatorParameter="$noDiscriminatorParameter"} : qq{};
+        $noUniqueKeys = $noUniqueKeys ? qq{ dmr:noUniqueKeys="$noUniqueKeys"} : qq{};
+        $customNumEntriesParameter = $customNumEntriesParameter ? qq{ dmr:customNumEntriesParameter="$customNumEntriesParameter"} : qq{};
 
         my $dchanged = util_node_is_modified($node) && $changed->{description};
         ($description, $descact) = get_description($description, $descact,
@@ -7416,7 +7473,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             qq{ async="true"} : qq{};
         $addParams .= qq{ mandatory="true"} if $node->{is_mandatory} && $command_or_event;
 
-        print qq{$i<$element$name$base$ref$isService$extends$addParams$access$mountType$numEntriesParameter$enableParameter$discriminatorParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version_string$noUniqueKeys$fixedObject$end_element>\n};
+        print qq{$i<$element$name$base$ref$isService$extends$addParams$access$mountType$numEntriesParameter$enableParameter$discriminatorParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version_string$fixedObject$noDiscriminatorParameter$noUniqueKeys$customNumEntriesParameter$end_element>\n};
         $node->{xml2}->{element} = '' if $end_element;
         print qq{$i  <$descname>$description</$descname>\n} if $description;
         if ($uniqueKeys && !@$dtprofiles) {
@@ -7567,6 +7624,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 my $optional = boolean($cvalue->{optional});
                 my $description = $cvalue->{description};
                 my $descact = $cvalue->{descact};
+                my $noUnionObject = $cvalue->{noUnionObject};
 
                 my $dchanged = util_node_is_modified($node) &&
                     $changed->{values}->{$value}->{description};
@@ -7583,9 +7641,10 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 $access = $access ne 'readWrite' ? qq{ access="$access"} : qq{};
                 $status = $status ne 'current' ? qq{ status="$status"} : qq{};
                 $version_string = $version_string ? qq{ version="$version_string"} : qq{};
+                $noUnionObject = $noUnionObject ? qq{ dmr:noUnionObject="$noUnionObject"} : qq{};
                 my $ended = $description ? '' : '/';
 
-                print qq{$i      <$facet value="$evalue"$access$status$optional$version_string$ended>\n};
+                print qq{$i      <$facet value="$evalue"$access$status$optional$version_string$noUnionObject$ended>\n};
                 print qq{$i        <description>$description</description>\n} if $description;
                 print qq{$i      </$facet>\n} unless $ended;
             }
@@ -10188,13 +10247,16 @@ sub html_template_union
 
         # report on any unreferenced enumeration values
         $node = util_follow_reference($node, 'enumerationRef');
-        my $values = $node->{values};
-        my @enums = $values ? sort map {$_} keys %$values : ();
+        my $values = $node->{values} || {};
         my @unref = ();
-        foreach my $enum (@enums) {
-            push @unref, $enum unless grep {$_ eq $enum} @names;
+        foreach my $value (sort {$values->{$a}->{i} <=>
+                                     $values->{$b}->{i}} keys %$values) {
+            my $cvalue = $values->{$value};
+            my @match = grep {$_ eq $value} @names;
+            my $ignore = boolean($cvalue->{noUnionObject});
+            push @unref, $value unless @match || $ignore;
         }
-        w0msg "$path: values(s) " . util_list(\@unref) . " not referenced " .
+        w0msg "$path: value(s) " . util_list(\@unref) . " not referenced " .
             "by a union object" if @unref;
     }
 
@@ -11218,7 +11280,8 @@ sub html_template_reference
                         "TR-106 A.2.3.4)";
                 }
 
-                $targetParentFixed = 0 if $tpn && !$tpn->{fixedObject};
+                $targetParentFixed = 0
+                    if $tpn && !boolean($tpn->{fixedObject});
             }
         }
 
@@ -14065,7 +14128,7 @@ sub special_end
             # Agent-managed (read-only) and non-fixed
             my $srcobj = $item->{pnode};
             my $srcaccess = $srcobj->{access};
-            my $srcfixed = $srcobj->{fixedObject};
+            my $srcfixed = boolean($srcobj->{fixedObject});
             next unless $srcaccess eq 'readOnly' && !$srcfixed;
             my $list = $syntax->{list};
             my $map = $syntax->{map};
@@ -14085,8 +14148,9 @@ sub special_end
                 $tpp .= '{i}.' unless $tpp =~ /\{i\}\.$/;
                 my $tgtobj = $objects->{$mpref.$tpp};
                 next unless $tgtobj; # quietly ignore if doesn't exist
-                $tgtobjs .= qq{$tgtobj->{path} }
-                if $tgtobj->{access} eq 'readOnly' && !$tgtobj->{fixedObject};
+                $tgtobjs .= qq{$tgtobj->{path} } if
+                    $tgtobj->{access} eq 'readOnly' &&
+                    !boolean($tgtobj->{fixedObject});
             }
             $list = $list ? qq{ (list)} : qq{};
             $map = $map ? qq{ (map)} : qq{};
@@ -15444,7 +15508,8 @@ sub sanity_node
             $expected .= 'NumberOfEntries';
             w0msg "$path: numEntriesParameter " .
                 "($numEntriesParameter->{name}) should be named $expected"
-                unless $numEntriesParameter->{name} eq $expected;
+                unless $numEntriesParameter->{name} eq $expected ||
+                boolean($numEntriesParameter->{customNumEntriesParameter});
 
             emsg "$path: numEntriesParameter " .
                 "($numEntriesParameter->{name}) is writable" if
@@ -15475,7 +15540,7 @@ sub sanity_node
         if (!$discriminatorParameter) {
             # check the object is not a union object
             emsg "$path: is a union object but has no discriminatorParameter"
-                if $union;
+                if $union && !$node->{noDiscriminatorParameter};
         }
 
         # (b) has a discriminator parameter
@@ -15542,7 +15607,7 @@ sub sanity_node
         w0msg "$path: no unique keys are defined"
             if $multi && !$nowarnuniquekeys &&
             !is_command($node) && !is_event($node) &&
-            !$node->{noUniqueKeys} && !@{$node->{uniqueKeys}};
+            !boolean($node->{noUniqueKeys}) && !@{$node->{uniqueKeys}};
     }
 
     # parameter sanity checks
@@ -15559,7 +15624,7 @@ sub sanity_node
             $node->{pnode}->{access} eq 'readOnly' &&
             defined $node->{pnode}->{maxEntries} &&
             $node->{pnode}->{maxEntries} eq 'unbounded' &&
-            !$node->{pnode}->{fixedObject};
+            !boolean($node->{pnode}->{fixedObject});
 
         emsg "$path: read-only command parameter"
             if $syntax->{command} && $access eq 'readOnly';

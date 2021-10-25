@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-9"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-9
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-9.xsd
+             urn:broadband-forum-org:cwmp:datamodel-report-1-0
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+             spec="urn:example-com:sizes-and-ranges" file="sizes-and-ranges.xml">
+
+  <import file="tr-069-biblio.xml"/>
+  
+  <model name="Union:1.0">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}}.
+      </description>
+      
+      <parameter name="Caps" access="readWrite">
+        <description>
+          {{param}}.
+        </description>
+        <syntax>
+          <string>
+            <enumeration value="A"/>
+            <enumeration value="B"/>
+            <enumeration value="X" dmr:noUnionObject="true"/>
+            <enumeration value="Y" dmr:noUnionObject="true"/>
+          </string>
+        </syntax>
+      </parameter>
+      
+      <parameter name="Type1" access="readWrite">
+        <description>
+          {{param}}.
+        </description>
+        <syntax>
+          <string>
+            <enumerationRef targetParam="Caps"/>
+          </string>
+        </syntax>
+      </parameter>
+      
+      <parameter name="Type2" access="readWrite">
+        <description>
+          {{param}}.
+        </description>
+        <syntax>
+          <string>
+            <enumeration value="D"/>
+            <enumeration value="E"/>
+            <enumeration value="F" dmr:noUnionObject="true"/>
+          </string>
+        </syntax>
+      </parameter>
+
+      <parameter name="Type3" access="readWrite">
+        <description>
+          {{param}}.
+        </description>
+        <syntax>
+          <string>
+            <enumeration value="F"/>
+          </string>
+        </syntax>
+      </parameter>
+    </object>
+    
+    <object name="Root.A." access="readOnly" minEntries="0" maxEntries="1"
+      discriminatorParameter="Type1">
+      <description>
+        {{object}}.
+      </description>
+    </object>
+    
+    <object name="Root.B." access="readOnly" minEntries="0" maxEntries="1"
+      discriminatorParameter="Type1">
+      <description>
+        {{object}}.
+      </description>
+    </object>
+    
+    <object name="Root.C." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}}.
+      </description>
+    </object>
+    
+    <object name="Root.D." access="readOnly" minEntries="0" maxEntries="1"
+      discriminatorParameter="Type2">
+      <description>
+        {{object}}.
+      </description>
+    </object>
+    <object name="Root.E." access="readOnly" minEntries="0" maxEntries="1"
+      discriminatorParameter="Type2">
+      <description>
+        {{object}}.
+      </description>
+    </object>
+    
+    <object name="Root.F." access="readOnly" minEntries="0" maxEntries="1"
+      discriminatorParameter="Type3">
+      <description>
+        {{object}}.
+      </description>
+    </object>
+    
+    <object name="Root.G." access="readOnly" minEntries="0" maxEntries="1"
+      dmr:noDiscriminatorParameter="true">
+      <description>
+        {{object}}.
+      </description>
+    </object>
+  </model>
+</dm:document>
