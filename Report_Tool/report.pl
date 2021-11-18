@@ -8248,6 +8248,8 @@ sub html_node
 
     my $command_or_event = is_command($node) || is_event($node);
 
+    my $is_mandatory = $node->{is_mandatory} && $command_or_event ? 1 : 0;
+
     my $changed = $node->{changed};
     my $history = $node->{history};
     my $description = $node->{description};
@@ -8298,7 +8300,7 @@ sub html_node
                      is_event => $is_event,
                      is_async => $node->{is_async},
                      notify => $node->{notify},
-                     is_mandatory => $node->{is_mandatory},
+                     is_mandatory => $is_mandatory,
                      factory => $factory,
                      reference => $node->{syntax}->{reference},
                      uniqueKeys => $node->{uniqueKeys},
@@ -15540,7 +15542,7 @@ sub sanity_node
         if (!$discriminatorParameter) {
             # check the object is not a union object
             emsg "$path: is a union object but has no discriminatorParameter"
-                if $union && !$node->{noDiscriminatorParameter};
+                if $union && !boolean($node->{noDiscriminatorParameter});
         }
 
         # (b) has a discriminator parameter
