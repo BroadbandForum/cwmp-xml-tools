@@ -10244,7 +10244,9 @@ sub html_template_union
     if ($discriminatedObjects) {
         $text .= qq{This parameter discriminates between the };
         my @names = map {$_->{name} =~ s/\.$//r} @$discriminatedObjects;
-        $text .= util_list(\@names, qq{{{object|\$1}}});
+        my @namestats = map {($_->{name} =~ s/\.$//r) .
+                                 '|' . $_->{status} } @$discriminatedObjects;
+        $text .= util_list(\@namestats, qq{{{object|\$1}}});
         $text .= qq{ union objects.};
 
         # report on any unreferenced enumeration values
