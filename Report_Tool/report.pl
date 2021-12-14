@@ -180,12 +180,12 @@ use XML::LibXML;
 use utf8;
 
 # update the date (yyyy-mm-dd) each time the report tool is changed
-my $tool_version_date = q{2020-10-21};
+my $tool_version_date = q{2021-12-14};
 
 # update the version number when making a new release
 # a "+" after the version number indicates an interim version
 # (e.g. "422+" means v422 + changes, and "423" means v423)
-my $tool_version_number = q{426+};
+my $tool_version_number = q{427};
 
 # tool name and version is conventionally reported as "name#version"
 my $tool_name = q{report.pl};
