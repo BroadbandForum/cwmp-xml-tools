@@ -12131,8 +12131,8 @@ sub htmlbbf_begin
     my $suffix = $options->{htmlbbf_configfile_suffix};
 
     # styles
-    my $table = qq{text-align: left;};
-    my $row = qq{vertical-align: top;};
+    my $table = qq{border-color: dimgray !important; text-align: left;};
+    my $row = qq{border-color: dimgray !important; vertical-align: top;};
     my $center = qq{text-align: center;};
 
     # font
