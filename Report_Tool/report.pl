@@ -12132,7 +12132,7 @@ sub htmlbbf_begin
 
     # styles
     my $table = qq{text-align: left;};
-    my $row = qq{vertical-align: middle;};
+    my $row = qq{vertical-align: top;};
     my $center = qq{text-align: center;};
 
     # font
