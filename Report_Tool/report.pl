@@ -185,7 +185,7 @@ my $tool_version_date = q{2021-12-14};
 # update the version number when making a new release
 # a "+" after the version number indicates an interim version
 # (e.g. "422+" means v422 + changes, and "423" means v423)
-my $tool_version_number = q{427};
+my $tool_version_number = q{427+};
 
 # tool name and version is conventionally reported as "name#version"
 my $tool_name = q{report.pl};
@@ -12131,8 +12131,8 @@ sub htmlbbf_begin
     my $suffix = $options->{htmlbbf_configfile_suffix};
 
     # styles
-    my $table = qq{text-align: left;};
-    my $row = qq{vertical-align: middle;};
+    my $table = qq{border-color: dimgray !important; text-align: left;};
+    my $row = qq{border-color: dimgray !important; vertical-align: top;};
     my $center = qq{text-align: center;};
 
     # font
@@ -12287,9 +12287,9 @@ END
     <ul>
 END
 
-    # latest versions of root and service data models
+    # latest (current) versions of root and service data models
     my $latestcontext = htmlbbf_file(undef, {
-        model => 1, root => 1, service => 1, title => 'Latest Data Models',
+        model => 1, root => 1, service => 1, title => 'Current Data Models',
         header => 1, latestcolumn => 'version', noanchors => 1,
         noseparator => 1, reverserows => 1, smallheadings => $fragment});
     foreach my $file (sort htmlbbf_model_cmp @$modelfiles) {
@@ -12600,7 +12600,7 @@ sub htmlbbf_file
         # HTML           all but schema or outdated
         # Description    all
         # Publicn Date   all
-        # PDF            all
+        # Specification  all
         my $document_suppress = $opts->{model};
         my $model_suppress = !$opts->{model};
         my $version_suppress = $model_suppress;
@@ -12632,7 +12632,8 @@ sub htmlbbf_file
            suppress => 0 },
          { name => 'appdate', value => 'Approval Date', percent => 10,
            suppress => 0 },
-         { name => 'pdflink', value => 'PDF', percent => 15, suppress => 0 }
+         { name => 'pdflink', value => 'Specification', percent => 15,
+           suppress => 0 }
         ];
 
         return $context;
@@ -12951,10 +12952,19 @@ END
     # XXX should verify that we still want this logic
     my $pdfval = undef;
     if ($trname && $trname =~ /^TR/ && !$support) {
-        # use short name with no corrigendum, e.g. TR-181i2a5, as the anchor
+        # use short name with no corrigendum, e.g. TR-181i2a15, as the anchor
         $shortname =~ s/c\d+$//;
+        # XXX for now, hard-code prefix text for TR-181i2a15 and later; later
+        #     on, as other data models have their own websites, will need to
+        #     generalize this
+        my $prefix_map = {
+            'TR-181i2a15' => q{<p><a href="https://device-data-model.} .
+                q{broadband-forum.org">Device Data Model</a></p>}
+        };
+        my $prefix = $prefix_map->{$shortname} ?
+            qq{$prefix_map->{$shortname}} : qq{};
         $pdfval = {text => $trname, names => [$shortname],
-                   link => util_doc_link($trname)};
+                   link => util_doc_link($trname), prefix => $prefix};
     }
 
     # generate the table rows for this file; number of rows is the maximum of
@@ -13091,6 +13101,11 @@ sub htmlbbf_output_table
     # title is on first header field
     my $title = $header->[0]->{title};
     if ($title) {
+        # XXX if it's 'Current Data Models' add a 'Latest Data Models' anchor
+        #     for backwards compatibility
+        print <<END if $title eq 'Current Data Models';
+    <a name="Latest Data Models"></a>
+END
         my $h = $opts->{smallheadings} ? 'h2' : 'h1';
         print <<END;
     <a name="$title"><$h>$title</$h></a>
@@ -13192,6 +13207,7 @@ END
             # this is the same as the "newkey" criterion; a new key forces
             # all column values to be regarded as new
             my $text = $value->{text};
+            my $prefix = $value->{prefix} || qq{};
             my $note = $value->{note} || qq{};
             my $link = $value->{link} || qq{};
             my $ptext = $pvalue->{text};
@@ -13222,6 +13238,7 @@ END
                 $latestcolumn && !defined($ncol->{value});
 
             $ncol->{note} = $note;
+            $ncol->{prefix} = $prefix;
 
             push @$ncols, $ncol;
         }
@@ -13321,7 +13338,11 @@ END
                 }
             }
 
-            # add note
+            # prepend prefix (no additional formatting is applied)
+            my $prefix  = $block->{prefix};
+            $text = qq{$prefix} . $text if $prefix;
+
+            # add note (formatted on a new line as bold)
             my $note  = $block->{note};
             $text .= qq{<br/><b>$note</b>} if $note;
 
