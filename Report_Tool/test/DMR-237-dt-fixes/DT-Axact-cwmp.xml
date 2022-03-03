@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    AXACT CWMP Device Data Model (note: currently older than the USP model)
+-->
+<dt:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-9"
+             xmlns:dt="urn:broadband-forum-org:cwmp:devicetype-1-6"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-0-1"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-9 https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-9.xsd urn:broadband-forum-org:cwmp:devicetype-1-6 https://www.broadband-forum.org/cwmp/cwmp-devicetype-1-6.xsd urn:broadband-forum-org:cwmp:datamodel-report-0-1 https://www.broadband-forum.org/cwmp/cwmp-datamodel-report.xsd urn:broadband-forum-org:cwmp:devicetype-features https://www.broadband-forum.org/cwmp/cwmp-devicetype-features.xsd"
+             deviceType="urn:axiros-com:axact-device-2-15-0-cwmp"
+             uuid="010D37B8-F157-4E3E-948C-EA1F6C35046A">
+	<annotation>
+AXACT CWMP Device Data Model based on Device:2.15
+
+For questions or changes please contact ''daniel.egger@axiros.com''
+	</annotation>
+	<import file="tr-181-2-15-cwmp.xml" spec="urn:broadband-forum-org:tr-181-2-15-cwmp">
+		<model name="Device:2.15"/>
+	</import>
+	<model ref="Device:2.15">
+		<object ref="Device.DeviceInfo." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="SupportedDataModelNumberOfEntries" access="readOnly" activeNotify="willDeny"/>
+		</object>
+
+		<object ref="Device.ManagementServer." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="EnableCWMP" access="readWrite"/>
+			<parameter ref="URL" access="readWrite"/>
+			<parameter ref="Username" access="readWrite"/>
+			<parameter ref="Password" access="readWrite"/>
+			<parameter ref="PeriodicInformEnable" access="readWrite"/>
+			<parameter ref="PeriodicInformInterval" access="readWrite"/>
+			<parameter ref="PeriodicInformTime" access="readWrite"/>
+			<parameter ref="ParameterKey" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="ConnectionRequestURL" access="readOnly"/>
+			<parameter ref="ConnectionRequestUsername" access="readWrite"/>
+			<parameter ref="ConnectionRequestPassword" access="readWrite"/>
+			<parameter ref="UpgradesManaged" access="readWrite"/>
+			<parameter ref="AliasBasedAddressing" access="readOnly"/>
+			<parameter ref="InstanceMode" access="readWrite"/>
+			<parameter ref="AutoCreateInstances" access="readWrite"/>
+			<parameter ref="DefaultActiveNotificationThrottle" access="readWrite"/>
+			<parameter ref="CWMPRetryMinimumWaitInterval" access="readWrite"/>
+			<parameter ref="CWMPRetryIntervalMultiplier" access="readWrite"/>
+			<parameter ref="HTTPConnectionRequestEnable" access="readWrite"/>
+			<parameter ref="SupportedConnReqMethods" access="readOnly"/>
+			<parameter ref="ConnReqXMPPConnection" access="readWrite"/>
+			<parameter ref="ConnReqAllowedJabberIDs" access="readWrite"/>
+			<parameter ref="ConnReqJabberID" access="readOnly"/>
+			<parameter ref="LightweightNotificationProtocolsSupported" access="readOnly"/>
+			<parameter ref="LightweightNotificationProtocolsUsed" access="readWrite"/>
+			<parameter ref="UDPLightweightNotificationHost" access="readWrite"/>
+			<parameter ref="UDPLightweightNotificationPort" access="readWrite"/>
+			<parameter ref="InformParameterNumberOfEntries" access="readOnly"/>
+		</object>
+
+		<object ref="Device.ManagementServer.InformParameter.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="Alias" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="ParameterName" access="readWrite"/>
+			<parameter ref="EventList" access="readWrite"/>
+		</object>
+
+		<object ref="Device.DeviceInfo.SupportedDataModel.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Alias" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="URL" access="readOnly"/>
+			<parameter ref="URN" access="readOnly"/>
+			<parameter ref="Features" access="readOnly"/>
+		</object>
+
+		<object ref="Device.IP.Interface.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Reset" access="readWrite"/>
+		</object>
+
+		<object ref="Device.DHCPv4.Client.{i}." access="createDelete" minEntries="1" maxEntries="unbounded">
+			<parameter ref="Renew" access="readWrite"/>
+		</object>
+
+		<!-- XMPP connection request -->
+		<object ref="Device.XMPP." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="ConnectionNumberOfEntries" access="readOnly"/>
+			<parameter ref="SupportedServerConnectAlgorithms" access="readOnly"/>
+		</object>
+
+		<object ref="Device.XMPP.Connection.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="Alias" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="Username" access="readWrite"/>
+			<parameter ref="Password" access="readWrite"/>
+			<parameter ref="Domain" access="readWrite"/>
+			<parameter ref="Resource" access="readWrite"/>
+			<parameter ref="JabberID" access="readOnly"/>
+			<parameter ref="Status" access="readOnly"/>
+			<parameter ref="LastChangeDate" access="readOnly"/>
+			<parameter ref="ServerConnectAlgorithm" access="readWrite"/>
+			<parameter ref="KeepAliveInterval" access="readWrite"/>
+			<parameter ref="TLSEstablished" access="readOnly"/>
+			<parameter ref="ServerNumberOfEntries" access="readOnly"/>
+		</object>
+
+		<object ref="Device.XMPP.Connection.{i}.Server.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="Alias" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="Priority" access="readWrite"/>
+			<parameter ref="Weight" access="readWrite"/>
+			<parameter ref="ServerAddress" access="readWrite"/>
+			<parameter ref="Port" access="readWrite"/>
+		</object>
+
+		<object ref="Device.IP.Diagnostics.IPPing." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="DiagnosticsState" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="Interface" access="readWrite"/>
+			<parameter ref="ProtocolVersion" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="Host" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="NumberOfRepetitions" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="Timeout" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="DataBlockSize" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="DSCP" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="IPAddressUsed" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="SuccessCount" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="FailureCount" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="AverageResponseTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="MinimumResponseTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="MaximumResponseTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="AverageResponseTimeDetailed" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="MinimumResponseTimeDetailed" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="MaximumResponseTimeDetailed" access="readOnly" activeNotify="willDeny"/>
+		</object>
+
+		<object ref="Device.IP.Diagnostics.DownloadDiagnostics." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="DiagnosticsState" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="Interface" access="readWrite"/>
+			<parameter ref="DownloadURL" access="readWrite"/>
+			<parameter ref="DownloadTransports" access="readOnly"/>
+			<parameter ref="DownloadDiagnosticMaxConnections" access="readOnly"/>
+			<parameter ref="TimeBasedTestDuration" access="readWrite"/>
+			<parameter ref="NumberOfConnections" access="readWrite"/>
+			<parameter ref="ROMTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="BOMTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="EOMTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TCPOpenRequestTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TCPOpenResponseTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TestBytesReceived" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TotalBytesReceived" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="IPAddressUsed" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TotalBytesSent" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="PerConnectionResultNumberOfEntries" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="EnablePerConnectionResults" access="readWrite" activeNotify="willDeny"/>
+			<parameter ref="TestBytesReceivedUnderFullLoading" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TotalBytesReceivedUnderFullLoading" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TotalBytesSentUnderFullLoading" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="PeriodOfFullLoading" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="ProtocolVersion" access="readWrite" activeNotify="willDeny"/>
+		</object>
+
+		<object ref="Device.IP.Diagnostics.DownloadDiagnostics.PerConnectionResult.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="ROMTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="BOMTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="EOMTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TestBytesReceived" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TotalBytesReceived" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TotalBytesSent" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TCPOpenRequestTime" access="readOnly" activeNotify="willDeny"/>
+			<parameter ref="TCPOpenResponseTime" access="readOnly" activeNotify="willDeny"/>
+		</object>
+	</model>
+</dt:document>

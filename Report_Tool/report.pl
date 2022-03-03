@@ -185,7 +185,7 @@ my $tool_version_date = q{2022-01-07};
 # update the version number when making a new release
 # a "+" after the version number indicates an interim version
 # (e.g. "422+" means v422 + changes, and "423" means v423)
-my $tool_version_number = q{428};
+my $tool_version_number = q{428+};
 
 # tool name and version is conventionally reported as "name#version"
 my $tool_name = q{report.pl};
@@ -991,7 +991,7 @@ sub expand_toplevel
     # XXX has to be executed before imports are processed
     d0msg("expand description templates in top level file $file");
     foreach my $item ($toplevel->findnodes('template')) {
-      expand_template($context, $root, $item);
+        expand_template($context, $root, $item);
     }
 
     foreach my $item
@@ -1241,6 +1241,13 @@ sub expand_import
                         lfile => $file, lspec => $fspec,
                         path => '', name => ''};
 
+    # expand description templates in the imported file
+    # XXX has to be executed before imports are processed
+    d0msg("expand description templates in import file $file");
+    foreach my $item ($toplevel->findnodes('template')) {
+        expand_template($context, $root, $item);
+    }
+
     # expand imports in the imported file
     foreach my $item ($toplevel->findnodes('import')) {
         expand_import($context, $root, $item);
@@ -1254,13 +1261,6 @@ sub expand_import
         } else {
             expand_dataType($context, $root, $item);
         }
-    }
-
-    # expand description templates in the imported file
-    d0msg("expand description templates in import file $file");
-    foreach my $item ($toplevel->findnodes('template'))
-    {
-      expand_template($context, $root, $item);
     }
 
     # expand glossary in the imported file
@@ -1666,10 +1666,10 @@ sub expand_template
     my $value = findvalue_text($template, '.');
 
     if (defined $root->{templates}->{$id}) {
-      d0msg "{$file}$id: ignored description template (already defined)";
+        d0msg "{$file}$id: ignored description template (already defined)";
     } else {
-      d0msg "{$file}$id: saved description template";
-      $root->{templates}->{$id} = $value;
+        d0msg "{$file}$id: saved description template";
+        $root->{templates}->{$id} = $value;
     }
 }
 
@@ -4299,7 +4299,8 @@ sub add_parameter
     # don't default data type
     # assume that syntax defaulting has already been handled
     # $access = 'readOnly' unless $access; DO not default here (KW)
-    $status = 'current' unless $status;
+    # XXX see below for status logic
+    #$status = 'current' unless $status;
     $description = '' unless $description;
     # don't default descact, so can tell whether it was specified
     # assume that values defaulting has already been handled
@@ -4361,6 +4362,8 @@ sub add_parameter
     # Set missing defaults:
     $activeNotify = 'normal' unless $activeNotify;
     $access = 'readOnly' unless $access;
+    # status can't be set in a DT, so it's always inherited
+    $status = ($nnode ? $nnode->{status} : 'current') unless $status;
 
     # XXX should maybe allow name to include an object spec; could call
     #     add_path on it (would like to know if any object in the path didn't

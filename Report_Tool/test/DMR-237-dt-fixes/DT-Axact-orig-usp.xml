@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    AXACT USP Device Data Model
+-->
+<dt:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-9"
+             xmlns:dt="urn:broadband-forum-org:cwmp:devicetype-1-6"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-0-1"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-9 https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-9.xsd urn:broadband-forum-org:cwmp:devicetype-1-6 https://www.broadband-forum.org/cwmp/cwmp-devicetype-1-6.xsd urn:broadband-forum-org:cwmp:datamodel-report-0-1 https://www.broadband-forum.org/cwmp/cwmp-datamodel-report.xsd urn:broadband-forum-org:cwmp:devicetype-features https://www.broadband-forum.org/cwmp/cwmp-devicetype-features.xsd"
+             deviceType="urn:axiros-com:axact-device-2-15-0-usp"
+             uuid="1B9DA135-0142-4C94-8946-5501297F3596">
+	<annotation>
+AXACT Device Data Model extensions for USP based on Device:2.15
+
+For questions or changes please contact ''daniel.egger@axiros.com''
+	</annotation>
+	<import file="tr-181-2-15-usp.xml" spec="urn:broadband-forum-org:tr-181-2-15-usp">
+		<model name="Device:2.15"/>
+	</import>
+	<model ref="Device:2.15">
+		<object ref="Device." access="readOnly" minEntries="1" maxEntries="1">
+			<command ref="Reboot()"/>
+                        <event ref="Boot!">
+                                <parameter ref="CommandKey"/>
+                                <parameter ref="Cause"/>
+                                <parameter ref="FirmwareUpdated"/>
+                                <parameter ref="ParameterMap"/>
+                        </event>
+			<command ref="ScheduleTimer()">
+                                <input>
+                                        <parameter ref="DelaySeconds"/>
+                                </input>
+                        </command>
+                </object>
+
+		<object ref="Device.LocalAgent." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="EndpointID" access="readOnly"/>
+			<parameter ref="SoftwareVersion" access="readOnly"/>
+			<parameter ref="UpTime" access="readOnly"/>
+			<parameter ref="SupportedProtocols" access="readOnly"/>
+			<parameter ref="SupportedFingerprintAlgorithms" access="readOnly"/>
+			<parameter ref="ControllerNumberOfEntries" access="readOnly"/>
+			<parameter ref="SubscriptionNumberOfEntries" access="readOnly"/>
+			<parameter ref="RequestNumberOfEntries" access="readOnly"/>
+			<parameter ref="MTPNumberOfEntries" access="readOnly"/>
+                        <event ref="Periodic!"/>
+			<command ref="AddCertificate()">
+                                <input>
+                                        <parameter ref="Alias"/>
+                                        <parameter ref="Certificate"/>
+                                </input>
+                        </command>
+		</object>
+
+		<object ref="Device.LocalAgent.Certificate.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Alias" access="readWrite"/>
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="SerialNumber" access="readOnly"/>
+			<parameter ref="Issuer" access="readOnly"/>
+                        <command ref="Delete()"/>
+                        <command ref="GetFingerprint()">
+                                <input>
+                                        <parameter ref="FingerprintAlgorithm"/>
+                                </input>
+                                <output>
+                                        <parameter ref="Fingerprint"/>
+                                </output>
+                        </command>
+		</object>
+
+		<object ref="Device.LocalAgent.Controller.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Alias" access="readWrite"/>
+			<parameter ref="AssignedRole" access="readWrite"/>
+			<parameter ref="BootParameterNumberOfEntries" access="readOnly"/>
+			<parameter ref="ControllerCode" access="readWrite"/>
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="EndpointID" access="readWrite"/>
+			<parameter ref="MTPNumberOfEntries" access="readOnly"/>
+			<parameter ref="PeriodicNotifInterval" access="readWrite"/>
+			<parameter ref="PeriodicNotifTime" access="readWrite"/>
+			<parameter ref="ProvisioningCode" access="readWrite"/>
+			<parameter ref="USPNotifRetryIntervalMultiplier" access="readWrite"/>
+			<parameter ref="USPNotifRetryMinimumWaitInterval" access="readWrite"/>
+			<command ref="SendOnBoardRequest()"/>
+		</object>
+
+		<object ref="Device.LocalAgent.Controller.{i}.BootParameter.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Alias" access="readWrite"/>
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="ParameterName" access="readWrite"/>
+		</object>
+
+		<object ref="Device.LocalAgent.Controller.{i}.E2ESession." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="Status" access="readOnly"/>
+			<parameter ref="SessionExpiration" access="readWrite"/>
+			<parameter ref="SessionRetryMinimumWaitInterval" access="readWrite"/>
+			<parameter ref="SessionRetryIntervalMultiplier" access="readWrite"/>
+			<parameter ref="CurrentRetryCount" access="readOnly"/>
+			<parameter ref="MaxRetransmitTries" access="readWrite"/>
+			<parameter ref="PayloadSecurity" access="readWrite"/>
+			<command ref="Reset()"/>
+		</object>
+
+		<object ref="Device.LocalAgent.Controller.{i}.MTP.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Alias" access="readWrite"/>
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="Protocol" access="readWrite"/>
+		</object>
+
+		<object ref="Device.LocalAgent.Controller.{i}.MTP.{i}.WebSocket." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="Host" access="readWrite"/>
+			<parameter ref="Port" access="readWrite"/>
+			<parameter ref="Path" access="readWrite"/>
+			<parameter ref="IsEncrypted" access="readOnly"/>
+			<parameter ref="KeepAliveInterval" access="readWrite"/>
+			<parameter ref="CurrentRetryCount" access="readOnly"/>
+			<parameter ref="SessionRetryMinimumWaitInterval" access="readWrite"/>
+			<parameter ref="SessionRetryIntervalMultiplier" access="readWrite"/>
+			<parameter ref="EnableEncryption" access="readWrite"/>
+		</object>
+
+		<object ref="Device.LocalAgent.Controller.{i}.MTP.{i}.MQTT." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="Reference" access="readWrite"/>
+			<parameter ref="Topic" access="readWrite"/>
+		</object>
+
+		<object ref="Device.LocalAgent.ControllerTrust." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="UntrustedRole" access="readWrite"/>
+			<parameter ref="RoleNumberOfEntries" access="readOnly"/>
+		</object>
+
+		<object ref="Device.LocalAgent.ControllerTrust.Role.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Alias" access="readWrite"/>
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="Name" access="readWrite"/>
+			<parameter ref="PermissionNumberOfEntries" access="readOnly"/>
+		</object>
+
+		<object ref="Device.LocalAgent.ControllerTrust.Role.{i}.Permission.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Alias" access="readWrite"/>
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="Order" access="readWrite"/>
+			<parameter ref="Targets" access="readWrite"/>
+			<parameter ref="Param" access="readWrite"/>
+			<parameter ref="Obj" access="readWrite"/>
+			<parameter ref="InstantiatedObj" access="readWrite"/>
+			<parameter ref="CommandEvent" access="readWrite"/>
+		</object>
+
+		<object ref="Device.LocalAgent.MTP.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Alias" access="readOnly"/>
+			<parameter ref="Protocol" access="readOnly"/>
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="Status" access="readOnly"/>
+		</object>
+
+		<object ref="Device.LocalAgent.MTP.{i}.MQTT." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="Reference" access="readWrite"/>
+			<parameter ref="ResponseTopicConfigured" access="readWrite"/>
+			<parameter ref="ResponseTopicDiscovered" access="readOnly"/>
+		</object>
+
+		<object ref="Device.LocalAgent.MTP.{i}.WebSocket." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="Port" access="readWrite"/>
+			<parameter ref="Path" access="readWrite"/>
+			<parameter ref="EnableEncryption" access="readWrite"/>
+		</object>
+
+		<object ref="Device.LocalAgent.Subscription.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Alias" access="readWrite"/>
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="Recipient" access="readOnly"/>
+			<parameter ref="ID" access="readWrite"/>
+			<parameter ref="CreationDate" access="readOnly"/>
+			<parameter ref="NotifType" access="readWrite"/>
+			<parameter ref="ReferenceList" access="readWrite"/>
+			<parameter ref="Persistent" access="readWrite"/>
+			<parameter ref="TimeToLive" access="readWrite"/>
+			<parameter ref="NotifRetry" access="readWrite"/>
+			<parameter ref="NotifExpiration" access="readWrite"/>
+		</object>
+
+		<object ref="Device.LocalAgent.Request.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Alias" access="readWrite"/>
+			<parameter ref="Originator" access="readOnly"/>
+			<parameter ref="Command" access="readOnly"/>
+			<parameter ref="CommandKey" access="readOnly"/>
+			<parameter ref="Status" access="readOnly"/>
+			<command ref="Cancel()"/>
+		</object>
+
+		<object ref="Device.MQTT." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="ClientNumberOfEntries" access="readOnly"/>
+		</object>
+
+		<object ref="Device.MQTT.Capabilities." access="readOnly" minEntries="1" maxEntries="1">
+			<parameter ref="ProtocolVersionsSupported" access="readOnly"/>
+			<parameter ref="TransportProtocolSupported" access="readOnly"/>
+		</object>
+
+		<object ref="Device.MQTT.Client.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Enable" access="readWrite"/>
+			<parameter ref="Status" access="readOnly"/>
+			<parameter ref="ProtocolVersion" access="readWrite"/>
+			<parameter ref="BrokerAddress" access="readWrite"/>
+			<parameter ref="BrokerPort" access="readWrite"/>
+			<parameter ref="CleanSession" access="readWrite"/>
+			<parameter ref="KeepAliveTime" access="readWrite"/>
+			<parameter ref="Name" access="readWrite"/>
+			<parameter ref="ClientID" access="readWrite"/>
+			<parameter ref="Username" access="readWrite"/>
+			<parameter ref="Password" access="readWrite"/>
+			<parameter ref="TransportProtocol" access="readWrite"/>
+			<parameter ref="MessageRetryTime" access="readWrite"/>
+			<parameter ref="ConnectRetryTime" access="readWrite"/>
+			<parameter ref="ConnectRetryIntervalMultiplier" access="readWrite"/>
+			<parameter ref="ConnectRetryMaxInterval" access="readWrite"/>
+			<parameter ref="ResponseInformation" access="readWrite"/>
+			<parameter ref="SubscriptionNumberOfEntries" access="readOnly"/>
+			<parameter ref="EnableEncryption" access="readWrite"/>
+		</object>
+
+		<object ref="Device.MQTT.Client.{i}.Subscription.{i}." access="createDelete" minEntries="0" maxEntries="unbounded">
+			<parameter ref="Topic" access="readWrite"/>
+			<parameter ref="QoS" access="readOnly"/>
+			<parameter ref="Enable" access="readWrite"/>
+		</object>
+
+		<object ref="Device.IP.Diagnostics." access="readOnly" minEntries="1" maxEntries="1">
+			<command ref="DownloadDiagnostics()">
+				<input>
+					<parameter ref="Interface"/>
+					<parameter ref="DownloadURL"/>
+					<parameter ref="DSCP"/>
+					<parameter ref="EthernetPriority"/>
+					<parameter ref="TimeBasedTestDuration"/>
+					<parameter ref="TimeBasedTestMeasurementInterval"/>
+					<parameter ref="TimeBasedTestMeasurementOffset"/>
+					<parameter ref="ProtocolVersion"/>
+					<parameter ref="NumberOfConnections"/>
+					<parameter ref="EnablePerConnectionResults"/>
+				</input>
+				<output>
+					<parameter ref="Status"/>
+					<parameter ref="IPAddressUsed"/>
+					<parameter ref="ROMTime"/>
+					<parameter ref="BOMTime"/>
+					<parameter ref="EOMTime"/>
+					<parameter ref="TestBytesReceived"/>
+					<parameter ref="TotalBytesReceived"/>
+					<parameter ref="TotalBytesSent"/>
+					<parameter ref="TestBytesReceivedUnderFullLoading"/>
+					<parameter ref="TotalBytesReceivedUnderFullLoading"/>
+					<parameter ref="TotalBytesSentUnderFullLoading"/>
+					<parameter ref="PeriodOfFullLoading"/>
+					<parameter ref="TCPOpenRequestTime"/>
+					<parameter ref="TCPOpenResponseTime"/>
+					<object ref="PerConnectionResult.{i}." minEntries="0" maxEntries="unbounded">
+						<parameter ref="ROMTime"/>
+						<parameter ref="BOMTime"/>
+						<parameter ref="EOMTime"/>
+						<parameter ref="TestBytesReceived"/>
+						<parameter ref="TotalBytesReceived"/>
+						<parameter ref="TotalBytesSent"/>
+						<parameter ref="TCPOpenRequestTime"/>
+						<parameter ref="TCPOpenResponseTime"/>
+					</object>
+				</output>
+			</command>
+
+			<command ref="IPPing()">
+				<input>
+					<parameter ref="Interface"/>
+					<parameter ref="ProtocolVersion"/>
+					<parameter ref="Host"/>
+					<parameter ref="NumberOfRepetitions"/>
+					<parameter ref="Timeout"/>
+					<parameter ref="DataBlockSize"/>
+					<parameter ref="DSCP"/>
+				</input>
+				<output>
+					<parameter ref="Status"/>
+					<parameter ref="IPAddressUsed"/>
+					<parameter ref="SuccessCount"/>
+					<parameter ref="FailureCount"/>
+					<parameter ref="AverageResponseTime"/>
+					<parameter ref="MinimumResponseTime"/>
+					<parameter ref="MaximumResponseTime"/>
+					<parameter ref="AverageResponseTimeDetailed"/>
+					<parameter ref="MinimumResponseTimeDetailed"/>
+					<parameter ref="MaximumResponseTimeDetailed"/>
+				</output>
+			</command>
+		</object>
+	</model>
+</dt:document>

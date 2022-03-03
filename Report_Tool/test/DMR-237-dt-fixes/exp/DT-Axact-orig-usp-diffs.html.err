@@ -1,0 +1,7 @@
+(E) Device.LocalAgent.MTP.{i}.WebSocket.: isn't a union object but has discriminatorParameter Protocol 
+(E) Device.LocalAgent.MTP.{i}.MQTT.: isn't a union object but has discriminatorParameter Protocol 
+(E) Device.LocalAgent.Controller.{i}.MTP.{i}.WebSocket.: isn't a union object but has discriminatorParameter Protocol 
+(E) Device.LocalAgent.Controller.{i}.MTP.{i}.MQTT.: isn't a union object but has discriminatorParameter Protocol 
+(E) profile PeriodicStatsAdv:1 references invalid Device.PeriodicStatistics.SampleSet.{i}.FetchSamples
+(E) profile PeriodicStatsAdv:1 references invalid Device.PeriodicStatistics.SampleSet.{i}.Status
+(E) profile PeriodicStatsAdv:1 references invalid Device.PeriodicStatistics.SampleSet.{i}.TimeReference
