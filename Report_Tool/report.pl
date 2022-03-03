@@ -1190,6 +1190,11 @@ sub expand_import
     return if $thisonly;
 
     # parse imported file
+    if (!$dir) {
+        my $tspec = $spec ? qq{ ($spec)} : qq{};
+        fmsg "$cfile.xml: file $tfile$tspec not found";
+        return;
+    }
     my $toplevel = parse_file($dir, $tfile);
     return unless $toplevel;
     my $fspec = $toplevel->findvalue('@spec');
@@ -1321,6 +1326,7 @@ sub expand_import
             #     from when we were called
             w0msg "$file.xml: import $dfile.xml: corrigendum number " .
                 "should be omitted" if $corr && $depth == 1;
+
             my $dtoplevel = parse_file($ddir, $dfile);
             next unless $dtoplevel;
             ($fitem) = $dtoplevel->findnodes(qq{$element\[\@name="$ref"\]});

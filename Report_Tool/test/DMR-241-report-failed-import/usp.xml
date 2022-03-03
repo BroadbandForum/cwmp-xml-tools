@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-7"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-7
+  https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-7.xsd"
+  spec="urn:example-com:model-1-0" file="usp.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <import file="tr-999-1-base.xml" spec="urn:example-com:tr-999-1-1-base">
+    <model ref="Model:1.0" name="_Model:1.0"/>
+  </import>
+  
+  <model name="Model:1.0" base="_Model:1.0">
+  </model>
+</dm:document>
