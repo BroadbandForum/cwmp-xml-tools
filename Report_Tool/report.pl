@@ -8698,6 +8698,44 @@ END
     </table> <!-- References -->
 END
         }
+
+        # legend
+        $anchor = html_create_anchor('Legend', 'heading');
+        print <<END;
+      <li>$anchor->{ref}</li>
+END
+
+        $html_buffer .= <<END;
+      <h1>$anchor->{def}</h1>
+      <table width="60%" $tabopts> <!-- Legend -->
+        <tbody>
+          <tr>
+            <td class="o">Object definition.</td>
+          </tr>
+          <tr>
+            <td class="m">Mountable Object definition.</td>
+          </tr>
+          <tr>
+            <td class="q">Mount Point definition.</td>
+          </tr>
+          <tr>
+            <td class="p">Parameter definition.</td>
+          </tr>
+          <tr>
+            <td class="c">Command or Event definition.</td>
+          </tr>
+          <tr>
+            <td class="d">Command Input / Output Arguments container.</td>
+          </tr>
+          <tr>
+            <td class="e">Command or Event Object Input / Output Argument definition.</td>
+          </tr>
+          <tr>
+            <td class="f">Command or Event Parameter Input / Output Argument definition.</td>
+          </tr>
+        </tbody>
+      </table> <!-- Legend -->
+END
     }
 
     if ($indent) {
