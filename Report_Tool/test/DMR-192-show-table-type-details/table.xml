@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document
+  xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-9"
+  xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="
+    urn:broadband-forum-org:cwmp:datamodel-1-9
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-9.xsd
+    urn:broadband-forum-org:cwmp:datamodel-report-1-0
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+  spec="urn:example-com:table"
+  file="table.xml">
+
+  <import file="tr-106-types.xml" spec="urn:broadband-forum-org:tr-106">
+    <dataType name="Alias" ref="_AliasCommon"/>
+  </import>
+
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="Table:1.0">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}} object.
+      </description>
+      <parameter name="Discriminator" access="readOnly" dmr:customNumEntriesParameter="true">
+        <description>
+          {{param}} parameter.
+        </description>
+        <syntax>
+          <string>
+            <enumeration value="Branch1"/>
+            <enumeration value="Branch2"/>
+          </string>
+        </syntax>
+      </parameter>
+      <parameter name="NumberOfDiningTables" access="readOnly" dmr:customNumEntriesParameter="true">
+        <description>
+          {{numentries}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+    </object>
+
+    <object name="Root.Branch1." access="readOnly" minEntries="0" maxEntries="1" discriminatorParameter="Discriminator">
+      <description>
+        {{object}} object.
+      </description>
+    </object>
+    
+    <object name="Root.Branch2." access="readOnly" minEntries="0" maxEntries="1" discriminatorParameter="Discriminator">
+      <description>
+        {{object}} object.
+      </description>
+    </object>
+
+    <object name="Root.Trunk." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}} object.
+      </description>
+    </object>
+
+    <object name="Root.Dining.{i}." access="readWrite" minEntries="0" maxEntries="unbounded"
+      numEntriesParameter="NumberOfDiningTables" enableParameter="Enable" dmr:noUniqueKeys="true">
+      <description>
+        {{object}} table.
+      </description>
+      <parameter name="Enable" access="readWrite">
+        <description>
+          {{param}} parameter.
+        </description>
+        <syntax>
+          <boolean/>
+          <default type="object" value="false"/>
+        </syntax>
+      </parameter>
+    </object>
+  </model>
+</dm:document>

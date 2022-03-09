@@ -5449,7 +5449,9 @@ sub type_string
 {
     my ($type, $syntax, $opts) = @_;
 
-    my $omitname = $opts->{omitname} || 0;
+    my $omitName = $opts->{omitName};
+    my $minEntries = $opts->{minEntries};
+    my $maxEntries = $opts->{maxEntries};
 
     # base syntax (will be overridden below if necessary)
     my $bsyntax = $syntax;
@@ -5463,12 +5465,23 @@ sub type_string
         $value = base_type($value, 1);
     }
 
+    # add object minEntries/maxEntries information
+    if (defined $minEntries || defined $maxEntries) {
+        # use a template because an HTML entity would get escaped
+        $maxEntries = qq{{{unbounded}}} if $maxEntries eq 'unbounded';
+        $value .= qq{[};
+        $value .= qq{$minEntries} if defined $minEntries;
+        $value .= qq{:};
+        $value .= qq{$maxEntries} if defined $maxEntries;
+        $value .= qq{]};
+    }
+
     # lists/maps are represented (at the protocol level) as strings, so
     # override the type name if the supplied syntax is a list/map
     $value = 'string' if $syntax->{list} || $syntax->{map};
 
     # omit the type name if requested
-    $value = '' if $omitname;
+    $value = '' if $omitName;
 
     # add list/map sizes and ranges for the supplied syntax
     if ($syntax->{list} || $syntax->{map}) {
@@ -5543,13 +5556,29 @@ sub base_type
 # string (multiple sizes and ranges are supported)
 sub syntax_string
 {
-    my ($type, $syntax, $human) = @_;
+    my ($type, $syntax, $opts) = @_;
+
+    my $human = $opts->{human};
+    my $minEntries = $opts->{minEntries};
+    my $maxEntries = $opts->{maxEntries};
 
     my $list = $syntax->{list};
     my $map = $syntax->{map};
 
     my $typeinfo = get_typeinfo($type, $syntax, {human => $human});
     my ($value, $unsigned) = ($typeinfo->{value}, $typeinfo->{unsigned});
+
+    # add object minEntries/maxEntries information
+    # XXX this is the same as type_string(); should honor $human
+    if (defined $minEntries || defined $maxEntries) {
+        # use a template because an HTML entity would get escaped
+        $maxEntries = qq{{{unbounded}}} if $maxEntries eq 'unbounded';
+        $value .= qq{[};
+        $value .= qq{$minEntries} if defined $minEntries;
+        $value .= qq{:};
+        $value .= qq{$maxEntries} if defined $maxEntries;
+        $value .= qq{]};
+    }
 
     $value .= add_size($syntax, {human => $human, item => $list});
     $value .= add_range($syntax, {human => $human, unsigned => $unsigned});
@@ -8547,7 +8576,7 @@ END
                     $mbase : $base_anchor->{ref};
 
                 # get the type string (omit type name because we use $baseref)
-                my $typestring = type_string($name, $syntax, {omitname => 1});
+                my $typestring = type_string($name, $syntax, {omitName => 1});
 
                 # add potential bibref references from description
                 update_refs($description, '', '');
@@ -8684,10 +8713,16 @@ END
         my $name = html_escape($object ? $path : $node->{name},
                                {empty => '', fudge => 1});
         my $base = html_escape($node->{base}, {default => '', empty => ''});
-        my $type = html_escape(type_string($node->{type}, $node->{syntax}),
-                               {fudge => 1});
-        my $syntax = html_escape(syntax_string($node->{type}, $node->{syntax}),
-                                 {fudge => 1});
+        my $type = html_escape(
+            type_string($node->{type}, $node->{syntax},
+                        {minEntries => $node->{minEntries},
+                         maxEntries => $node->{maxEntries}}),
+            {fudge => 1});
+        my $syntax = html_escape(
+            syntax_string($node->{type}, $node->{syntax},
+                          {minEntries => $node->{minEntries},
+                           maxEntries => $node->{maxEntries}}),
+            {fudge => 1});
         my $typetitle = $showsyntax ? qq{} : qq{ title="$syntax"};
         $syntax = html_get_anchor($syntax, 'datatype') if !$nolinks &&
             grep {$_->{name} eq $syntax} @{$root->{dataTypes}};
@@ -9829,7 +9864,9 @@ sub html_template
           text2 => \&html_template_obsoleted},
          {name => 'deleted',
           text1 => \&html_template_deleted,
-          text2 => \&html_template_deleted}
+          text2 => \&html_template_deleted},
+         {name => 'unbounded',
+          text0 => q{&infin;}}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -10108,7 +10145,7 @@ sub html_template_listmap
     my $prefix = qq{};
     $prefix .= qq{Comma-separated } if $listmap eq 'list';
 
-    my $syntax_string = syntax_string($type, $syntax, 1);
+    my $syntax_string = syntax_string($type, $syntax, {human => 1});
     $syntax_string = ucfirst $syntax_string if $listmap eq 'map';
 
     my $text = qq{{{marktemplate|$listmap-$type}}};
