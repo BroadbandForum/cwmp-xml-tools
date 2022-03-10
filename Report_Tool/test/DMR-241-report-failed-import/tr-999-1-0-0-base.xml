@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-7"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-7
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-7.xsd"
+             spec="urn:example-com:tr-999-1-0-0-base" file="tr-999-1-0-0-base.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+ <model name="Model:1.0">
+    <parameter name="Parameter" access="readOnly">
+      <description>
+        {{param}}
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+  </model>
+</dm:document>
