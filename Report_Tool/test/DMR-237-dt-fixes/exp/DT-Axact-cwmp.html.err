@@ -1,0 +1,3 @@
+(E) profile PeriodicStatsAdv:1 references invalid Device.PeriodicStatistics.SampleSet.{i}.FetchSamples
+(E) profile PeriodicStatsAdv:1 references invalid Device.PeriodicStatistics.SampleSet.{i}.Status
+(E) profile PeriodicStatsAdv:1 references invalid Device.PeriodicStatistics.SampleSet.{i}.TimeReference

@@ -1,0 +1,29 @@
+(E) validation error: out/DT-Axact-orig-usp-full.xml:12: Schemas validity error : Element '{urn:broadband-forum-org:cwmp:datamodel-1-9}document', attribute 'spec': [facet 'pattern'] The value '' is not accepted by the pattern '.+'.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:12: Schemas validity error : Element '{urn:broadband-forum-org:cwmp:datamodel-1-9}document', attribute 'spec': '' is not a valid value of the local atomic type.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:3658: Schemas validity error : Element 'object', attribute 'access': [facet 'enumeration'] The value 'createDelete' is not an element of the set {'readOnly', 'readWrite'}.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:3658: Schemas validity error : Element 'object', attribute 'access': 'createDelete' is not a valid value of the atomic type '{urn:broadband-forum-org:cwmp:datamodel-1-9}ReadWriteAccess'.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:3805: Schemas validity error : Element 'object', attribute 'access': [facet 'enumeration'] The value 'createDelete' is not an element of the set {'readOnly', 'readWrite'}.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:3805: Schemas validity error : Element 'object', attribute 'access': 'createDelete' is not a valid value of the atomic type '{urn:broadband-forum-org:cwmp:datamodel-1-9}ReadWriteAccess'.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:3967: Schemas validity error : Element 'object', attribute 'access': [facet 'enumeration'] The value 'createDelete' is not an element of the set {'readOnly', 'readWrite'}.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:3967: Schemas validity error : Element 'object', attribute 'access': 'createDelete' is not a valid value of the atomic type '{urn:broadband-forum-org:cwmp:datamodel-1-9}ReadWriteAccess'.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:4128: Schemas validity error : Element 'object', attribute 'access': [facet 'enumeration'] The value 'createDelete' is not an element of the set {'readOnly', 'readWrite'}.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:4128: Schemas validity error : Element 'object', attribute 'access': 'createDelete' is not a valid value of the atomic type '{urn:broadband-forum-org:cwmp:datamodel-1-9}ReadWriteAccess'.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:4501: Schemas validity error : Element 'object', attribute 'access': [facet 'enumeration'] The value 'createDelete' is not an element of the set {'readOnly', 'readWrite'}.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:4501: Schemas validity error : Element 'object', attribute 'access': 'createDelete' is not a valid value of the atomic type '{urn:broadband-forum-org:cwmp:datamodel-1-9}ReadWriteAccess'.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:4546: Schemas validity error : Element 'object', attribute 'access': [facet 'enumeration'] The value 'createDelete' is not an element of the set {'readOnly', 'readWrite'}.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:4546: Schemas validity error : Element 'object', attribute 'access': 'createDelete' is not a valid value of the atomic type '{urn:broadband-forum-org:cwmp:datamodel-1-9}ReadWriteAccess'.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:4743: Schemas validity error : Element 'object', attribute 'access': [facet 'enumeration'] The value 'createDelete' is not an element of the set {'readOnly', 'readWrite'}.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:4743: Schemas validity error : Element 'object', attribute 'access': 'createDelete' is not a valid value of the atomic type '{urn:broadband-forum-org:cwmp:datamodel-1-9}ReadWriteAccess'.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:4976: Schemas validity error : Element 'object', attribute 'access': [facet 'enumeration'] The value 'createDelete' is not an element of the set {'readOnly', 'readWrite'}.
+(E) validation error: out/DT-Axact-orig-usp-full.xml:4976: Schemas validity error : Element 'object', attribute 'access': 'createDelete' is not a valid value of the atomic type '{urn:broadband-forum-org:cwmp:datamodel-1-9}ReadWriteAccess'.
+(E) Device.LocalAgent.MTP.{i}.: object is not writable and multi-instance but has enableParameter
+(W) Device.LocalAgent.MTP.{i}.Enable: parameter within static object has a default value
+(W) Device.LocalAgent.MTP.{i}.Protocol: parameter within static object has a default value
+(E) Device.LocalAgent.MTP.{i}.WebSocket.: isn't a union object but has discriminatorParameter Protocol 
+(W) Device.LocalAgent.MTP.{i}.WebSocket.Port: parameter within static object has a default value
+(W) Device.LocalAgent.MTP.{i}.WebSocket.EnableEncryption: parameter within static object has a default value
+(E) Device.LocalAgent.MTP.{i}.MQTT.: isn't a union object but has discriminatorParameter Protocol 
+(W) Device.LocalAgent.MTP.{i}.MQTT.Reference: parameter within static object has a default value
+(E) Device.LocalAgent.Controller.{i}.MTP.{i}.WebSocket.: isn't a union object but has discriminatorParameter Protocol 
+(E) Device.LocalAgent.Controller.{i}.MTP.{i}.MQTT.: isn't a union object but has discriminatorParameter Protocol 
+(E) Device.LocalAgent.Certificate.{i}.: missing or invalid numEntriesParameter (CertificateNumberOfEntries)
