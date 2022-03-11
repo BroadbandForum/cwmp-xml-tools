@@ -5465,10 +5465,12 @@ sub type_string
         $value = base_type($value, 1);
     }
 
-    # add object minEntries/maxEntries information
-    if (defined $minEntries || defined $maxEntries) {
-        # use a template because an HTML entity would get escaped
-        $maxEntries = qq{{{unbounded}}} if $maxEntries eq 'unbounded';
+    # add object minEntries/maxEntries information (but not if they're both 1)
+    if ((defined $minEntries || defined $maxEntries) &&
+        !(defined $minEntries && $minEntries eq '1' &&
+          defined $maxEntries && $maxEntries eq '1')) {
+        # use an empty string for 'unbounded'
+        $maxEntries = qq{} if $maxEntries eq 'unbounded';
         $value .= qq{[};
         $value .= qq{$minEntries} if defined $minEntries;
         $value .= qq{:};
@@ -5569,7 +5571,6 @@ sub syntax_string
     my ($value, $unsigned) = ($typeinfo->{value}, $typeinfo->{unsigned});
 
     # add object minEntries/maxEntries information
-    # XXX this is the same as type_string(); should honor $human
     if (defined $minEntries || defined $maxEntries) {
         # use a template because an HTML entity would get escaped
         $maxEntries = qq{{{unbounded}}} if $maxEntries eq 'unbounded';
@@ -8713,15 +8714,15 @@ END
         my $name = html_escape($object ? $path : $node->{name},
                                {empty => '', fudge => 1});
         my $base = html_escape($node->{base}, {default => '', empty => ''});
+        # commands and events are object-like and have minEntries = maxEntries
+        # = 1 so only pass them if it's a 'true' object
+        my $minMaxOpts = ($is_command || $is_event) ? undef :
+        {minEntries => $node->{minEntries}, maxEntries => $node->{maxEntries}};
         my $type = html_escape(
-            type_string($node->{type}, $node->{syntax},
-                        {minEntries => $node->{minEntries},
-                         maxEntries => $node->{maxEntries}}),
+            type_string($node->{type}, $node->{syntax}, $minMaxOpts),
             {fudge => 1});
         my $syntax = html_escape(
-            syntax_string($node->{type}, $node->{syntax},
-                          {minEntries => $node->{minEntries},
-                           maxEntries => $node->{maxEntries}}),
+            syntax_string($node->{type}, $node->{syntax}, $minMaxOpts),
             {fudge => 1});
         my $typetitle = $showsyntax ? qq{} : qq{ title="$syntax"};
         $syntax = html_get_anchor($syntax, 'datatype') if !$nolinks &&
@@ -9044,6 +9045,8 @@ END
             $type = 'command' if $is_command;
             $type = 'arguments' if $is_arguments;
             $type = 'event' if $is_event;
+            $typetitle = 'command' if $is_command;
+            $typetitle = 'event' if $is_event;
             # XXX would like syntax to be a link when it's a named data type
             print <<END if $object && !$command_or_event && !$nolinks;
           <li>$anchor->{ref}</li>
