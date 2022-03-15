@@ -4,6 +4,24 @@
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
     <title>model.xml (changes, differences, canonical)</title>
     <style type="text/css">
+:root {
+    --parameter-color: white;
+    --object-color: #ffff99;
+    --command-color: #66cdaa;
+    --event-color: #66cdaa;
+    --argument-container-color: silver;
+    --argument-object-color: pink;
+    --argument-parameter-color: #ffe4e1;
+    --mountable-object-color: #b3e0ff;
+    --mountpoint-object-color: #4db8ff;
+    --stripe-direction: 90deg;
+    --stripe-stop-point-1: 1%;
+    --stripe-stop-point-2: 2%;
+    --stripe-color-deprecated: #eeeeee;
+    --stripe-color-obsoleted: #dddddd;
+    --stripe-color-deleted: #cccccc;
+}
+
 body, table {
     font-family: helvetica, arial, sans-serif;
     font-size: 8pt;
@@ -49,7 +67,7 @@ table.full-width {
 }
 
 thead th {
-    background-color: rgb(153, 153, 153);
+    background-color: #999999;
 }
 
 table.solid-border {
@@ -59,41 +77,11 @@ table.solid-border {
     border-spacing: 0px;
 }
 
-.solid-border th, .solid-border td {
+table.solid-border th,
+table.solid-border td {
     border-style: solid;
     border-width: 1px;
     border-color: black;
-}
-
-.parameter {
-}
-
-.object {
-    background-color: rgb(255, 255, 153);
-}
-
-.command, .event {
-    background-color: #66CDAA;
-}
-
-.argument-container {
-    background-color: silver;
-}
-
-.argument-object {
-    background-color: pink;
-}
-
-.argument-parameter {
-    background-color: #FFE4E1;
-}
-
-.mountable-object {
-    background-color: #B3E0FF;
-}
-
-.mountpoint-object {
-    background-color: #4db8ff;
 }
 
 .centered {
@@ -109,20 +97,316 @@ table.solid-border {
     text-decoration: line-through;
 }
 
-/* XXX just using the 'centered' class on th/td would be better than this? */
+.parameter {
+    background-color: var(--parameter-color);
+}
+
+.deprecated-parameter {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--parameter-color),
+        var(--parameter-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-2));
+}
+
+.obsoleted-parameter {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--parameter-color),
+        var(--parameter-color) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-2));
+}
+
+.deleted-parameter {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--parameter-color),
+        var(--parameter-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-2));
+}
+
+.object {
+    background-color: var(--object-color);
+}
+
+.deprecated-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--object-color),
+        var(--object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-2));
+}
+
+.obsoleted-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--object-color),
+        var(--object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-2));
+}
+
+.deleted-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--object-color),
+        var(--object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-2));
+}
+
+.command {
+    background-color: var(--command-color);
+}
+
+.deprecated-command {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--command-color),
+        var(--command-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-2));
+}
+
+.obsoleted-command {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--command-color),
+        var(--command-color) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-2));
+}
+
+.deleted-command {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--command-color),
+        var(--command-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-2));
+}
+
+.event {
+    background-color: var(--event-color);
+}
+
+.deprecated-event {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--event-color),
+        var(--event-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-2));
+}
+
+.obsoleted-event {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--event-color),
+        var(--event-color) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-2));
+}
+
+.deleted-event {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--event-color),
+        var(--event-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-2));
+}
+
+.argument-container {
+    background-color: var(--argument-container-color);
+}
+
+.deprecated-argument-container {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--argument-container-color),
+        var(--argument-container-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-2));
+}
+
+.obsoleted-argument-container {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--argument-container-color),
+        var(--argument-container-color) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-2));
+}
+
+.deleted-argument-container {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--argument-container-color),
+        var(--argument-container-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-2));
+}
+
+.argument-parameter {
+    background-color: var(--argument-parameter-color);
+}
+
+.deprecated-argument-parameter {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--argument-parameter-color),
+        var(--argument-parameter-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-2));
+}
+
+.obsoleted-argument-parameter {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--argument-parameter-color),
+        var(--argument-parameter-color) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-2));
+}
+
+.deleted-argument-parameter {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--argument-parameter-color),
+        var(--argument-parameter-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-2));
+}
+
+.argument-object {
+    background-color: var(--argument-object-color);
+}
+
+.deprecated-argument-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--argument-object-color),
+        var(--argument-object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-2));
+}
+
+.obsoleted-argument-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--argument-object-color),
+        var(--argument-object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-2));
+}
+
+.deleted-argument-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--argument-object-color),
+        var(--argument-object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-2));
+}
+
+.mountable-object {
+    background-color: var(--mountable-object-color);
+}
+
+.deprecated-mountable-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--mountable-object-color),
+        var(--mountable-object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-2));
+}
+
+.obsoleted-mountable-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--mountable-object-color),
+        var(--mountable-object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-2));
+}
+
+.deleted-mountable-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--mountable-object-color),
+        var(--mountable-object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-2));
+}
+
+.mountpoint-object {
+    background-color: var(--mountpoint-object-color);
+}
+
+.deprecated-mountpoint-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--mountpoint-object-color),
+        var(--mountpoint-object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-1),
+        var(--stripe-color-deprecated) var(--stripe-stop-point-2));
+}
+
+.obsoleted-mountpoint-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--mountpoint-object-color),
+        var(--mountpoint-object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-1),
+        var(--stripe-color-obsoleted) var(--stripe-stop-point-2));
+}
+
+.deleted-mountpoint-object {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--mountpoint-object-color),
+        var(--mountpoint-object-color) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-1),
+        var(--stripe-color-deleted) var(--stripe-stop-point-2));
+}
+
+
+/* center column 2 (Base Type) */
 .data-type-table th:nth-child(2),
 .data-type-table td:nth-child(2) {
     text-align: center;
 }
 
-.data-model-table th:nth-child(3),
-.data-model-table td:nth-child(3),
-.data-model-table th:nth-child(5),
-.data-model-table td:nth-child(5),
+/* center columns 4 (Write), 6 (Object Default), 7 (Version), 8 (Spec) */
+.data-model-table th:nth-child(4),
+.data-model-table td:nth-child(4),
 .data-model-table th:nth-child(6),
-.data-model-table td:nth-child(6) {
+.data-model-table td:nth-child(6),
+.data-model-table th:nth-child(7),
+.data-model-table td:nth-child(7),
+.data-model-table th:nth-child(8),
+.data-model-table td:nth-child(8) {
     text-align: center;
 }
+
+/* hide column 3 (Syntax) */
+.data-model-table th:nth-child(3),
+.data-model-table td:nth-child(3) {
+    display: none;
+}
+
+/* hide column (8) (Spec) */
+.data-model-table th:nth-child(8),
+.data-model-table td:nth-child(8) {
+    display: none;
+}
+
 
     </style>
   </head>
@@ -148,11 +432,11 @@ table.solid-border {
       <li><a href="#H.Abbreviations">Abbreviations</a></li>
       <li><a href="#H.References">References</a></li>
       <li><a href="#H.Legend">Legend</a></li>
-      <li><a href="#H.Model:1.1 Data Model (changes)">Model:1.1 Data Model (changes)</a></li>
-      <ul> <!-- Model:1.1 Data Model (changes) -->
-        <li><a href="#H.Model:1.1 Data Model (changes)">Data Model Definition</a></li>
+      <li><a href="#H.Model:1.4 Data Model (changes)">Model:1.4 Data Model (changes)</a></li>
+      <ul> <!-- Model:1.4 Data Model (changes) -->
+        <li><a href="#H.Model:1.4 Data Model (changes)">Data Model Definition</a></li>
         <ul> <!-- Data Model Definition -->
-          <li><a href="#D.Model:1.Hanger.">Hanger.</a></li>
+          <li><a href="#D.Model:1.Hangar.">Hangar.</a></li>
         </ul> <!-- Data Model Definition -->
         <li><a href="#H.Model:1.Inform and Notification Requirements">Inform and Notification Requirements</a></li>
         <ul> <!-- Inform and Notification Requirements -->
@@ -165,7 +449,7 @@ table.solid-border {
         <ul> <!-- Profile Definitions -->
           <li><a href="#H.Model:1.Notation">Notation</a></li>
           <li><a href="#H.Model:1.Baseline:1 Profile">Baseline:1 Profile</a></li>
-          <li><a href="#H.Model:1.Advanced:1 Profile">Advanced:1 Profile</a></li>
+          <li><a href="#H.Model:1.Advanced:1 Profile [DEPRECATED]">Advanced:1 Profile [DEPRECATED]</a></li>
         </ul>
       </ul>
     </ul> <!-- Table of Contents -->
@@ -260,12 +544,12 @@ For some unsignedInt types, a value range is given using the form unsignedInt[<i
           </tr>
         </tbody>
       </table> <!-- Legend -->
-    <h1><a name="H.Model:1.1 Data Model (changes)">Model:1.1 Data Model (changes)</a></h1>
+    <h1><a name="H.Model:1.4 Data Model (changes)">Model:1.4 Data Model (changes)</a></h1>
     <p>For a given implementation of this data model, the Agent MUST indicate
 support for the highest version number of any object or parameter that
 it supports.  For example, even if the Agent supports only a single
-parameter that was introduced in version 1.1, then it will indicate
-support for version 1.1.  The version number associated with each object
+parameter that was introduced in version 1.4, then it will indicate
+support for version 1.4.  The version number associated with each object
 and parameter is shown in the <b>Version</b> column.<p>
 
     <table class="full-width solid-border data-model-table"> <!-- Data Model Definition -->
@@ -273,126 +557,193 @@ and parameter is shown in the <b>Version</b> column.<p>
         <tr>
           <th width="10%">Name</th>
           <th width="10%">Type</th>
-          <!-- <th>Syntax</th> -->
+          <th>Syntax</th>
           <th width="10%">Write</th>
           <th width="50%">Description</th>
           <th width="10%">Object Default</th>
           <th width="10%">Version</th>
-          <!-- <th width="10%">Spec</th> -->
+          <th width="10%">Spec</th>
         </tr>
       </thead>
       <tbody>
         <tr class="parameter">
           <td title="Automobile"><a name="D.Model:1.Automobile">Automobile</a></td>
           <td title="unsignedInt">unsignedInt</td>
-          <!-- <td>unsignedInt</td> -->
+          <td>unsignedInt</td>
           <td class="modified">W</td>
           <td><p><span class="deleted">An <i>Automobile</i> that I bought yesterday.</span><p>
 <span class="inserted">An <i>Automobile</i> that I bought last week.</span><p>
 <span class="inserted">I should really replace it with a <a href="#D.Model:1.Bicycle"><i>Bicycle</i></a>.</span></td>
           <td>-</td>
           <td title="">1.0</td>
-          <!-- <td></td> -->
+          <td></td>
         </tr>
         <tr class="parameter">
           <td title="Bicycle"><a name="D.Model:1.Bicycle">Bicycle</a></td>
           <td title="unsignedInt">unsignedInt</td>
-          <!-- <td>unsignedInt</td> -->
+          <td>unsignedInt</td>
           <td>-</td>
           <td>A <i>Bicycle</i>. This is much bet<span class="inserted">t</span>er tha<span class="deleted">n</span>n an <a href="#D.Model:1.Automobile"><i>Automobile</i></a>, and much worse than a <a href="#D.Model:1.Diesel"><i>Diesel</i></a>.</td>
           <td>-</td>
           <td title="">1.0</td>
-          <!-- <td></td> -->
-        </tr>
-        <tr class="parameter inserted">
-          <td title="Diesel"><a name="D.Model:1.Diesel">Diesel</a></td>
-          <td title="unsignedInt">unsignedInt</td>
-          <!-- <td>unsignedInt</td> -->
-          <td>-</td>
-          <td>A <i>Diesel</i>. Terrible.</td>
-          <td>-</td>
-          <td title="">1.1</td>
-          <!-- <td></td> -->
-        </tr>
-        <tr class="parameter inserted">
-          <td title="EtypeJaguar"><a name="D.Model:1.EtypeJaguar">EtypeJaguar</a></td>
-          <td title="unsignedInt">unsignedInt</td>
-          <!-- <td>unsignedInt</td> -->
-          <td>-</td>
-          <td>An <i>EtypeJaguar</i>. Fun but not worth it? Better buy a <a href="#D.Model:1.Canoe"><i>Canoe</i></a>.</td>
-          <td>-</td>
-          <td title="">1.1</td>
-          <!-- <td></td> -->
+          <td></td>
         </tr>
         <tr class="parameter">
           <td title="Canoe"><a name="D.Model:1.Canoe">Canoe</a></td>
           <td title="unsignedInt">unsignedInt</td>
-          <!-- <td>unsignedInt</td> -->
+          <td>unsignedInt</td>
           <td>-</td>
-          <td>A <i>Canoe</i>. So much better than an <a href="#D.Model:1.Automobile"><i>Automobile</i></a>, and much worse than a <a href="#D.Model:1.Hanger.FlyingMachine"><i>Hanger.FlyingMachine</i></a>.</td>
-          <td>-</td>
-          <td title="">1.0</td>
-          <!-- <td></td> -->
-        </tr>
-        <tr class="object">
-          <td title="Hanger."><a name="D.Model:1.Hanger"></a><a name="D.Model:1.Hanger.">Hanger.</a></td>
-          <td title="object&#8203;[1:1]">object</td>
-          <!-- <td>object&#8203;[1:1]</td> -->
-          <td>-</td>
-          <td>A <i>Hanger</i>.</td>
+          <td>A <i>Canoe</i>. So much better than an <a href="#D.Model:1.Automobile"><i>Automobile</i></a>.</td>
           <td>-</td>
           <td title="">1.0</td>
-          <!-- <td></td> -->
+          <td></td>
         </tr>
         <tr class="parameter">
-          <td title="Hanger.FlyingMachine"><a name="D.Model:1.Hanger.FlyingMachine">FlyingMachine</a></td>
+          <td title="Diesel"><a name="D.Model:1.Diesel">Diesel</a></td>
           <td title="unsignedInt">unsignedInt</td>
-          <!-- <td>unsignedInt</td> -->
+          <td>unsignedInt</td>
+          <td>-</td>
+          <td>A <i>Diesel</i>. Terrible.</td>
+          <td>-</td>
+          <td title="">1.1</td>
+          <td></td>
+        </tr>
+        <tr class="parameter">
+          <td title="EtypeJaguar"><a name="D.Model:1.EtypeJaguar">EtypeJaguar</a></td>
+          <td title="unsignedInt">unsignedInt</td>
+          <td>unsignedInt</td>
+          <td>-</td>
+          <td>An <i>EtypeJaguar</i>. Fun but not worth it? Better buy a <a href="#D.Model:1.Canoe"><i>Canoe</i></a>.</td>
+          <td>-</td>
+          <td title="">1.1</td>
+          <td></td>
+        </tr>
+        <tr class="deprecated-parameter">
+          <td title="FokkerFriendship"><a name="D.Model:1.FokkerFriendship">FokkerFriendship</a></td>
+          <td title="unsignedInt">unsignedInt</td>
+          <td>unsignedInt</td>
+          <td>-</td>
+          <td><p>A <i>FokkerFriendship</i>.<p>
+<span class="inserted">This parameter was DEPRECATED in 1.4 because I shouldn't have bought it.</span></td>
+          <td>-</td>
+          <td title="">1.1</td>
+          <td></td>
+        </tr>
+        <tr class="obsoleted-parameter">
+          <td title="Glider"><a name="D.Model:1.Glider">Glider</a></td>
+          <td title="unsignedInt">unsignedInt</td>
+          <td>unsignedInt</td>
+          <td>-</td>
+          <td><p>A <i>Glider</i>.<p>
+This parameter was DEPRECATED in 1.2 because I shouldn't have bought it.<p>
+<span class="inserted">This parameter was OBSOLETED in 1.4.</span></td>
+          <td>-</td>
+          <td title="">1.1</td>
+          <td></td>
+        </tr>
+        <tr class="deleted-parameter deleted">
+          <td title="Horse"><a name="D.Model:1.Horse">Horse</a></td>
+          <td title="unsignedInt">unsignedInt</td>
+          <td>unsignedInt</td>
+          <td>-</td>
+          <td><p>A <i>Horse</i>.<p>
+This parameter was DEPRECATED in 1.1 because I shouldn't have bought it.<p>
+This parameter was OBSOLETED in 1.3.<p>
+<span class="inserted">This parameter was DELETED in 1.4.</span></td>
+          <td>-</td>
+          <td title="">1.1</td>
+          <td></td>
+        </tr>
+        <tr class="deprecated-object">
+          <td title="Hangar."><a name="D.Model:1.Hangar"></a><a name="D.Model:1.Hangar.">Hangar.</a></td>
+          <td title="object&#8203;[1:1]">object</td>
+          <td>object&#8203;[1:1]</td>
+          <td>-</td>
+          <td><p>A <i>Hangar</i>.<p>
+<span class="inserted">This object was DEPRECATED in 1.3 because I couldn't afford the rent.</span></td>
+          <td>-</td>
+          <td title="">1.1</td>
+          <td></td>
+        </tr>
+        <tr class="deprecated-parameter">
+          <td title="Hangar.FlyingMachine"><a name="D.Model:1.Hangar.FlyingMachine">FlyingMachine</a></td>
+          <td title="unsignedInt">unsignedInt</td>
+          <td>unsignedInt</td>
           <td>-</td>
           <td>A <i>FlyingMachine</i>.</td>
           <td>-</td>
-          <td title="">1.0</td>
-          <!-- <td></td> -->
+          <td title="">1.1</td>
+          <td></td>
         </tr>
-        <tr class="command">
-          <td title="Hanger.Clean()."><a name="D.Model:1.Hanger.Clean()"></a><a name="D.Model:1.Hanger.Clean().">Clean()</a></td>
+        <tr class="deprecated-command">
+          <td title="Hangar.Clean()."><a name="D.Model:1.Hangar.Clean()"></a><a name="D.Model:1.Hangar.Clean().">Clean()</a></td>
           <td title="command">command</td>
-          <!-- <td>object</td> -->
+          <td>object</td>
           <td>-</td>
-          <td><b>[ASYNC]</b>  Clean the <a href="#D.Model:1.Hanger."><i>Hanger</i></a>.</td>
+          <td><b>[ASYNC]</b>  Clean the <a href="#D.Model:1.Hangar."><i>Hangar</i></a>.</td>
           <td>-</td>
-          <td title="">1.0</td>
-          <!-- <td></td> -->
+          <td title="">1.1</td>
+          <td></td>
         </tr>
-        <tr class="argument-container">
-          <td title="Hanger.Clean().">&rArr; Input.</td>
+        <tr class="deprecated-argument-container">
+          <td title="Hangar.Clean().">&rArr; Input.</td>
           <td title="object">arguments</td>
-          <!-- <td>object</td> -->
+          <td>object</td>
           <td>-</td>
           <td>Input arguments.</td>
           <td>-</td>
           <td title=""></td>
-          <!-- <td></td> -->
+          <td></td>
         </tr>
-        <tr class="argument-parameter">
-          <td title="Hanger.Clean().Depth"><a name="D.Model:1.Hanger.Clean().Depth">&rArr; Depth</a></td>
+        <tr class="deprecated-argument-parameter">
+          <td title="Hangar.Clean().Depth"><a name="D.Model:1.Hangar.Clean().Depth">&rArr; Depth</a></td>
           <td title="unsignedInt">unsignedInt</td>
-          <!-- <td>unsignedInt</td> -->
+          <td>unsignedInt</td>
           <td>W</td>
-          <td>How deep to clean.</td>
+          <td>How many <i>inches</i> depth to clean.</td>
           <td>42</td>
-          <td title="">1.0</td>
-          <!-- <td></td> -->
+          <td title="">1.1</td>
+          <td></td>
         </tr>
-        <tr class="event">
-          <td title="Hanger.Cleaned!."><a name="D.Model:1.Hanger.Cleaned!"></a><a name="D.Model:1.Hanger.Cleaned!.">Cleaned!</a></td>
+        <tr class="deprecated-argument-container">
+          <td title="Hangar.Clean().">&lArr; Output.</td>
+          <td title="object">arguments</td>
+          <td>object</td>
+          <td>-</td>
+          <td>Output arguments.</td>
+          <td>-</td>
+          <td title=""></td>
+          <td></td>
+        </tr>
+        <tr class="deprecated-argument-parameter">
+          <td title="Hangar.Clean().ActualDepth"><a name="D.Model:1.Hangar.Clean().ActualDepth">&lArr; ActualDepth</a></td>
+          <td title="unsignedInt">unsignedInt</td>
+          <td>unsignedInt</td>
+          <td>-</td>
+          <td>How many <i>inches</i> depth were cleaned.</td>
+          <td>-</td>
+          <td title="">1.1</td>
+          <td></td>
+        </tr>
+        <tr class="deprecated-event">
+          <td title="Hangar.Cleaned!."><a name="D.Model:1.Hangar.Cleaned!"></a><a name="D.Model:1.Hangar.Cleaned!.">Cleaned!</a></td>
           <td title="event">event</td>
-          <!-- <td>object</td> -->
+          <td>object</td>
           <td>-</td>
-          <td>The <a href="#D.Model:1.Hanger.Clean()"><i>Clean()</i></a> is done.</td>
+          <td>The <a href="#D.Model:1.Hangar.Clean()"><i>Clean()</i></a> is done.</td>
           <td>-</td>
-          <td title="">1.0</td>
-          <!-- <td></td> -->
+          <td title="">1.1</td>
+          <td></td>
+        </tr>
+        <tr class="deprecated-argument-parameter">
+          <td title="Hangar.Cleaned!.ActualDepth"><a name="D.Model:1.Hangar.Cleaned!.ActualDepth">&rArr; ActualDepth</a></td>
+          <td title="unsignedInt">unsignedInt</td>
+          <td>unsignedInt</td>
+          <td>-</td>
+          <td>How many <i>inches</i> depth were cleaned.</td>
+          <td>-</td>
+          <td title="">1.1</td>
+          <td></td>
         </tr>
       </tbody>
     </table> <!-- Data Model Definition -->
@@ -488,15 +839,15 @@ and parameter is shown in the <b>Version</b> column.<p>
         </tr>
       </thead>
       <tbody>
-        <tr>
+        <tr class="parameter">
           <td><a href="#D.Model:1.Automobile">Automobile</a></td>
           <td class="centered">R</td>
         </tr>
       </tbody>
     </table> <!-- Baseline:1 -->
-    <h3><span class=" inserted"><a name="P.Model:1.Advanced:1"></a><a name="H.Model:1.Advanced:1 Profile">Advanced:1 Profile</a></span></h3>
-    <span class=" inserted">The <i>Advanced:1</i> profile for the <i>Model:1</i> data model is defined as the union of the <i>Baseline:1</i> profile and the additional requirements defined in this table.  The minimum REQUIRED version for this profile is <i>Model:1.1</i>.</span><p>
-    <table class="middle-width solid-border"> <!-- Advanced:1 Profile -->
+    <h3><a name="P.Model:1.Advanced:1"></a><a name="H.Model:1.Advanced:1 Profile [DEPRECATED]">Advanced:1 Profile [DEPRECATED]</a></h3>
+    The <i>Advanced:1</i> profile for the <i>Model:1</i> data model is defined as the union of the <i>Baseline:1</i> profile and the additional requirements defined in this table.  The minimum REQUIRED version for this profile is <i>Model:1.1</i>.<p>
+    <table class="middle-width solid-border"> <!-- Advanced:1 Profile [DEPRECATED] -->
       <thead>
         <tr>
           <th width="80%">Name</th>
@@ -504,16 +855,24 @@ and parameter is shown in the <b>Version</b> column.<p>
         </tr>
       </thead>
       <tbody>
-        <tr class="object">
-          <td><a href="#D.Model:1.Hanger.">Hanger.</a></td>
-          <td class="centered">P</td>
+        <tr class="deprecated-object">
+          <td><a href="#D.Model:1.Hangar.">Hangar.</a></td>
+          <td class="centered">P<sup><a href="#P.Model:1.Advanced:1.Hangar.">1</a></sup></td>
         </tr>
-        <tr>
-          <td><a href="#D.Model:1.Hanger.FlyingMachine">FlyingMachine</a></td>
+        <tr class="deprecated-parameter">
+          <td><a href="#D.Model:1.Hangar.FlyingMachine">FlyingMachine</a></td>
           <td class="centered">R</td>
         </tr>
       </tbody>
     </table> <!-- Advanced:1 -->
+    <table width="60%" border="0">
+      <tbody>
+        <tr>
+          <td width="1%"><sup><a name="P.Model:1.Advanced:1.Hangar.">1</a></sup></td>
+          <td>This object is DEPRECATED.</td>
+        </tr>
+      </tbody>
+    </table>
     <p>
     <hr>
     Generated by <a href="https://www.broadband-forum.org">Broadband Forum</a> <a href="https://github.com/BroadbandForum/cwmp-xml-tools/tree/master/Report_Tool">report.pl</a>.<p>

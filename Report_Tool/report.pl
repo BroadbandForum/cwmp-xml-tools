@@ -8277,7 +8277,7 @@ a:link, a:visited, a:hover, a:active {
 
 END
 
-# the remaining styles are unconditional
+# the following styles are unconditional
 $html_style .= <<END;
 sup {
     vertical-align: super;
@@ -8379,15 +8379,6 @@ sub html_node
 
     # XXX completely ignore internal profiles (name begins with an underscore)
     return $report_stop if $node->{type} eq 'profile' && $node->{name} =~ /^_/;
-
-    # foo_oc (open comment) and foo_cc (close comment) control generation of
-    # optional columns, e.g. the syntax column when generating ugly output
-    my $synt_oc =  $showsyntax ? '' : '<!-- ';
-    my $synt_cc =  $showsyntax ? '' : ' -->';
-    my $vers_oc = !$showspec   ? '' : '<!-- ';
-    my $vers_cc = !$showspec   ? '' : ' -->';
-    my $spec_oc =  $showspec   ? '' : '<!-- ';
-    my $spec_cc =  $showspec   ? '' : ' -->';
 
     # common processing for all nodes
     my $model = ($node->{type} =~ /model/);
@@ -8525,26 +8516,61 @@ sub html_node
         #     and I can't see how to use CSS to get rid of them
         my $doctype_html = qq{<!DOCTYPE html>};
 
-        # 1-based data model table column indices used in style definitions
-        my $wrt_col = $showsyntax ? 4 : 3;
-        my $def_col = $wrt_col + 2;
-        my $ver_col = $def_col + 1; # either version or spec (never both)
+        # individual table style overrides; "(C)" means "centered"
+        # XXX just using the 'centered' class on th/td might be preferable?
+        #     see https://developer.mozilla.org/en-US/docs/Web/HTML/Element/col
+        #     #attr-align for advice
+        #
+        # data type table (3 columns):
+        #   1: Data Type, 2: Base Type (C), 3: Description
+        #
+        # data model table (8 columns):
+        #   1: Name, 2: Type, 3: Syntax, 4: Write (C), 5: Description,
+        #   6: Object Default (C), 7: Version (C), 8: Spec (C)
         my $html_style_local = <<END;
-/* XXX just using the 'centered' class on th/td would be better than this? */
+/* center column 2 (Base Type) */
 .data-type-table th:nth-child(2),
 .data-type-table td:nth-child(2) {
     text-align: center;
 }
 
-.data-model-table th:nth-child($wrt_col),
-.data-model-table td:nth-child($wrt_col),
-.data-model-table th:nth-child($def_col),
-.data-model-table td:nth-child($def_col),
-.data-model-table th:nth-child($ver_col),
-.data-model-table td:nth-child($ver_col) {
+/* center columns 4 (Write), 6 (Object Default), 7 (Version), 8 (Spec) */
+.data-model-table th:nth-child(4),
+.data-model-table td:nth-child(4),
+.data-model-table th:nth-child(6),
+.data-model-table td:nth-child(6),
+.data-model-table th:nth-child(7),
+.data-model-table td:nth-child(7),
+.data-model-table th:nth-child(8),
+.data-model-table td:nth-child(8) {
     text-align: center;
 }
+
 END
+
+        # also:
+        #   --showsyntax controls whether Syntax is displayed
+        #   --showspec controls whether Version or Spec is displayed
+        $html_style_local .= <<END unless $showsyntax;
+/* hide column 3 (Syntax) */
+.data-model-table th:nth-child(3),
+.data-model-table td:nth-child(3) {
+    display: none;
+}
+
+END
+        my $hide_col_num = $showspec ? 7 : 8;
+        my $hide_col_nam = $showspec ? 'Version' : 'Spec';
+        $html_style_local .= <<END;
+/* hide column ($hide_col_num) ($hide_col_nam) */
+.data-model-table th:nth-child($hide_col_num),
+.data-model-table td:nth-child($hide_col_num) {
+    display: none;
+}
+
+END
+
+        # start outputting the HTML
         print <<END;
 $do_not_edit
 <html>
@@ -8995,12 +9021,12 @@ END
         <tr$trclass>
           <th width="10%">Name</th>
           <th width="10%">Type</th>
-          $synt_oc<th>Syntax</th>$synt_cc
+          <th>Syntax</th>
           <th width="10%">Write</th>
           <th width="50%">Description</th>
           <th width="10%">Object Default</th>
-          $vers_oc<th width="10%">Version</th>$vers_cc
-          $spec_oc<th width="10%">Spec</th>$spec_cc
+          <th width="10%">Version</th>
+          <th width="10%">Spec</th>
         </tr>
       </thead>
       <tbody>
@@ -9034,37 +9060,40 @@ END
 END
                 if (!$altnotifreqstyle) {
                     $html_buffer .=
-                        html_param_table(qq{Forced Inform Parameters},
-                                         {node => $node},
-                                         grep {$_->{forcedInform}}
-                                         @$html_parameters);
+                        html_param_table(
+                            qq{Forced Inform Parameters},
+                            {node => $node,
+                             class => 'middle-width solid-border'},
+                            grep {$_->{forcedInform}}
+                            @$html_parameters);
                 }
                 if (!$altnotifreqstyle) {
                     $html_buffer .=
-                        html_param_table(qq{Forced Active Notification } .
-                                         qq{Parameters},
-                                         {node => $node},
-                                         grep {$_->{activeNotify} eq
-                                                   'forceEnabled'}
-                                         @$html_parameters);
+                        html_param_table(
+                            qq{Forced Active Notification Parameters},
+                            {node => $node,
+                             class => 'middle-width solid-border'},
+                            grep {$_->{activeNotify} eq 'forceEnabled'}
+                            @$html_parameters);
                 }
                 if (!$altnotifreqstyle) {
                     $html_buffer .=
-                        html_param_table(qq{Default Active Notification } .
-                                         qq{Parameters},
-                                         {node => $node},
-                                         grep {$_->{activeNotify} eq
-                                                   'forceDefaultEnabled'}
-                                         @$html_parameters);
+                        html_param_table(
+                            qq{Default Active Notification Parameters},
+                            {node => $node,
+                             class => 'middle-width solid-border'},
+                            grep {$_->{activeNotify} eq 'forceDefaultEnabled'}
+                            @$html_parameters);
                 }
                 my $active = $altnotifreqstyle ? 'Value Change' : 'Active';
                 $html_buffer .=
-                    html_param_table(qq{Parameters for which $active } .
-                                     qq{Notification MAY be Denied},
-                                     {sepobj => 1,
-                                      node => $node},
-                                     grep {$_->{activeNotify} eq 'canDeny'}
-                                     @$html_parameters);
+                    html_param_table(
+                        qq{Parameters for which $active Notification MAY } .
+                        qq{be Denied},
+                        {sepobj => 1, node => $node,
+                         class => 'middle-width solid-border'},
+                        grep {$_->{activeNotify} eq 'canDeny'}
+                        @$html_parameters);
                 my $panchor = html_create_anchor('Profile Definitions',
                                                  'heading', {node => $node});
                 my $nanchor = html_create_anchor('Notation',
@@ -9194,12 +9223,12 @@ END
         <tr$trclass>
           <td title="$path">$name</td>
           <td$tdclasstyp$typetitle>$type</td>
-          $synt_oc<td$tdclasstyp>$syntax</td>$synt_cc
+          <td$tdclasstyp>$syntax</td>
           <td$tdclasswrt>$write</td>
           <td>$description</td>
           <td$tdclassdef>$default</td>
-          $vers_oc<td$versiontitle>$version</td>$vers_cc
-          $spec_oc<td>$tspecs</td>$spec_cc
+          <td$versiontitle>$version</td>
+          <td>$tspecs</td>
         </tr>
 END
         } else {
@@ -9310,10 +9339,11 @@ sub html_param_table
 {
     my ($title, $hash, @parameters) = @_;
 
-    my $class = $hash->{class} || 'middle-width solid-border';
+    my $class = $hash->{class};
     my $sepobj = $hash->{sepobj};
     my $node = $hash->{node};
 
+    $class = $class ? qq{ class="$class"} : qq{};
     my $anchor = html_create_anchor($title, 'heading', {node => $node});
 
     my $html_buffer = qq{};
@@ -9327,7 +9357,7 @@ END
 END
 
     $html_buffer .= <<END;
-    <table class="$class"> <!-- $title -->
+    <table$class> <!-- $title -->
       <thead>
         <tr>
           <th class="g">Parameter</th>
