@@ -286,6 +286,7 @@ our $markmounttype = 0;
 our $marktemplates = undef;
 our $maxchardiffs = 5;
 our $maxworddiffs = 10;
+our $neverhide = 0;
 our $newparser = 0; # XXX incomplete, so option has been removed
 our $noautomodel = 0;
 our $nocomments = 0;
@@ -393,6 +394,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'marktemplates' => \$marktemplates,
            'maxchardiffs:i' => \$maxchardiffs,
            'maxworddiffs:i' => \$maxworddiffs,
+           'neverhide' => \$neverhide,
            'noautomodel' => \$noautomodel,
            'nocomments' => \$nocomments,
            'nofontstyles' => \$nofontstyles,
@@ -731,16 +733,16 @@ $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
     }
 }
 
-# XXX temporary commandcolors are the background colors for commands,
-#     arguments (i.e. "Input" and "Output"), argument objects and argument
-#     parameters respectively (also apply to events)
-push @$commandcolors, "#66CDAA" if @$commandcolors < 1;
+# commandcolors are the background colors for commands (and events), argument
+# containers ("Input" and "Output"), argument objects and argument parameters
+push @$commandcolors, "#66cdaa" if @$commandcolors < 1;
 push @$commandcolors, "silver"  if @$commandcolors < 2;
 push @$commandcolors, "pink"    if @$commandcolors < 3;
-push @$commandcolors, "#FFE4E1" if @$commandcolors < 4;
-
-push @$commandcolors, "#B3E0FF" if @$commandcolors < 5; # color for mountable objects
-push @$commandcolors, "#4db8ff" if @$commandcolors < 6; # color for mount point objects
+push @$commandcolors, "#ffe4e1" if @$commandcolors < 4;
+# also mountable objects
+push @$commandcolors, "#b3e0ff" if @$commandcolors < 5;
+# also mount point objects
+push @$commandcolors, "#4db8ff" if @$commandcolors < 6;
 
 # configfile used to be set via $options->{configfile} but now can be set via
 # $configfile; if both are set, the newer $configfile wins, but warn
@@ -3945,6 +3947,10 @@ sub load_model
 sub hide_subtree
 {
     my ($node, $ponly) = @_;
+
+    # XXX --neverhide is primarily for testing: it means that deleted nodes
+    #     will be reported (otherwise they wouldn't be)
+    return if $neverhide;
 
     #d0msg "hide_subtree: $node->{path}" if $node->{path} =~ /\.$/;
 
@@ -8214,11 +8220,33 @@ sub html_get_anchor
 
 # HTML styles.
 # XXX could/should be defined in external files?
-# XXX currently only used for the html report, but could/should also be used
-#     for the htmlbbf and html148 reports
+# XXX are currently only used for the html report, but could/should also be
+#     used for the htmlbbf and html148 reports
 # XXX don't completely replace element-level styling, e.g. for table column
 #     widths and centering
 my $html_style = '';
+
+# CSS variables
+$html_style .= <<END;
+:root {
+    --parameter-color: white;
+    --object-color: #ffff99;
+    --command-color: $commandcolors->[0];
+    --event-color: $commandcolors->[0];
+    --argument-container-color: $commandcolors->[1];
+    --argument-object-color: $commandcolors->[2];
+    --argument-parameter-color: $commandcolors->[3];
+    --mountable-object-color: $commandcolors->[4];
+    --mountpoint-object-color: $commandcolors->[5];
+    --stripe-direction: 90deg;
+    --stripe-stop-point-1: 1%;
+    --stripe-stop-point-2: 2%;
+    --stripe-color-deprecated: #eeeeee;
+    --stripe-color-obsoleted: #dddddd;
+    --stripe-color-deleted: #cccccc;
+}
+
+END
 
 # --nofontstyles doesn't affect the marking of inserted and deleted text
 $html_style .= <<END unless $nofontstyles;
@@ -8275,7 +8303,7 @@ table.full-width {
 }
 
 thead th {
-    background-color: rgb(153, 153, 153);
+    background-color: #999999;
 }
 
 table.solid-border {
@@ -8285,41 +8313,11 @@ table.solid-border {
     border-spacing: 0px;
 }
 
-.solid-border th, .solid-border td {
+table.solid-border th,
+table.solid-border td {
     border-style: solid;
     border-width: 1px;
     border-color: black;
-}
-
-.parameter {
-}
-
-.object {
-    background-color: rgb(255, 255, 153);
-}
-
-.command, .event {
-    background-color: $commandcolors->[0];
-}
-
-.argument-container {
-    background-color: $commandcolors->[1];
-}
-
-.argument-object {
-    background-color: $commandcolors->[2];
-}
-
-.argument-parameter {
-    background-color: $commandcolors->[3];
-}
-
-.mountable-object {
-    background-color: $commandcolors->[4];
-}
-
-.mountpoint-object {
-    background-color: $commandcolors->[5];
 }
 
 .centered {
@@ -8334,7 +8332,37 @@ table.solid-border {
     color: red;
     text-decoration: line-through;
 }
+
 END
+
+# background colors by type and status
+# XXX is there a less repetitive way of doing this?
+{
+    foreach my $type (('parameter', 'object', 'command', 'event',
+                       'argument-container', 'argument-parameter',
+                       'argument-object', 'mountable-object',
+                       'mountpoint-object')) {
+        $html_style .= <<END;
+.$type {
+    background-color: var(--$type-color);
+}
+
+END
+        foreach my $status (('deprecated', 'obsoleted', 'deleted')) {
+            $html_style .= <<END;
+.$status-$type {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--$type-color),
+        var(--$type-color) var(--stripe-stop-point-1),
+        var(--stripe-color-$status) var(--stripe-stop-point-1),
+        var(--stripe-color-$status) var(--stripe-stop-point-2));
+}
+
+END
+        }
+    }
+}
 
 # HTML report of node.
 # XXX using the "here" strings makes this VERY hard to read, and throws off
@@ -8887,22 +8915,27 @@ END
         $specs = '' if $canonical;
         my $versiontitle = $showspec ? qq{} : qq{ title="$specs"};
 
-        # the primary tr class is a function of the node type
+        # the primary tr class is a function of the node type and status
         my $trclass = '';
-        if ($parameter) {
-            $trclass = $command_or_event ? 'argument-parameter' : 'parameter';
+        if ($parameter || $type eq 'parameterRef') {
+            $trclass .= $command_or_event ? 'argument-parameter' : 'parameter';
         } elsif ($is_command) {
-            $trclass = 'command';
+            $trclass .= 'command';
         } elsif ($is_event) {
-            $trclass = 'event';
+            $trclass .= 'event';
         } elsif ($is_arguments) {
-            $trclass = 'argument-container'
+            $trclass .= 'argument-container'
         } elsif ($object) {
-            $trclass =
+            $trclass .=
                 $is_mountable && $is_mountable == 1 ? 'mountable-object' :
                 $is_mountable && $is_mountable == 2 ? 'mountpoint-object' :
                 $command_or_event ? 'argument-object' : 'object';
         }
+
+        # account for node status
+        my $node_status = node_status($node);
+        $trclass = qq{$node_status-$trclass} if
+            $trclass && $node_status =~ /deprecated|obsoleted|deleted/;
 
         # has the node been inserted?
         # XXX never show insertions if the model is new, i.e. has no history
@@ -16384,6 +16417,7 @@ B<report.pl>
 [--marktemplates]
 [--maxchardiffs=i(5)]
 [--maxworddiffs=i(10)]
+[--neverhide]
 [--noautomodel]
 [--nocomments]
 [--nofontstyles]
@@ -16524,17 +16558,21 @@ note: the B<--usp> option enables this option automatically (with the value "2.1
 
 =item B<--commandcolor=s>...
 
-sets the background colors to be used (in the HTML report) for commands and events; can be specified up to four times to set (in order) the background colors for:
+sets the background colors to be used (in the HTML report) for commands, events, mountable objects and mount point objects; can be specified up to six times to set (in order) the background colors for:
 
 =over
 
-=item * commands and events (default: #66CDAA)
+=item * commands and events (default: #66cdaa)
 
 =item * command "Input." and "Output." containers (default: silver)
 
 =item * command and event object arguments (default: pink)
 
-=item * command and event parameter arguments (default: #FFE4E1)
+=item * command and event parameter arguments (default: #ffe4e1)
+
+=item * mountable objects (default: #b3e0ff)
+
+=item * mount point objects (default: #4db8ff)
 
 =back
 
@@ -16757,6 +16795,10 @@ these control how differences are shown in descriptions; each paragraph is handl
 =item * otherwise, the entire paragraph is shown as a single change
 
 =back
+
+=item B<--neverhide>
+
+disables the hiding of omitted sub-trees (this is really only indended for debugging: it provides a way of including deleted items in the report)
 
 =item B<--noautomodel>
 
