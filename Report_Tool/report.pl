@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011-2012  Pace Plc
 # Copyright (C) 2012-2014  Cisco Systems
-# Copyright (C) 2015-2021  Broadband Forum
+# Copyright (C) 2015-2022  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -8055,6 +8055,9 @@ sub html_create_anchor
     #
     # label is prefixed with model prefix from $opts->{node} (if present) for
     # model-specific anchors, i.e. heading, path, value, profile and profoot
+    #
+    # label and text (if supplied) MUST NOT have been escaped; they will be
+    # escaped here before being used in anchor names and references
 
     my $node = $opts->{node};
     my $text = $opts->{text};
@@ -8110,8 +8113,9 @@ sub html_create_anchor
         $label = ++$Pnode->{html_profoot_num};
     }
 
-    # override label if requested
+    # override label if requested, then escape it for use in the anchor
     $label = $text if $text;
+    my $alabel = html_escape($label, {empty => '', fudge => 1});
 
     # form the anchor name
     my $aname = qq{$namespace_prefix$name};
@@ -8122,12 +8126,12 @@ sub html_create_anchor
 
     # form the anchor definition
     # XXX if supporting $dontdef would create html_anchor_definition_text()
-    my $adef = qq{<a name="$aname">$label</a>};
+    my $adef = qq{<a name="$aname">$alabel</a>};
 
     my $dontref = util_is_omitted($node);
 
     # form the anchor reference (as a service to the caller)
-    my $aref = html_anchor_reference_text($aname, $label, $dontref);
+    my $aref = html_anchor_reference_text($aname, $alabel, $dontref);
 
     # special case: for anchors of type path, define an additional anchor
     # which (for multi-instance objects) will be the table name, e.g. for
@@ -8144,24 +8148,13 @@ sub html_create_anchor
         }
     }
 
-    # if already defined, and if the label has changed, warn and update it
-    my $hash = $anchors->{$aname};
-    if (defined $hash) {
-        if ($label ne $hash->{label}) {
-            w0msg "html_create_anchor: warning: $aname label changed; " .
-                "can't have input and output command arguments with the " .
-                "same name!";
-            $hash->{label} = $label;
-            $hash->{def} = $adef;
-            $hash->{ref} = $aref;
-        }
-    } else {
-        # XXX will refine this as becomes necessary
-        $hash = {name => $aname, label => $label, def => $adef, ref => $aref,
-                 dontref => $dontref};
-        $anchors->{$aname} = $hash;
-    }
+    # only save new entries
+    my $hash = {name => $aname, label => $label, def => $adef, ref => $aref,
+                dontref => $dontref};
+    $anchors->{$aname} = $hash unless defined $anchors->{$aname};
 
+    # but always return the latest hash (this allows a later call for a given
+    # anchor name to use a different label)
     return $hash;
 }
 
@@ -8362,6 +8355,119 @@ END
 
 END
         }
+    }
+}
+
+# HTML table of contents (ToC) helper functions.
+my $html_toc_tree = {level => 0, parent => undef, children => [],
+                     label => 'Table of Contents', ref => '', sort => undef};
+my $html_toc_current = \$html_toc_tree;
+
+# arguments are level, plus html_create_anchor() arguments
+# if opts contains 'anchor' use this anchor rather than creating a new one
+# (in this case label is used only if non-empty, and type is ignored)
+# XXX need to add id='jstree' to <nav> (or <div>?)
+sub html_toc_entry
+{
+    my ($level, $label, $type, $opts) = @_;
+    die qq{level ($level) must be > 0} unless $level > 0;
+
+    my $anchor = $opts->{anchor};
+    my $split = $opts->{split};
+    my $sort = $opts->{sort};
+
+    # handle 'split' logic (is only used for $type = 'path' and only makes
+    # sense for objects), e.g., split = 3 for Device.IP.Interface.{i}.Stats.
+    # would generate Device., IP. and Interface.{i}.Stats. ToC entries
+    # (any supplied options other than 'split' and 'sort' are ignored)
+    if ($type eq 'path' && defined $split) {
+        my $onode = $label;
+        my $names = util_path_split($onode->{path}, $split);
+        my $node = $onode->{mnode};
+        my $anchor;
+        while (my ($depth, $name) = each @$names) {
+            ($node) = grep {$_->{name} eq $name} @{$node->{nodes}};
+            # this happens in the above Interface.{i}.Stats. case
+            $node = $onode unless $node;
+            my $sort_ = defined $sort && $opts->{sort} == $depth;
+            $anchor = html_toc_entry($level + $depth, $node, 'path',
+                                     {text => $name, sort => $sort_});
+        }
+        return $anchor;
+    }
+
+    # walk up to the parent of the desired ToC entry...
+    while ($$html_toc_current->{level} > $level - 1) {
+        $html_toc_current = \$$html_toc_current->{parent};
+    }
+
+    # ...or down to the parent of the desired ToC entry
+    # XXX this shouldn't really ever happen, but it's supported anyway
+    while ($$html_toc_current->{level} < $level - 1) {
+        my $level_ = $$html_toc_current->{level} + 1;
+        my $node = {level => $level_, parent => $$html_toc_current,
+                    children => [], label => qq{auto-level-$level_},
+                    ref => '', sort => undef};
+        push @{$$html_toc_current->{children}}, $node;
+        $html_toc_current = \$node;
+    }
+
+    # if no anchor was supplied, create a new one
+    $anchor = html_create_anchor($label, $type, $opts) unless $anchor;
+
+    # add or update the ToC entry
+    my ($node) = grep {
+        $_->{label} eq $anchor->{label}} @{$$html_toc_current->{children}};
+    if (!$node) {
+        $node = {level => $level, parent => $$html_toc_current, children => [],
+                 label => $anchor->{label}, ref => $anchor->{ref},
+                 sort => undef};
+        push @{$$html_toc_current->{children}}, $node;
+    }
+
+    # always update 'sort' if not already set
+    $node->{sort} = $sort if !defined $node->{sort} && defined $sort;
+    $html_toc_current = \$node;
+
+    # return the anchor (probably only $anchor->{def} will be used)
+    return $anchor;
+}
+
+sub html_toc_output
+{
+    my ($node, $indent) = @_;
+    $indent = $indent || '';
+
+    my $level = $node->{level};
+    my $label = $node->{label};
+    my $sort = $node->{sort};
+    my $ref = $node->{ref};
+
+    my $outer = $level == 0 ? 'nav' : 'li';
+    my $attrs = $level == 0 ? qq{ id="TOC" role="doc-toc"} :
+        $sort ? qq{ data-sort="true"} : qq{};
+    my $comment = $label ? qq{ <!-- $label -->} : qq{};
+
+    # XXX hack to include the jstree <div>; should handle via another level?
+    my $jstree_open = $level == 0 ? qq{<div id="jstree">} : qq{};
+    my $jstree_clos = $level == 0 ? qq{</div>} : qq{};
+
+    sub print_ {
+        my ($str) = @_;
+        print $str;
+        #tmsg $str;
+    }
+
+    if (@{$node->{children}}) {
+        print_ "$indent<$outer$attrs>$ref$jstree_open\n";
+        print_ "$indent  <ul>$comment\n";
+        foreach my $child (@{$node->{children}}) {
+            html_toc_output($child, $indent . '    ');
+        }
+        print_ "$indent  </ul>$comment\n";
+        print_ "$indent$jstree_clos</$outer>\n";
+    } else {
+        print_ "$indent<$outer>$ref</$outer>\n";
     }
 }
 
@@ -8572,12 +8678,63 @@ END
 END
 
         # start outputting the HTML
+        # jstree definitions
+        my $cloudflare_cdn = qq{https://cdnjs.cloudflare.com/ajax/libs};
+        my $jstree_css =
+            qq{$cloudflare_cdn/jstree/3.2.1/themes/default/style.min.css};
+        my $jstree_lib =
+            qq{$cloudflare_cdn/jstree/3.2.1/jstree.min.js};
+        my $jquery_lib =
+            qq{$cloudflare_cdn/jquery/1.12.1/jquery.min.js};
+        my $jstree_app = <<'END';
+$(function() {
+    $('#jstree')
+    .on('changed.jstree', function (event, data) {
+      var node = data.node;
+      if (node) {
+        var href = node.a_attr.href;
+        if (href) {
+          window.location.href = href;
+        }
+      }
+    })
+    .jstree({
+      'sort': function(a, b) {
+        var parent = this.get_node(a).parent;
+        var data = this.get_node(parent).data;
+        if (data && data.sort) {
+          return this.get_node(a).text > this.get_node(b).text ? 1 : -1;
+        }
+      },
+      'state': { 'key' : 'report-pl-{{key}}' },
+      'plugins': ['sort', 'state']
+    });
+});
+END
+        # not substituted earlier because used non-interpolating 'END'
+        $jstree_app =~ s/\{\{key}}/$lfile/;
         print <<END;
 $do_not_edit
 <html>
   <head>
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
     <title>$title</title>
+    <link rel="stylesheet" href="$jstree_css"/>
+    <link rel="stylesheet" href="https://usp.technology/toc.css"/>
+    <script src="$jquery_lib"></script>
+    <script src="$jstree_lib"></script>
+    <script>$jstree_app</script>
+    <style type="text/css">
+      #TOC::before {
+        content: "Table of Contents";
+        font-weight: bold;
+        font-size: large;
+      }
+
+      .jstree-default .jstree-node {
+        margin-left: 9px;
+      }
+    </style>
     <style type="text/css">
 $html_style
 $html_style_local
@@ -8605,22 +8762,12 @@ END
     $description
 END
         }
-        print <<END;
-    <h1>Table of Contents</h1>
-    <ul> <!-- Table of Contents -->
-END
-        $html_buffer .= <<END;
-    </ul> <!-- Table of Contents -->
-END
 
         # data types
         my $datatypes = $node->{dataTypes};
         if ($datatypes && @$datatypes) {
             #emsg Dumper($datatypes);
-            my $anchor = html_create_anchor('Data Types', 'heading');
-            print <<END;
-      <li>$anchor->{ref}</li>
-END
+            my $anchor = html_toc_entry(1, 'Data Types', 'heading');
             my $preamble = <<END;
 The Parameters defined in this specification make use of a limited subset of the default SOAP data types {{bibref|SOAP1.1}}. These data types and the named data types used by this specification are described below.
 Note: A Parameter that is defined to be one of the named data types is reported as such at the beginning of the Parameter's description via a reference back to the associated data type definition (e.g. ''[MacAddress]''). However, such parameters still indicate their SOAP data type.
@@ -8727,10 +8874,7 @@ END
             my $reftype = substr($which, 0, 3) . 'ref';
             my $definitions = $node->{$which};
             if ($definitions && @{$definitions->{items}}) {
-                my $anchor = html_create_anchor($title, 'heading');
-                print <<END;
-      <li>$anchor->{ref}</li>
-END
+                my $anchor = html_toc_entry(1, $title, 'heading');
                 my $description = $definitions->{description};
                 $description = html_escape($description) if $description;
                 $html_buffer .= <<END;
@@ -8767,11 +8911,8 @@ END
 
         # bibliography
         my $bibliography = $node->{bibliography};
-        my $anchor = html_create_anchor('References', 'heading');
         if ($bibliography && %$bibliography) {
-            print <<END;
-      <li>$anchor->{ref}</li>
-END
+            my $anchor = html_toc_entry(1, 'References', 'heading');
             $html_buffer .= <<END;
     <h1>$anchor->{def}</h1>
     <table> <!-- References -->
@@ -8819,11 +8960,7 @@ END
         }
 
         # legend
-        $anchor = html_create_anchor('Legend', 'heading');
-        print <<END;
-      <li>$anchor->{ref}</li>
-END
-
+        my $anchor = html_toc_entry(1, 'Legend', 'heading');
         $html_buffer .= <<END;
       <h1>$anchor->{def}</h1>
       <table class="middle-width solid-border"> <!-- Legend -->
@@ -8871,8 +9008,8 @@ END
         #return if !$showdiffs && util_is_deleted($node);
 
         # XXX there's some double escaping going on here...
-        my $name = html_escape($object ? $path : $node->{name},
-                               {empty => '', fudge => 1});
+        my $oname = $object ? $path : $node->{name};
+        my $name = html_escape($oname, {empty => '', fudge => 1});
         my $base = html_escape($node->{base}, {default => '', empty => ''});
         # commands and events are object-like and have minEntries = maxEntries
         # = 1 so only pass them if it's a 'true' object
@@ -8990,21 +9127,9 @@ END
         }
 
         if ($model) {
-            if ($html_profile_active) {
-                print <<END;
-        </ul> <!-- Profile Definitions -->
-      </ul> <!-- Data Model -->
-END
-            }
             my $title = qq{$name Data Model};
             $title .= qq{ (changes)} if $lastonly;
-            my $anchor = html_create_anchor($title, 'heading');
-            print <<END;
-      <li>$anchor->{ref}</li>
-      <ul> <!-- $title -->
-        <li><a href="#$anchor->{name}">Data Model Definition</a></li>
-        <ul> <!-- Data Model Definition -->
-END
+            my $anchor = html_toc_entry(1, $title, 'heading');
             my $boiler_plate = '';
             $boiler_plate = <<END if $node->{version}->{minor};
 For a given implementation of this data model, the Agent MUST indicate
@@ -9047,13 +9172,8 @@ END
             if (!$html_profile_active) {
                 my $inform_and = $altnotifreqstyle ? '' : 'Inform and ';
                 my $infreq = $inform_and . 'Notification Requirements';
-                my $anchor = html_create_anchor($infreq, 'heading',
-                                                {node => $node});
-                print <<END;
-        </ul> <!-- Data Model Definition -->
-        <li>$anchor->{ref}</li>
-        <ul> <!-- $infreq -->
-END
+                my $anchor = html_toc_entry(2, $infreq, 'heading',
+                                            {node => $node});
                 $html_buffer .= <<END;
       </tbody>
     </table> <!-- Data Model Definition -->
@@ -9088,23 +9208,16 @@ END
                 }
                 my $active = $altnotifreqstyle ? 'Value Change' : 'Active';
                 $html_buffer .=
-                    html_param_table(
-                        qq{Parameters for which $active Notification MAY } .
-                        qq{be Denied},
-                        {sepobj => 1, node => $node,
-                         class => 'middle-width solid-border'},
-                        grep {$_->{activeNotify} eq 'canDeny'}
-                        @$html_parameters);
-                my $panchor = html_create_anchor('Profile Definitions',
-                                                 'heading', {node => $node});
-                my $nanchor = html_create_anchor('Notation',
-                                                 'heading', {node => $node});
-                print <<END;
-        </ul> <!-- $infreq -->
-        <li>$panchor->{ref}</li>
-        <ul> <!-- $panchor->{label} -->
-          <li>$nanchor->{ref}</li>
-END
+                    html_param_table(qq{Parameters for which $active } .
+                                     qq{Notification MAY be Denied},
+                                     {sepobj => 1, node => $node,
+                                      class => 'middle-width solid-border'},
+                                     grep {$_->{activeNotify} eq 'canDeny'}
+                                     @$html_parameters);
+                my $panchor = html_toc_entry(2, 'Profile Definitions',
+                                             'heading', {node => $node});
+                my $nanchor = html_toc_entry(3, 'Notation',
+                                             'heading', {node => $node});
                 $html_buffer .= <<END;
     <h2>$panchor->{def}</h2>
     <h3>$nanchor->{def}</h3>
@@ -9151,17 +9264,13 @@ END
                 $html_profile_active = 1;
             }
             # XXX this avoids trying to report the dummy profile that was
-            #     mentioned above (use $node->{name} because $name has been
-            #     escaped)
-            return unless $node->{name};
+            #     mentioned above (use $oname because $name has been escaped)
+            return unless $oname;
             my $stat = $node->{status} ne 'current' ?
                 qq{ [} . uc($node->{status}) . qq{]} : qq{};
-            my $anchor = html_create_anchor(qq{$name Profile$stat}, 'heading',
-                                            {node => $node});
+            my $anchor = html_toc_entry(3, qq{$name Profile$stat}, 'heading',
+                                        {node => $node});
             my $panchor = html_create_anchor($node, 'profile');
-            print <<END;
-          <li>$anchor->{ref}</li>
-END
             my $span1 = $trclass ? qq{<span$trclass>} : qq{};
             my $span2 = $span1 ? qq{</span>} : qq{};
             $html_buffer .= <<END;
@@ -9184,7 +9293,10 @@ END
             # modify displayed name for commands and event arguments (just the
             # name, not the full path)
             if ($command_or_event) {
-                my $arrow = is_argoutput($node) ? '&lArr;' : '&rArr;';
+                # use templates because this will be escaped (using HTML here
+                # would cause &
+                my $arrow = is_argoutput($node) ?
+                    '{{leftarrow}}' : '{{rightarrow}}';
                 $tname = $node->{name};
                 # need special logic to handle nested command arguments
                 if (!$is_command && !$is_event && !$is_arguments &&
@@ -9203,11 +9315,16 @@ END
             my $anchor;
             if ($node->{path} ne $node->{pnode}->{path}) {
                 $anchor = html_create_anchor($node, 'path',
-                                                {text => $tname});
+                                             {text => $tname});
             } else {
+                # use $oname because it (like $tname) hasn't yet been escaped
+                my $anchor_def = html_escape($tname ? $tname : $oname,
+                                             {empty => '', fudge => 1});
                 # the logic dictates that this ref will never be used
-                $anchor = {def => ($tname ? $tname : $name), ref => 'ignore'};
+                $anchor = {def => $anchor_def, ref => 'ignore'};
             }
+            html_toc_entry(2, $node, 'path', {split => 5, sort => 0})
+                if $object && !$command_or_event;
             $name = $anchor->{def} unless $nolinks;
             $type = 'command' if $is_command;
             $type = 'arguments' if $is_arguments;
@@ -9215,9 +9332,6 @@ END
             $typetitle = qq{ title="command"} if $is_command;
             $typetitle = qq{ title="event"} if $is_event;
             # XXX would like syntax to be a link when it's a named data type
-            print <<END if $object && !$command_or_event && !$nolinks;
-          <li>$anchor->{ref}</li>
-END
             my $tspecs = $specs;
             $tspecs =~ s/ /<br>/g;
             $html_buffer .= <<END;
@@ -9312,12 +9426,9 @@ END
         if ($profile) {
             $html_buffer .= html_profile_footnotes($node);
         }
-        # XXX this is heuristic (but usually correct)
+
+        # output footer
         if (!$indent) {
-            print <<END;
-        </ul>
-      </ul>
-END
             my $tool_details = $canonical ? $tool_name : $tool_version;
             my $generated_by = qq{Generated by <a href="https://www.broadband-forum.org">Broadband Forum</a> <a href="$tool_url">$tool_details</a>};
             my $tool_cmd_line_mod = $tool_cmd_line . $tool_cmd_line_suffix;
@@ -9330,6 +9441,7 @@ END
   </body>
 </html>
 END
+            html_toc_output($html_toc_tree, '    ');
             print $html_buffer;
         }
     }
@@ -9345,19 +9457,9 @@ sub html_param_table
     my $node = $hash->{node};
 
     $class = $class ? qq{ class="$class"} : qq{};
-    my $anchor = html_create_anchor($title, 'heading', {node => $node});
-
-    my $html_buffer = qq{};
-
-    print <<END;
-          <li>$anchor->{ref}</li>
-END
-
-    $html_buffer .= <<END;
+    my $anchor = html_toc_entry(3, $title, 'heading', {node => $node});
+    my $html_buffer = <<END;
     <h3>$anchor->{def}</h3>
-END
-
-    $html_buffer .= <<END;
     <table$class> <!-- $title -->
       <thead>
         <tr>
@@ -10039,7 +10141,11 @@ sub html_template
           text1 => \&html_template_deleted,
           text2 => \&html_template_deleted},
          {name => 'unbounded',
-          text0 => q{&infin;}}
+          text0 => q{&infin;}},
+         {name => 'leftarrow',
+          text0 => q{&lArr;}}, # LEFTWARDS DOUBLE ARROW
+         {name => 'rightarrow',
+          text0 => q{&rArr;}}  # RIGHTWARDS DOUBLE ARROW
          ];
 
     # XXX need some protection against infinite loops here...
@@ -14568,6 +14674,20 @@ sub msg
     print STDERR $text, $nl ? qq{} : qq{\n};
     $num_fatals++ if $cat =~ /F/;
     $num_errors++ if $cat =~ /F|E/;
+}
+
+# Split an object path into components, optionally limiting the number of
+# returned items (it returns a list _reference_, not a list).
+sub util_path_split
+{
+    my ($path, $limit) = @_;
+    # this is a positive look-behind assertion for '.' followed by a
+    # negative look-ahead assertion for '{'
+    my @comps = split /(?<=\.)(?!\{)/, $path, $limit;
+    # it can result in a trailing empty component; remove it
+    pop @comps if $comps[-1] eq '';
+    # return a reference
+    return \@comps;
 }
 
 # Clean the command line by discarding all but the final component from path
