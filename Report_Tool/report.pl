@@ -5486,7 +5486,8 @@ sub type_string
 
     # lists/maps are represented (at the protocol level) as strings, so
     # override the type name if the supplied syntax is a list/map
-    $value = 'string' if $syntax->{list} || $syntax->{map};
+    # DMR-238: this behavior has been disabled
+    #$value = 'string' if $syntax->{list} || $syntax->{map};
 
     # omit the type name if requested
     $value = '' if $omitName;
