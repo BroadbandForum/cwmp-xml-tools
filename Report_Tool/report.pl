@@ -15888,6 +15888,9 @@ sub sanity_node
         emsg "$path: $syntax->{reference} has enumerated values"
             if $syntax->{reference} && has_values($values);
 
+        w0msg "$path: units $node->{units} but no {{units}} template"
+            if $node->{units} && $description !~ /\{\{units}}/;
+
         # XXX doesn't complain about defaults in read-only objects or tables;
         #     this is because they are quietly ignored (this is part of
         #     allowing them in components that can be included in multiple
