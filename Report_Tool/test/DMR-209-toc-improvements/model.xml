@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document
+  xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-9"
+  xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="
+    urn:broadband-forum-org:cwmp:datamodel-1-9
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-9.xsd
+    urn:broadband-forum-org:cwmp:datamodel-report-1-0
+      https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+  spec="urn:example-com:model"
+  file="model.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="Model:1.0">
+    <object name="Property." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        A {{object}}.
+      </description>
+    </object>
+
+    <object name="Property.House." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        A {{object}}.
+      </description>
+      <event name="Doorbell!">
+        <description>
+          {{event}}.
+        </description>
+        <parameter name="Chime">
+          <description>
+            {{param}}.
+          </description>
+          <syntax>
+            <string>
+              <enumeration value="Fifth"/>
+              <enumeration value="Greensleeves"/>
+            </string>
+          </syntax>
+        </parameter>
+      </event>
+      <parameter name="BedroomNumberOfEntries" access="readOnly">
+        <description>
+          {{numentries}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+    </object>
+      
+    <object name="Property.House.Bathroom." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        A {{object}}.
+      </description>
+      <command name="Flush()">
+        <description>
+          {{command}}.
+        </description>
+        <input>
+          <parameter name="Saver">
+            <description>
+              {{param}}?
+            </description>
+            <syntax>
+              <boolean/>
+            </syntax>
+          </parameter>
+        </input>
+        <output>
+          <parameter name="Usage">
+            <description>
+              {{param}} in {{units}}.
+            </description>
+            <syntax>
+              <unsignedInt>
+                <units value="liters"/>
+              </unsignedInt>
+            </syntax>
+          </parameter>
+        </output>
+      </command>
+    </object>
+    
+    <object name="Property.House.Kitchen." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        A {{object}}.
+      </description>
+    </object>
+    
+    <object name="Property.House.Bedroom.{i}." access="readOnly" minEntries="1" maxEntries="unbounded"
+        numEntriesParameter="BedroomNumberOfEntries">
+      <description>
+        A {{object}}.
+      </description>
+      <uniqueKey>
+        <parameter ref="Alias"/>
+      </uniqueKey>
+      <parameter name="Alias" access="readWrite">
+        <description>
+          An {{param}}.
+        </description>
+        <syntax>
+          <string/>
+        </syntax>
+      </parameter>
+    </object>
+    
+    <object name="Property.House.Bedroom.{i}.EnSuite." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        An {{object}}.
+      </description>
+    </object>
+    
+    <object name="Property.Garden." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        A {{object}}.
+      </description>
+    </object>
+    
+    <object name="Property.Garage." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        A {{object}}.
+      </description>
+      <parameter name="Automobile" access="readOnly">
+        <description>
+          An {{param}} that I bought yesterday.
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+    </object>
+    
+    <profile name="Baseline:1">
+      <object ref="Property." requirement="present"/>
+    </profile>
+  </model>
+</dm:document>
