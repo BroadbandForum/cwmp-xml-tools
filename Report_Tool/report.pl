@@ -286,6 +286,7 @@ our $markmounttype = 0;
 our $marktemplates = undef;
 our $maxchardiffs = 5;
 our $maxworddiffs = 10;
+our $neverhide = 0;
 our $newparser = 0; # XXX incomplete, so option has been removed
 our $noautomodel = 0;
 our $nocomments = 0;
@@ -393,6 +394,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'marktemplates' => \$marktemplates,
            'maxchardiffs:i' => \$maxchardiffs,
            'maxworddiffs:i' => \$maxworddiffs,
+           'neverhide' => \$neverhide,
            'noautomodel' => \$noautomodel,
            'nocomments' => \$nocomments,
            'nofontstyles' => \$nofontstyles,
@@ -731,16 +733,16 @@ $noprofiles = 1 if $components || $upnpdm || @$dtprofiles;
     }
 }
 
-# XXX temporary commandcolors are the background colors for commands,
-#     arguments (i.e. "Input" and "Output"), argument objects and argument
-#     parameters respectively (also apply to events)
-push @$commandcolors, "#66CDAA" if @$commandcolors < 1;
+# commandcolors are the background colors for commands (and events), argument
+# containers ("Input" and "Output"), argument objects and argument parameters
+push @$commandcolors, "#66cdaa" if @$commandcolors < 1;
 push @$commandcolors, "silver"  if @$commandcolors < 2;
 push @$commandcolors, "pink"    if @$commandcolors < 3;
-push @$commandcolors, "#FFE4E1" if @$commandcolors < 4;
-
-push @$commandcolors, "#B3E0FF" if @$commandcolors < 5; # color for mountable objects
-push @$commandcolors, "#4db8ff" if @$commandcolors < 6; # color for mount point objects
+push @$commandcolors, "#ffe4e1" if @$commandcolors < 4;
+# also mountable objects
+push @$commandcolors, "#b3e0ff" if @$commandcolors < 5;
+# also mount point objects
+push @$commandcolors, "#4db8ff" if @$commandcolors < 6;
 
 # configfile used to be set via $options->{configfile} but now can be set via
 # $configfile; if both are set, the newer $configfile wins, but warn
@@ -3945,6 +3947,10 @@ sub load_model
 sub hide_subtree
 {
     my ($node, $ponly) = @_;
+
+    # XXX --neverhide is primarily for testing: it means that deleted nodes
+    #     will be reported (otherwise they wouldn't be)
+    return if $neverhide;
 
     #d0msg "hide_subtree: $node->{path}" if $node->{path} =~ /\.$/;
 
@@ -8212,6 +8218,152 @@ sub html_get_anchor
     return $aref;
 }
 
+# HTML styles.
+# XXX could/should be defined in external files?
+# XXX are currently only used for the html report, but could/should also be
+#     used for the htmlbbf and html148 reports
+# XXX don't completely replace element-level styling, e.g. for table column
+#     widths and centering
+my $html_style = '';
+
+# CSS variables
+$html_style .= <<END;
+:root {
+    --parameter-color: white;
+    --object-color: #ffff99;
+    --command-color: $commandcolors->[0];
+    --event-color: $commandcolors->[0];
+    --argument-container-color: $commandcolors->[1];
+    --argument-object-color: $commandcolors->[2];
+    --argument-parameter-color: $commandcolors->[3];
+    --mountable-object-color: $commandcolors->[4];
+    --mountpoint-object-color: $commandcolors->[5];
+    --stripe-direction: 90deg;
+    --stripe-stop-point-1: 1%;
+    --stripe-stop-point-2: 2%;
+    --stripe-color-deprecated: #eeeeee;
+    --stripe-color-obsoleted: #dddddd;
+    --stripe-color-deleted: #cccccc;
+}
+
+END
+
+# --nofontstyles doesn't affect the marking of inserted and deleted text
+$html_style .= <<END unless $nofontstyles;
+body, table {
+    font-family: helvetica, arial, sans-serif;
+    font-size: 8pt;
+}
+
+h1 {
+    font-size: 14pt;
+}
+
+h2 {
+    font-size: 12pt;
+}
+
+h3 {
+    font-size: 10pt;
+}
+
+END
+
+# --showdiffs enables some additional styles (currently only hyperlinks)
+$html_style .= <<END if $showdiffs;
+a:link, a:visited, a:hover, a:active {
+    color: inherit;
+}
+
+END
+
+# the following styles are unconditional
+$html_style .= <<END;
+sup {
+    vertical-align: super;
+}
+
+table {
+    text-align: left;
+    vertical-align: top;
+}
+
+td, th {
+    padding: 2px;
+    text-align: left;
+    vertical-align: top;
+}
+
+table.middle-width {
+    width: 60%;
+}
+
+table.full-width {
+    width: 100%;
+}
+
+thead th {
+    background-color: #999999;
+}
+
+table.solid-border {
+    border-style: solid;
+    border-width: 1px;
+    border-color: gray;
+    border-spacing: 0px;
+}
+
+table.solid-border th,
+table.solid-border td {
+    border-style: solid;
+    border-width: 1px;
+    border-color: black;
+}
+
+.centered {
+    text-align: center;
+}
+
+.inserted, .modified {
+    color: blue;
+}
+
+.deleted {
+    color: red;
+    text-decoration: line-through;
+}
+
+END
+
+# background colors by type and status
+# XXX is there a less repetitive way of doing this?
+{
+    foreach my $type (('parameter', 'object', 'command', 'event',
+                       'argument-container', 'argument-parameter',
+                       'argument-object', 'mountable-object',
+                       'mountpoint-object')) {
+        $html_style .= <<END;
+.$type {
+    background-color: var(--$type-color);
+}
+
+END
+        foreach my $status (('deprecated', 'obsoleted', 'deleted')) {
+            $html_style .= <<END;
+.$status-$type {
+    background-image: repeating-linear-gradient(
+        var(--stripe-direction),
+        var(--$type-color),
+        var(--$type-color) var(--stripe-stop-point-1),
+        var(--stripe-color-$status) var(--stripe-stop-point-1),
+        var(--stripe-color-$status) var(--stripe-stop-point-2));
+}
+
+END
+        }
+    }
+}
+
 # HTML report of node.
 # XXX using the "here" strings makes this VERY hard to read, and throws off
 #     emacs indentation; best avoided... need to restructure...
@@ -8227,52 +8379,6 @@ sub html_node
 
     # XXX completely ignore internal profiles (name begins with an underscore)
     return $report_stop if $node->{type} eq 'profile' && $node->{name} =~ /^_/;
-
-    # table options
-    #my $tabopts = qq{border="1" cellpadding="2" cellspacing="2"};
-    my $tabopts = qq{border="1" cellpadding="2" cellspacing="0"};
-
-    # styles
-    my $table = qq{text-align: left;};
-    my $row = qq{vertical-align: top;};
-    my $strike = qq{text-decoration: line-through;};
-    my $center = qq{text-align: center;};
-
-    # font (--nofontstyles doesn't affect use of blue and red)
-    my $font_oc = $nofontstyles ? '/* ' : '';
-    my $font_cc = $nofontstyles ? ' */' : '';
-    my $h1font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
-        qq{font-size: 14pt;${font_cc}};
-    my $h2font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
-        qq{font-size: 12pt;${font_cc}};
-    my $h3font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
-        qq{font-size: 10pt;${font_cc}};
-    my $font = qq{${font_oc}font-family: helvetica,arial,sans-serif; } .
-        qq{font-size: 8pt;${font_cc}};
-    my $fontnew = qq{color: blue;};
-    my $fontdel = qq{color: red;};
-
-    # others
-    # XXX command, argobject and argparam are also used by events ("arguments"
-    #     is only used for commands)
-    my $sup_valign = qq{vertical-align: super;};
-    my $object_bg = qq{background-color: rgb(255, 255, 153);};
-    my $command_bg = qq{background-color: $commandcolors->[0];};
-    my $arguments_bg = qq{background-color: $commandcolors->[1];};
-    my $argobject_bg = qq{background-color: $commandcolors->[2];};
-    my $argparam_bg = qq{background-color: $commandcolors->[3];};
-    my $mountableobject_bg = qq{background-color: $commandcolors->[4];};
-    my $mountpoint_bg = qq{background-color: $commandcolors->[5];};
-    my $theader_bg = qq{background-color: rgb(153, 153, 153);};
-
-    # foo_oc (open comment) and foo_cc (close comment) control generation of
-    # optional columns, e.g. the syntax column when generating ugly output
-    my $synt_oc =  $showsyntax ? '' : '<!-- ';
-    my $synt_cc =  $showsyntax ? '' : ' -->';
-    my $vers_oc = !$showspec   ? '' : '<!-- ';
-    my $vers_cc = !$showspec   ? '' : ' -->';
-    my $spec_oc =  $showspec   ? '' : '<!-- ';
-    my $spec_cc =  $showspec   ? '' : ' -->';
 
     # common processing for all nodes
     my $model = ($node->{type} =~ /model/);
@@ -8380,6 +8486,7 @@ sub html_node
         my $logo = qq{<a href="${logoref}"><img width="100%" src="${logosrc}" alt="${logoalt}" style="border:0px;"/></a>};
         my ($preamble, $notice) = html_notice($first_comment);
         $preamble .= qq{<br>} if $preamble;
+
         # XXX should use a routine for this
         my $errors = qq{};
         if (!$nowarnreport && @$msgs) {
@@ -8390,19 +8497,80 @@ sub html_node
             }
             $errors .= qq{</ol>};
         }
-        # XXX in the styles below, should use inheritance to avoid duplication
-        # XXX the td.d (delete) styles should use a tr style
+
         # will use in HTML comment, so quietly change "--" to "-"
         my $tool_cmd_line_mod = $tool_cmd_line . $tool_cmd_line_suffix;
         $tool_cmd_line_mod =~ s/--/-/g;
-        my $hyperlink = $showdiffs ?
-            qq{a:link, a:visited, a:hover, a:active { color: inherit; }} : qq{};
-        my $tool_details = $canonical ? qq{$tool_name} : qq{$tool_version ($tool_version_date version)};
-        my $do_not_edit = qq{<!-- DO NOT EDIT; generated by Broadband Forum $tool_details};
-        $do_not_edit .= qq{ on $tool_run_date at $tool_run_time$tool_checked_out.
+        my $tool_details = $canonical ? qq{$tool_name} :
+            qq{$tool_version ($tool_version_date version)};
+        my $do_not_edit =
+            qq{<!-- DO NOT EDIT; generated by Broadband Forum $tool_details};
+        $do_not_edit .=
+            qq{ on $tool_run_date at $tool_run_time$tool_checked_out.
      $tool_cmd_line_mod
      See $tool_url} if !$canonical;
         $do_not_edit .= qq{. -->};
+
+        # XXX we should use '<!DOCTYPE html>' but doing so (at least in
+        #     Chrome) causes unwanted top and bottom margins in table cells
+        #     and I can't see how to use CSS to get rid of them
+        my $doctype_html = qq{<!DOCTYPE html>};
+
+        # individual table style overrides; "(C)" means "centered"
+        # XXX just using the 'centered' class on th/td might be preferable?
+        #     see https://developer.mozilla.org/en-US/docs/Web/HTML/Element/col
+        #     #attr-align for advice
+        #
+        # data type table (3 columns):
+        #   1: Data Type, 2: Base Type (C), 3: Description
+        #
+        # data model table (8 columns):
+        #   1: Name, 2: Type, 3: Syntax, 4: Write (C), 5: Description,
+        #   6: Object Default (C), 7: Version (C), 8: Spec (C)
+        my $html_style_local = <<END;
+/* center column 2 (Base Type) */
+.data-type-table th:nth-child(2),
+.data-type-table td:nth-child(2) {
+    text-align: center;
+}
+
+/* center columns 4 (Write), 6 (Object Default), 7 (Version), 8 (Spec) */
+.data-model-table th:nth-child(4),
+.data-model-table td:nth-child(4),
+.data-model-table th:nth-child(6),
+.data-model-table td:nth-child(6),
+.data-model-table th:nth-child(7),
+.data-model-table td:nth-child(7),
+.data-model-table th:nth-child(8),
+.data-model-table td:nth-child(8) {
+    text-align: center;
+}
+
+END
+
+        # also:
+        #   --showsyntax controls whether Syntax is displayed
+        #   --showspec controls whether Version or Spec is displayed
+        $html_style_local .= <<END unless $showsyntax;
+/* hide column 3 (Syntax) */
+.data-model-table th:nth-child(3),
+.data-model-table td:nth-child(3) {
+    display: none;
+}
+
+END
+        my $hide_col_num = $showspec ? 7 : 8;
+        my $hide_col_nam = $showspec ? 'Version' : 'Spec';
+        $html_style_local .= <<END;
+/* hide column ($hide_col_num) ($hide_col_nam) */
+.data-model-table th:nth-child($hide_col_num),
+.data-model-table td:nth-child($hide_col_num) {
+    display: none;
+}
+
+END
+
+        # start outputting the HTML
         print <<END;
 $do_not_edit
 <html>
@@ -8410,78 +8578,20 @@ $do_not_edit
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
     <title>$title</title>
     <style type="text/css">
-      p, li, body { $font }
-      h1 { $h1font }
-      h2 { $h2font }
-      h3 { $h3font }
-      sup { $sup_valign }
-      span, span.o, div, div.o { $font }
-      span.n, div.n { $font $fontnew }
-      span.i, div.i { $font $fontnew }
-      span.d, div.d { $font $fontdel $strike }
-      table { $table }
-      th { $row $font }
-      th.c { $row $font $center }
-      th.g { $row $font $theader_bg }
-      th.gc { $row $font $theader_bg $center }
-      tr, tr.o { $row $font }
-      tr.n { $row $font $fontnew }
-      td.o { $row $font $object_bg }
-      td.m { $row $font $mountableobject_bg }
-      td.q { $row $font $mountpoint_bg }
-      td.c { $row $font $command_bg }
-      td.d { $row $font $arguments_bg }
-      td.e { $row $font $argobject_bg }
-      td.f { $row $font $argparam_bg }
-      td, td.p { $row $font }
-      td.oc { $row $font $object_bg $center }
-      td.mc { $row $font $mountableobject_bg $center }
-      td.qc { $row $font $mountpoint_bg $center }
-      td.cc { $row $font $command_bg $center }
-      td.dc { $row $font $arguments_bg $center }
-      td.ec { $row $font $argobject_bg $center }
-      td.fc { $row $font $argparam_bg $center }
-      td.pc { $row $font $center }
-      td.on { $row $font $object_bg $fontnew }
-      td.mn { $row $font $mountableobject_bg $fontnew }
-      td.qn { $row $font $mountpoint_bg $fontnew }
-      td.cn { $row $font $command_bg $fontnew }
-      td.dn { $row $font $arguments_bg $fontnew }
-      td.en { $row $font $argobject_bg $fontnew }
-      td.fn { $row $font $argparam_bg $fontnew }
-      td.od { $row $font $object_bg $fontdel $strike }
-      td.md { $row $font $mountableobject_bg $fontdel $strike }
-      td.qd { $row $font $mountpoint_bg $fontdel $strike }
-      td.cd { $row $font $command_bg $fontdel $strike }
-      td.dd { $row $font $arguments_bg $fontdel $strike }
-      td.ed { $row $font $argobject_bg $fontdel $strike }
-      td.fd { $row $font $argparam_bg $fontdel $strike }
-      td.pn { $row $font $fontnew }
-      td.pd { $row $font $fontdel $strike }
-      td.onc { $row $font $object_bg $fontnew $center }
-      td.mnc { $row $font $mountableobject_bg $fontnew $center }
-      td.qnc { $row $font $mountpoint_bg $fontnew $center }
-      td.odc { $row $font $object_bg $fontdel $strike $center }
-      td.mdc { $row $font $mountableobject_bg $fontdel $strike $center }
-      td.qdc { $row $font $mountpoint_bg $fontdel $strike $center }
-      td.cnc { $row $font $command_bg $fontnew $center }
-      td.cdc { $row $font $command_bg $fontdel $strike $center }
-      td.dnc { $row $font $arguments_bg $fontnew $center }
-      td.ddc { $row $font $arguments_bg $fontdel $strike $center }
-      td.edc { $row $font $argobject_bg $fontdel $strike $center }
-      td.enc { $row $font $argobject_bg $fontnew $center }
-      td.fdc { $row $font $argparam_bg $fontdel $strike $center }
-      td.fnc { $row $font $argparam_bg $fontnew $center }
-      td.pnc { $row $font $fontnew $center }
-      td.pdc { $row $font $fontdel $strike $center }
-      $hyperlink
+$html_style
+$html_style_local
     </style>
   </head>
   <body>
-    <table width="100%" border="0">
+    <table class="full-width" type="vertical-align: middle;">
       <tr>
-        <td width="25%" valign="middle">$logo<br><h3>$doctype</h3></td>
-        <td width="50%" align="center" valign="middle"><h1><br>$preamble$title_link</h1></td>
+        <td width="25%">
+          $logo<br>
+          <h3>$doctype</h3>
+        </td>
+        <td width="50%" style="text-align: center;">
+          <h1><br>$preamble$title_link</h1>
+        </td>
         <td width="25%"/>
       </tr>
     </table>
@@ -8524,12 +8634,15 @@ END
             $html_buffer .= <<END;
     <h1>$anchor->{def}</h1>
     $preamble<p>
-    <table $tabopts> <!-- Data Types -->
-    <tr>
-      <th class="g">Data Type</th>
-      <th class="gc">Base Type</th>
-      <th class="g">Description</th>
-    </tr>
+    <table class="full-width solid-border data-type-table"> <!-- Data Types -->
+      <thead>
+        <tr>
+          <th>Data Type</th>
+          <th>Base Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
 END
             foreach my $datatype (sort datatype_cmp @$datatypes) {
                 my $name = $datatype->{name};
@@ -8594,14 +8707,15 @@ END
                                             values => $values});
 
                 $html_buffer .= <<END;
-      <tr>
-        <td>$name_anchor->{def}</td>
-        <td class="pc">$baseref$typestring</td>
-        <td>$description</td>
-      </tr>
+        <tr>
+          <td>$name_anchor->{def}</td>
+          <td>$baseref$typestring</td>
+          <td>$description</td>
+        </tr>
 END
             }
             $html_buffer .= <<END;
+      </tbody>
     </table> <!-- Data Types -->
 END
         }
@@ -8621,11 +8735,14 @@ END
                 $html_buffer .= <<END;
     <h1>$anchor->{def}</h1>
     $description<p>
-    <table $tabopts> <!-- $title -->
-    <tr>
-      <th class="g">ID</th>
-      <th class="g">Description</th>
-    </tr>
+    <table class="middle-width solid-border"> <!-- $title -->
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
 END
                 foreach my $item (sort bibid_cmp @{$definitions->{items}}) {
                     my $id = $item->{id};
@@ -8634,14 +8751,15 @@ END
                     $description = html_escape($description,
                                                {$reftype => $id});
                     $html_buffer .= <<END;
-      <tr>
-        <td>$id_anchor->{def}</td>
-        <td>$description</td>
-      </tr>
+        <tr>
+          <td>$id_anchor->{def}</td>
+          <td>$description</td>
+        </tr>
 END
                 }
                 $html_buffer .= <<END;
-            </table> <!-- $title -->
+      <tbody>
+    </table> <!-- $title -->
 END
             }
         }
@@ -8655,7 +8773,7 @@ END
 END
             $html_buffer .= <<END;
     <h1>$anchor->{def}</h1>
-    <table border="0"> <!-- References -->
+    <table> <!-- References -->
 END
             my $references = $bibliography->{references};
             foreach my $reference (sort bibid_cmp @$references) {
@@ -8707,31 +8825,34 @@ END
 
         $html_buffer .= <<END;
       <h1>$anchor->{def}</h1>
-      <table width="60%" $tabopts> <!-- Legend -->
+      <table class="middle-width solid-border"> <!-- Legend -->
         <tbody>
           <tr>
-            <td class="o">Object definition.</td>
+            <td class="object">Object definition.</td>
           </tr>
           <tr>
-            <td class="m">Mountable Object definition.</td>
+            <td class="mountable-object">Mountable Object definition.</td>
           </tr>
           <tr>
-            <td class="q">Mount Point definition.</td>
+            <td class="mountpoint-object">Mount Point definition.</td>
           </tr>
           <tr>
-            <td class="p">Parameter definition.</td>
+            <td class="parameter">Parameter definition.</td>
           </tr>
           <tr>
-            <td class="c">Command or Event definition.</td>
+            <td class="command event">Command or Event definition.</td>
           </tr>
           <tr>
-            <td class="d">Command Input / Output Arguments container.</td>
+            <td class="argument-container">
+            Command Input / Output Arguments container.</td>
           </tr>
           <tr>
-            <td class="e">Command or Event Object Input / Output Argument definition.</td>
+            <td class="argument-object">
+            Command or Event Object Input / Output Argument definition.</td>
           </tr>
           <tr>
-            <td class="f">Command or Event Parameter Input / Output Argument definition.</td>
+            <td class="argument-parameter">
+            Command or Event Parameter Input / Output Argument definition.</td>
           </tr>
         </tbody>
       </table> <!-- Legend -->
@@ -8820,57 +8941,51 @@ END
         $specs = '' if $canonical;
         my $versiontitle = $showspec ? qq{} : qq{ title="$specs"};
 
-        # XXX $trclass is treated differently from $tdclass only to minimise
-        #     diffs with HTML produced by earlier tool versions
-        my $trclass = ($showdiffs && util_node_is_new($node)) ? 'n' : '';
-        # XXX never show diffs if the model is new, i.e. has no history
-        $trclass = '' if !defined $node->{mnode}->{history};
-        $trclass = $trclass ? qq{ class="$trclass"} : qq{};
+        # the primary tr class is a function of the node type and status
+        my $trclass = '';
+        if ($parameter || $type eq 'parameterRef') {
+            $trclass .= $command_or_event ? 'argument-parameter' : 'parameter';
+        } elsif ($is_command) {
+            $trclass .= 'command';
+        } elsif ($is_event) {
+            $trclass .= 'event';
+        } elsif ($is_arguments) {
+            $trclass .= 'argument-container'
+        } elsif ($object) {
+            $trclass .=
+                $is_mountable && $is_mountable == 1 ? 'mountable-object' :
+                $is_mountable && $is_mountable == 2 ? 'mountpoint-object' :
+                $command_or_event ? 'argument-object' : 'object';
+        }
 
-        my $tdclass = ($model | $object | $profile) ? 'o' : 'p';
+        # account for node status
+        my $node_status = node_status($node);
+        $trclass = qq{$node_status-$trclass} if
+            $trclass && $node_status =~ /deprecated|obsoleted|deleted/;
 
-        # XXX so horrible; need to redo class/style support! currently:
-        #     - c : the actual command or event
-        #     - d : input/output container
-        #     - e : object argument
-        #     - f : parameter argument
-        if ($is_command || $is_event) {
-            $tdclass = 'c';
-        }
-        elsif ($is_mountable) {
-          $tdclass = ($is_mountable == 1) ? 'm' : 'q';
-        }
-        elsif ($command_or_event) {
-            if ($tdclass eq 'o') {
-                $tdclass = $is_arguments ? 'd' : 'e';
-            } else {
-                $tdclass = 'f';
-            }
-        }
+        # has the node been inserted?
+        # XXX never show insertions if the model is new, i.e. has no history
+        $trclass .= ' inserted' if $showdiffs &&
+            util_node_is_new($node) && defined $node->{mnode}->{history};
+
+        # has the node been deleted?
         # XXX experiment with only checking the actual node status for Refs
         my $is_ref = $node->{type} =~ /Ref$/;
-        $tdclass .= 'd' if
+        $trclass .= ' deleted' if
             (($is_ref && $node->{status} eq 'deleted') ||
              (!$is_ref && $showdiffs && util_is_deleted($node)));
+        $trclass = $trclass ? qq{ class="$trclass"} : qq{};
 
-        my $tdclasstyp = $tdclass;
-        if ($showdiffs && util_node_is_modified($node) &&
-            ($changed->{type} || $changed->{syntax})) {
-            $tdclasstyp .= 'n';
-        }
-
-        my $tdclasswrt = $tdclass;
-        if ($showdiffs && util_node_is_modified($node) && $changed->{access}) {
-            $tdclasswrt .= 'n';
-        }
-
-        my $tdclassdef = $tdclass;
-        if ($showdiffs && util_node_is_modified($node) && $changed->{default}) {
-            if ($node->{defstat} eq 'deleted') {
-                $tdclassdef .= 'd' unless $tdclassdef =~ /d/;
-            } else {
-                $tdclassdef .= 'n';
-            }
+        # tdclass{typ,wrt,def} affect individual td elements (cells)
+        my ($tdclasstyp, $tdclasswrt, $tdclassdef) = ('', '', '');
+        if ($showdiffs && util_node_is_modified($node)) {
+            $tdclasstyp = 'modified' if $changed->{type} || $changed->{syntax};
+            $tdclasswrt = 'modified' if $changed->{access};
+            $tdclassdef = ($node->{defstat} eq 'deleted' ?
+                           'deleted' : 'modified') if $changed->{default};
+            $tdclasstyp = $tdclasstyp ? qq{ class="$tdclasstyp"} : qq{};
+            $tdclasswrt = $tdclasswrt ? qq{ class="$tdclasswrt"} : qq{};
+            $tdclassdef = $tdclassdef ? qq{ class="$tdclassdef"} : qq{};
         }
 
         if ($model) {
@@ -8901,18 +9016,20 @@ END
             $html_buffer .= <<END;
     <h1>$anchor->{def}</h1>
     $description<p>$boiler_plate
-    <table width="100%" $tabopts> <!-- Data Model Definition -->
-      <tbody>
-        <tr>
-          <th width="10%" class="g">Name</th>
-          <th width="10%" class="g">Type</th>
-          $synt_oc<th class="g">Syntax</th>$synt_cc
-          <th width="10%" class="gc">Write</th>
-          <th width="50%" class="g">Description</th>
-          <th width="10%" class="gc">Object Default</th>
-          $vers_oc<th width="10%" class="gc">Version</th>$vers_cc
-          $spec_oc<th width="10%" class="gc">Spec</th>$spec_cc
+    <table class="full-width solid-border data-model-table"> <!-- Data Model Definition -->
+      <thead>
+        <tr$trclass>
+          <th width="10%">Name</th>
+          <th width="10%">Type</th>
+          <th>Syntax</th>
+          <th width="10%">Write</th>
+          <th width="50%">Description</th>
+          <th width="10%">Object Default</th>
+          <th width="10%">Version</th>
+          <th width="10%">Spec</th>
         </tr>
+      </thead>
+      <tbody>
 END
             $html_parameters = [];
             $html_profile_active = 0;
@@ -8943,37 +9060,40 @@ END
 END
                 if (!$altnotifreqstyle) {
                     $html_buffer .=
-                        html_param_table(qq{Forced Inform Parameters},
-                                         {tabopts => $tabopts, node => $node},
-                                         grep {$_->{forcedInform}}
-                                         @$html_parameters);
+                        html_param_table(
+                            qq{Forced Inform Parameters},
+                            {node => $node,
+                             class => 'middle-width solid-border'},
+                            grep {$_->{forcedInform}}
+                            @$html_parameters);
                 }
                 if (!$altnotifreqstyle) {
                     $html_buffer .=
-                        html_param_table(qq{Forced Active Notification } .
-                                         qq{Parameters},
-                                         {tabopts => $tabopts, node => $node},
-                                         grep {$_->{activeNotify} eq
-                                                   'forceEnabled'}
-                                         @$html_parameters);
+                        html_param_table(
+                            qq{Forced Active Notification Parameters},
+                            {node => $node,
+                             class => 'middle-width solid-border'},
+                            grep {$_->{activeNotify} eq 'forceEnabled'}
+                            @$html_parameters);
                 }
                 if (!$altnotifreqstyle) {
                     $html_buffer .=
-                        html_param_table(qq{Default Active Notification } .
-                                         qq{Parameters},
-                                         {tabopts => $tabopts, node => $node},
-                                         grep {$_->{activeNotify} eq
-                                                   'forceDefaultEnabled'}
-                                         @$html_parameters);
+                        html_param_table(
+                            qq{Default Active Notification Parameters},
+                            {node => $node,
+                             class => 'middle-width solid-border'},
+                            grep {$_->{activeNotify} eq 'forceDefaultEnabled'}
+                            @$html_parameters);
                 }
                 my $active = $altnotifreqstyle ? 'Value Change' : 'Active';
                 $html_buffer .=
-                    html_param_table(qq{Parameters for which $active } .
-                                     qq{Notification MAY be Denied},
-                                     {tabopts => $tabopts, sepobj => 1,
-                                      node => $node},
-                                     grep {$_->{activeNotify} eq 'canDeny'}
-                                     @$html_parameters);
+                    html_param_table(
+                        qq{Parameters for which $active Notification MAY } .
+                        qq{be Denied},
+                        {sepobj => 1, node => $node,
+                         class => 'middle-width solid-border'},
+                        grep {$_->{activeNotify} eq 'canDeny'}
+                        @$html_parameters);
                 my $panchor = html_create_anchor('Profile Definitions',
                                                  'heading', {node => $node});
                 my $nanchor = html_create_anchor('Notation',
@@ -8988,35 +9108,41 @@ END
     <h2>$panchor->{def}</h2>
     <h3>$nanchor->{def}</h3>
     The following abbreviations are used to specify profile requirements:<p>
-    <table width="60%" $tabopts>
+    <table class="middle-width solid-border">
+      <thead>
+        <tr>
+          <th class="centered">Abbreviation</th>
+          <th>Description</th>
+        </tr>
+      </thead>
       <tbody>
         <tr>
-          <th class="gc">Abbreviation</th>
-          <th class="g">Description</th>
-        </tr>
-        <tr>
-          <td class="pc">R</td>
+          <td class="centered">R</td>
           <td>Read support is REQUIRED.</td>
         </tr>
         <tr>
-          <td class="pc">W</td>
-          <td>Both Read and Write support is REQUIRED.  This MUST NOT be specified for a parameter that is defined as read-only.</td>
+          <td class="centered">W</td>
+          <td>Both Read and Write support is REQUIRED.  This MUST NOT be
+              specified for a parameter that is defined as read-only.</td>
         </tr>
         <tr>
-          <td class="pc">P</td>
+          <td class="centered">P</td>
           <td>The object is REQUIRED to be present.</td>
         </tr>
         <tr>
-          <td class="pc">C</td>
-          <td>Creation and deletion of instances of the object is REQUIRED.</td>
+          <td class="centered">C</td>
+          <td>Creation and deletion of instances of the object is
+              REQUIRED.</td>
         </tr>
         <tr>
-          <td class="pc">A</td>
-          <td>Creation of instances of the object is REQUIRED, but deletion is not REQUIRED.</td>
+          <td class="centered">A</td>
+          <td>Creation of instances of the object is REQUIRED, but
+              deletion is not REQUIRED.</td>
         </tr>
         <tr>
-          <td class="pc">D</td>
-          <td>Deletion of instances of the object is REQUIRED, but creation is not REQUIRED.</td>
+          <td class="centered">D</td>
+          <td>Deletion of instances of the object is REQUIRED, but
+              creation is not REQUIRED.</td>
         </tr>
       </tbody>
     </table>
@@ -9040,12 +9166,14 @@ END
             $html_buffer .= <<END;
     <h3>$span1$panchor->{def}$anchor->{def}$span2</h3>
     $span1$description$span2<p>
-    <table width="60%" $tabopts> <!-- $anchor->{label} -->
-      <tbody>
+    <table class="middle-width solid-border"> <!-- $anchor->{label} -->
+      <thead>
         <tr>
-          <th width="80%" class="g">Name</th>
-          <th width="20%" class="gc">Requirement</th>
+          <th width="80%">Name</th>
+          <th width="20%" class="centered">Requirement</th>
         </tr>
+      </thead>
+      <tbody>
 END
         }
 
@@ -9083,8 +9211,8 @@ END
             $type = 'command' if $is_command;
             $type = 'arguments' if $is_arguments;
             $type = 'event' if $is_event;
-            $typetitle = 'command' if $is_command;
-            $typetitle = 'event' if $is_event;
+            $typetitle = qq{ title="command"} if $is_command;
+            $typetitle = qq{ title="event"} if $is_event;
             # XXX would like syntax to be a link when it's a named data type
             print <<END if $object && !$command_or_event && !$nolinks;
           <li>$anchor->{ref}</li>
@@ -9093,14 +9221,14 @@ END
             $tspecs =~ s/ /<br>/g;
             $html_buffer .= <<END;
         <tr$trclass>
-          <td class="${tdclass}" title="$path">$name</td>
-          <td class="${tdclasstyp}"$typetitle>$type</td>
-          $synt_oc<td class="${tdclasstyp}">$syntax</td>$synt_cc
-          <td class="${tdclasswrt}c">$write</td>
-          <td class="${tdclass}">$description</td>
-          <td class="${tdclassdef}c">$default</td>
-          $vers_oc<td class="${tdclass}c"$versiontitle>$version</td>$vers_cc
-          $spec_oc<td class="${tdclass}c">$tspecs</td>$spec_cc
+          <td title="$path">$name</td>
+          <td$tdclasstyp$typetitle>$type</td>
+          <td$tdclasstyp>$syntax</td>
+          <td$tdclasswrt>$write</td>
+          <td>$description</td>
+          <td$tdclassdef>$default</td>
+          <td$versiontitle>$version</td>
+          <td>$tspecs</td>
         </tr>
 END
         } else {
@@ -9150,9 +9278,9 @@ END
             # XXX ignore nodes with empty names; this will happen for Service
             #     Object top-level #entries parameters' fake parent objectRefs
             $html_buffer .= <<END if $node->{name};
-        <tr>
-          <td class="${tdclass}">$name</td>
-          <td class="${tdclass}c">$write$footnote</td>
+        <tr$trclass>
+          <td>$name</td>
+          <td class="centered">$write$footnote</td>
         </tr>
 END
         }
@@ -9211,10 +9339,11 @@ sub html_param_table
 {
     my ($title, $hash, @parameters) = @_;
 
-    my $tabopts = $hash->{tabopts};
+    my $class = $hash->{class};
     my $sepobj = $hash->{sepobj};
     my $node = $hash->{node};
 
+    $class = $class ? qq{ class="$class"} : qq{};
     my $anchor = html_create_anchor($title, 'heading', {node => $node});
 
     my $html_buffer = qq{};
@@ -9228,11 +9357,13 @@ END
 END
 
     $html_buffer .= <<END;
-    <table width="60%" $tabopts> <!-- $title -->
-      <tbody>
+    <table$class> <!-- $title -->
+      <thead>
         <tr>
           <th class="g">Parameter</th>
         </tr>
+      </thead>
+      <tbody>
 END
 
     my $curobj = '';
@@ -11978,11 +12109,11 @@ sub html_font
     $inval =~ s|\n-{4,}$|<hr>|g;
 
     # XXX experimental ---text--- to indicate deletion and +++text+++ insertion
-    $inval =~ s|\-\-\-([^\n]*?)\-\-\-|<span class="d">$1</span>|gs;
-    $inval =~ s|\+\+\+([^\n]*?)\+\+\+|<span class="i">$1</span>|gs;
+    $inval =~ s|\-\-\-([^\n]*?)\-\-\-|<span class="deleted">$1</span>|gs;
+    $inval =~ s|\+\+\+([^\n]*?)\+\+\+|<span class="inserted">$1</span>|gs;
 
-    $inval =~ s|\-\-\-(.*?)\-\-\-|<div class="d">$1</div>|gs;
-    $inval =~ s|\+\+\+(.*?)\+\+\+|<div class="i">$1</div>|gs;
+    $inval =~ s|\-\-\-(.*?)\-\-\-|<div class="deleted">$1</div>|gs;
+    $inval =~ s|\+\+\+(.*?)\+\+\+|<div class="inserted">$1</div>|gs;
 
     # XXX experimental -- -> en-dash (not --- -> em-dash for now because that
     #     conflicts with deleted text; change char sequence for deleted text?)
@@ -13605,7 +13736,7 @@ END
     <h1><a name="Data Models">Data Models</a></h1>
     <p>The following table lists all data model versions defined in Broadband Forum Technical Reports.</p>
     <table width="100%" $tabopts>
-      <tbody>
+      <thead>
         <tr>
           <th class="g">Object Name</th>
           <th class="g">Object Type</th>
@@ -13615,6 +13746,8 @@ END
           <th class="g">Technical Report</th>
           <!-- <th class="g">Dependencies</th> -->
         </tr>
+      </thead>
+      <tbody>
 END
 
     # summary table rows
@@ -16314,6 +16447,7 @@ B<report.pl>
 [--marktemplates]
 [--maxchardiffs=i(5)]
 [--maxworddiffs=i(10)]
+[--neverhide]
 [--noautomodel]
 [--nocomments]
 [--nofontstyles]
@@ -16454,17 +16588,21 @@ note: the B<--usp> option enables this option automatically (with the value "2.1
 
 =item B<--commandcolor=s>...
 
-sets the background colors to be used (in the HTML report) for commands and events; can be specified up to four times to set (in order) the background colors for:
+sets the background colors to be used (in the HTML report) for commands, events, mountable objects and mount point objects; can be specified up to six times to set (in order) the background colors for:
 
 =over
 
-=item * commands and events (default: #66CDAA)
+=item * commands and events (default: #66cdaa)
 
 =item * command "Input." and "Output." containers (default: silver)
 
 =item * command and event object arguments (default: pink)
 
-=item * command and event parameter arguments (default: #FFE4E1)
+=item * command and event parameter arguments (default: #ffe4e1)
+
+=item * mountable objects (default: #b3e0ff)
+
+=item * mount point objects (default: #4db8ff)
 
 =back
 
@@ -16687,6 +16825,10 @@ these control how differences are shown in descriptions; each paragraph is handl
 =item * otherwise, the entire paragraph is shown as a single change
 
 =back
+
+=item B<--neverhide>
+
+disables the hiding of omitted sub-trees (this is really only indended for debugging: it provides a way of including deleted items in the report)
 
 =item B<--noautomodel>
 
