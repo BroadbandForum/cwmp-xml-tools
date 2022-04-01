@@ -8213,7 +8213,6 @@ sub html_get_anchor
 }
 
 # HTML styles.
-# XXX could/should be defined in external files?
 # XXX are currently only used for the html report, but could/should also be
 #     used for the htmlbbf and html148 reports
 # XXX don't completely replace element-level styling, e.g. for table column
@@ -8374,7 +8373,6 @@ my $html_toc_current = \$html_toc_tree;
 # arguments are level, plus html_create_anchor() arguments
 # if opts contains 'anchor' use this anchor rather than creating a new one
 # (in this case label is used only if non-empty, and type is ignored)
-# XXX need to add id='jstree' to <nav> (or <div>?)
 sub html_toc_entry
 {
     my ($level, $label, $type, $opts) = @_;
@@ -8382,12 +8380,13 @@ sub html_toc_entry
 
     my $anchor = $opts->{anchor};
     my $split = $opts->{split};
+    my $show = $opts->{show};
     my $sort = $opts->{sort};
 
     # handle 'split' logic (is only used for $type = 'path' and only makes
     # sense for objects), e.g., split = 3 for Device.IP.Interface.{i}.Stats.
     # would generate Device., IP. and Interface.{i}.Stats. ToC entries
-    # (any supplied options other than 'split' and 'sort' are ignored)
+    # (any supplied options other than 'split', 'show' and 'sort' are ignored)
     if ($type eq 'path' && defined $split) {
         my $onode = $label;
         my $names = util_path_split($onode->{path}, $split);
@@ -8397,9 +8396,11 @@ sub html_toc_entry
             ($node) = grep {$_->{name} eq $name} @{$node->{nodes}};
             # this happens in the above Interface.{i}.Stats. case
             $node = $onode unless $node;
-            my $sort_ = defined $sort && $opts->{sort} == $depth;
-            $anchor = html_toc_entry($level + $depth, $node, 'path',
-                                     {text => $name, sort => $sort_});
+            my $show_ = defined $show && $show == $depth;
+            my $sort_ = defined $sort && $sort == $depth;
+            $anchor = html_toc_entry(
+                $level + $depth, $node, 'path',
+                {text => $name, show => $show_, sort => $sort_});
         }
         return $anchor;
     }
@@ -8415,7 +8416,7 @@ sub html_toc_entry
         my $level_ = $$html_toc_current->{level} + 1;
         my $node = {level => $level_, parent => $$html_toc_current,
                     children => [], label => qq{auto-level-$level_},
-                    ref => '', sort => undef};
+                    ref => '', show => undef, sort => undef};
         push @{$$html_toc_current->{children}}, $node;
         $html_toc_current = \$node;
     }
@@ -8429,11 +8430,12 @@ sub html_toc_entry
     if (!$node) {
         $node = {level => $level, parent => $$html_toc_current, children => [],
                  label => $anchor->{label}, ref => $anchor->{ref},
-                 sort => undef};
+                 show => undef, sort => undef};
         push @{$$html_toc_current->{children}}, $node;
     }
 
-    # always update 'sort' if not already set
+    # always update 'show' and 'sort' if not already set
+    $node->{show} = $show if !defined $node->{show} && defined $show;
     $node->{sort} = $sort if !defined $node->{sort} && defined $sort;
     $html_toc_current = \$node;
 
@@ -8441,6 +8443,12 @@ sub html_toc_entry
     return $anchor;
 }
 
+# this has to work with the styles defined below, which requires:
+# - all list items with children have <span class="expandable">text</span>
+# - all such children have <ul class="collapsed">
+# -
+# - the root object is initially expanded and its span is also "collapsible"
+# - top-level objects are initially expanded and their ul is also "expanded"
 sub html_toc_output
 {
     my ($node, $indent) = @_;
@@ -8448,36 +8456,187 @@ sub html_toc_output
 
     my $level = $node->{level};
     my $label = $node->{label};
+    my $show = $node->{show};
     my $sort = $node->{sort};
     my $ref = $node->{ref};
 
+    my $children = $node->{children};
+
+    # outer element, its attributes and its comment
     my $outer = $level == 0 ? 'nav' : 'li';
-    my $attrs = $level == 0 ? qq{ id="TOC" role="doc-toc"} :
-        $sort ? qq{ data-sort="true"} : qq{};
+    my $outer_attrs = $level == 0 ? qq{ id="TOC" role="doc-toc"} : qq{};
     my $comment = $label ? qq{ <!-- $label -->} : qq{};
 
-    # XXX hack to include the jstree <div>; should handle via another level?
-    my $jstree_open = $level == 0 ? qq{<div id="jstree">} : qq{};
-    my $jstree_clos = $level == 0 ? qq{</div>} : qq{};
+    # $show means that the list item is also "collapsible" and its
+    # list is also "expanded"
+    my $collapsible = $show ? qq{ collapsible} : qq{};
+    my $expanded = $show ? qq{ expanded} : qq{};
 
-    sub print_ {
-        my ($str) = @_;
-        print $str;
-        #tmsg $str;
-    }
+    # $sort means that the list item's list is "ordered"
+    my $ordered = $sort ? qq{ ordered} : qq{};
 
-    if (@{$node->{children}}) {
-        print_ "$indent<$outer$attrs>$ref$jstree_open\n";
-        print_ "$indent  <ul>$comment\n";
-        foreach my $child (@{$node->{children}}) {
+    # list item and list attributes
+    my $item_attrs = @$children ?
+        qq{ class="expandable$collapsible"} : qq{};
+    my $list_attrs = $level > 0 ?
+        qq{ class="collapsed$expanded$ordered"} : qq{};
+
+    print "$indent<$outer$outer_attrs>";
+    print "<span$item_attrs>$ref</span>" if $ref;
+    if (@$children) {
+        print "\n$indent  <ul$list_attrs>$comment\n";
+        foreach my $child (@$children) {
             html_toc_output($child, $indent . '    ');
         }
-        print_ "$indent  </ul>$comment\n";
-        print_ "$indent$jstree_clos</$outer>\n";
-    } else {
-        print_ "$indent<$outer>$ref</$outer>\n";
+        print "$indent  </ul>$comment\n";
+        print "$indent";
+    }
+    print "</$outer>\n";
+}
+
+# HTML ToC sidebar style
+# XXX this is copied from pandoc toc.css with changes noted (we don't need
+#     TOCFULL here, but it's left unchanged for ease of update)
+my $html_toc_sidebar_style = <<'END';
+:root {
+    --toc-width: 12rem; /* change: 15rem -> 12rem */
+    --toc-padding-left-extra: 1rem;
+    --toc-padding-left: calc(var(--toc-width) +
+                             var(--toc-padding-left-extra));
+}
+
+@media screen and (min-width: 924px) {
+    body {
+        padding-left: var(--toc-padding-left);
+    }
+
+    #TOCFULL::before, #TOC::before {
+        content: "Table of Contents";
+        font-weight: bold;
+        font-size: large; /* change: added */
+    }
+
+    #TOCFULL, #TOC {
+        position: fixed;
+        margin: 0 0;
+        top: 0px;
+        left: 0px;
+        width: var(--toc-width);
+        height: 100vh;
+        line-height: 1.4;
+        font-size: larger; /* change: smaller -> larger  */
+        overflow: auto;
+        overscroll-behavior: contain;
+        /* background-color: white; */
+        border: 1px solid #73AD21;
+    }
+
+    #TOCFULL ul, #TOC ul {
+        margin: 0.35em 0;
+        padding: 0 0 0 1em;
+        list-style-type: none;
+    }
+
+    #TOCFULL ul ul, #TOC ul ul {
+        margin: 0.25em 0;
+    }
+
+    #TOCFULL ul ul ul, #TOC ul ul ul {
+        margin: 0.15em 0;
+    }
+
+    #TOCFULL li p:last-child, #TOC li p:last-child {
+        margin-bottom: 0;
+    }
+
+    #TOCFULL {
+        z-index: 2;
+    }
+
+    #TOC {
+        z-index: 1;
     }
 }
+
+@media screen and (max-width: 923px) {
+    #TOCFULL {
+        display: none;
+    }
+}
+
+@media not screen {
+    #TOCFULL {
+        display: none;
+    }
+}
+END
+
+# HTML ToC expand/collapse script.
+my $html_toc_expand_script = <<END;
+window.addEventListener('DOMContentLoaded', function() {
+    var expandables = document.getElementsByClassName('expandable');
+    for (i = 0; i < expandables.length; i++) {
+        expandables[i].addEventListener('click', function() {
+            this.parentElement.querySelector('.collapsed').classList
+                .toggle('expanded');
+            this.classList.toggle('collapsible');
+        });
+    }
+});
+END
+
+# HTML ToC expand/collapse style.
+my $html_toc_expand_style .= <<'END';
+nav ul {
+    margin: 0.35em 0;
+    padding: 0 0 0 1em;
+    list-style-type: none;
+}
+
+.expandable {
+    cursor: pointer;
+    user-select: none;
+    display: list-item;
+    /* Circled Plus + non-breakable space */
+    list-style-type: "\2295\A0";
+}
+
+.collapsible {
+    /* Circled Minus + non-breakable space */
+    list-style-type: "\2296\A0";
+}
+
+.collapsed {
+    display: none;
+}
+
+.expanded {
+    display: grid; /* needed by the 'order' property */
+}
+END
+
+# HTML ToC sort script.
+# (this relies on the above 'display: grid' definition)
+my $html_toc_sort_script = <<END;
+window.addEventListener('DOMContentLoaded', function() {
+    var lists = document.getElementsByClassName('ordered');
+    for (var i = 0; i < lists.length; i++) {
+        var items = lists[i].children;
+        var temp = [];
+        for (var j = 0; j < items.length; j++) {
+            // this assumes that the first child contains the text
+            temp.push([j, items[j].children[0].innerText]);
+        }
+        temp.sort((a, b) => {
+            return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0;
+        });
+        temp.forEach((order_text, j) => {
+            var k = order_text[0];
+            items[k].style.order = j;
+        });
+    }
+});
+END
 
 # HTML report of node.
 # XXX using the "here" strings makes this VERY hard to read, and throws off
@@ -8681,45 +8840,9 @@ END
 .data-model-table td:nth-child($hide_col_num) {
     display: none;
 }
-
 END
 
         # start outputting the HTML
-        # jstree definitions
-        my $cloudflare_cdn = qq{https://cdnjs.cloudflare.com/ajax/libs};
-        my $jstree_css =
-            qq{$cloudflare_cdn/jstree/3.2.1/themes/default/style.min.css};
-        my $jstree_lib =
-            qq{$cloudflare_cdn/jstree/3.2.1/jstree.min.js};
-        my $jquery_lib =
-            qq{$cloudflare_cdn/jquery/1.12.1/jquery.min.js};
-        my $jstree_app = <<'END';
-$(function() {
-    $('#jstree')
-    .on('changed.jstree', function (event, data) {
-      var node = data.node;
-      if (node) {
-        var href = node.a_attr.href;
-        if (href) {
-          window.location.href = href;
-        }
-      }
-    })
-    .jstree({
-      'sort': function(a, b) {
-        var parent = this.get_node(a).parent;
-        var data = this.get_node(parent).data;
-        if (data && data.sort) {
-          return this.get_node(a).text > this.get_node(b).text ? 1 : -1;
-        }
-      },
-      'state': { 'key' : 'report-pl-{{key}}' },
-      'plugins': ['sort', 'state']
-    });
-});
-END
-        # not substituted earlier because used non-interpolating 'END'
-        $jstree_app =~ s/\{\{key}}/$lfile/;
         print <<END;
 $doctype_html
 $do_not_edit
@@ -8727,24 +8850,22 @@ $do_not_edit
   <head>
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
     <title>$title</title>
-    <link rel="stylesheet" href="$jstree_css"/>
-    <link rel="stylesheet" href="https://usp.technology/toc.css"/>
-    <script src="$jquery_lib"></script>
-    <script src="$jstree_lib"></script>
-    <script>$jstree_app</script>
-    <style type="text/css">
-      #TOC::before {
-        content: "Table of Contents";
-        font-weight: bold;
-        font-size: large;
-      }
-
-      .jstree-default .jstree-node {
-        margin-left: 9px;
-      }
+    <style>
+$html_toc_sidebar_style
     </style>
-    <style type="text/css">
+    <script>
+$html_toc_expand_script
+    </script>
+    <style>
+$html_toc_expand_style
+    </style>
+    <script>
+$html_toc_sort_script
+    </script>
+    <style>
 $html_style
+    </style>
+    <style>
 $html_style_local
     </style>
   </head>
@@ -9140,7 +9261,7 @@ END
         if ($model) {
             my $title = qq{$name Data Model};
             $title .= qq{ (changes)} if $lastonly;
-            my $anchor = html_toc_entry(1, $title, 'heading');
+            my $anchor = html_toc_entry(1, $title, 'heading', {show => 1});
             my $boiler_plate = '';
             $boiler_plate = <<END if $node->{version}->{minor};
 For a given implementation of this data model, the Agent MUST indicate
@@ -9334,7 +9455,8 @@ END
                 # the logic dictates that this ref will never be used
                 $anchor = {def => $anchor_def, ref => 'ignore'};
             }
-            html_toc_entry(2, $node, 'path', {split => 5, sort => 0})
+            html_toc_entry(2, $node, 'path',
+                           {split => 5, show => 0, sort => 0})
                 if $object && !$command_or_event;
             $name = $anchor->{def} unless $nolinks;
             $type = 'command' if $is_command;
