@@ -8314,6 +8314,14 @@ table.solid-border td {
     border-color: black;
 }
 
+td > p {
+    margin-block-start: 0;
+}
+
+td > p:last-of-type {
+    margin-block-end: 0;
+}
+
 .centered {
     text-align: center;
 }
@@ -8566,7 +8574,7 @@ sub html_node
 
     # use indent as a first-time flag
     if (!$indent) {
-        my $doctype = qq{&nbsp;&nbsp;&nbsp;&nbsp;DATA MODEL DEFINITION};
+        my $doctype = qq{DATA MODEL DEFINITION};
         my $filename1 = $allfiles->[0]->{name} ? $allfiles->[0]->{name} : qq{};
         my $filename2 = $allfiles->[1]->{name} ? $allfiles->[1]->{name} : qq{};
         my $filelink1 = qq{<a href="$cwmpindex#$filename1">$filename1</a>};
@@ -8618,9 +8626,8 @@ sub html_node
      See $tool_url} if !$canonical;
         $do_not_edit .= qq{. -->};
 
-        # XXX we should use '<!DOCTYPE html>' but doing so (at least in
-        #     Chrome) causes unwanted top and bottom margins in table cells
-        #     and I can't see how to use CSS to get rid of them
+        # omitting the doctype (at least in Chrome) causes unwanted top and
+        # bottom margins in table cells; have added some workaround p styles
         my $doctype_html = qq{<!DOCTYPE html>};
 
         # individual table style overrides; "(C)" means "centered"
@@ -8714,6 +8721,7 @@ END
         # not substituted earlier because used non-interpolating 'END'
         $jstree_app =~ s/\{\{key}}/$lfile/;
         print <<END;
+$doctype_html
 $do_not_edit
 <html>
   <head>
@@ -8743,14 +8751,17 @@ $html_style_local
   <body>
     <table class="full-width" type="vertical-align: middle;">
       <tr>
-        <td width="25%">
-          $logo<br>
-          <h3>$doctype</h3>
+        <td width="25%" colspan="2">
+          $logo
         </td>
-        <td width="50%" style="text-align: center;">
-          <h1><br>$preamble$title_link</h1>
+        <td width="50%" rowspan="2" style="text-align: center;">
+          <h1>$preamble$title_link</h1>
         </td>
-        <td width="25%"/>
+        <td rowspan="2"/>
+      </tr>
+      <tr>
+        <td width="3%"/>
+        <td><h3>$doctype</h3></td>
       </tr>
     </table>
   $notice
@@ -9463,7 +9474,7 @@ sub html_param_table
     <table$class> <!-- $title -->
       <thead>
         <tr>
-          <th class="g">Parameter</th>
+          <th>Parameter</th>
         </tr>
       </thead>
       <tbody>
@@ -9474,29 +9485,30 @@ END
         # this is the model prefix (it's the same for all the parameters)
         my $mpref = util_full_path($parameter, 1);
 
-        # don't html_escape until after have parsed path (assumes dots)
-        my $path = $parameter->{path};
-        my $param = $path;
-        if ($sepobj) {
-            (my $object, $param) = $path =~ /^(.*\.)([^\.]*)$/;
-            $object = html_escape($object, {empty => ''});
-            if ($object && $object ne $curobj) {
-                $curobj = $object;
-                $object = html_get_anchor($mpref.$object, 'path', $object)
-                    unless $nolinks;
-                $html_buffer .= <<END;
+        if ($sepobj && $parameter->{pnode}->{type} eq 'object') {
+            my $object = $parameter->{pnode};
+            my $status = node_status($object);
+            my $class = $status =~ /deprecated|obsoleted|deleted/ ?
+                qq{$status-object} : qq{object};
+            my $path = $object->{path};
+            $path = html_get_anchor($mpref.$path, 'path', $path)
+                unless $nolinks;
+            $html_buffer .= <<END;
         <tr>
-          <td class="o">$object</td>
+          <td class="$class">$path</td>
         </tr>
 END
-            }
         }
-        $path = html_escape($path, {empty => ''});
-        $param = html_escape($param, {empty => ''});
-        $param = html_get_anchor($mpref.$path, 'path', $param) unless $nolinks;
+
+        my $status = node_status($parameter);
+        my $class = $status =~ /deprecated|obsoleted|deleted/ ?
+            qq{$status-parameter} : qq{parameter};
+        my $path = $parameter->{path};
+        my $name = $sepobj ? $parameter->{name} : $path;
+        $name = html_get_anchor($mpref.$path, 'path', $name) unless $nolinks;
         $html_buffer .= <<END;
         <tr>
-          <td>$param</td>
+          <td class="$class">$name</td>
         </tr>
 END
     }
