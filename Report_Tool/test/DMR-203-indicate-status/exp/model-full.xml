@@ -145,6 +145,20 @@
           <unsignedInt/>
         </syntax>
       </parameter>
+      <parameter name="Jalopy" access="readOnly" status="deleted" version="1.1">
+        <description>
+          A {{param}}.
+
+          {{deprecated|1.1|because it was only added as a test}}
+
+          {{obsoleted|1.3}}
+
+          {{deleted|1.3}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
       <command name="Clean()" async="true" version="1.1">
         <description>
           Clean the {{object}}.
