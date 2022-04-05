@@ -8416,7 +8416,7 @@ sub html_toc_entry
         my $level_ = $$html_toc_current->{level} + 1;
         my $node = {level => $level_, parent => $$html_toc_current,
                     children => [], label => qq{auto-level-$level_},
-                    ref => '', show => undef, sort => undef};
+                    name => '', ref => '', show => undef, sort => undef};
         push @{$$html_toc_current->{children}}, $node;
         $html_toc_current = \$node;
     }
@@ -8429,8 +8429,8 @@ sub html_toc_entry
         $_->{label} eq $anchor->{label}} @{$$html_toc_current->{children}};
     if (!$node) {
         $node = {level => $level, parent => $$html_toc_current, children => [],
-                 label => $anchor->{label}, ref => $anchor->{ref},
-                 show => undef, sort => undef};
+                 label => $anchor->{label}, name => $anchor->{name},
+                 ref => $anchor->{ref}, show => undef, sort => undef};
         push @{$$html_toc_current->{children}}, $node;
     }
 
@@ -8456,9 +8456,10 @@ sub html_toc_output
 
     my $level = $node->{level};
     my $label = $node->{label};
+    my $name = $node->{name};
+    my $ref = $node->{ref};
     my $show = $node->{show};
     my $sort = $node->{sort};
-    my $ref = $node->{ref};
 
     my $children = $node->{children};
 
@@ -8481,8 +8482,11 @@ sub html_toc_output
     my $list_attrs = $level > 0 ?
         qq{ class="collapsed$expanded$ordered"} : qq{};
 
+    # add a 'T.' anchor so can link back to this ToC entry
+    $name = qq{<a name="T.$name"></a>} if $name;
+
     print "$indent<$outer$outer_attrs>";
-    print "<span$item_attrs>$ref</span>" if $ref;
+    print "<span$item_attrs>$name$ref</span>" if $ref;
     if (@$children) {
         print "\n$indent  <ul$list_attrs>$comment\n";
         foreach my $child (@$children) {
@@ -8641,31 +8645,69 @@ END
 # HTML headerlink script.
 my $html_headerlink_script = <<'END';
 window.addEventListener('DOMContentLoaded', function() {
+    var hidden = null;
+    var toclink = null;
     var headerlink = null;
-    var anchors = document.querySelectorAll('td > a[name]');
+
+    var anchors = document.querySelectorAll(
+      'td > a[name]:not(:empty)');
 
     for (var i = 0; i < anchors.length; i++) {
-        var cell = anchors[i].parentElement;
+      var cell = anchors[i].parentElement;
 
-        cell.addEventListener('mouseenter', event => {
-            var target = event.target;
-            var anchor = target.querySelector('a[name]');
-            if (headerlink) headerlink.remove();
-            headerlink = document.createElement('a');
-            headerlink.href = '#' + anchor.name;
-            headerlink.className = 'headerlink';
-            // derive the item type from the first row class item,
-            // which might have a leading 'deprecated-' etc. and
-            // might contain additional hyphens
-            var itemType = (target.parentElement.classList.item(0) ||
-                    'item').replace(/^\w+-/, '').replace(/-/g, ' ');
-            headerlink.title = 'Permalink to this ' + itemType;
-            target.appendChild(headerlink);
-        });
+      cell.addEventListener('mouseenter', event => {
+        var target = event.target;
+        var anchor = target.querySelector('a[name]:not(:empty)');
 
-        cell.addEventListener('mouseleave', () => {
-            if (headerlink) headerlink.remove();
-        });
+        // derive the item type from the row's first class item,
+        // which might have a leading 'deprecated-' etc. and
+        // might also contain additional hyphens
+        var itemType = (target.parentElement.classList.item(0) ||
+          'item').replace(/^\w+-/, '').replace(/-/g, ' ');
+
+        if (hidden && toclink) {
+          hidden.style.display = 'inline';
+          toclink.remove();
+          hidden = null;
+          toclink = null;
+        }
+
+        if (itemType == 'object') {
+          toclink = document.createElement('a');
+          toclink.innerText = target.innerText;
+          toclink.href = '#T.' + anchor.name;
+          toclink.className = 'toclink';
+          toclink.title = 'Permalink to this ' + itemType +
+            "'s ToC entry";
+          target.appendChild(toclink);
+
+          hidden = anchor;
+          hidden.style.display = 'none';
+        }
+
+        if (headerlink) {
+          headerlink.remove();
+          headerlink = null;
+        }
+        headerlink = document.createElement('a');
+        headerlink.href = '#' + anchor.name;
+        headerlink.className = 'headerlink';
+        headerlink.title = 'Permalink to this ' + itemType;
+        target.appendChild(headerlink);
+      });
+
+      cell.addEventListener('mouseleave', () => {
+        if (hidden && toclink) {
+          hidden.style.display = 'inline';
+          toclink.remove();
+          hidden = null;
+          toclink = null;
+        }
+        if (headerlink) {
+          headerlink.remove();
+          headerlink = null;
+        }
+      });
     }
 });
 END
