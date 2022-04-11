@@ -8213,7 +8213,6 @@ sub html_get_anchor
 }
 
 # HTML styles.
-# XXX could/should be defined in external files?
 # XXX are currently only used for the html report, but could/should also be
 #     used for the htmlbbf and html148 reports
 # XXX don't completely replace element-level styling, e.g. for table column
@@ -8374,7 +8373,6 @@ my $html_toc_current = \$html_toc_tree;
 # arguments are level, plus html_create_anchor() arguments
 # if opts contains 'anchor' use this anchor rather than creating a new one
 # (in this case label is used only if non-empty, and type is ignored)
-# XXX need to add id='jstree' to <nav> (or <div>?)
 sub html_toc_entry
 {
     my ($level, $label, $type, $opts) = @_;
@@ -8382,12 +8380,13 @@ sub html_toc_entry
 
     my $anchor = $opts->{anchor};
     my $split = $opts->{split};
+    my $show = $opts->{show};
     my $sort = $opts->{sort};
 
     # handle 'split' logic (is only used for $type = 'path' and only makes
     # sense for objects), e.g., split = 3 for Device.IP.Interface.{i}.Stats.
     # would generate Device., IP. and Interface.{i}.Stats. ToC entries
-    # (any supplied options other than 'split' and 'sort' are ignored)
+    # (any supplied options other than 'split', 'show' and 'sort' are ignored)
     if ($type eq 'path' && defined $split) {
         my $onode = $label;
         my $names = util_path_split($onode->{path}, $split);
@@ -8397,9 +8396,11 @@ sub html_toc_entry
             ($node) = grep {$_->{name} eq $name} @{$node->{nodes}};
             # this happens in the above Interface.{i}.Stats. case
             $node = $onode unless $node;
-            my $sort_ = defined $sort && $opts->{sort} == $depth;
-            $anchor = html_toc_entry($level + $depth, $node, 'path',
-                                     {text => $name, sort => $sort_});
+            my $show_ = defined $show && $show == $depth;
+            my $sort_ = defined $sort && $sort == $depth;
+            $anchor = html_toc_entry(
+                $level + $depth, $node, 'path',
+                {text => $name, show => $show_, sort => $sort_});
         }
         return $anchor;
     }
@@ -8415,7 +8416,7 @@ sub html_toc_entry
         my $level_ = $$html_toc_current->{level} + 1;
         my $node = {level => $level_, parent => $$html_toc_current,
                     children => [], label => qq{auto-level-$level_},
-                    ref => '', sort => undef};
+                    name => '', ref => '', show => undef, sort => undef};
         push @{$$html_toc_current->{children}}, $node;
         $html_toc_current = \$node;
     }
@@ -8428,12 +8429,13 @@ sub html_toc_entry
         $_->{label} eq $anchor->{label}} @{$$html_toc_current->{children}};
     if (!$node) {
         $node = {level => $level, parent => $$html_toc_current, children => [],
-                 label => $anchor->{label}, ref => $anchor->{ref},
-                 sort => undef};
+                 label => $anchor->{label}, name => $anchor->{name},
+                 ref => $anchor->{ref}, show => undef, sort => undef};
         push @{$$html_toc_current->{children}}, $node;
     }
 
-    # always update 'sort' if not already set
+    # always update 'show' and 'sort' if not already set
+    $node->{show} = $show if !defined $node->{show} && defined $show;
     $node->{sort} = $sort if !defined $node->{sort} && defined $sort;
     $html_toc_current = \$node;
 
@@ -8441,6 +8443,12 @@ sub html_toc_entry
     return $anchor;
 }
 
+# this has to work with the styles defined below, which requires:
+# - all list items with children have <span class="expandable">text</span>
+# - all such children have <ul class="collapsed">
+# -
+# - the root object is initially expanded and its span is also "collapsible"
+# - top-level objects are initially expanded and their ul is also "expanded"
 sub html_toc_output
 {
     my ($node, $indent) = @_;
@@ -8448,36 +8456,286 @@ sub html_toc_output
 
     my $level = $node->{level};
     my $label = $node->{label};
-    my $sort = $node->{sort};
+    my $name = $node->{name};
     my $ref = $node->{ref};
+    my $show = $node->{show};
+    my $sort = $node->{sort};
 
+    my $children = $node->{children};
+
+    # outer element, its attributes and its comment
     my $outer = $level == 0 ? 'nav' : 'li';
-    my $attrs = $level == 0 ? qq{ id="TOC" role="doc-toc"} :
-        $sort ? qq{ data-sort="true"} : qq{};
+    my $outer_attrs = $level == 0 ? qq{ id="TOC" role="doc-toc"} : qq{};
     my $comment = $label ? qq{ <!-- $label -->} : qq{};
 
-    # XXX hack to include the jstree <div>; should handle via another level?
-    my $jstree_open = $level == 0 ? qq{<div id="jstree">} : qq{};
-    my $jstree_clos = $level == 0 ? qq{</div>} : qq{};
+    # $show means that the list item is also "collapsible" and its
+    # list is also "expanded"
+    my $collapsible = $show ? qq{ collapsible} : qq{};
+    my $expanded = $show ? qq{ expanded} : qq{};
 
-    sub print_ {
-        my ($str) = @_;
-        print $str;
-        #tmsg $str;
-    }
+    # $sort means that the list item's list is "ordered"
+    my $ordered = $sort ? qq{ ordered} : qq{};
 
-    if (@{$node->{children}}) {
-        print_ "$indent<$outer$attrs>$ref$jstree_open\n";
-        print_ "$indent  <ul>$comment\n";
-        foreach my $child (@{$node->{children}}) {
+    # list item and list attributes
+    my $item_attrs = @$children ?
+        qq{ class="expandable$collapsible"} : qq{};
+    my $list_attrs = $level > 0 ?
+        qq{ class="collapsed$expanded$ordered"} : qq{};
+
+    # add a 'T.' anchor so can link back to this ToC entry
+    $name = qq{<a name="T.$name"></a>} if $name;
+
+    print "$indent<$outer$outer_attrs>";
+    print "<span$item_attrs>$name$ref</span>" if $ref;
+    if (@$children) {
+        print "\n$indent  <ul$list_attrs>$comment\n";
+        foreach my $child (@$children) {
             html_toc_output($child, $indent . '    ');
         }
-        print_ "$indent  </ul>$comment\n";
-        print_ "$indent$jstree_clos</$outer>\n";
-    } else {
-        print_ "$indent<$outer>$ref</$outer>\n";
+        print "$indent  </ul>$comment\n";
+        print "$indent";
+    }
+    print "</$outer>\n";
+}
+
+# HTML ToC sidebar style
+# XXX this is copied from pandoc toc.css with changes noted (we don't need
+#     TOCFULL here, but it's left unchanged for ease of update)
+my $html_toc_sidebar_style = <<'END';
+:root {
+    --toc-width: 12rem; /* change: 15rem -> 12rem */
+    --toc-padding-left-extra: 1rem;
+    --toc-padding-left: calc(var(--toc-width) +
+                             var(--toc-padding-left-extra));
+}
+
+@media screen and (min-width: 924px) {
+    body {
+        padding-left: var(--toc-padding-left);
+    }
+
+    #TOCFULL::before, #TOC::before {
+        content: "Table of Contents";
+        font-weight: bold;
+        font-size: large; /* change: added */
+    }
+
+    #TOCFULL, #TOC {
+        position: fixed;
+        margin: 0 0;
+        top: 0px;
+        left: 0px;
+        width: var(--toc-width);
+        height: 100vh;
+        line-height: 1.4;
+        font-size: larger; /* change: smaller -> larger  */
+        overflow: auto;
+        overscroll-behavior: contain;
+        /* background-color: white; */
+        border: 1px solid #73AD21;
+    }
+
+    #TOCFULL ul, #TOC ul {
+        margin: 0.35em 0;
+        padding: 0 0 0 1em;
+        list-style-type: none;
+    }
+
+    #TOCFULL ul ul, #TOC ul ul {
+        margin: 0.25em 0;
+    }
+
+    #TOCFULL ul ul ul, #TOC ul ul ul {
+        margin: 0.15em 0;
+    }
+
+    #TOCFULL li p:last-child, #TOC li p:last-child {
+        margin-bottom: 0;
+    }
+
+    #TOCFULL {
+        z-index: 2;
+    }
+
+    #TOC {
+        z-index: 1;
     }
 }
+
+@media screen and (max-width: 923px) {
+    #TOCFULL {
+        display: none;
+    }
+}
+
+@media not screen {
+    #TOCFULL {
+        display: none;
+    }
+}
+END
+
+# HTML ToC expand/collapse script.
+my $html_toc_expand_script = <<END;
+window.addEventListener('DOMContentLoaded', function() {
+    var expandables = document.getElementsByClassName('expandable');
+    for (i = 0; i < expandables.length; i++) {
+        expandables[i].addEventListener('click', function() {
+            this.parentElement.querySelector('.collapsed').classList
+                .toggle('expanded');
+            this.classList.toggle('collapsible');
+        });
+    }
+});
+END
+
+# HTML ToC expand/collapse style.
+my $html_toc_expand_style .= <<'END';
+nav ul {
+    margin: 0.35em 0;
+    padding: 0 0 0 1em;
+    list-style-type: none;
+}
+
+.expandable {
+    cursor: pointer;
+    user-select: none;
+    display: list-item;
+    /* Circled Plus + non-breakable space */
+    list-style-type: "\2295\A0";
+}
+
+.collapsible {
+    /* Circled Minus + non-breakable space */
+    list-style-type: "\2296\A0";
+}
+
+.collapsed {
+    display: none;
+}
+
+.expanded {
+    display: grid; /* needed by the 'order' property */
+}
+END
+
+# HTML ToC sort script.
+# (this relies on the above 'display: grid' definition)
+my $html_toc_sort_script = <<END;
+window.addEventListener('DOMContentLoaded', function() {
+    var lists = document.getElementsByClassName('ordered');
+    for (var i = 0; i < lists.length; i++) {
+        var items = lists[i].children;
+        var temp = [];
+        for (var j = 0; j < items.length; j++) {
+            // this assumes that the first child contains the text
+            temp.push([j, items[j].children[0].innerText]);
+        }
+        temp.sort((a, b) => {
+            return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0;
+        });
+        temp.forEach((order_text, j) => {
+            var k = order_text[0];
+            items[k].style.order = j;
+        });
+    }
+});
+END
+
+# HTML headerlink script.
+my $html_headerlink_script = <<'END';
+window.addEventListener('DOMContentLoaded', function() {
+    var hidden = null;
+    var toclink = null;
+    var headerlink = null;
+
+    var anchors = document.querySelectorAll(
+      'td > a[name]:not(:empty)');
+
+    for (var i = 0; i < anchors.length; i++) {
+      var cell = anchors[i].parentElement;
+
+      cell.addEventListener('mouseenter', event => {
+        var target = event.target;
+        var anchor = target.querySelector('a[name]:not(:empty)');
+
+        // derive the item type from the row's first class item,
+        // which might have a leading 'deprecated-' etc. and
+        // might also contain additional hyphens
+        var itemType = (target.parentElement.classList.item(0) ||
+          'item').replace(/^\w+-/, '').replace(/-/g, ' ');
+
+        if (hidden && toclink) {
+          hidden.style.display = 'inline';
+          toclink.remove();
+          hidden = null;
+          toclink = null;
+        }
+
+        if (itemType == 'object') {
+          toclink = document.createElement('a');
+          toclink.innerText = target.innerText;
+          toclink.href = '#T.' + anchor.name;
+          toclink.className = 'toclink';
+          toclink.title = 'Permalink to this ' + itemType +
+            "'s ToC entry";
+          target.appendChild(toclink);
+
+          hidden = anchor;
+          hidden.style.display = 'none';
+        }
+
+        if (headerlink) {
+          headerlink.remove();
+          headerlink = null;
+        }
+        headerlink = document.createElement('a');
+        headerlink.href = '#' + anchor.name;
+        headerlink.className = 'headerlink';
+        headerlink.title = 'Permalink to this ' + itemType;
+        target.appendChild(headerlink);
+      });
+
+      cell.addEventListener('mouseleave', () => {
+        if (hidden && toclink) {
+          hidden.style.display = 'inline';
+          toclink.remove();
+          hidden = null;
+          toclink = null;
+        }
+        if (headerlink) {
+          headerlink.remove();
+          headerlink = null;
+        }
+      });
+    }
+});
+END
+
+# HTML headerlink style.
+my $html_headerlink_style = <<END;
+:root {
+    --headerlink-size: 0.9em;
+}
+
+.headerlink {
+    text-decoration: none;
+}
+
+.headerlink::before {
+    content: " ";
+}
+
+.headerlink::after {
+    display: inline-block;
+    content: "";
+    width: var(--headerlink-size);
+    height: var(--headerlink-size);
+    background-size: var(--headerlink-size) var(--headerlink-size);
+    /* https://usp.technology/specification/permalink.png */
+    background-image: url(data:image/png;base64,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);
+}
+END
 
 # HTML report of node.
 # XXX using the "here" strings makes this VERY hard to read, and throws off
@@ -8681,45 +8939,9 @@ END
 .data-model-table td:nth-child($hide_col_num) {
     display: none;
 }
-
 END
 
         # start outputting the HTML
-        # jstree definitions
-        my $cloudflare_cdn = qq{https://cdnjs.cloudflare.com/ajax/libs};
-        my $jstree_css =
-            qq{$cloudflare_cdn/jstree/3.2.1/themes/default/style.min.css};
-        my $jstree_lib =
-            qq{$cloudflare_cdn/jstree/3.2.1/jstree.min.js};
-        my $jquery_lib =
-            qq{$cloudflare_cdn/jquery/1.12.1/jquery.min.js};
-        my $jstree_app = <<'END';
-$(function() {
-    $('#jstree')
-    .on('changed.jstree', function (event, data) {
-      var node = data.node;
-      if (node) {
-        var href = node.a_attr.href;
-        if (href) {
-          window.location.href = href;
-        }
-      }
-    })
-    .jstree({
-      'sort': function(a, b) {
-        var parent = this.get_node(a).parent;
-        var data = this.get_node(parent).data;
-        if (data && data.sort) {
-          return this.get_node(a).text > this.get_node(b).text ? 1 : -1;
-        }
-      },
-      'state': { 'key' : 'report-pl-{{key}}' },
-      'plugins': ['sort', 'state']
-    });
-});
-END
-        # not substituted earlier because used non-interpolating 'END'
-        $jstree_app =~ s/\{\{key}}/$lfile/;
         print <<END;
 $doctype_html
 $do_not_edit
@@ -8727,24 +8949,28 @@ $do_not_edit
   <head>
     <meta content="text/html; charset=UTF-8" http-equiv="content-type">
     <title>$title</title>
-    <link rel="stylesheet" href="$jstree_css"/>
-    <link rel="stylesheet" href="https://usp.technology/toc.css"/>
-    <script src="$jquery_lib"></script>
-    <script src="$jstree_lib"></script>
-    <script>$jstree_app</script>
-    <style type="text/css">
-      #TOC::before {
-        content: "Table of Contents";
-        font-weight: bold;
-        font-size: large;
-      }
-
-      .jstree-default .jstree-node {
-        margin-left: 9px;
-      }
+    <style>
+$html_toc_sidebar_style
     </style>
-    <style type="text/css">
+    <script>
+$html_toc_expand_script
+    </script>
+    <style>
+$html_toc_expand_style
+    </style>
+    <script>
+$html_toc_sort_script
+    </script>
+    <script>
+$html_headerlink_script
+    </script>
+    <style>
+$html_headerlink_style
+    </style>
+    <style>
 $html_style
+    </style>
+    <style>
 $html_style_local
     </style>
   </head>
@@ -9140,7 +9366,7 @@ END
         if ($model) {
             my $title = qq{$name Data Model};
             $title .= qq{ (changes)} if $lastonly;
-            my $anchor = html_toc_entry(1, $title, 'heading');
+            my $anchor = html_toc_entry(1, $title, 'heading', {show => 1});
             my $boiler_plate = '';
             $boiler_plate = <<END if $node->{version}->{minor};
 For a given implementation of this data model, the Agent MUST indicate
@@ -9334,7 +9560,8 @@ END
                 # the logic dictates that this ref will never be used
                 $anchor = {def => $anchor_def, ref => 'ignore'};
             }
-            html_toc_entry(2, $node, 'path', {split => 5, sort => 0})
+            html_toc_entry(2, $node, 'path',
+                           {split => 5, show => 0, sort => 0})
                 if $object && !$command_or_event;
             $name = $anchor->{def} unless $nolinks;
             $type = 'command' if $is_command;
