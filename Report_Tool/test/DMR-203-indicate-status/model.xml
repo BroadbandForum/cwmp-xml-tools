@@ -50,7 +50,7 @@
         <unsignedInt/>
       </syntax>
     </parameter>
-    
+
     <parameter name="Canoe" access="readOnly">
       <description>
         A {{param}}. So much better than an {{param|Automobile}}.
@@ -70,7 +70,7 @@
     <parameter base="Automobile" access="readWrite">
       <description action="replace">
         An {{param}} that I bought last week.
-        
+
         I should really replace it with a {{param|Bicycle}}.
       </description>
     </parameter>
@@ -114,7 +114,7 @@
 
     <parameter name="Glider" access="readOnly" version="1.1" activeNotify="forceEnabled">
       <description>
-        A {{param}}.        
+        A {{param}}.
       </description>
       <syntax>
         <unsignedInt/>
@@ -124,7 +124,7 @@
     <parameter name="Horse" access="readOnly" version="1.1" status="deprecated" activeNotify="canDeny">
       <description>
         A {{param}}.
-        
+
         {{deprecated|1.1|because I shouldn't have bought it}}
       </description>
       <syntax>
@@ -154,7 +154,18 @@
           <unsignedInt/>
         </syntax>
       </parameter>
-      
+
+      <parameter name="Jalopy" access="readOnly" status="deprecated">
+        <description>
+          A {{param}}.
+
+          {{deprecated|1.1|because it was only added as a test}}
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+
       <command name="Clean()" async="true">
         <description>
           Clean the {{object}}.
@@ -223,7 +234,7 @@
 
   <model name="Model:1.3" base="Model:1.2">
     <parameter base="Horse" access="readOnly" status="obsoleted">
-      <description action="append">        
+      <description action="append">
         {{obsoleted|1.3}}
       </description>
       <syntax>
@@ -235,6 +246,12 @@
       <description action="append">
         {{deprecated|1.3|because I couldn't afford the rent}}
       </description>
+
+      <parameter base="Jalopy" access="readOnly" status="obsoleted">
+        <description action="append">
+          {{obsoleted|1.3}}
+        </description>
+      </parameter>
     </object>
   </model>
 
@@ -265,5 +282,13 @@
         <unsignedInt/>
       </syntax>
     </parameter>
+
+    <object base="Hangar." access="readOnly" minEntries="1" maxEntries="1" status="deprecated">
+      <parameter base="Jalopy" access="readOnly" status="deleted">
+        <description action="append">
+          {{deleted|1.3}}
+        </description>
+      </parameter>
+    </object>
   </model>
 </dm:document>

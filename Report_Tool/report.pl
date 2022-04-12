@@ -8313,10 +8313,13 @@ table.solid-border td {
     border-color: black;
 }
 
+td > div,
 td > p {
     margin-block-start: 0;
+    margin-block-end: 1em;
 }
 
+td > div:last-of-type,
 td > p:last-of-type {
     margin-block-end: 0;
 }
@@ -8737,6 +8740,65 @@ my $html_headerlink_style = <<END;
 }
 END
 
+# HTML tbody expand/collapse script.
+my $html_tbody_expand_script = <<END;
+window.addEventListener('DOMContentLoaded', function() {
+    var showables = document.getElementsByClassName('showable');
+    for (var i = 0; i < showables.length; i++) {
+        var showable = showables[i];
+        showable.addEventListener('click', function() {
+            this.classList.toggle('show');
+        });
+    }
+
+    showables = document.getElementsByClassName('showable2');
+    for (var i = 0; i < showables.length; i++) {
+        var showable = showables[i];
+        showable.addEventListener('click', function(event) {
+            this.classList.toggle('show2');
+            event.stopPropagation();
+        });
+    }
+});
+END
+
+# HTML tbody expand/collapse style.
+my $html_tbody_expand_style = <<'END';
+.chevron {
+    color: blue;
+    cursor: pointer;
+}
+
+.chevron::before {
+    /* Single Right-Pointing Angle Quotation Mark */
+    content: "\00203A ";
+}
+
+.chevron .click::after {
+    content: " Click to show/hide...";
+}
+
+.hide {
+    display: none;
+}
+
+.show tr {
+    display: table-row;
+}
+
+.show td div {
+    display: block;
+}
+
+.show td span {
+    display: inline;
+}
+
+.show2 *.hide {
+    display: none;
+}
+END
+
 # HTML report of node.
 # XXX using the "here" strings makes this VERY hard to read, and throws off
 #     emacs indentation; best avoided... need to restructure...
@@ -8745,6 +8807,7 @@ END
 my $html_buffer = '';
 my $html_parameters = [];
 my $html_profile_active = 0;
+my $html_showable_active = 0;
 
 sub html_node
 {
@@ -8757,6 +8820,7 @@ sub html_node
     my $model = ($node->{type} =~ /model/);
     my $object = ($node->{type} =~ /object/);
     my $profile = ($node->{type} =~ /profile/);
+    my $is_ref = $node->{type} =~ /Ref$/;
     my $parameter = $node->{syntax}; # pretty safe? not profile params...
     my $is_command = $node->{is_command} ? 1 : 0;
     my $is_mountable = $node->{mountType} ?  ($node->{mountType} eq "mountable" ? 1 : 2) : 0;
@@ -8792,6 +8856,49 @@ sub html_node
     #     profiles (so could use templates in descriptions)
     my $factory = ($node->{deftype} && $node->{deftype} eq 'factory') ?
         html_escape(util_default($node->{default}, {more => 1})) : undef;
+
+    # determine which classes need to be added for deprecated/obsoleted/deleted
+    # expand/collapse logic (need to do this before escaping the description)
+    my $node_status = node_status($node);
+    my $need_showable_class = 0;
+    my $need_showable2_class = 0;
+    my $need_hide_class = 0;
+    my $hide_class = '';
+    if ($node_status =~ /deprecated|obsoleted|deleted/) {
+        # ignore models, profiles and profile items (this doesn't ignore
+        # commands and events, because $object is true for them)
+        if (!($object || $parameter) || $is_ref) {
+        }
+
+        # if parent node isn't deprecated (etc.) this is the root of a
+        # showable tree
+        elsif (node_status($node->{pnode}) !~
+                 /deprecated|obsoleted|deleted/) {
+            $need_showable_class = 1;
+        }
+
+        # if this node is deprecated (etc.) in its own right, showable2 is
+        # set so its description can be expanded/collapsed
+        # XXX this only affects the description; <tbody> elements can't be
+        #     nested, so there's no full hierarchical expand/collapse
+        elsif ($node->{status} =~ /deprecated|obsoleted|deleted/) {
+            $need_showable2_class = 1;
+            $need_hide_class = 1;
+        }
+
+        # everything within a showable tree (but not its root) needs the
+        # hide class
+        else {
+            $need_hide_class = 1;
+        }
+
+        # only descriptions at the root of showable trees need the hide class
+        # on their hidden-by-default parts (other nodes are hidden/shown at
+        # the row level); this is handled by html_template_preprocess() and
+        # html_template_status_helper()
+        $hide_class = 'hide' if $need_showable_class || $need_showable2_class;
+    }
+
     $description =
         html_escape($description,
                     {default => '', empty => '',
@@ -8828,7 +8935,8 @@ sub html_node
                      mountType => $node->{mountType},
                      values => $node->{values},
                      units => $node->{units},
-                     nbsp => $object || $parameter});
+                     nbsp => $object || $parameter,
+                     hide_class => $hide_class});
 
     # use indent as a first-time flag
     if (!$indent) {
@@ -8966,6 +9074,12 @@ $html_headerlink_script
     </script>
     <style>
 $html_headerlink_style
+    </style>
+    <script>
+$html_tbody_expand_script
+    </script>
+    <style>
+$html_tbody_expand_style
     </style>
     <style>
 $html_style
@@ -9334,9 +9448,16 @@ END
         }
 
         # account for node status
-        my $node_status = node_status($node);
         $trclass = qq{$node_status-$trclass} if
             $trclass && $node_status =~ /deprecated|obsoleted|deleted/;
+
+        # add expand/collapse classes ($need_showable_class controls <tbody>
+        # blocks and is handled below)
+        $trclass .= ' showable2' if $need_showable2_class;
+        $trclass .= ' hide' if $need_hide_class;
+        # 'show2' means that when the showable block is expanded, the showable2
+        # item is collapsed
+        $trclass .= ' show2' if $need_showable2_class;
 
         # has the node been inserted?
         # XXX never show insertions if the model is new, i.e. has no history
@@ -9345,7 +9466,6 @@ END
 
         # has the node been deleted?
         # XXX experiment with only checking the actual node status for Refs
-        my $is_ref = $node->{type} =~ /Ref$/;
         $trclass .= ' deleted' if
             (($is_ref && $node->{status} eq 'deleted') ||
              (!$is_ref && $showdiffs && util_is_deleted($node)));
@@ -9572,6 +9692,16 @@ END
             # XXX would like syntax to be a link when it's a named data type
             my $tspecs = $specs;
             $tspecs =~ s/ /<br>/g;
+            if ($need_showable_class ||
+                ($html_showable_active && !$need_hide_class)) {
+                my $tbclass = $need_showable_class ? qq{ class="showable"} :
+                    qq{};
+                $html_buffer .= <<END;
+     </tbody>
+     <tbody$tbclass>
+END
+                $html_showable_active = $need_showable_class;
+            }
             $html_buffer .= <<END;
         <tr$trclass>
           <td title="$path">$name</td>
@@ -10071,7 +10201,45 @@ sub util_template_separator
     return $separator;
 }
 
+# Preprocess a value before expanding templates. Currently this only handles a
+# single option:
+# - hide_class: wrap the value, but NOT any {{deprecated}}, {{obsoleted}} or
+#   {{deleted}} templates, in {{div|$hide_class|VALUE}}
+sub html_template_preprocess {
+    my ($inval, $opts) = @_;
+    my $hide_class = $opts->{hide_class};
+
+    # only do anything if the value is defined and non-empty
+    return $inval unless $inval;
+
+    # only do anything if hide_class is set
+    return $inval unless $hide_class;
+
+    # XXX to do a proper job of finding all the {{deprecated}} etc. templates,
+    #     we'd need to handle matching brackets (like html_template() does),
+    #     so instead we assume that these templates are all on their own lines
+    #     (not necessarily at the beginning of the line)
+    # XXX this isn't always the case, sometimes due to errors in the XML,
+    #     so should really try a bit harder and protect other text in spans
+    my $outlines = [];
+    foreach my $line (split /\n/, $inval) {
+        my $is_dep_etc = $line =~ /\{\{(deprecated|obsoleted|deleted)\|/;
+        my $value = qq{};
+        $value .= '{{div|hide|' unless $is_dep_etc;
+        $value .= $line;
+        $value .= '}}' unless $is_dep_etc;
+        push @$outlines, $value;
+    }
+
+    my $outval = join "\n", @$outlines;
+    return $outval;
+}
+
 # Process templates
+# XXX it would sometimes be nice if template arguments had been expanded before
+#     the templates are expanded, but template expansion can include template
+#     references, so it's not so simple (this arose when adding the 'hide'
+#     logic; can end with empty <div> elements that interfere with CSS rules)
 sub html_template
 {
     my ($inval, $p) = @_;
@@ -10230,6 +10398,11 @@ sub html_template
         $inval .= $sep . "{{keys}}";
     }
 
+    # preprocess the value (this currently just handles hide_class logic)
+    # XXX the above auto-prefix and auto-suffix logic could be moved to
+    #     html_template_preprocess()
+    $inval = html_template_preprocess($inval, $p);
+
     # in template expansions, the @a array is arguments and the %p hash is
     # parameters (options)
     my $templates =
@@ -10384,7 +10557,9 @@ sub html_template
          {name => 'leftarrow',
           text0 => q{&lArr;}}, # LEFTWARDS DOUBLE ARROW
          {name => 'rightarrow',
-          text0 => q{&rArr;}}  # RIGHTWARDS DOUBLE ARROW
+          text0 => q{&rArr;}}, # RIGHTWARDS DOUBLE ARROW
+         {name => 'div', text2 => \&html_template_div},
+         {name => 'span', text2 => \&html_template_span}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -12096,16 +12271,70 @@ sub html_template_status_helper
     w0msg "$path: no reason for deprecation is given" unless
         $transition ne 'deprecated' || $msg;
 
-    # expand the template
+    # determine the item type
     my $item_type = $syntax && %$syntax ?
         (!$value_name ? 'parameter' : 'value') : $type;
     $item_type =~ s/Ref$//;
+
+    # the template is expanded in a special way (supporting expand/collapse)
+    # if both of these are true:
+    # - $transition is the same as $status (so, for example, {{deprecated}} is
+    #   only special if the node is deprecated
+    # - $item_type is not 'value' (it wouldn't be very hard to make special
+    #   expansion work for values but it doesn't seem to be worth it)
+    my $special = $transition eq $status && $item_type ne 'value';
+
+    # expand as follows:
+    # - if special, div.chevron with content in spans:
+    #   - span (no class) for the "This AAA was BBB in CCC" text
+    #   - span.hide for the message (argument) text (if any)
+    #   - span (no class) for the terminating period (if any)
+    #   - span.click (with no text)
+    # - if not special, div.hide with content as a single string (no spans)
+    my ($divo, $divc) = $special ?
+        ('{{div|chevron|', '}}') : ('{{div|hide|', '}}');
+    my ($span1o, $span1c) = $special ? ('{{span||',      '}}') : ('', '');
+    my ($span2o, $span2c) = $special ? ('{{span|hide|',  '}}') : ('', '');
+    my ($span3o, $span3c) = $special ? ('{{span||',      '}}') : ('', '');
+    my ($span4o, $span4c) = $special ? ('{{span|click|', '}}') : ('', '');
+
+    # expand the template
     my $TRANSITION = uc $transition;
     my $ver_ = version_string($versions->[0]);
     my $msg_ = $msg ? qq{ $msg} : qq{};
     # don't append a period for values (matches get_values() logic)
     my $per_ = !$value_name ? qq{.} : qq{};
-    return qq{This $item_type was $TRANSITION in $ver_$msg_$per_};
+    return
+        ${divo} .
+        ${span1o} . qq{This $item_type was $TRANSITION in $ver_} . ${span1c} .
+        ${span2o} . $msg_ . ${span2c} .
+        ${span3o} . $per_ . ${span3c} .
+        ${span4o} . ${span4c} .
+        ${divc};
+}
+
+# output a div of the specified class
+sub html_template_div
+{
+    my ($opts, $class, $content) = @_;
+    return html_template_div_span_helper($opts, $class, $content, 'div');
+}
+
+# output a span of the specified class
+sub html_template_span
+{
+    my ($opts, $class, $content) = @_;
+    return html_template_div_span_helper($opts, $class, $content, 'span');
+}
+
+# div and span helper
+# XXX this doesn't insert an element if the class is empty; perhaps should use
+#     names other than 'div' and 'span'?
+sub html_template_div_span_helper
+{
+    my ($opts, $class, $content, $element) = @_;
+    return $class ?
+        qq{<$element class="$class">$content</$element>} : $content;
 }
 
 # Generate relative path given...
@@ -12455,9 +12684,15 @@ sub html_font
     $inval =~ s|\n-{4,}$|<hr>|g;
 
     # XXX experimental ---text--- to indicate deletion and +++text+++ insertion
-    $inval =~ s|\-\-\-([^\n]*?)\-\-\-|<span class="deleted">$1</span>|gs;
-    $inval =~ s|\+\+\+([^\n]*?)\+\+\+|<span class="inserted">$1</span>|gs;
+    # XXX templates have already been expanded; if the expansions included a
+    #     <div> then they can't be wrapped in a <span>!
+    if ($inval !~ /<div/) {
+        $inval =~ s|\-\-\-([^\n]*?)\-\-\-|<span class="deleted">$1</span>|gs;
+        $inval =~ s|\+\+\+([^\n]*?)\+\+\+|<span class="inserted">$1</span>|gs;
+    }
 
+    # XXX this potentially adds an additional <div> level; CSS classes need to
+    #     be aware of this
     $inval =~ s|\-\-\-(.*?)\-\-\-|<div class="deleted">$1</div>|gs;
     $inval =~ s|\+\+\+(.*?)\+\+\+|<div class="inserted">$1</div>|gs;
 
