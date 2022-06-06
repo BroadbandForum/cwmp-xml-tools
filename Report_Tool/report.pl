@@ -16483,8 +16483,21 @@ sub sanity_node
         emsg "$path: $syntax->{reference} has enumerated values"
             if $syntax->{reference} && has_values($values);
 
-        w0msg "$path: units $node->{units} but no {{units}} template"
-            if $node->{units} && $description !~ /\{\{units}}/;
+        if ($node->{units}) {
+            # get the full description so can check for the expected templates
+            # XXX this logic is copied from html_node()
+            # XXX don't do this unconditionally, for fear that it will slow
+            #     things down too much
+            my $changed = $node->{changed};
+            my $history = $node->{history};
+            my $descact = $node->{descact};
+            my $dchanged = util_node_is_modified($node) &&
+                $changed->{description};
+            (my $fulldesc) = get_description($description, $descact,
+                                             $dchanged, $history, 1);
+            w0msg "$path: units $node->{units} but no {{units}} template"
+                if $fulldesc !~ /\{\{units}}/;
+        }
 
         # XXX doesn't complain about defaults in read-only objects or tables;
         #     this is because they are quietly ignored (this is part of
