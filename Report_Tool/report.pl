@@ -12272,8 +12272,10 @@ sub html_template_status_helper
         $transition ne 'deprecated' || $msg;
 
     # determine the item type
-    my $item_type = $syntax && %$syntax ?
-        (!$value_name ? 'parameter' : 'value') : $type;
+    my $item_type =
+        $syntax && %$syntax ? (!$value_name ? 'parameter' : 'value') :
+        $node->{is_command} ? 'command' :
+        $node->{is_event} ? 'event' :  $type;
     $item_type =~ s/Ref$//;
 
     # the template is expanded in a special way (supporting expand/collapse)
