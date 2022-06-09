@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="
+               urn:broadband-forum-org:cwmp:datamodel-1-8
+                 https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+               urn:broadband-forum-org:cwmp:datamodel-report-1-0
+                 https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+             spec="urn:example-com:template" file="template.xml">
+  <import file="tr-069-biblio.xml"/>
+
+  <component name="Args">
+    <parameter name="P" access="readOnly">
+      <description>
+        command: {{command|.}} and object: {{object}} + {{object}}.
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+    <object name="A.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+      <description>
+        command: {{command|#}} and object: {{object}} + {{object|#}}.
+      </description>
+      <parameter name="AP" access="readOnly">
+        <description>
+          command: {{command|#}} and object: {{object}} + {{object|#}}.
+        </description>
+        <syntax>
+          <unsignedInt/>
+        </syntax>
+      </parameter>
+    </object>
+    <object name="A.{i}.B.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+      <description>
+        command: {{command|##}} and object: {{object}} + {{object|##}}.
+      </description>
+    </object>
+    <object name="A.{i}.B.{i}.C.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+      <description>
+        command: {{command|###}} and object: {{object}} + {{object|###}}.
+      </description>
+    </object>
+    <object name="A.{i}.B.{i}.C.{i}.D.{i}." access="readOnly" minEntries="0" maxEntries="unbounded">
+      <description>
+        command: {{command|####}} and object: {{object}} + {{object|####}}.
+      </description>
+    </object>
+  </component>
+
+  <model name="Nested:1.0">
+    <object name="Root." access="readOnly"  minEntries="1" maxEntries="1">
+      <description>
+        command: {{command|.}} and object: {{object}} + {{object}}.
+      </description>
+      <command name="Command()">
+        <description>
+          command: {{command}} and object: {{object}} + {{object}}.
+        </description>
+        <output>
+          <component ref="Args"/>
+        </output>
+      </command>
+    </object>
+    <object name="Root.Object." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        command: {{command|.}} and object: {{object}} + {{object}}.
+      </description>
+      <component ref="Args"/>
+    </object>
+  </model>
+</dm:document>

@@ -1,0 +1,13 @@
+(E) Root.: reference to invalid command Root.
+(E) Root.Command().A.{i}.: reference to invalid object Root.Command().
+(E) Root.Command().A.{i}.AP: reference to invalid object Root.Command().
+(E) Root.Command().A.{i}.B.{i}.: reference to invalid object Root.Command().
+(E) Root.Command().A.{i}.B.{i}.C.{i}.: reference to invalid object Root.Command().
+(E) Root.Command().A.{i}.B.{i}.C.{i}.D.{i}.: reference to invalid object Root.Command().
+(E) Root.Object.: reference to invalid command Root.Object.
+(E) Root.Object.P: reference to invalid command Root.Object.
+(E) Root.Object.A.{i}.: reference to invalid command Root.Object.
+(E) Root.Object.A.{i}.AP: reference to invalid command Root.Object.
+(E) Root.Object.A.{i}.B.{i}.: reference to invalid command Root.Object.
+(E) Root.Object.A.{i}.B.{i}.C.{i}.: reference to invalid command Root.Object.
+(E) Root.Object.A.{i}.B.{i}.C.{i}.D.{i}.: reference to invalid command Root.Object.
