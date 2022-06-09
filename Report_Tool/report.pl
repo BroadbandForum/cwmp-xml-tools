@@ -8133,6 +8133,9 @@ sub html_create_anchor
     # form the anchor reference (as a service to the caller)
     my $aref = html_anchor_reference_text($aname, $alabel, $dontref);
 
+    # save node status (if available)
+    my $stat = $node ? $node->{status} : undef;
+
     # special case: for anchors of type path, define an additional anchor
     # which (for multi-instance objects) will be the table name, e.g. for
     # A.B.{i}., also define A.B
@@ -8150,7 +8153,7 @@ sub html_create_anchor
 
     # only save new entries
     my $hash = {name => $aname, label => $label, def => $adef, ref => $aref,
-                dontref => $dontref};
+                dontref => $dontref, stat => $stat};
     $anchors->{$aname} = $hash unless defined $anchors->{$aname};
 
     # but always return the latest hash (this allows a later call for a given
@@ -8419,7 +8422,8 @@ sub html_toc_entry
         my $level_ = $$html_toc_current->{level} + 1;
         my $node = {level => $level_, parent => $$html_toc_current,
                     children => [], label => qq{auto-level-$level_},
-                    name => '', ref => '', show => undef, sort => undef};
+                    name => '', ref => '', stat => '', show => undef,
+                    sort => undef};
         push @{$$html_toc_current->{children}}, $node;
         $html_toc_current = \$node;
     }
@@ -8433,7 +8437,8 @@ sub html_toc_entry
     if (!$node) {
         $node = {level => $level, parent => $$html_toc_current, children => [],
                  label => $anchor->{label}, name => $anchor->{name},
-                 ref => $anchor->{ref}, show => undef, sort => undef};
+                 ref => $anchor->{ref}, stat => $anchor->{stat},
+                 show => undef, sort => undef};
         push @{$$html_toc_current->{children}}, $node;
     }
 
@@ -8461,6 +8466,7 @@ sub html_toc_output
     my $label = $node->{label};
     my $name = $node->{name};
     my $ref = $node->{ref};
+    my $stat = $node->{stat};
     my $show = $node->{show};
     my $sort = $node->{sort};
 
@@ -8488,8 +8494,11 @@ sub html_toc_output
     # add a 'T.' anchor so can link back to this ToC entry
     $name = qq{<a name="T.$name"></a>} if $name;
 
+    # stat is node status; if not 'current', append '[DEPRECATED]' etc.
+    $stat = $stat && $stat ne 'current' ? qq{ [} . uc($stat) . qq{]} : qq{};
+
     print "$indent<$outer$outer_attrs>";
-    print "<span$item_attrs>$name$ref</span>" if $ref;
+    print "<span$item_attrs>$name$ref$stat</span>" if $ref;
     if (@$children) {
         print "\n$indent  <ul$list_attrs>$comment\n";
         foreach my $child (@$children) {
@@ -9529,8 +9538,7 @@ END
             if (!$html_profile_active) {
                 my $inform_and = $altnotifreqstyle ? '' : 'Inform and ';
                 my $infreq = $inform_and . 'Notification Requirements';
-                my $anchor = html_toc_entry(2, $infreq, 'heading',
-                                            {node => $node});
+                my $anchor = html_toc_entry(2, $infreq, 'heading');
                 $html_buffer .= <<END;
       </tbody>
     </table> <!-- Data Model Definition -->
@@ -9572,9 +9580,8 @@ END
                                      grep {$_->{activeNotify} eq 'canDeny'}
                                      @$html_parameters);
                 my $panchor = html_toc_entry(2, 'Profile Definitions',
-                                             'heading', {node => $node});
-                my $nanchor = html_toc_entry(3, 'Notation',
-                                             'heading', {node => $node});
+                                             'heading');
+                my $nanchor = html_toc_entry(3, 'Notation', 'heading');
                 $html_buffer .= <<END;
     <h2>$panchor->{def}</h2>
     <h3>$nanchor->{def}</h3>
@@ -9623,9 +9630,7 @@ END
             # XXX this avoids trying to report the dummy profile that was
             #     mentioned above (use $oname because $name has been escaped)
             return unless $oname;
-            my $stat = $node->{status} ne 'current' ?
-                qq{ [} . uc($node->{status}) . qq{]} : qq{};
-            my $anchor = html_toc_entry(3, qq{$name Profile$stat}, 'heading',
+            my $anchor = html_toc_entry(3, qq{$name Profile}, 'heading',
                                         {node => $node});
             my $panchor = html_create_anchor($node, 'profile');
             my $span1 = $trclass ? qq{<span$trclass>} : qq{};
@@ -9822,10 +9827,9 @@ sub html_param_table
 
     my $class = $hash->{class};
     my $sepobj = $hash->{sepobj};
-    my $node = $hash->{node};
 
     $class = $class ? qq{ class="$class"} : qq{};
-    my $anchor = html_toc_entry(3, $title, 'heading', {node => $node});
+    my $anchor = html_toc_entry(3, $title, 'heading');
     my $html_buffer = <<END;
     <h3>$anchor->{def}</h3>
     <table$class> <!-- $title -->
