@@ -5915,6 +5915,9 @@ sub parse_file
     # validate file if requested
     return $toplevel unless $loglevel >= $LOGLEVEL_WARNING;
 
+    # note whether XSD v1.1 is used
+    my $xsd11 = 0;
+
     # use schemaLocation to build schema referencing the same schemas that
     # the file references
     # XXX this isn't perfect because it requires ALL schemas to be referenced
@@ -5930,6 +5933,12 @@ sub parse_file
     my %nsmap = split /\s+/, $schemaLocation;
     foreach my $ns (keys %nsmap) {
         my $path = $nsmap{$ns};
+
+        # XSD v1.1 was introduced in cwmp-datamodel-1-10 / cwmp-devicetype-1-7
+        my ($dmmaj, $dmmin) = $ns =~ /cwmp:datamodel-(\d+)-(\d+)$/;
+        my ($dtmaj, $dtmin) = $ns =~ /cwmp:devicetype-(\d+)-(\d+)$/;
+        $xsd11 = 1 if $dmmaj && $dmmin && ($dmmaj > 1 || $dmmin >= 10);
+        $xsd11 = 1 if $dtmaj && $dtmin && ($dtmaj > 1 || $dtmin >= 7);
 
         # if there are no XML catalogs and path is an http(s) URL, retain only
         # the filename part (so can search for it)
@@ -5965,6 +5974,12 @@ sub parse_file
     }
 
     $schemas .= qq{</xs:schema>\n};
+
+    # XXX libxml2 can only validate against XSD v1.0
+    if ($xsd11) {
+        w0msg "can't validate $tfile (uses XSD v1.1)";
+        return $toplevel;
+    }
 
     my $schema;
     eval { $schema = XML::LibXML::Schema->new(string => $schemas) };
