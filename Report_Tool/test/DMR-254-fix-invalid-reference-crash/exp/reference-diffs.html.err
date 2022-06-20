@@ -1,0 +1,5 @@
+(W) can't validate ./reference.xml (uses XSD v1.1)
+(E) Root.: #.Fred has too many # characters
+(E) Root.P1: reference to invalid parameter Fred
+(E) Root.: ##.Fred has too many # characters
+(E) Root.P2: reference to invalid parameter Fred

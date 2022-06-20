@@ -12366,7 +12366,7 @@ sub html_template_div_span_helper
 #     left unchanged)
 sub relative_path
 {
-    my ($parent, $name, $scope) = @_;
+    my ($parent, $name, $scope, $quiet) = @_;
 
     $parent = '' unless $parent;
     $scope = 'normal' unless $scope;
@@ -12408,12 +12408,13 @@ sub relative_path
             $parent =~ s/\.\{/\{/g;
             #emsg "$parent $name $nlev" if $nlev;
             my @comps = split /$sepp/, $parent;
+            $nlev = @comps if $nlev > @comps;
             splice @comps, -$nlev;
             $parent = join $sep, @comps;
             $parent =~ s/\{/\.\{/g;
             $parent .= '.' if $parent;
             emsg "$tparent: $name has too many $par characters"
-                unless $parent;
+                unless $parent or $quiet;
             $name =~ s/^$parp*\.?//;
             # if name is empty, will use final component of parent
             $name2 = $comps[-1] || '';
@@ -12458,7 +12459,7 @@ sub relative_path_helper
 
     # try the modified name
     # XXX should check it really is modified
-    my ($tpath, $tname) = relative_path($object, $oname, $scope);
+    my ($tpath, $tname) = relative_path($object, $oname, $scope, 1);
     my $tfpath = $mpref . $tpath;
     if (util_is_defined($parameters, $tfpath)) {
         return ($tpath, inout_restore($tname, $inout), $tfpath, 1);
@@ -12469,7 +12470,7 @@ sub relative_path_helper
     # - Fred! is an event, so {{event|Fred!}} would be correct
     foreach my $suffix ((qq{()}, qq{!})) {
         my $toname = qq{$oname$suffix};
-        my ($tpath, $tname) = relative_path($object, $toname, $scope);
+        my ($tpath, $tname) = relative_path($object, $toname, $scope, 1);
         my $tfpath = $mpref . $tpath;
         if (util_is_defined($parameters, $tfpath)) {
             return ($tpath, inout_restore($tname, $inout), $tfpath, 1);
@@ -12479,7 +12480,7 @@ sub relative_path_helper
     # if failed to find peer parameter, look for argument child
     # "param" is the command/event, so we treat it as an object
     my $tobject = qq{$object$param.};
-    ($tpath, $tname) = relative_path($tobject, $oname, $scope);
+    ($tpath, $tname) = relative_path($tobject, $oname, $scope, 1);
     $tfpath = $mpref . $tpath;
     if (util_is_defined($parameters, $tfpath)) {
         return ($tpath, inout_restore($tname, $inout), $tfpath, 1);
