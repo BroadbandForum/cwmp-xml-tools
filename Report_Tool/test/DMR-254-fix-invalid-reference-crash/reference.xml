@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-10"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-10
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-10.xsd"
+             spec="urn:example-com:reference" file="reference.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="Reference:1.0">
+    <object name="Root." access="readOnly" minEntries="1" maxEntries="1">
+      <description>
+        {{object}}.
+      </description>
+      <parameter name="P1" access="readOnly">
+        <description>
+          Invalid {{param|#.Fred}} reference (this is caught).
+        </description>
+        <syntax>
+          <string/>
+        </syntax>
+      </parameter>
+      <parameter name="P2" access="readOnly">
+        <description>
+          Invalid {{param|##.Fred}} reference (this isn't caught).
+        </description>
+        <syntax>
+          <string/>
+        </syntax>
+      </parameter>
+    </object>
+  </model>
+</dm:document>
