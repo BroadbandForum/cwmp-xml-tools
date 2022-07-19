@@ -6138,6 +6138,11 @@ sub find_file
         $ffile = qq{$name-$i-$a$c$label.xml};
     }
 
+    # XXX I really don't know why this problem has just arisen but, 3 years
+    #     after the above htmlbbf-specific change, the htmlbbf report has
+    #     suddenly started to fail to find files such as tr-069-biblio.xml
+    $fdir = $predir if !$fdir && -r File::Spec->catfile($predir, $ffile);
+
     # form full path and convert to relative path
     # XXX planned on using this in place of "$file" but this is too many
     #     changes for now...
