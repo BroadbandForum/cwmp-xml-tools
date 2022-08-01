@@ -300,6 +300,7 @@ our $noparameters = 0;
 our $noprofiles = 0;
 our $noshowreadonly = 0;
 our $notemplates = 0;
+our $novalidate = 0;
 our $nowarnbibref = 0;
 our $nowarnenableparameter = 0;
 our $nowarnnumentries = 0;
@@ -407,6 +408,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'noprofiles' => \$noprofiles,
            'noshowreadonly' => \$noshowreadonly,
            'notemplates' => \$notemplates,
+           'novalidate' => \$novalidate,
            'nowarnbibref' => \$nowarnbibref,
            'nowarnenableparameter' => \$nowarnenableparameter,
            'nowarnnumentries' => \$nowarnnumentries,
@@ -769,6 +771,7 @@ unless ($logoalt || $logoref || $logosrc) {
 our $first_comment = undef;
 our $allfiles = [];
 our $files2 = []; # like $files but has the same structure as $allfiles
+our $xsd11files = []; # XSD v1.1 files (full paths) for later validation
 our $specs = [];
 # XXX for DT, lfile and lspec should be last processed DM file
 #     (current workaround is to use same spec for DT and this DM)
@@ -1819,7 +1822,7 @@ sub expand_bibliography
                 # with the same spec are processed (which definitely isn't an
                 # error if $autobase is set)
                 msg "W", "$id: duplicate bibref: {$file}$name"
-                    if !$autobase && ($loglevel >= $LOGLEVEL_DEBUG ||
+                    if !$autobase && ($loglevel > $LOGLEVEL_DEBUG ||
                                       $warnbibref > 0);
             } elsif ($dupref->{name} ne $name) {
                 emsg "$id: ambiguous bibref: ".
@@ -1827,7 +1830,7 @@ sub expand_bibliography
             } else {
                 msg "W", "$id: duplicate bibref: " .
                     "{$dupref->{file}}$dupref->{name}, {$file}$name"
-                    if $loglevel >= $LOGLEVEL_DEBUG || $warnbibref > 0;
+                    if $loglevel > $LOGLEVEL_DEBUG || $warnbibref > 0;
             }
         }
 
@@ -1855,13 +1858,13 @@ sub expand_bibliography
         if ($hash->{organization} =~ /^(BBF|The\s+Broadband\s+Forum)$/i) {
             msg "W", "$id: $file: replaced organization ".
                 "\"$hash->{organization}\" with \"$bbf\""
-                if $warnbibref > 1 || $loglevel >= $LOGLEVEL_DEBUG;
+                if $warnbibref > 1 || $loglevel > $LOGLEVEL_DEBUG;
             $hash->{organization} = $bbf;
         }
         if ($hash->{category} =~ /^TR$/i) {
             msg "W", "$id: $file: replaced category ".
                 "\"$hash->{category}\" with \"$tr\""
-                if $warnbibref > 1 || $loglevel >= $LOGLEVEL_DEBUG;
+                if $warnbibref > 1 || $loglevel > $LOGLEVEL_DEBUG;
             $hash->{category} = $tr;
         }
 
@@ -1869,13 +1872,13 @@ sub expand_bibliography
         if ($id =~ /^TR/i && $name =~ /^TR/i &&
             $hash->{organization} eq $bbf && !$hash->{category}) {
             msg "W", "$id: $file: missing $bbf category (\"$tr\" assumed)"
-                if $warnbibref > 1 || $loglevel >= $LOGLEVEL_DEBUG;
+                if $warnbibref > 1 || $loglevel > $LOGLEVEL_DEBUG;
             $hash->{category} = $tr;
         }
         if ($id =~ /^RFC/i && $name =~ /^RFC/i &&
             $hash->{organization} eq 'IETF' && !$hash->{category}) {
              msg "W", "$id: $file: missing IETF category (\"RFC\" assumed)"
-                if $warnbibref > 1 || $loglevel >= $LOGLEVEL_DEBUG;
+                if $warnbibref > 1 || $loglevel > $LOGLEVEL_DEBUG;
             $hash->{category} = 'RFC';
         }
 
@@ -1895,7 +1898,7 @@ sub expand_bibliography
                 $trname =~ s/a0$/i1/;
                 msg "W", "$id: changed to \"$trname\" to match PDF " .
                     "filename conventions"
-                    if $warnbibref > 1 || $loglevel >= $LOGLEVEL_DEBUG;
+                    if $warnbibref > 1 || $loglevel > $LOGLEVEL_DEBUG;
             }
             $trname =~ s/i(\d+)/_Issue-$1/;
             $trname =~ s/a(\d+)/_Amendment-$1/;
@@ -1910,7 +1913,7 @@ sub expand_bibliography
         if ($hash->{organization} eq 'IETF' && $hash->{category} eq 'RFC') {
             if ($hash->{hyperlink}) {
                 msg "W", "$id: $file: replaced deprecated IETF RFC hyperlink"
-                    if $warnbibref > 1 || $loglevel >= $LOGLEVEL_DEBUG;
+                    if $warnbibref > 1 || $loglevel > $LOGLEVEL_DEBUG;
             }
             # XXX use id if it starts 'RFC' (case independently); if not, fall
             #     back on name (with whitespace removed)
@@ -2682,7 +2685,7 @@ sub expand_model_arguments
     # XXX this is simplified add_object() logic; is this sufficient?
     my $spec = $context->[0]->{spec};
     msg "D", "add_$which name=$name spec=$spec"
-        if $loglevel >= $LOGLEVEL_DEBUG + 1 ||
+        if $loglevel > $LOGLEVEL_DEBUG ||
         ($debugpath && $path =~ /$debugpath/);
 
     my $nnode;
@@ -4058,7 +4061,7 @@ sub add_object
     $path .= '.' unless $path =~ /\.$/;
 
     msg "D", "add_object is_dt=$is_dt name=$name ref=$ref auto=$auto ".
-        "spec=$spec" if $loglevel >= $LOGLEVEL_DEBUG + 1 ||
+        "spec=$spec" if $loglevel > $LOGLEVEL_DEBUG ||
         ($debugpath && $path =~ /$debugpath/);
 
     # if ref, find the referenced object
@@ -4082,7 +4085,7 @@ sub add_object
         $nnode = $match[0];
         if (@match && !$autobase && !$nnode->{hidden}) {
             msg "W", "$path: object already defined (new one ignored)" if
-                $loglevel >= $LOGLEVEL_DEBUG || (!$nowarnredef && !$automodel);
+                $loglevel > $LOGLEVEL_DEBUG || (!$nowarnredef && !$automodel);
             return $nnode;
         }
         # XXX this puts the replacement object in the same place as the orig
@@ -4348,7 +4351,7 @@ sub add_parameter
     my $auto = 0;
 
     msg "D", "add_parameter is_dt=$is_dt, name=$name ref=$ref" if
-        $loglevel >= $LOGLEVEL_DEBUG + 1 ||
+        $loglevel > $LOGLEVEL_DEBUG ||
         ($debugpath && $path =~ /$debugpath/);
 
     # if ref, find the referenced parameter
@@ -4381,7 +4384,7 @@ sub add_parameter
         $nnode = $match[0];
         if (@match && !$autobase && !$nnode->{hidden}) {
             msg "W", "$path: parameter already defined (new one ignored)" if
-                $loglevel >= $LOGLEVEL_DEBUG || (!$nowarnredef && !$automodel);
+                $loglevel > $LOGLEVEL_DEBUG || (!$nowarnredef && !$automodel);
             return $nnode;
         }
         # XXX this puts the replacement object in the same place as the orig
@@ -5928,8 +5931,8 @@ sub parse_file
     # if no comment in first file, don't look in subsequent files
     $first_comment = '' if not defined $first_comment;
 
-    # validate file if requested
-    return $toplevel unless $loglevel >= $LOGLEVEL_WARNING;
+    # return now if file is not to be validated
+    return $toplevel if $novalidate || $loglevel < $LOGLEVEL_WARNING;
 
     # note whether XSD v1.1 is used
     my $xsd11 = 0;
@@ -5991,9 +5994,10 @@ sub parse_file
 
     $schemas .= qq{</xs:schema>\n};
 
-    # XXX libxml2 can only validate against XSD v1.0
+    # libxml2 can only validate against XSD v1.0, so use an external program
+    # to validate XSD v1.1 files (collect them for later validation)
     if ($xsd11) {
-        w0msg "can't validate $tfile (uses XSD v1.1)";
+        push @$xsd11files, $tfile unless grep { $_ eq $tfile } @$xsd11files;
         return $toplevel;
     }
 
@@ -16628,7 +16632,6 @@ sub sanity_node
         # all of the base profile's non-deprecated items
         my $base = $node->{base};
         if ($base && !$node->{baseprof}) {
-            d0msg "$type $name";
             my $levels = {notSpecified => 1,
                           present => 2, readOnly => 2,
                           create => 3, delete => 4,
@@ -16693,7 +16696,7 @@ sub profile_status
     $levels->{$level}->{$node->{path}} = $status_levels->{$status} if
         $levels && $path;
 
-    d0msg "  " x $indent . "$type $path level $level highest $highest " .
+    d1msg "  " x $indent . "$type $path level $level highest $highest " .
         "profver " . version_string($profver);
 
     # if it's a profile, expand its base and extends profiles
@@ -16749,7 +16752,7 @@ sub profile_items
     $items->{$path} = $access
         if $access ne 'notSpecified' && $status_levels->{$status} == 0;
 
-    d0msg "  " x $indent . "$type $path $status $access";
+    d1msg "  " x $indent . "$type $path $status $access";
 
     # if it's a profile, expand its base and extends profiles
     if ($type eq 'profile') {
@@ -17012,9 +17015,51 @@ foreach my $file (@ARGV) {
     expand_toplevel($file);
 }
 
+# Validate XSD v1.1 files; doing it here is an optimization: it's much faster
+# to validate them with a single invocation rather than an invocation per file
+# XXX note that this validator isn't the same as the python xmlschema package's
+#     xmlschema-validator; it's a separate script with the same user interface
+#     but improved performance and error reporting
+if (@$xsd11files) {
+    # try to run the validator (it has to be in the executable path)
+    my $files = join ' ', sort @$xsd11files;
+    my $incs = join ' ', map { "-I $_" } @$includes;
+    my $level = $loglevel >= $LOGLEVEL_DEBUG ? 2 :
+        $loglevel > $LOGLEVEL_WARNING ? 1 : 0;
+    my $command = qq{xmlschema-validate.py $incs -l $level $files};
+    d0msg "running $command";
+    my $output = qx{$command 2>&1};
+    if (!defined $output) {
+        emsg "failed to run $command; either fix the problem or else " .
+            "re-run the report tool with --novalidate";
+    } elsif ($output ne '') {
+        foreach my $line (split "\n", $output) {
+            # validator output is of the form 'SEV:validator-name:MSG'
+            my ($sev, $msg) = $line =~ /^(\w+):[\w-]+:(.*)/;
+            $sev = 'DEBUG' unless defined $sev;
+            $msg = $line unless defined $msg;
+            if ($sev eq 'ERROR') {
+                emsg "validation error: $msg";
+            } elsif ($sev eq 'WARNING') {
+                w0msg "validation warning: $msg";
+            } elsif ($sev eq 'INFO') {
+                # imsg isn't used, because the validator's INFO messages are
+                # analogous to report tool debug messages
+                d0msg $msg;
+            } else {
+                # XXX other messages should perhaps be output as warnings
+                #     in case they're tracebacks (but they're not warnings)
+                d0msg $msg;
+            }
+        }
+    }
+    d0msg "validated $files" unless $?;
+}
+
+# Perform sanity checks
 report_node($root, 0, {report => 'sanity'});
 
-# Report top-level nodes.
+# Report top-level nodes
 # XXX probably want to output fully expanded XML file of the same format as
 #     the input file (i.e. just object and parameter definitions)
 # XXX currently doesn't work for all report types (haven't updated them all for
@@ -17116,6 +17161,7 @@ B<report.pl>
 [--noprofiles]
 [--noshowreadonly]
 [--notemplates]
+[--novalidate]
 [--nowarnbibref]
 [--nowarnenableparameter]
 [--nowarnnumentries]
@@ -17540,7 +17586,13 @@ disables showing read-only enumeration and pattern values as B<READONLY>
 
 =item B<--notemplates>
 
-suppresses template expansion (currently affects only B<html> reports
+suppresses template expansion (currently affects only B<html> reports)
+
+=item B<--novalidate>
+
+don't validate XML files (especially useful to prevent validation of
+files that use XSD v1.1, because this uses an external program and is
+quite slow)
 
 =item B<--nowarnbibref>
 
