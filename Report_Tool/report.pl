@@ -2355,6 +2355,19 @@ sub dmr_noUniqueKeys
     return $noUniqueKeys;
 }
 
+# Get "no units template" from @dmr:noUnitsTemplate, if present
+sub dmr_noUnitsTemplate
+{
+    my ($element) = @_;
+
+    my $noUnitsTemplate = '';
+
+    my $dmr = $element->lookupNamespaceURI('dmr');
+    $noUnitsTemplate = $element->findvalue('@dmr:noUnitsTemplate') if $dmr;
+
+    return $noUnitsTemplate;
+}
+
 # Get "custom numEntries parameter" from @dmr:customNumEntriesParameter, if
 # present
 sub dmr_customNumEntriesParameter
@@ -2800,6 +2813,7 @@ sub expand_model_parameter
     my $defstat = $parameter->findvalue('syntax/default/@status');
 
     my $customNumEntriesParameter = dmr_customNumEntriesParameter($parameter);
+    my $noUnitsTemplate = dmr_noUnitsTemplate($parameter);
 
     # XXX this is incomplete name / ref handling
     # XXX WFL2 my $tname = $name ? $name : $ref;
@@ -3145,6 +3159,8 @@ sub expand_model_parameter
     # XXX these are slightly different (just take first definition seen)
     $nnode->{customNumEntriesParameter} = $customNumEntriesParameter unless
         $nnode->{customNumEntriesParameter};
+    $nnode->{noUnitsTemplate} = $noUnitsTemplate unless
+        $nnode->{noUnitsTemplate};
 
     # XXX hack the id
     $nnode->{id} = $id if $id;
@@ -7328,6 +7344,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         my $noDiscriminatorParameter = $node->{noDiscriminatorParameter};
         my $noUniqueKeys = $node->{noUniqueKeys};
         my $customNumEntriesParameter = $node->{customNumEntriesParameter};
+        my $noUnitsTemplate = $node->{noUnitsTemplate};
         my $syntax = $node->{syntax};
         my $version = $node->{version};
         my $extendsprofs = $node->{extendsprofs};
@@ -7521,6 +7538,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         $noDiscriminatorParameter = $noDiscriminatorParameter ? qq{ dmr:noDiscriminatorParameter="$noDiscriminatorParameter"} : qq{};
         $noUniqueKeys = $noUniqueKeys ? qq{ dmr:noUniqueKeys="$noUniqueKeys"} : qq{};
         $customNumEntriesParameter = $customNumEntriesParameter ? qq{ dmr:customNumEntriesParameter="$customNumEntriesParameter"} : qq{};
+        $noUnitsTemplate = $noUnitsTemplate ? qq{ dmr:noUnitsTemplate="$noUnitsTemplate"} : qq{};
 
         my $dchanged = util_node_is_modified($node) && $changed->{description};
         ($description, $descact) = get_description($description, $descact,
@@ -7539,7 +7557,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             qq{ async="true"} : qq{};
         $addParams .= qq{ mandatory="true"} if $node->{is_mandatory} && $command_or_event;
 
-        print qq{$i<$element$name$base$ref$isService$extends$addParams$access$mountType$numEntriesParameter$enableParameter$discriminatorParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version_string$fixedObject$noDiscriminatorParameter$noUniqueKeys$customNumEntriesParameter$end_element>\n};
+        print qq{$i<$element$name$base$ref$isService$extends$addParams$access$mountType$numEntriesParameter$enableParameter$discriminatorParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version_string$fixedObject$noDiscriminatorParameter$noUniqueKeys$customNumEntriesParameter$noUnitsTemplate$end_element>\n};
         $node->{xml2}->{element} = '' if $end_element;
         print qq{$i  <$descname>$description</$descname>\n} if $description;
         if ($uniqueKeys && !@$dtprofiles) {
@@ -16510,7 +16528,7 @@ sub sanity_node
         emsg "$path: $syntax->{reference} has enumerated values"
             if $syntax->{reference} && has_values($values);
 
-        if ($node->{units}) {
+        if ($node->{units} && !$node->{noUnitsTemplate}) {
             # get the full description so can check for the expected templates
             # XXX this logic is copied from html_node()
             # XXX don't do this unconditionally, for fear that it will slow
