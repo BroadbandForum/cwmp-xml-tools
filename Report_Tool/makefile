@@ -110,6 +110,9 @@ docker-push: docker-build
 	if [ -n "$(DOCKER-TAG-RELEASE)" ]; then docker image push $(DOCKER-IMAGE-RELEASE); fi
 	if [ -n "$(DOCKER-TAG-LATEST)" ]; then docker image push $(DOCKER-IMAGE-LATEST); fi
 
+docker-pull:
+	docker image pull $(DOCKER-IMAGE)
+
 docker-prune: docker-stop
 	docker container prune --filter "until=24h" --force
 	docker image prune --force

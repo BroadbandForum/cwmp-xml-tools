@@ -1,10 +1,9 @@
 # use the pandoc image as the starting point
 FROM broadbandforum/pandoc:latest
 
-# install packages and link report.pl to a default search path
+# install packages
 RUN apt-get update \
-            && apt-get --yes install cpanminus libxml2-dev git python3-pip zip \
-            && ln -s /opt/bbf/bin/report.pl /usr/local/bin/report.pl \
+            && apt-get --yes install cpanminus libxml2-dev git python3-pip zip\
             && apt-get clean
 
 # install necessary perl modules
@@ -18,15 +17,20 @@ RUN cpanm \
     URI::Escape \
     XML::LibXML
 
-# install necessary python modules (used for generating JUnit XML and for the
-# new report tool
+# install necessary python modules (used for validating XSD v1.1 XML,
+# generating JUnit XML, and for the new report tool)
 RUN pip3 install \
     junit_xml \
     pyxb \
+    xmlschema \
     xmltodict
-
-# copy report.pl to /opt/bbf/bin
-COPY report.pl /opt/bbf/bin/report.pl
 
 # copy plugins to /opt/bbf/plugins
 COPY plugins /opt/bbf/plugins
+
+# copy executables to /opt/bbf/bin
+COPY report.pl xmlschema-validate.py /opt/bbf/bin/
+
+# create soft links in /usr/local/bin
+RUN ln -s /opt/bbf/bin/report.pl /usr/local/bin \
+ && ln -s /opt/bbf/bin/xmlschema-validate.py /usr/local/bin
