@@ -16528,7 +16528,7 @@ sub sanity_node
         emsg "$path: $syntax->{reference} has enumerated values"
             if $syntax->{reference} && has_values($values);
 
-        if ($node->{units} && !$node->{noUnitsTemplate}) {
+        if ($node->{units} && !boolean($node->{noUnitsTemplate})) {
             # get the full description so can check for the expected templates
             # XXX this logic is copied from html_node()
             # XXX don't do this unconditionally, for fear that it will slow
