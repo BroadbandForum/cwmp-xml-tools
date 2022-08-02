@@ -17018,42 +17018,70 @@ foreach my $file (@ARGV) {
 # Validate XSD v1.1 files; doing it here is an optimization: it's much faster
 # to validate them with a single invocation rather than an invocation per file
 # XXX note that this validator isn't the same as the python xmlschema package's
-#     xmlschema-validator; it's a separate script with the same user interface
-#     but improved performance and error reporting
+#     xmlschema-validator; it's a separate script with a compatible (but
+#     extended) user interface, and improved performance and error reporting
 if (@$xsd11files) {
-    # try to run the validator (it has to be in the executable path)
-    my $files = join ' ', sort @$xsd11files;
-    my $incs = join ' ', map { "-I $_" } @$includes;
-    my $level = $loglevel >= $LOGLEVEL_DEBUG ? 2 :
-        $loglevel > $LOGLEVEL_WARNING ? 1 : 0;
-    my $command = qq{xmlschema-validate.py $incs -l $level $files};
-    d0msg "running $command";
-    my $output = qx{$command 2>&1};
-    if (!defined $output) {
-        emsg "failed to run $command; either fix the problem or else " .
-            "re-run the report tool with --novalidate";
-    } elsif ($output ne '') {
-        foreach my $line (split "\n", $output) {
-            # validator output is of the form 'SEV:validator-name:MSG'
-            my ($sev, $msg) = $line =~ /^(\w+):[\w-]+:(.*)/;
-            $sev = 'DEBUG' unless defined $sev;
-            $msg = $line unless defined $msg;
-            if ($sev eq 'ERROR') {
-                emsg "validation error: $msg";
-            } elsif ($sev eq 'WARNING') {
-                w0msg "validation warning: $msg";
-            } elsif ($sev eq 'INFO') {
-                # imsg isn't used, because the validator's INFO messages are
-                # analogous to report tool debug messages
-                d0msg $msg;
-            } else {
-                # XXX other messages should perhaps be output as warnings
-                #     in case they're tracebacks (but they're not warnings)
-                d0msg $msg;
-            }
+    # name of validator script
+    my $script = qq{xmlschema-validate.py};
+
+    # search for script in report tool directory and executable search path
+    my ($vol_ignore, $script_dir, $file_ignore) = File::Spec->splitpath($0);
+    my $dirs = [];
+    push @$dirs, $script_dir if $script_dir;
+    push @$dirs, File::Spec->path();
+    d0msg "searching for $script in " . join(', ', @$dirs);
+    my $validator_path = qq{};
+    foreach my $dir (@$dirs) {
+        my $path = File::Spec->catfile($dir, $script);
+        if (-x $path) {
+            d0msg "found $script in $dir";
+            $validator_path = $path;
+            last;
         }
     }
-    d0msg "validated $files" unless $?;
+
+    # if script not found, report and give up
+    my $advice = qq{either fix the problem or else re-run the report tool } .
+        qq{with --novalidate};
+    if (!$validator_path) {
+        emsg "failed to find $script in " . join(', ', @$dirs) . "; $advice";
+    }
+
+    # othrwise run it and report the results
+    else {
+        # XXX it might be better to list any command-line files first?
+        my $files = join ' ', sort @$xsd11files;
+        my $incs = join ' ', map { "-I $_" } @$includes;
+        my $level = $loglevel >= $LOGLEVEL_DEBUG ? 2 :
+            $loglevel > $LOGLEVEL_WARNING ? 1 : 0;
+        my $command = qq{$validator_path $incs -l $level $files};
+        d0msg "running $command";
+        my $output = qx{$command 2>&1};
+        if (!defined $output) {
+            emsg "failed to run $command; $advice";
+        } elsif ($output ne '') {
+            foreach my $line (split "\n", $output) {
+                # validator output is of the form 'SEV:validator-name:MSG'
+                my ($sev, $msg) = $line =~ /^(\w+):[\w-]+:(.*)/;
+                $sev = 'DEBUG' unless defined $sev;
+                $msg = $line unless defined $msg;
+                if ($sev eq 'ERROR') {
+                    emsg "validation error: $msg";
+                } elsif ($sev eq 'WARNING') {
+                    w0msg "validation warning: $msg";
+                } elsif ($sev eq 'INFO') {
+                    # imsg isn't used, because the validator's INFO messages
+                    # are analogous to report tool debug messages
+                    d0msg $msg;
+                } else {
+                    # XXX other messages should perhaps be output as warnings
+                    #     in case they're tracebacks (but they're not warnings)
+                    d0msg $msg;
+                }
+            }
+        }
+        d0msg "validated $files" unless $?;
+    }
 }
 
 # Perform sanity checks

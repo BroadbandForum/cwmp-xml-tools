@@ -183,7 +183,9 @@ def get_argparser():
 
     arg_parser.add_argument('-I', '--include', type=str, action='append',
                             default=default_include,
-                            help='search path for schemas and XML files; '
+                            help='search path for schemas and XML files ('
+                                 'the current directory and explicit file'
+                                 'directories are always searched); '
                                  'default: %r' % default_include)
     arg_parser.add_argument('-S', '--schema', type=str,
                             help='path or URL to XSD schema; default: '
@@ -241,6 +243,22 @@ def main(argv=None):
 
     # note whether or not we're using lxml
     logger.debug('%susing lxml' % ('' if using_lxml else 'not '))
+
+    # insert the current directory and any command-line file directories
+    # before the include path
+    # XXX could use os.path.realpath() or os.path.samefile() to check for
+    #     existing entries, but it doesn't really matter, because the worst
+    #     that can happen is that there will be duplicate entries
+    inserts = []
+    if os.path.curdir not in args.include:
+        inserts.append(os.path.curdir)
+    for file in args.file:
+        dirname = os.path.dirname(file)
+        if dirname != '' and dirname not in inserts + args.include:
+            inserts.append(dirname)
+    if inserts:
+        logger.info('inserted %s before includes' % inserts)
+        args.include[0:0] = inserts
 
     # convert location tuples to a dict
     args.location = {namespace: path for namespace, path in args.location}
