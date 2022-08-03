@@ -954,6 +954,15 @@ sub expand_toplevel
     $root->{spec} = $spec;
     push @$specs, $spec unless grep {$_ eq $spec} @$specs;
 
+    # check that spec (if it parses) includes corrigendum number
+    emsg "$file: spec $spec should include a corrigendum number" unless
+        spec_has_patch($spec);
+
+    # check that spec and file attributes match
+    my $fileattr = $toplevel->findvalue('@file');
+    emsg "$file: spec $spec and file $fileattr don't match" unless
+         spec_and_file_match($spec, $fileattr);
+
     # pick up description
     # XXX hmm... putting this stuff on root isn't right is it?
     $root->{description} = findvalue_text($toplevel, 'description');
@@ -2543,7 +2552,9 @@ sub version_compare
         return $first->{major} <=> $second->{major};
     } elsif ($first->{minor} != $second->{minor}) {
         return $first->{minor} <=> $second->{minor};
-    } elsif ($opts->{ignorepatch}) {
+    } elsif ($opts->{ignorepatch} ||
+        # XXX is it correct to allow undefined patch levels to compare equal?
+        !defined $first->{patch} || !defined $second->{patch}) {
         return 0;
     } else {
         return $first->{patch} <=> $second->{patch};
@@ -4777,7 +4788,7 @@ sub add_parameter
         #     have patch versions
         my $changed = {};
         if (%$values && version_compare($version, $mnode->{version},
-                                        {ignorepath => 1}) < 0) {
+                                        {ignorepatch => 1}) < 0) {
             foreach my $value (sort {$values->{$a}->{i} <=>
                                          $values->{$b}->{i}} keys %$values) {
                 my $cvalue = $values->{$value};
@@ -6260,6 +6271,47 @@ sub specs_match
         spec_parse($fspec);
     $fspec =~ s/-\d+\Q$label\E$/$label/ if defined $a && $c >= 0;
     return ($fspec eq $spec);
+}
+
+# Check whether spec (if it parses) has a defined patch level
+sub spec_has_patch
+{
+    my ($spec) = @_;
+
+    my $version = spec_version($spec);
+
+    # if it doesn't parse, give it the benefit of the doubt
+    return 1 unless defined $version;
+
+    # otherwise indicate whether it has a defined patch level
+    return defined $version->{patch};
+}
+
+# Check whether spec and file attributes match (this is intended for checking
+# whether a file's spec and file attributes are consistent with each other)
+sub spec_and_file_match
+{
+    my ($spec, $file) = @_;
+
+    # modify the args so they should both parse as specs
+    my $spec_mod = qq{$spec.xml};
+    my $file_mod = qq{urn:example-com:$file};
+
+    # parse them
+    my ($prefix1, $name1, $i1, $a1, $c1, $label1) = spec_parse($spec_mod);
+    my ($prefix2, $name2, $i2, $a2, $c2, $label2) = spec_parse($file_mod);
+
+    # if neither parses as specs, assume that this is a test file that follows
+    # no rules
+    return 1 unless defined $a1 || defined $a2;
+
+    # otherwise they must both parse as specs
+    return 0 unless defined $a1 && defined $a2;
+
+    # and name, i, a, c and label must match
+    return 0 unless $name1 eq $name2 && $i1 == $i2 && $a1 == $a2 && $c1 == $c2
+        && $label1 eq $label2;
+    return 1;
 }
 
 # Compare two specs, returning (like <=>) -1, 0, +1 if the first is older, the
@@ -16917,8 +16969,10 @@ sub spec_node
 # Primitive data types; this is a DM instance that's parsed from a string; the
 # type names begin with an underscore because they can't begin with a lower-
 # case letter (the underscore will be removed in the report)
-my $primitive_types_spec ="urn:broadband-forum-org:tr-106-1-0-primitive-types";
-my $primitive_types_file = "tr-106-1-0-primitive-types.xml";
+my $primitive_types_base = "tr-106-1-0-0-primitive-types";
+my $primitive_types_spec =
+    "urn:broadband-forum-org:$primitive_types_base";
+my $primitive_types_file = "$primitive_types_base.xml";
 my $primitive_types_xml = <<END;
 <?xml version="1.0" encoding="UTF-8"?>
 <dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-6"
