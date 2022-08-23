@@ -8605,78 +8605,61 @@ sub html_toc_output
 }
 
 # HTML ToC sidebar style
-# XXX this is copied from pandoc toc.css with changes noted (we don't need
-#     TOCFULL here, but it's left unchanged for ease of update)
+# XXX this is derived from pandoc toc.css
 my $html_toc_sidebar_style = <<'END';
-:root {
-    --toc-width: 12rem; /* change: 15rem -> 12rem */
-    --toc-padding-left-extra: 1rem;
-    --toc-padding-left: calc(var(--toc-width) +
-                             var(--toc-padding-left-extra));
-}
-
 @media screen and (min-width: 924px) {
     body {
-        padding-left: var(--toc-padding-left);
+        display: flex;
+        align-items: stretch;
     }
 
-    #TOCFULL::before, #TOC::before {
+    #main {
+        flex: 4 2 auto;
+        overflow: auto;
+    }
+
+    #TOC::before {
         content: "Table of Contents";
         font-weight: bold;
-        font-size: large; /* change: added */
+        font-size: large;
     }
 
-    #TOCFULL, #TOC {
-        position: fixed;
+    #TOC {
+        position: sticky;
+        flex: 1 0 auto;
         margin: 0 0;
         top: 0px;
         left: 0px;
-        width: var(--toc-width);
         height: 100vh;
         line-height: 1.4;
-        font-size: larger; /* change: smaller -> larger  */
+        resize: horizontal;
+        font-size: larger;
         overflow: auto;
-        overscroll-behavior: contain;
+        /* opacity: 1; */
         /* background-color: white; */
         border: 1px solid #73AD21;
     }
 
-    #TOCFULL ul, #TOC ul {
+    #TOC ul {
         margin: 0.35em 0;
         padding: 0 0 0 1em;
         list-style-type: none;
     }
 
-    #TOCFULL ul ul, #TOC ul ul {
+    #TOC ul ul {
         margin: 0.25em 0;
     }
 
-    #TOCFULL ul ul ul, #TOC ul ul ul {
+    #TOC ul ul ul {
         margin: 0.15em 0;
     }
 
-    #TOCFULL li p:last-child, #TOC li p:last-child {
+    #TOC li p:last-child {
         margin-bottom: 0;
-    }
-
-    #TOCFULL {
-        z-index: 2;
     }
 
     #TOC {
         z-index: 1;
-    }
-}
-
-@media screen and (max-width: 923px) {
-    #TOCFULL {
-        display: none;
-    }
-}
-
-@media not screen {
-    #TOCFULL {
-        display: none;
     }
 }
 END
@@ -9192,6 +9175,11 @@ $html_style_local
     </style>
   </head>
   <body>
+END
+
+        # ToC will be inserted at the start of the body
+        $html_buffer .= <<END;
+    <div id="main">
     <table class="full-width" type="vertical-align: middle;">
       <tr>
         <td width="25%" colspan="2">
@@ -9211,7 +9199,7 @@ $html_style_local
   $errors
 END
         if ($description) {
-            print <<END;
+            $html_buffer .= <<END;
     <h1>Summary</h1>
     $description
 END
@@ -9780,7 +9768,7 @@ END
                 $anchor = {def => $anchor_def, ref => 'ignore'};
             }
             html_toc_entry(2, $node, 'path',
-                           {split => 5, show => 0, sort => 0})
+                           {split => 0, show => 0, sort => 0})
                 if $object && !$command_or_event;
             $name = $anchor->{def} unless $nolinks;
             $type = 'command' if $is_command;
@@ -9905,6 +9893,7 @@ END
     <p>
     <hr>
     $generated_by
+    </div>
   </body>
 </html>
 END
