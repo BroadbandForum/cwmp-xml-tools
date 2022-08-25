@@ -8592,6 +8592,7 @@ sub html_toc_output
     $stat = $stat && $stat ne 'current' ? qq{ [} . uc($stat) . qq{]} : qq{};
 
     print "$indent<$outer$outer_attrs>";
+    $level == 0 && print "<h1>Table of Contents</h1>";
     print "<span$item_attrs>$name$ref$stat</span>" if $ref;
     if (@$children) {
         print "\n$indent  <ul$list_attrs>$comment\n";
@@ -8619,12 +8620,6 @@ my $html_toc_sidebar_style = <<'END';
         overflow: auto;
         order: 2;
         padding: 5px;
-    }
-
-    #TOC::before {
-        content: "Table of Contents";
-        font-weight: bold;
-        font-size: large;
     }
 
     #TOC {
