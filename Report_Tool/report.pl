@@ -8611,11 +8611,14 @@ my $html_toc_sidebar_style = <<'END';
     body {
         display: flex;
         align-items: stretch;
+        margin: 0px;
     }
 
     #main {
         flex: 4 2 auto;
         overflow: auto;
+        order: 2;
+        padding: 5px;
     }
 
     #TOC::before {
@@ -8626,6 +8629,7 @@ my $html_toc_sidebar_style = <<'END';
 
     #TOC {
         position: sticky;
+        order: 1;
         flex: 1 0 auto;
         margin: 0 0;
         top: 0px;
@@ -8637,7 +8641,8 @@ my $html_toc_sidebar_style = <<'END';
         overflow: auto;
         /* opacity: 1; */
         /* background-color: white; */
-        border: 1px solid #73AD21;
+        border-right: 1px solid #73AD21;
+        padding: 5px;
     }
 
     #TOC ul {
@@ -9894,11 +9899,14 @@ END
     <hr>
     $generated_by
     </div>
+END
+            print $html_buffer;
+            html_toc_output($html_toc_tree, '    ');
+
+            print <<END;
   </body>
 </html>
 END
-            html_toc_output($html_toc_tree, '    ');
-            print $html_buffer;
         }
     }
 }
