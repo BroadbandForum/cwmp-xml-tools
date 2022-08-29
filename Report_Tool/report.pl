@@ -113,7 +113,6 @@
 
 # XXX $upnpdm is a hack; need a more clear distinction between path syntax
 #     used internally and path syntax used for presentation
-
 # XXX $components is a hack (need full xml2 report support in order to carry
 #     over unique keys, references etc)
 
@@ -298,6 +297,7 @@ our $nomodels = 0;
 our $noobjects = 0;
 our $noparameters = 0;
 our $noprofiles = 0;
+our $nosecuredishidden = 0;
 our $noshowreadonly = 0;
 our $notemplates = 0;
 our $novalidate = 0;
@@ -350,6 +350,7 @@ my $usp_options = {
     clampversion => {ref => \$clampversion, value => '2.12'},
     ignoreenableparameter => {ref => \$ignoreenableparameter},
     immutablenonfunctionalkeys => {ref => \$immutablenonfunctionalkeys},
+    nosecuredishidden => {ref => \$nosecuredishidden},
     markmounttype => {ref => \$markmounttype},
     valuessuppliedoncreate => {ref => \$valuessuppliedoncreate}
 };
@@ -406,6 +407,7 @@ GetOptions('allbibrefs' => \$allbibrefs,
            'noobjects' => \$noobjects,
            'noparameters' => \$noparameters,
            'noprofiles' => \$noprofiles,
+           'nosecuredishidden' => \$nosecuredishidden,
            'noshowreadonly' => \$noshowreadonly,
            'notemplates' => \$notemplates,
            'novalidate' => \$novalidate,
@@ -10573,13 +10575,23 @@ sub html_template
           text0 => q{}},
          {name => 'secured',
           text0 => q{{{marktemplate|secured}}}.
-              q{When read, this parameter returns {{null}}, }.
-              q{regardless of the actual value, unless the Controller has } .
-              q{a "secured" role.},
-          text1 => q{{{marktemplate|secured}}}.
-              q{When read, this parameter returns ''$a[0]'', }.
-              q{regardless of the actual value, unless the Controller has } .
-              q{a "secured" role.}},
+              $nosecuredishidden ? (
+                  q{When read, this parameter returns {{null}}, }.
+                  q{regardless of the actual value, unless the Controller }.
+                  q{has a "secured" role.})
+              : (
+                  q{When read, this parameter returns {{null}}, }.
+                  q{regardless of the actual value.}
+              ),
+          text1 => q{{{marktemplate|secured}}} .
+              $nosecuredishidden ? (
+                  q{When read, this parameter returns ''$a[0]'', }.
+                  q{regardless of the actual value, unless the Controller }.
+                  q{has a "secured" role.})
+              : (
+                  q{When read, this parameter returns ''$a[0]'', }.
+                  q{regardless of the actual value.}
+              )},
          {name => 'nosecured',
           text0 => q{}},
          # XXX async used to include p->{notify} but this is being removed
@@ -17233,6 +17245,7 @@ B<report.pl>
 [--noobjects]
 [--noparameters]
 [--noprofiles]
+[--nosecuredishidden]
 [--noshowreadonly]
 [--notemplates]
 [--novalidate]
@@ -17654,6 +17667,12 @@ B<NOT YET IMPLEMENTED>
 
 specifies that profile definitions should not be reported
 
+=item B<--nosecuredishidden>
+
+disables the default behavior of treating B<secured> parameters the same as B<hidden> parameters (only applicable for USP)
+
+note: this option is only applicable to USP; the B<--usp> option enables it automatically
+
 =item B<--noshowreadonly>
 
 disables showing read-only enumeration and pattern values as B<READONLY>
@@ -18049,6 +18068,8 @@ specifies that the file is intended for use with USP and automatically enables t
 =item * B<immutablenonfunctionalkeys>
 
 =item * B<markmounttype>
+
+=item * B<nosecuredishidden>
 
 =item * B<valuessuppliedoncreate>
 
