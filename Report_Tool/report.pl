@@ -10575,23 +10575,23 @@ sub html_template
           text0 => q{}},
          {name => 'secured',
           text0 => q{{{marktemplate|secured}}}.
-              $nosecuredishidden ? (
-                  q{When read, this parameter returns {{null}}, }.
-                  q{regardless of the actual value, unless the Controller }.
-                  q{has a "secured" role.})
-              : (
-                  q{When read, this parameter returns {{null}}, }.
-                  q{regardless of the actual value.}
-              ),
-          text1 => q{{{marktemplate|secured}}} .
-              $nosecuredishidden ? (
-                  q{When read, this parameter returns ''$a[0]'', }.
-                  q{regardless of the actual value, unless the Controller }.
-                  q{has a "secured" role.})
-              : (
-                  q{When read, this parameter returns ''$a[0]'', }.
-                  q{regardless of the actual value.}
-              )},
+              ($nosecuredishidden ? (
+                   q{When read, this parameter returns {{null}}, }.
+                   q{regardless of the actual value, unless the Controller }.
+                   q{has a "secured" role.})
+               : (
+                   q{When read, this parameter returns {{null}}, }.
+                   q{regardless of the actual value.}
+               )),
+          text1 => q{{{marktemplate|secured}}}.
+              ($nosecuredishidden ? (
+                   q{When read, this parameter returns ''$a[0]'', }.
+                   q{regardless of the actual value, unless the Controller }.
+                   q{has a "secured" role.})
+               : (
+                   q{When read, this parameter returns ''$a[0]'', }.
+                   q{regardless of the actual value.}
+               ))},
          {name => 'nosecured',
           text0 => q{}},
          # XXX async used to include p->{notify} but this is being removed
