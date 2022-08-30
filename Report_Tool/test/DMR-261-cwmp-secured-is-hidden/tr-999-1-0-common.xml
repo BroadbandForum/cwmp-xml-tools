@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-10"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-10
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-10.xsd
+             urn:broadband-forum-org:cwmp:datamodel-report-1-0
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+             spec="urn:example-com:tr-999-1-0-0" file="tr-999-1-0-0-common.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="Device:1.0">
+    <object name="Root." version="1.0">
+      <description>
+        {{object}}.
+      </description>
+      <parameter name="Secured">
+        <description>
+          {{param}}.
+        </description>
+        <syntax secured="true">
+          <string />
+        </syntax>
+      </parameter>
+     </object>
+  </model>
+</dm:document>

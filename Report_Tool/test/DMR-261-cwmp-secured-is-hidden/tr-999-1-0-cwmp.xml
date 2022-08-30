@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-10"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="urn:broadband-forum-org:cwmp:datamodel-1-10
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-10.xsd
+             urn:broadband-forum-org:cwmp:datamodel-report-1-0
+               https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+             spec="urn:example-com:tr-999-1-0-0-cwmp" file="tr-999-1-0-0-cwmp.xml">
+
+  <import file="tr-069-biblio.xml"/>
+
+  <import file="tr-999-1-0-common.xml" spec="urn:example-com:tr-999-1-0">
+    <model name="_Device:1.0" ref="Device:1.0"/>
+  </import>
+
+  <model name="Device:1.0" base="_Device:1.0"/>
+</dm:document>
