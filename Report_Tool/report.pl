@@ -6299,16 +6299,19 @@ sub spec_and_file_match
     my $spec_mod = qq{$spec.xml};
     my $file_mod = qq{urn:example-com:$file};
 
+    # further modify the file to ignore '-full'
+    $file_mod =~ s/-full\.xml$/.xml/;
+
     # parse them
     my ($prefix1, $name1, $i1, $a1, $c1, $label1) = spec_parse($spec_mod);
     my ($prefix2, $name2, $i2, $a2, $c2, $label2) = spec_parse($file_mod);
 
-    # if neither parses as specs, assume that this is a test file that follows
-    # no rules
-    return 1 unless defined $a1 || defined $a2;
+    # if the file doesn't parse as a spec, assume that this is a test file
+    # that follows no rules
+    return 1 unless defined $a2;
 
-    # otherwise they must both parse as specs
-    return 0 unless defined $a1 && defined $a2;
+    # otherwise the spec must parse as a spec
+    return 0 unless defined $a1;
 
     # and name, i, a, c and label must match
     return 0 unless $name1 eq $name2 && $i1 == $i2 && $a1 == $a2 && $c1 == $c2
