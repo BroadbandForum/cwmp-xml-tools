@@ -8235,21 +8235,6 @@ sub html_create_anchor
     # save node status (if available)
     my $stat = $node ? $node->{status} : undef;
 
-    # special case: for anchors of type path, define an additional anchor
-    # which (for multi-instance objects) will be the table name, e.g. for
-    # A.B.{i}., also define A.B
-    # XXX could also define A.B.{i} and A.B. but hasn't seemed necessary
-    if ($type eq 'path') {
-        my $path = $node->{path};
-        my $tpath = $path;
-        $tpath =~ s/(\.\{i\})?\.$//;
-        if ($tpath ne $path) {
-            my $fpath = util_full_path($node);
-            $fpath =~ s/(\.\{i\})?\.$//;
-            $adef = qq{<a name="$namespace_prefix$fpath"></a>$adef};
-        }
-    }
-
     # only save new entries
     my $hash = {name => $aname, label => $label, def => $adef, ref => $aref,
                 dontref => $dontref, stat => $stat};
