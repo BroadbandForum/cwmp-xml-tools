@@ -9746,11 +9746,11 @@ END
             $type = 'command' if $is_command;
             $type = 'arguments' if $is_arguments;
             $type = 'event' if $is_event;
-            $typetitle = qq{ title="command"} if $is_command;
-            $typetitle = qq{ title="event"} if $is_event;
+            $typetitle = "" if $is_command;
+            $typetitle = "" if $is_event;
             # XXX would like syntax to be a link when it's a named data type
             my $tspecs = $specs;
-            my $typecell = $showsyntax ? "<td>$syntax</td>" : "<td$tdclasstyp$typetitle>$type</td>";
+            my $typecell = $showsyntax ? "<td>$syntax</td>" : ($syntax eq $type) ? "<td$tdclasstyp>$type</td>" : "<td$tdclasstyp$typetitle>$type</td>";
             $tspecs =~ s/ /<br>/g;
             my $versioncell = $showspec ? "<td>$tspecs</td>" : "<td$versiontitle>$version</td>";
             if ($need_showable_class ||
