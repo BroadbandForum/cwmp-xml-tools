@@ -9094,39 +9094,17 @@ sub html_node
     text-align: center;
 }
 
-/* center columns 4 (Write), 6 (Object Default), 7 (Version), 8 (Spec) */
-.data-model-table th:nth-child(4),
-.data-model-table td:nth-child(4),
+/* center columns 3 (Write), 5 (Object Default), 6 (Version) */
+.data-model-table th:nth-child(3),
+.data-model-table td:nth-child(3),
+.data-model-table th:nth-child(5),
+.data-model-table td:nth-child(5),
 .data-model-table th:nth-child(6),
-.data-model-table td:nth-child(6),
-.data-model-table th:nth-child(7),
-.data-model-table td:nth-child(7),
-.data-model-table th:nth-child(8),
-.data-model-table td:nth-child(8) {
+.data-model-table td:nth-child(6)
+{
     text-align: center;
 }
 
-END
-
-        # also:
-        #   --showsyntax controls whether Syntax is displayed
-        #   --showspec controls whether Version or Spec is displayed
-        $html_style_local .= <<END unless $showsyntax;
-/* hide column 3 (Syntax) */
-.data-model-table th:nth-child(3),
-.data-model-table td:nth-child(3) {
-    display: none;
-}
-
-END
-        my $hide_col_num = $showspec ? 7 : 8;
-        my $hide_col_nam = $showspec ? 'Version' : 'Spec';
-        $html_style_local .= <<END;
-/* hide column ($hide_col_num) ($hide_col_nam) */
-.data-model-table th:nth-child($hide_col_num),
-.data-model-table td:nth-child($hide_col_num) {
-    display: none;
-}
 END
 
         # start outputting the HTML
@@ -9572,6 +9550,8 @@ END
             my $title = qq{$name Data Model};
             $title .= qq{ (changes)} if $lastonly;
             my $anchor = html_toc_entry(1, $title, 'heading', {show => 1});
+            my $typetitle = $showsyntax ? 'Syntax' : 'Type';
+            my $versiontitle = $showspec ? 'Spec' : 'Version';
             my $boiler_plate = '';
             $boiler_plate = <<END if $node->{version}->{minor};
 For a given implementation of this data model, the Agent MUST indicate
@@ -9588,13 +9568,11 @@ $description<p>$boiler_plate
 <thead>
 <tr$trclass>
 <th width="10%">Name</th>
-<th width="10%">Type</th>
-<th>Syntax</th>
+<th width="10%">$typetitle</th>
 <th width="10%">Write</th>
 <th width="50%">Description</th>
 <th width="10%">Object Default</th>
-<th width="10%">Version</th>
-<th width="10%">Spec</th>
+<th width="10%">$versiontitle</th>
 </tr>
 </thead>
 <tbody>
@@ -9772,7 +9750,9 @@ END
             $typetitle = qq{ title="event"} if $is_event;
             # XXX would like syntax to be a link when it's a named data type
             my $tspecs = $specs;
+            my $typecell = $showsyntax ? "<td>$syntax</td>" : "<td$tdclasstyp$typetitle>$type</td>";
             $tspecs =~ s/ /<br>/g;
+            my $versioncell = $showspec ? "<td>$tspecs</td>" : "<td$versiontitle>$version</td>";
             if ($need_showable_class ||
                 ($html_showable_active && !$need_hide_class)) {
                 my $tbclass = $need_showable_class ? qq{ class="showable"} :
@@ -9786,13 +9766,11 @@ END
             $html_buffer .= <<END;
 <tr$trclass>
 <td title="$path">$name</td>
-<td$tdclasstyp$typetitle>$type</td>
-<td$tdclasstyp>$syntax</td>
+$typecell
 <td$tdclasswrt>$write</td>
 <td>$description</td>
 <td$tdclassdef>$default</td>
-<td$versiontitle>$version</td>
-<td>$tspecs</td>
+$versioncell
 </tr>
 END
         } else {
