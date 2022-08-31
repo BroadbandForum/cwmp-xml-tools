@@ -8947,6 +8947,9 @@ sub html_node
     #     profiles (so could use templates in descriptions)
     my $factory = ($node->{deftype} && $node->{deftype} eq 'factory') ?
         html_escape(util_default($node->{default}, {more => 1})) : undef;
+    my $impldef = ($node->{deftype} &&
+                   $node->{deftype} eq 'implementation') ?
+        html_escape(util_default($node->{default}, {more => 1})) : undef;
 
     # determine which classes need to be added for deprecated/obsoleted/deleted
     # expand/collapse logic (need to do this before escaping the description)
@@ -9018,6 +9021,7 @@ sub html_node
                      notify => $node->{notify},
                      is_mandatory => $is_mandatory,
                      factory => $factory,
+                     impldef => $impldef,
                      reference => $node->{syntax}->{reference},
                      uniqueKeys => $node->{uniqueKeys},
                      uniqueKeyDefs => $node->{uniqueKeyDefs},
@@ -10434,7 +10438,7 @@ sub html_template
     }
 
     # similarly auto-append {{hidden}}, {{secured}}, {{command}}, {{factory}},
-    # {{mount}}, {{entries}} and {{keys}} if appropriate
+    # {{impldef}}, {{mount}}, {{entries}} and {{keys}} if appropriate
     if ($p->{hidden} && $tinval !~ /\{\{hidden/ &&
         $tinval !~ /\{\{nohidden\}\}/) {
         my $sep = !$tinval ? "" : "\n";
@@ -10458,6 +10462,12 @@ sub html_template
         my $sep = !$tinval ? "" : "\n";
         $sep = "  " if !$sep && $inval;
         $inval .= $sep . "{{factory}}";
+    }
+    if (defined($p->{impldef}) && $tinval !~ /\{\{impldef/ &&
+        $tinval !~ /\{\{noimpldef\}\}/) {
+        my $sep = !$tinval ? "" : "\n";
+        $sep = "  " if !$sep && $inval;
+        $inval .= $sep . "{{impldef}}";
     }
     if ($p->{mountType} &&
         $tinval !~ /\{\{mount/ && $tinval !~ /\{\{nomount\}\}/) {
@@ -10608,6 +10618,10 @@ sub html_template
           text0 => q{{{marktemplate|factory}}}.
               q{The factory default value MUST be ''$p->{factory}''.}},
          {name => 'nofactory', text0 => q{}},
+         {name => 'impldef',
+          text0 => q{{{marktemplate|impldef}}}.
+              q{The default value SHOULD be ''$p->{impldef}''.}},
+         {name => 'noimpldef', text0 => q{}},
          {name => 'null',
           text0 => \&html_template_null,
           text1 => \&html_template_null,
