@@ -1930,7 +1930,7 @@ sub expand_bibliography
             #     back on name (with whitespace removed)
             my $hname = ($id =~ /rfc/i) ? lc($id) : lc($name);
             $hname =~ s/\s//g;
-            my $h = qq{https://tools.ietf.org/html/};
+            my $h = qq{https://www.rfc-editor.org/rfc/};
             $h .= $hname;
             $hash->{hyperlink} = $h;
         }
