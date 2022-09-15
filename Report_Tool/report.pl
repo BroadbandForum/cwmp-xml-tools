@@ -8235,21 +8235,6 @@ sub html_create_anchor
     # save node status (if available)
     my $stat = $node ? $node->{status} : undef;
 
-    # special case: for anchors of type path, define an additional anchor
-    # which (for multi-instance objects) will be the table name, e.g. for
-    # A.B.{i}., also define A.B
-    # XXX could also define A.B.{i} and A.B. but hasn't seemed necessary
-    if ($type eq 'path') {
-        my $path = $node->{path};
-        my $tpath = $path;
-        $tpath =~ s/(\.\{i\})?\.$//;
-        if ($tpath ne $path) {
-            my $fpath = util_full_path($node);
-            $fpath =~ s/(\.\{i\})?\.$//;
-            $adef = qq{<a name="$namespace_prefix$fpath"></a>$adef};
-        }
-    }
-
     # only save new entries
     my $hash = {name => $aname, label => $label, def => $adef, ref => $aref,
                 dontref => $dontref, stat => $stat};
@@ -8559,7 +8544,7 @@ sub html_toc_entry
 sub html_toc_output
 {
     my ($node, $indent) = @_;
-    $indent = $indent || '';
+    $indent = '';
 
     my $level = $node->{level};
     my $label = $node->{label};
@@ -8600,11 +8585,11 @@ sub html_toc_output
     $level == 0 && print "<h1>Table of Contents</h1>";
     print "<span$item_attrs>$name$ref$stat</span>" if $ref;
     if (@$children) {
-        print "\n$indent  <ul$list_attrs>$comment\n";
+        print "\n$indent<ul$list_attrs>$comment\n";
         foreach my $child (@$children) {
             html_toc_output($child, $indent . '    ');
         }
-        print "$indent  </ul>$comment\n";
+        print "$indent</ul>$comment\n";
         print "$indent";
     }
     print "</$outer>\n";
@@ -8614,58 +8599,58 @@ sub html_toc_output
 # XXX this is derived from pandoc toc.css
 my $html_toc_sidebar_style = <<'END';
 @media screen and (min-width: 924px) {
-    body {
-        display: flex;
-        align-items: stretch;
-        margin: 0px;
-    }
+body {
+display: flex;
+align-items: stretch;
+margin: 0px;
+}
 
-    #main {
-        flex: 4 2 auto;
-        overflow: auto;
-        order: 2;
-        padding: 5px;
-    }
+#main {
+flex: 4 2 auto;
+overflow: auto;
+order: 2;
+padding: 5px;
+}
 
-    #TOC {
-        position: sticky;
-        order: 1;
-        flex: 1 0 auto;
-        margin: 0 0;
-        top: 0px;
-        left: 0px;
-        height: 100vh;
-        line-height: 1.4;
-        resize: horizontal;
-        font-size: larger;
-        overflow: auto;
-        /* opacity: 1; */
-        /* background-color: white; */
-        border-right: 1px solid #73AD21;
-        padding: 5px;
-    }
+#TOC {
+position: sticky;
+order: 1;
+flex: 1 0 auto;
+margin: 0 0;
+top: 0px;
+left: 0px;
+height: 100vh;
+line-height: 1.4;
+resize: horizontal;
+font-size: larger;
+overflow: auto;
+/* opacity: 1; */
+/* background-color: white; */
+border-right: 1px solid #73AD21;
+padding: 5px;
+}
 
-    #TOC ul {
-        margin: 0.35em 0;
-        padding: 0 0 0 1em;
-        list-style-type: none;
-    }
+#TOC ul {
+margin: 0.35em 0;
+padding: 0 0 0 1em;
+list-style-type: none;
+}
 
-    #TOC ul ul {
-        margin: 0.25em 0;
-    }
+#TOC ul ul {
+margin: 0.25em 0;
+}
 
-    #TOC ul ul ul {
-        margin: 0.15em 0;
-    }
+#TOC ul ul ul {
+margin: 0.15em 0;
+}
 
-    #TOC li p:last-child {
-        margin-bottom: 0;
-    }
+#TOC li p:last-child {
+margin-bottom: 0;
+}
 
-    #TOC {
-        z-index: 1;
-    }
+#TOC {
+z-index: 1;
+}
 }
 END
 
@@ -8686,30 +8671,30 @@ END
 # HTML ToC expand/collapse style.
 my $html_toc_expand_style .= <<'END';
 nav ul {
-    margin: 0.35em 0;
-    padding: 0 0 0 1em;
-    list-style-type: none;
+margin: 0.35em 0;
+padding: 0 0 0 1em;
+list-style-type: none;
 }
 
 .expandable {
-    cursor: pointer;
-    user-select: none;
-    display: list-item;
-    /* Circled Plus + non-breakable space */
-    list-style-type: "\2295\A0";
+cursor: pointer;
+user-select: none;
+display: list-item;
+/* Circled Plus + non-breakable space */
+list-style-type: "\2295\A0";
 }
 
 .collapsible {
-    /* Circled Minus + non-breakable space */
-    list-style-type: "\2296\A0";
+/* Circled Minus + non-breakable space */
+list-style-type: "\2296\A0";
 }
 
 .collapsed {
-    display: none;
+display: none;
 }
 
 .expanded {
-    display: grid; /* needed by the 'order' property */
+display: grid; /* needed by the 'order' property */
 }
 END
 
@@ -9109,39 +9094,17 @@ sub html_node
     text-align: center;
 }
 
-/* center columns 4 (Write), 6 (Object Default), 7 (Version), 8 (Spec) */
-.data-model-table th:nth-child(4),
-.data-model-table td:nth-child(4),
+/* center columns 3 (Write), 5 (Object Default), 6 (Version) */
+.data-model-table th:nth-child(3),
+.data-model-table td:nth-child(3),
+.data-model-table th:nth-child(5),
+.data-model-table td:nth-child(5),
 .data-model-table th:nth-child(6),
-.data-model-table td:nth-child(6),
-.data-model-table th:nth-child(7),
-.data-model-table td:nth-child(7),
-.data-model-table th:nth-child(8),
-.data-model-table td:nth-child(8) {
+.data-model-table td:nth-child(6)
+{
     text-align: center;
 }
 
-END
-
-        # also:
-        #   --showsyntax controls whether Syntax is displayed
-        #   --showspec controls whether Version or Spec is displayed
-        $html_style_local .= <<END unless $showsyntax;
-/* hide column 3 (Syntax) */
-.data-model-table th:nth-child(3),
-.data-model-table td:nth-child(3) {
-    display: none;
-}
-
-END
-        my $hide_col_num = $showspec ? 7 : 8;
-        my $hide_col_nam = $showspec ? 'Version' : 'Spec';
-        $html_style_local .= <<END;
-/* hide column ($hide_col_num) ($hide_col_nam) */
-.data-model-table th:nth-child($hide_col_num),
-.data-model-table td:nth-child($hide_col_num) {
-    display: none;
-}
 END
 
         # start outputting the HTML
@@ -9149,68 +9112,68 @@ END
 $doctype_html
 $do_not_edit
 <html>
-  <head>
-    <meta content="text/html; charset=UTF-8" http-equiv="content-type">
-    <title>$title</title>
-    <style>
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="content-type">
+<title>$title</title>
+<style>
 $html_toc_sidebar_style
-    </style>
-    <script>
+</style>
+<script>
 $html_toc_expand_script
-    </script>
-    <style>
+</script>
+<style>
 $html_toc_expand_style
-    </style>
-    <script>
+</style>
+<script>
 $html_toc_sort_script
-    </script>
-    <script>
+</script>
+<script>
 $html_headerlink_script
-    </script>
-    <style>
+</script>
+<style>
 $html_headerlink_style
-    </style>
-    <script>
+</style>
+<script>
 $html_tbody_expand_script
-    </script>
-    <style>
+</script>
+<style>
 $html_tbody_expand_style
-    </style>
-    <style>
+</style>
+<style>
 $html_style
-    </style>
-    <style>
+</style>
+<style>
 $html_style_local
-    </style>
-  </head>
-  <body>
+</style>
+</head>
+<body>
 END
 
         # ToC will be inserted at the start of the body
         $html_buffer .= <<END;
-    <div id="main">
-    <table class="full-width" type="vertical-align: middle;">
-      <tr>
-        <td width="25%" colspan="2">
-          $logo
-        </td>
-        <td width="50%" rowspan="2" style="text-align: center;">
-          <h1>$preamble$title_link</h1>
-        </td>
-        <td rowspan="2"/>
-      </tr>
-      <tr>
-        <td width="3%"/>
-        <td><h3>$doctype</h3></td>
-      </tr>
-    </table>
-  $notice
-  $errors
+<div id="main">
+<table class="full-width" type="vertical-align: middle;">
+<tr>
+<td width="25%" colspan="2">
+$logo
+</td>
+<td width="50%" rowspan="2" style="text-align: center;">
+<h1>$preamble$title_link</h1>
+</td>
+<td rowspan="2"/>
+</tr>
+<tr>
+<td width="3%"/>
+<td><h3>$doctype</h3></td>
+</tr>
+</table>
+$notice
+$errors
 END
         if ($description) {
             $html_buffer .= <<END;
-    <h1>Summary</h1>
-    $description
+<h1>Summary</h1>
+$description
 END
         }
 
@@ -9231,17 +9194,17 @@ END
               join(', ', @$inval) if $warnbibref >= 0 && @$inval;
             $preamble = html_escape($preamble);
             $html_buffer .= <<END;
-    <h1>$anchor->{def}</h1>
-    $preamble<p>
-    <table class="full-width solid-border data-type-table"> <!-- Data Types -->
-      <thead>
-        <tr>
-          <th>Data Type</th>
-          <th>Base Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
+<h1>$anchor->{def}</h1>
+$preamble<p>
+<table class="full-width solid-border data-type-table"> <!-- Data Types -->
+<thead>
+<tr>
+<th>Data Type</th>
+<th>Base Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
 END
             foreach my $datatype (sort datatype_cmp @$datatypes) {
                 my $name = $datatype->{name};
@@ -9306,16 +9269,16 @@ END
                                             values => $values});
 
                 $html_buffer .= <<END;
-        <tr>
-          <td>$name_anchor->{def}</td>
-          <td>$baseref$typestring</td>
-          <td>$description</td>
-        </tr>
+<tr>
+<td>$name_anchor->{def}</td>
+<td>$baseref$typestring</td>
+<td>$description</td>
+</tr>
 END
             }
             $html_buffer .= <<END;
-      </tbody>
-    </table> <!-- Data Types -->
+</tbody>
+</table> <!-- Data Types -->
 END
         }
 
@@ -9329,16 +9292,16 @@ END
                 my $description = $definitions->{description};
                 $description = html_escape($description) if $description;
                 $html_buffer .= <<END;
-    <h1>$anchor->{def}</h1>
-    $description<p>
-    <table class="middle-width solid-border"> <!-- $title -->
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
+<h1>$anchor->{def}</h1>
+$description<p>
+<table class="middle-width solid-border"> <!-- $title -->
+<thead>
+<tr>
+<th>ID</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
 END
                 foreach my $item (sort bibid_cmp @{$definitions->{items}}) {
                     my $id = $item->{id};
@@ -9347,15 +9310,15 @@ END
                     $description = html_escape($description,
                                                {$reftype => $id});
                     $html_buffer .= <<END;
-        <tr>
-          <td>$id_anchor->{def}</td>
-          <td>$description</td>
-        </tr>
+<tr>
+<td>$id_anchor->{def}</td>
+<td>$description</td>
+</tr>
 END
                 }
                 $html_buffer .= <<END;
-      <tbody>
-    </table> <!-- $title -->
+<tbody>
+</table> <!-- $title -->
 END
             }
         }
@@ -9365,8 +9328,8 @@ END
         if ($bibliography && %$bibliography) {
             my $anchor = html_toc_entry(1, 'References', 'heading');
             $html_buffer .= <<END;
-    <h1>$anchor->{def}</h1>
-    <table> <!-- References -->
+<h1>$anchor->{def}</h1>
+<table> <!-- References -->
 END
             my $references = $bibliography->{references};
             foreach my $reference (sort bibid_cmp @$references) {
@@ -9399,52 +9362,52 @@ END
                     qq{, <a href="$hyperlink">$hyperlink</a>} : qq{};
 
                 $html_buffer .= <<END;
-      <tr>
-        <td>$id</td>
-        <td>$name$title$organization$date.</td>
-      </tr>
+<tr>
+<td>$id</td>
+<td>$name$title$organization$date.</td>
+</tr>
 END
             }
             $html_buffer .= <<END;
-    </table> <!-- References -->
+</table> <!-- References -->
 END
         }
 
         # legend
         my $anchor = html_toc_entry(1, 'Legend', 'heading');
         $html_buffer .= <<END;
-      <h1>$anchor->{def}</h1>
-      <table class="middle-width solid-border"> <!-- Legend -->
-        <tbody>
-          <tr>
-            <td class="object">Object definition.</td>
-          </tr>
-          <tr>
-            <td class="mountable-object">Mountable Object definition.</td>
-          </tr>
-          <tr>
-            <td class="mountpoint-object">Mount Point definition.</td>
-          </tr>
-          <tr>
-            <td class="parameter">Parameter definition.</td>
-          </tr>
-          <tr>
-            <td class="command event">Command or Event definition.</td>
-          </tr>
-          <tr>
-            <td class="argument-container">
-            Command Input / Output Arguments container.</td>
-          </tr>
-          <tr>
-            <td class="argument-object">
-            Command or Event Object Input / Output Argument definition.</td>
-          </tr>
-          <tr>
-            <td class="argument-parameter">
-            Command or Event Parameter Input / Output Argument definition.</td>
-          </tr>
-        </tbody>
-      </table> <!-- Legend -->
+<h1>$anchor->{def}</h1>
+<table class="middle-width solid-border"> <!-- Legend -->
+<tbody>
+<tr>
+<td class="object">Object definition.</td>
+</tr>
+<tr>
+<td class="mountable-object">Mountable Object definition.</td>
+</tr>
+<tr>
+<td class="mountpoint-object">Mount Point definition.</td>
+</tr>
+<tr>
+<td class="parameter">Parameter definition.</td>
+</tr>
+<tr>
+<td class="command event">Command or Event definition.</td>
+</tr>
+<tr>
+<td class="argument-container">
+Command Input / Output Arguments container.</td>
+</tr>
+<tr>
+<td class="argument-object">
+Command or Event Object Input / Output Argument definition.</td>
+</tr>
+<tr>
+<td class="argument-parameter">
+Command or Event Parameter Input / Output Argument definition.</td>
+</tr>
+</tbody>
+</table> <!-- Legend -->
 END
     }
 
@@ -9587,6 +9550,8 @@ END
             my $title = qq{$name Data Model};
             $title .= qq{ (changes)} if $lastonly;
             my $anchor = html_toc_entry(1, $title, 'heading', {show => 1});
+            my $typetitle = $showsyntax ? 'Syntax' : 'Type';
+            my $versiontitle = $showspec ? 'Spec' : 'Version';
             my $boiler_plate = '';
             $boiler_plate = <<END if $node->{version}->{minor};
 For a given implementation of this data model, the Agent MUST indicate
@@ -9597,22 +9562,20 @@ support for version $version.  The version number associated with each object
 and parameter is shown in the <b>Version</b> column.<p>
 END
             $html_buffer .= <<END;
-    <h1>$anchor->{def}</h1>
-    $description<p>$boiler_plate
-    <table class="full-width solid-border data-model-table"> <!-- Data Model Definition -->
-      <thead>
-        <tr$trclass>
-          <th width="10%">Name</th>
-          <th width="10%">Type</th>
-          <th>Syntax</th>
-          <th width="10%">Write</th>
-          <th width="50%">Description</th>
-          <th width="10%">Object Default</th>
-          <th width="10%">Version</th>
-          <th width="10%">Spec</th>
-        </tr>
-      </thead>
-      <tbody>
+<h1>$anchor->{def}</h1>
+$description<p>$boiler_plate
+<table class="full-width solid-border data-model-table"> <!-- Data Model Definition -->
+<thead>
+<tr$trclass>
+<th width="10%">Name</th>
+<th width="10%">$typetitle</th>
+<th width="10%">Write</th>
+<th width="50%">Description</th>
+<th width="10%">Object Default</th>
+<th width="10%">$versiontitle</th>
+</tr>
+</thead>
+<tbody>
 END
             $html_parameters = [];
             $html_profile_active = 0;
@@ -9631,9 +9594,9 @@ END
                 my $infreq = $inform_and . 'Notification Requirements';
                 my $anchor = html_toc_entry(2, $infreq, 'heading');
                 $html_buffer .= <<END;
-      </tbody>
-    </table> <!-- Data Model Definition -->
-    <h2>$anchor->{def}</h2>
+</tbody>
+</table> <!-- Data Model Definition -->
+<h2>$anchor->{def}</h2>
 END
                 if (!$altnotifreqstyle) {
                     $html_buffer .=
@@ -9674,47 +9637,47 @@ END
                                              'heading');
                 my $nanchor = html_toc_entry(3, 'Notation', 'heading');
                 $html_buffer .= <<END;
-    <h2>$panchor->{def}</h2>
-    <h3>$nanchor->{def}</h3>
-    The following abbreviations are used to specify profile requirements:<p>
-    <table class="middle-width solid-border">
-      <thead>
-        <tr>
-          <th class="centered">Abbreviation</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="centered">R</td>
-          <td>Read support is REQUIRED.</td>
-        </tr>
-        <tr>
-          <td class="centered">W</td>
-          <td>Both Read and Write support is REQUIRED.  This MUST NOT be
-              specified for a parameter that is defined as read-only.</td>
-        </tr>
-        <tr>
-          <td class="centered">P</td>
-          <td>The object is REQUIRED to be present.</td>
-        </tr>
-        <tr>
-          <td class="centered">C</td>
-          <td>Creation and deletion of instances of the object is
-              REQUIRED.</td>
-        </tr>
-        <tr>
-          <td class="centered">A</td>
-          <td>Creation of instances of the object is REQUIRED, but
-              deletion is not REQUIRED.</td>
-        </tr>
-        <tr>
-          <td class="centered">D</td>
-          <td>Deletion of instances of the object is REQUIRED, but
-              creation is not REQUIRED.</td>
-        </tr>
-      </tbody>
-    </table>
+<h2>$panchor->{def}</h2>
+<h3>$nanchor->{def}</h3>
+The following abbreviations are used to specify profile requirements:<p>
+<table class="middle-width solid-border">
+<thead>
+<tr>
+<th class="centered">Abbreviation</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="centered">R</td>
+<td>Read support is REQUIRED.</td>
+</tr>
+<tr>
+<td class="centered">W</td>
+<td>Both Read and Write support is REQUIRED.  This MUST NOT be
+specified for a parameter that is defined as read-only.</td>
+</tr>
+<tr>
+<td class="centered">P</td>
+<td>The object is REQUIRED to be present.</td>
+</tr>
+<tr>
+<td class="centered">C</td>
+<td>Creation and deletion of instances of the object is
+REQUIRED.</td>
+</tr>
+<tr>
+<td class="centered">A</td>
+<td>Creation of instances of the object is REQUIRED, but
+deletion is not REQUIRED.</td>
+</tr>
+<tr>
+<td class="centered">D</td>
+<td>Deletion of instances of the object is REQUIRED, but
+creation is not REQUIRED.</td>
+</tr>
+</tbody>
+</table>
 END
                 $html_profile_active = 1;
             }
@@ -9727,16 +9690,16 @@ END
             my $span1 = $trclass ? qq{<span$trclass>} : qq{};
             my $span2 = $span1 ? qq{</span>} : qq{};
             $html_buffer .= <<END;
-    <h3>$span1$panchor->{def}$anchor->{def}$span2</h3>
-    $span1$description$span2<p>
-    <table class="middle-width solid-border"> <!-- $anchor->{label} -->
-      <thead>
-        <tr>
-          <th width="80%">Name</th>
-          <th width="20%" class="centered">Requirement</th>
-        </tr>
-      </thead>
-      <tbody>
+<h3>$span1$panchor->{def}$anchor->{def}$span2</h3>
+$span1$description$span2<p>
+<table class="middle-width solid-border"> <!-- $anchor->{label} -->
+<thead>
+<tr>
+<th width="80%">Name</th>
+<th width="20%" class="centered">Requirement</th>
+</tr>
+</thead>
+<tbody>
 END
         }
 
@@ -9783,32 +9746,32 @@ END
             $type = 'command' if $is_command;
             $type = 'arguments' if $is_arguments;
             $type = 'event' if $is_event;
-            $typetitle = qq{ title="command"} if $is_command;
-            $typetitle = qq{ title="event"} if $is_event;
+            $typetitle = "" if $is_command;
+            $typetitle = "" if $is_event;
             # XXX would like syntax to be a link when it's a named data type
             my $tspecs = $specs;
+            my $typecell = $showsyntax ? "<td>$syntax</td>" : ($syntax eq $type) ? "<td$tdclasstyp>$type</td>" : "<td$tdclasstyp$typetitle>$type</td>";
             $tspecs =~ s/ /<br>/g;
+            my $versioncell = $showspec ? "<td>$tspecs</td>" : "<td$versiontitle>$version</td>";
             if ($need_showable_class ||
                 ($html_showable_active && !$need_hide_class)) {
                 my $tbclass = $need_showable_class ? qq{ class="showable"} :
                     qq{};
                 $html_buffer .= <<END;
-     </tbody>
-     <tbody$tbclass>
+</tbody>
+<tbody$tbclass>
 END
                 $html_showable_active = $need_showable_class;
             }
             $html_buffer .= <<END;
-        <tr$trclass>
-          <td title="$path">$name</td>
-          <td$tdclasstyp$typetitle>$type</td>
-          <td$tdclasstyp>$syntax</td>
-          <td$tdclasswrt>$write</td>
-          <td>$description</td>
-          <td$tdclassdef>$default</td>
-          <td$versiontitle>$version</td>
-          <td>$tspecs</td>
-        </tr>
+<tr$trclass>
+<td title="$path">$name</td>
+$typecell
+<td$tdclasswrt>$write</td>
+<td>$description</td>
+<td$tdclassdef>$default</td>
+$versioncell
+</tr>
 END
         } else {
             my $fpath = util_full_path($node);
@@ -9857,10 +9820,10 @@ END
             # XXX ignore nodes with empty names; this will happen for Service
             #     Object top-level #entries parameters' fake parent objectRefs
             $html_buffer .= <<END if $node->{name};
-        <tr$trclass>
-          <td>$name</td>
-          <td class="centered">$write$footnote</td>
-        </tr>
+<tr$trclass>
+<td>$name</td>
+<td class="centered">$write$footnote</td>
+</tr>
 END
         }
     }
@@ -9881,8 +9844,8 @@ sub html_post
         # XXX this can close too many tables (not a bad problem?); fixed?
         if ($indent) {
             $html_buffer .= <<END;
-      </tbody>
-    </table> <!-- $name -->
+</tbody>
+</table> <!-- $name -->
 END
         }
 
@@ -9899,16 +9862,16 @@ END
             $generated_by .= $canonical ? qq{.} : qq{ ($tool_version_date version) on $tool_run_date at $tool_run_time$tool_checked_out.<br>$tool_cmd_line_mod};
             $generated_by .= qq{<p>};
             $html_buffer .= <<END;
-    <p>
-    <hr>
-    $generated_by
-    </div>
+<p>
+<hr>
+$generated_by
+</div>
 END
             print $html_buffer;
             html_toc_output($html_toc_tree, '    ');
 
             print <<END;
-  </body>
+</body>
 </html>
 END
         }
@@ -9926,14 +9889,14 @@ sub html_param_table
     $class = $class ? qq{ class="$class"} : qq{};
     my $anchor = html_toc_entry(3, $title, 'heading');
     my $html_buffer = <<END;
-    <h3>$anchor->{def}</h3>
-    <table$class> <!-- $title -->
-      <thead>
-        <tr>
-          <th>Parameter</th>
-        </tr>
-      </thead>
-      <tbody>
+<h3>$anchor->{def}</h3>
+<table$class> <!-- $title -->
+<thead>
+<tr>
+<th>Parameter</th>
+</tr>
+</thead>
+<tbody>
 END
 
     my $curobj = '';
@@ -9950,9 +9913,9 @@ END
             $path = html_get_anchor($mpref.$path, 'path', $path)
                 unless $nolinks;
             $html_buffer .= <<END;
-        <tr>
-          <td class="$class">$path</td>
-        </tr>
+<tr>
+<td class="$class">$path</td>
+</tr>
 END
         }
 
@@ -9963,15 +9926,15 @@ END
         my $name = $sepobj ? $parameter->{name} : $path;
         $name = html_get_anchor($mpref.$path, 'path', $name) unless $nolinks;
         $html_buffer .= <<END;
-        <tr>
-          <td class="$class">$name</td>
-        </tr>
+<tr>
+<td class="$class">$name</td>
+</tr>
 END
     }
 
     $html_buffer .= <<END;
-      </tbody>
-    </table> <!-- $title -->
+</tbody>
+</table> <!-- $title -->
 END
     return $html_buffer;
 }
@@ -9987,8 +9950,8 @@ sub html_profile_footnotes
 
     my $html_buffer = qq{};
     $html_buffer .= <<END;
-    <table width="60%" border="0">
-      <tbody>
+<table width="60%" border="0">
+<tbody>
 END
 
     foreach my $footnote (@$footnotes) {
@@ -9996,16 +9959,16 @@ END
         my $description = $footnote->{description};
 
         $html_buffer .= <<END;
-        <tr>
-          <td width="1%"><sup>$anchor->{def}</sup></td>
-          <td>$description</td>
-        </tr>
+<tr>
+<td width="1%"><sup>$anchor->{def}</sup></td>
+<td>$description</td>
+</tr>
 END
     }
 
     $html_buffer .= <<END;
-      </tbody>
-    </table>
+</tbody>
+</table>
 END
 
     return $html_buffer;
@@ -13123,41 +13086,41 @@ END
     my $fragment = $options->{htmlbbf_createfragment};
     print <<END if !$fragment;
 <html>
-  <head>
-    <meta content="text/html; charset=UTF-8" http-equiv="content-type">
-    <title>$title2</title>
-    <style type="text/css">
-      p, li, body { $font }
-      h1 { $h1font }
-      h2 { $h2font }
-      h3 { $h3font }
-      sup { $sup_valign }
-      table { $table }
-      th { $row $font }
-      th.g { $row $font $theader_bg }
-      td, td.p { $row $font }
-      td.pc { $row $font $center }
-    </style>
-  </head>
-  <body>
-    <h1>$title</h1>
-    $intro
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="content-type">
+<title>$title2</title>
+<style type="text/css">
+p, li, body { $font }
+h1 { $h1font }
+h2 { $h2font }
+h3 { $h3font }
+sup { $sup_valign }
+table { $table }
+th { $row $font }
+th.g { $row $font $theader_bg }
+td, td.p { $row $font }
+td.pc { $row $font $center }
+</style>
+</head>
+<body>
+<h1>$title</h1>
+$intro
 
 END
 
     print <<END if $fragment;
-    <style type="text/css">
-      p, li, body { $font }
-      h1 { $h1font }
-      h2 { $h2font }
-      h3 { $h3font }
-      sup { $sup_valign }
-      table { $table }
-      th { $row $font }
-      th.g { $row $font $theader_bg }
-      td, td.p { $row $font }
-      td.pc { $row $font $center }
-    </style>
+<style type="text/css">
+p, li, body { $font }
+h1 { $h1font }
+h2 { $h2font }
+h3 { $h3font }
+sup { $sup_valign }
+table { $table }
+th { $row $font }
+th.g { $row $font $theader_bg }
+td, td.p { $row $font }
+td.pc { $row $font $center }
+</style>
 END
 
     # XXX temporary until are sure that it works
@@ -13205,7 +13168,7 @@ END
     # open the table of contents
     my $contexts = [];
     print <<END;
-    <ul>
+<ul>
 END
 
     # latest (current) versions of root and service data models
@@ -13326,7 +13289,7 @@ END
 
     # close the table of contents
     print <<END;
-    </ul>
+</ul>
 
 END
 
@@ -13337,7 +13300,7 @@ END
 
     # footer
     print <<END if !$fragment;
-  </body>
+</body>
 </html>
 END
 }
@@ -13567,19 +13530,19 @@ sub htmlbbf_file
         my @entries = $context->{reverserows} ?
             reverse(@{$contents->{entries}}) : @{$contents->{entries}};
         print <<END;
-      <b><a href="#$title">$title</a></b>
-      <ul>
+<b><a href="#$title">$title</a></b>
+<ul>
 END
         foreach my $entry (@entries) {
             my $key = $entry->{key};
             my $note = $entry->{note};
             $note = qq{ <b>$note</b>} if $note;
             print <<END;
-        <a href="#$key">$key</a>$note<br>
+<a href="#$key">$key</a>$note<br>
 END
         }
         print <<END;
-      </ul>
+</ul>
 END
         return;
     }
@@ -14025,19 +13988,19 @@ sub htmlbbf_output_table
         # XXX if it's 'Current Data Models' add a 'Latest Data Models' anchor
         #     for backwards compatibility
         print <<END if $title eq 'Current Data Models';
-    <a name="Latest Data Models"></a>
+<a name="Latest Data Models"></a>
 END
         my $h = $opts->{smallheadings} ? 'h2' : 'h1';
         print <<END;
-    <a name="$title"><$h>$title</$h></a>
+<a name="$title"><$h>$title</$h></a>
 END
     }
 
     # output header row
     print <<END;
-    <table $tabopts>
-      <thead>
-        <tr>
+<table $tabopts>
+<thead>
+<tr>
 END
 
     # need to remember which columns are suppressed (this information is given
@@ -14069,9 +14032,9 @@ END
     }
 
     print <<END;
-        </tr>
-      </thead>
-      <tbody>
+</tr>
+</thead>
+<tbody>
 END
 
     # perform initial pass to collect info on the latest values (for each row
@@ -14190,14 +14153,14 @@ END
         my $newkey = $row->[0]->{newkey};
         if (!$noseparator && $newkey && $i > 0) {
             print <<END;
-        <tr>
-          <td colspan="$actcols"></td>
-        </tr>
+<tr>
+<td colspan="$actcols"></td>
+</tr>
 END
         }
 
         print <<END;
-        <tr>
+<tr>
 END
         for (my $j = 0; $j < @$row; $j++) {
             my $col = $row->[$j];
@@ -14278,13 +14241,13 @@ END
 
         }
         print <<END;
-        </tr>
+</tr>
 END
     }
 
     print <<END;
-      </tbody>
-    </table>
+</tbody>
+</table>
 
 END
 }
@@ -14336,25 +14299,25 @@ sub html148_begin
     # file header and beginning of TOC
     print <<END;
 <html>
-  <head>
-    <meta content="text/html; charset=UTF-8" http-equiv="content-type">
-    <title>TR-069 Data Model and Profile Registry</title>
-    <style type="text/css">
-      p, li, body { $font }
-      h1 { $h1font }
-      h2 { $h2font }
-      h3 { $h3font }
-      sup { $sup_valign }
-      table { $table }
-      th { $row $font }
-      th.g { $row $font $theader_bg }
-      td, td.p { $row $font }
-      td.pc { $row $font $center }
-    </style>
-  </head>
-  <body>
-    <h1>Table of Contents</h1>
-    <ul>
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="content-type">
+<title>TR-069 Data Model and Profile Registry</title>
+<style type="text/css">
+p, li, body { $font }
+h1 { $h1font }
+h2 { $h2font }
+h3 { $h3font }
+sup { $sup_valign }
+table { $table }
+th { $row $font }
+th.g { $row $font $theader_bg }
+td, td.p { $row $font }
+td.pc { $row $font $center }
+</style>
+</head>
+<body>
+<h1>Table of Contents</h1>
+<ul>
 END
 }
 
@@ -14430,27 +14393,27 @@ sub html148_end
     # XXX can you just put the class on <tr>?
     # XXX not filling in dependencies yet; are they useful?
     print <<END;
-      <li><a href="#Overview">Overview</a></li>
-      <li><a href="#Data Models">Data Models</a></li>
+<li><a href="#Overview">Overview</a></li>
+<li><a href="#Data Models">Data Models</a></li>
 END
     $text .= <<END;
-    <h1><a name="Overview">Overview</a></h1>
-    <p>This document is a registry of Broadband Forum standardized TR-069 data models and profiles.  This document is intended to catalog all versions of data models and profiles defined in Broadband Forum Technical Reports.</p>
-    <h1><a name="Data Models">Data Models</a></h1>
-    <p>The following table lists all data model versions defined in Broadband Forum Technical Reports.</p>
-    <table width="100%" $tabopts>
-      <thead>
-        <tr>
-          <th class="g">Object Name</th>
-          <th class="g">Object Type</th>
-          <th class="g">Version</th>
-          <th class="g">Version Update</th>
-          <th class="g">Update Type</th>
-          <th class="g">Technical Report</th>
-          <!-- <th class="g">Dependencies</th> -->
-        </tr>
-      </thead>
-      <tbody>
+<h1><a name="Overview">Overview</a></h1>
+<p>This document is a registry of Broadband Forum standardized TR-069 data models and profiles.  This document is intended to catalog all versions of data models and profiles defined in Broadband Forum Technical Reports.</p>
+<h1><a name="Data Models">Data Models</a></h1>
+<p>The following table lists all data model versions defined in Broadband Forum Technical Reports.</p>
+<table width="100%" $tabopts>
+<thead>
+<tr>
+<th class="g">Object Name</th>
+<th class="g">Object Type</th>
+<th class="g">Version</th>
+<th class="g">Version Update</th>
+<th class="g">Update Type</th>
+<th class="g">Technical Report</th>
+<!-- <th class="g">Dependencies</th> -->
+</tr>
+</thead>
+<tbody>
 END
 
     # summary table rows
@@ -14486,7 +14449,7 @@ END
     }
 
     print <<END;
-      <ul>
+<ul>
 END
     my $first = 1;
     foreach my $row (@$rows) {
@@ -14496,15 +14459,15 @@ END
 
         if ($row == $row->{mrow}) {
             print <<END;
-        <li><a href="#D:$row->{name_major}">$row->{name_major}</a></li>
+<li><a href="#D:$row->{name_major}">$row->{name_major}</a></li>
 END
 
             # XXX hacked separator row
             if (!$first) {
                 $text .= <<END;
-        <tr>
-          <td colspan="6"></td>
-        </tr>
+<tr>
+<td colspan="6"></td>
+</tr>
 END
             }
             $first = 0;
@@ -14540,40 +14503,40 @@ END
             qq{<a href="$cwmppath$row->{file}$htmlsuff-$diffsext.html">$update_type</a>};
 
         $text .= <<END;
-        <tr>
-          $moc<td rowspan="$mrowspan"><a name="D:$row->{name_major}">$row->{name}</a></td>$mcc
-          $moc<td rowspan="$mrowspan">$row->{type}</td>$mcc
-          <td>$version_entry</td>
-          <td>$version_update_entry</td>
-          <td>$update_type_entry</td>
-          <td>$row->{tr_name}</td>
-          <!-- <td>$row->{dependencies}</td> -->
-        </tr>
+<tr>
+$moc<td rowspan="$mrowspan"><a name="D:$row->{name_major}">$row->{name}</a></td>$mcc
+$moc<td rowspan="$mrowspan">$row->{type}</td>$mcc
+<td>$version_entry</td>
+<td>$version_update_entry</td>
+<td>$update_type_entry</td>
+<td>$row->{tr_name}</td>
+<!-- <td>$row->{dependencies}</td> -->
+</tr>
 END
     }
     print <<END;
-      </ul>
+</ul>
 END
 
     # end of summary table and profile table header
     print <<END;
-      <li><a href="#Profiles">Profiles</a></li>
-      <ul>
+<li><a href="#Profiles">Profiles</a></li>
+<ul>
 END
     $text .= <<END;
-      </tbody>
-    </table>
-    <h1><a name="Profiles">Profiles</a></h1>
-    <p>The following table lists all data model profiles defined in Broadband Forum Technical Reports.</p>
-    <table width="100%" $tabopts>
-      <tbody>
-        <tr>
-          <th class="g">Data Model</th>
-          <th class="g">Profile Name</th>
-          <th class="g">Profile Version</th>
-          <th class="g">Min Data Model Version</th>
-          <th class="g">Technical Report(s)</th>
-        </tr>
+</tbody>
+</table>
+<h1><a name="Profiles">Profiles</a></h1>
+<p>The following table lists all data model profiles defined in Broadband Forum Technical Reports.</p>
+<table width="100%" $tabopts>
+<tbody>
+<tr>
+<th class="g">Data Model</th>
+<th class="g">Profile Name</th>
+<th class="g">Profile Version</th>
+<th class="g">Min Data Model Version</th>
+<th class="g">Technical Report(s)</th>
+</tr>
 END
 
     # profile table rows
@@ -14643,14 +14606,14 @@ END
 
         if ($row == $row->{mrow}) {
             print <<END;
-        <li><a href="#P:$row->{model}">$row->{model}</a></li>
+<li><a href="#P:$row->{model}">$row->{model}</a></li>
 END
             # XXX hacked separator row
             if (!$first) {
                 $text .= <<END;
-        <tr>
-          <td colspan="5"></td>
-        </tr>
+<tr>
+<td colspan="5"></td>
+</tr>
 END
             }
             $first = 0;
@@ -14665,25 +14628,25 @@ END
 #        }
 
         $text .= <<END;
-        <tr>
-          $moc<td rowspan="$mrowspan"><a name="P:$row->{model}">$row->{model}</a></td>$mcc
-          $poc<td rowspan="$prowspan"><a name="P:$row->{model}.$row->{prof}">$row->{prof}</a></td>$pcc
-          <td>$row->{prof_version}</td>
-          <td>$row->{model_version}</td>
-          <td>$row->{tr_name}</td>
-        </tr>
+<tr>
+$moc<td rowspan="$mrowspan"><a name="P:$row->{model}">$row->{model}</a></td>$mcc
+$poc<td rowspan="$prowspan"><a name="P:$row->{model}.$row->{prof}">$row->{prof}</a></td>$pcc
+<td>$row->{prof_version}</td>
+<td>$row->{model_version}</td>
+<td>$row->{tr_name}</td>
+</tr>
 END
     }
     print <<END;
-      </ul>
-    </ul>
+</ul>
+</ul>
 END
 
     # end of profile table and document
     $text .= <<END;
-      </tbody>
-    </table>
-  </body>
+</tbody>
+</table>
+</body>
 </html>
 END
 
