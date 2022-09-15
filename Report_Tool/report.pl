@@ -2647,7 +2647,10 @@ sub expand_model_command
     my $nnode = expand_model_object $context, $mnode, $pnode, $command;
     my $path = $nnode->{path};
     my $fpath = util_full_path($nnode);
+    # store in objects (already done) and parameters with trailing dot
+    $parameters->{$fpath} = $nnode;
     $fpath =~ s/\.$//;
+    # also store in objects and parameters without trailing dot
     $objects->{$fpath} = $nnode;
     $parameters->{$fpath} = $nnode;
     my $is_async = boolean($command->findvalue('@async'));
@@ -11664,24 +11667,40 @@ sub html_template_paramref
         relative_path_helper($object, $param, $name, $scope, $mpref);
     my $invalid = $valid ? '' : '?';
 
+    # XXX work around a possible relative_path_helper() bug that (only for
+    #     commands and events?) can return empty $name if input is '.' (look
+    #     for both parameters and objects because of the dual nature of
+    #     commands and events)
+    if (!$name) {
+        $name = util_is_defined($parameters, $fpath) ?
+            $parameters->{$fpath}->{name} : util_is_defined($objects, $fpath) ?
+            $objects->{$fpath}->{name} : '';
+        if ($name) {
+            $name =~ s/\.(\{i\}\.)?$//;
+            $name =~ s/.*\.//;
+        }
+    }
+
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
     $invalid = '' if $upnpdm;
 
     # warn if {{param}} is used to reference a command or event, or if the
     # given name omits the trailing () or !
+    # XXX but don't warn if the argument was '.' or '#'... because these can
+    #     used from with arguments to reference the command/event
     my $is_command = !$invalid ? $parameters->{$fpath}->{is_command} : undef;
     my $is_event = !$invalid ? $parameters->{$fpath}->{is_event} : undef;
     if ($name =~ /\(\)$/ || $is_command) {
         w0msg "$object$param: should use {{command}} to reference $name"
             unless $opts->{is_commandref};
         w0msg "$object$param: command reference $oname should be $name"
-            unless $oname =~ /\(\)$/;
+            unless $oname eq '.' || $oname =~ /^#+$/ || $oname =~ /\(\)$/;
     }
     if ($name =~ /!$/ || $is_event) {
         w0msg "$object$param: should use {{event}} to reference $name"
             unless $opts->{is_eventref};
         w0msg "$object$param: event reference $oname should be $name"
-            unless $oname =~ /!$/;
+            unless $oname eq '.' || $oname =~ /^#+$/ || $oname =~ /!$/;
     }
 
     # check for invalid or inappropriate references
@@ -11769,9 +11788,17 @@ sub html_template_objectref
     # of the path (don't generate link from object to itself)
     # XXX this is an experiment
     unless ($name) {
-        my $name = $object;
+        $name = $object;
         $name =~ s/\.(\{i\}\.)?$//;
         $name =~ s/.*\.//;
+        # if $object is actually an (object-like) command/event, go up a level
+        # to its parent object
+        if ($object =~ /(\(\)|!)\.$/) {
+            $object =~ s/\w+(\(\)|!)\.$//;
+            $name = $object;
+            $name =~ s/\.(\{i\}\.)?$//;
+            $name =~ s/.*\.//;
+        }
         $name = qq{''$name''};
         $name = html_get_anchor($mpref.$object, 'path', $name)
             unless $nolinks || !$param;
@@ -11837,6 +11864,12 @@ sub html_template_objectref
             $fpath = $tfpath;
             $invalid = '';
         }
+    }
+
+    # check that the referenced item is indeed an object
+    if (!$invalid) {
+        my $item = $objects->{$fpath};
+        $invalid = '?' if $item->{is_command} || $item->{is_event};
     }
 
     # XXX don't warn of invalid references for UPnP DM (need to fix!)
