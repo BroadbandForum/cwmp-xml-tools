@@ -8724,6 +8724,18 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 END
 
+my $html_autotitle_script = <<'END';
+<!-- Automatically generate on-hover parameter titles from the anchors -->
+window.addEventListener('DOMContentLoaded', function() {
+    var pars = document.getElementsByClassName('parameter');
+    for (var i = 0; i < pars.length; i++) {
+        if (pars[i].firstElementChild && pars[i].firstElementChild.firstElementChild) {
+            pars[i].firstElementChild.title = pars[i].firstElementChild.firstElementChild.name.replace(/.*\..*:[0-9]*\./, "");
+        }
+    }
+});
+END
+
 # HTML headerlink script.
 my $html_headerlink_script = <<'END';
 window.addEventListener('DOMContentLoaded', function() {
@@ -9129,6 +9141,9 @@ $html_toc_expand_style
 </style>
 <script>
 $html_toc_sort_script
+</script>
+<script>
+$html_autotitle_script
 </script>
 <script>
 $html_headerlink_script
@@ -9768,7 +9783,7 @@ END
             }
             $html_buffer .= <<END;
 <tr$trclass>
-<td title="$path">$name</td>
+<td>$name</td>
 $typecell
 <td$tdclasswrt>$write</td>
 <td>$description</td>
