@@ -2838,7 +2838,8 @@ sub expand_model_parameter
         $values = $parameter->findnodes('syntax//pattern');
         $hasPattern = 1 if $values;
     }
-    my $units = $parameter->findvalue('syntax/*/units/@value');
+    my $units = $parameter->findnodes('syntax/*/units') ?
+        $parameter->findvalue('syntax/*/units/@value') : undef;
     my $description = findvalue_text($parameter, 'description');
     my $descact = $parameter->findvalue('description/@action');
     my $descdef = $parameter->findnodes('description')->size();
@@ -4711,7 +4712,8 @@ sub add_parameter
         #     (why not? maybe because they are data type specific?)
         # XXX this is exactly the same logic as the above general syntax
         #     syntax logic...
-        if ($units && (!defined $nnode->{units} || $units ne $nnode->{units})) {
+        if (defined $units && (!defined $nnode->{units} ||
+                               $units ne $nnode->{units})) {
             my $old = defined $nnode->{units} ? $nnode->{units} : '<none>';
             d0msg "$path: units: $old -> $units";
             $nnode->{units} = $units;
@@ -7743,7 +7745,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 print qq{$i    </$listmap>\n} unless $ended;
             }
             my $ended = (($sizes && @$sizes) || ($ranges && @$ranges) ||
-                         $reference || %$values || $units) ? '' : '/';
+                         $reference || %$values || defined $units) ? '' : '/';
             print qq{$i    <$type$ref$base$ended>\n};
 
             foreach my $size (@{$syntax->{sizes}}) {
@@ -7812,7 +7814,7 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
                 print qq{$i        <description>$description</description>\n} if $description;
                 print qq{$i      </$facet>\n} unless $ended;
             }
-            print qq{$i      <units value="$units"/>\n} if $units;
+            print qq{$i      <units value="$units"/>\n} if defined $units;
             print qq{$i    </$type>\n} unless $ended;
             print qq{$i    <default type="$deftype" value="$default"$defstat/>\n}
             if defined $default;
@@ -10922,7 +10924,10 @@ sub html_template_units
     my $path = $opts->{path};
     my $units = $opts->{units};
 
-    if (!$units) {
+    if (!defined $units) {
+        emsg "$path: missing units facet";
+        return undef;
+    } elsif ($units eq '') {
         emsg "$path: empty units string";
         return undef;
     } else {
@@ -16632,7 +16637,7 @@ sub sanity_node
         emsg "$path: $syntax->{reference} has enumerated values"
             if $syntax->{reference} && has_values($values);
 
-        if ($node->{units} && !boolean($node->{noUnitsTemplate})) {
+        if (defined $node->{units} && !boolean($node->{noUnitsTemplate})) {
             # get the full description so can check for the expected templates
             # XXX this logic is copied from html_node()
             # XXX don't do this unconditionally, for fear that it will slow
