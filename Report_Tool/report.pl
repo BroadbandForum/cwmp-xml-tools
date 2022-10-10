@@ -327,7 +327,7 @@ our $sortobjects = 0;
 our $special = '';
 our $thisonly = 0;
 our $tr106 = 'TR-106';
-our $trpage = 'https://www.broadband-forum.org/technical/download';
+our $trpage = 'https://www.broadband-forum.org/download';
 our $ucprofiles = [];
 our $ugly = 0;
 our $usp = 0;
@@ -17289,7 +17289,7 @@ B<report.pl>
 [--special=s]
 [--thisonly]
 [--tr106=s(TR-106)]
-[--trpage=s(https://www.broadband-forum.org/technical/download)]
+[--trpage=s(https://www.broadband-forum.org/download)]
 [--ucprofile=s]...
 [--ugly]
 [--upnpdm]
@@ -18048,7 +18048,7 @@ indicates the TR-106 version (i.e. the B<bibref> name) to be referenced in any a
 
 the default value is the latest version of TR-106 that is referenced elsewhere in the data model (or B<TR-106> if it is not referenced elsewhere)
 
-=item B<--trpage=s(https://www.broadband-forum.org/technical/download/)>
+=item B<--trpage=s(https://www.broadband-forum.org/download/)>
 
 indicates the location of the PDF versions of BBF standards; is concatenated with the filename (trailing slash is added if necessary)
 
