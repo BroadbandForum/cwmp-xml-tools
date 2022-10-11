@@ -7635,8 +7635,9 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
         print qq{$i<!--\n} if $element eq 'object' && $noobjects;
 
         # add additional parameters if necessary:
-        my $addParams = ($node->{is_command} && $type !~ /Ref$/ && $node->{is_async}) ?
-            qq{ async="true"} : qq{};
+        my $addParams = ($node->{is_command} && $type !~ /Ref$/) ?
+            ($node->{is_async} ? qq{ async="true"} : qq{ async="false"}) :
+            qq{};
         $addParams .= qq{ mandatory="true"} if $node->{is_mandatory} && $command_or_event;
 
         print qq{$i<$element$name$base$ref$isService$extends$addParams$access$mountType$numEntriesParameter$enableParameter$discriminatorParameter$status$activeNotify$forcedInform$requirement$minEntries$maxEntries$version_string$fixedObject$noDiscriminatorParameter$noUniqueKeys$customNumEntriesParameter$noUnitsTemplate$end_element>\n};
@@ -7646,7 +7647,8 @@ $i             $specattr="$dmspec"$fileattr$uuidattr>
             foreach my $uniqueKey (@$uniqueKeys) {
                 my $functional = $uniqueKey->{functional};
                 my $keyparams = $uniqueKey->{keyparams};
-                $functional = !$functional ? qq{ functional="false"} : qq{};
+                $functional = $functional ? qq{ functional="true"} :
+                    qq{ functional="false"};
                 print qq{$i  <uniqueKey$functional>\n};
                 foreach my $parameter (@$keyparams) {
                     print qq{$i    <parameter ref="$parameter"/>\n};
@@ -17154,7 +17156,7 @@ if (@$xsd11files) {
         emsg "failed to find $script in " . join(', ', @$dirs) . "; $advice";
     }
 
-    # othrwise run it and report the results
+    # otherwise run it and report the results
     else {
         # XXX it might be better to list any command-line files first?
         my $files = join ' ', sort @$xsd11files;
@@ -17181,9 +17183,11 @@ if (@$xsd11files) {
                     # are analogous to report tool debug messages
                     d0msg $msg;
                 } else {
-                    # XXX other messages should perhaps be output as warnings
-                    #     in case they're tracebacks (but they're not warnings)
-                    d0msg $msg;
+                    # assume that any other messages are errors
+                    # XXX we will have to see whether this causes problems
+                    #     (but reporting them as errors or warnings is better
+                    #     than reporting them as debug messages)
+                    emsg $msg;
                 }
             }
         }
