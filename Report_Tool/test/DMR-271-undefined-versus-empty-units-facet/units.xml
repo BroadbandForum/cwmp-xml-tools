@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dm:document xmlns:dm="urn:broadband-forum-org:cwmp:datamodel-1-8"
+             xmlns:dmr="urn:broadband-forum-org:cwmp:datamodel-report-1-0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="
+               urn:broadband-forum-org:cwmp:datamodel-1-8
+                 https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-8.xsd
+               urn:broadband-forum-org:cwmp:datamodel-report-1-0
+                 https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd"
+             spec="urn:example-com:units" file="units.xml">
+  <import file="tr-069-biblio.xml"/>
+
+  <model name="Units:1.0">
+    <parameter name="Missing" access="readOnly">
+      <description>
+        {{param}} measured in {{units}}.
+      </description>
+      <syntax>
+        <unsignedInt/>
+      </syntax>
+    </parameter>
+    <parameter name="Empty" access="readOnly">
+      <description>
+        {{param}} measured in {{units}}.
+      </description>
+      <syntax>
+        <unsignedInt>
+          <units value=""/>
+        </unsignedInt>
+      </syntax>
+    </parameter>
+    <parameter name="Good" access="readOnly">
+      <description>
+        {{param}} measured in {{units}}.
+      </description>
+      <syntax>
+        <unsignedInt>
+          <units value="seconds"/>
+        </unsignedInt>
+      </syntax>
+    </parameter>
+  </model>
+</dm:document>
