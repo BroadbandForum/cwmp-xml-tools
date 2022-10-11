@@ -1167,8 +1167,15 @@ sub expand_import
         $file = File::Spec->catfile(($tcomp), $file) if $tcomp ne $curdir;
     }
 
-    # if already read file, just add the imports to the current namespace
+    # if already read the file, just check that the spec matches and
+    # add the imports to the current namespace
     if ($files->{$file}) {
+        my ($file2) = grep {$_->{name} eq "$file.xml"} @$files2;
+        if ($file2 && $spec) {
+            my $fspec = $file2->{spec};
+            check_spec($cfile, $ofile, $fspec, $spec);
+        }
+
         foreach my $item ($import->findnodes('dataType|.//Component|'.
                                              'component|model')) {
             my $element = $item->findvalue('local-name()');
@@ -1218,20 +1225,7 @@ sub expand_import
 
     # check spec (if supplied)
     $spec = $fspec unless $spec;
-    my $trspec = $fspec;
-    $trspec =~ s/:wt-/:tr-/;
-    my $full_match = specs_match($spec, $fspec);
-    my $trwt_mismatch = specs_match($spec, $trspec);
-    if ($full_match) {
-    } elsif ($trwt_mismatch && $spec =~ /:wt-/) {
-        w0msg "$cfile.xml: import $ofile: referencing file's spec indicates ".
-            "WT rather than TR (spec=$spec, fspec=$fspec, trspec=$trspec";
-    } elsif ($trwt_mismatch) {
-        w0msg "$cfile.xml: import $ofile: referenced file's spec indicates ".
-            "that it's still a WT" unless $nowarnwtref;
-    } else {
-        w0msg "$cfile.xml: import $ofile: spec is $fspec (doesn't match $spec)";
-    }
+    check_spec($cfile, $ofile, $fspec, $spec);
 
     # get description
     my $fdescription = findvalue_text($toplevel, 'description');
@@ -1376,6 +1370,28 @@ sub update_imports
 
     my $alias = $dfile ne $file ? qq{ = {$dfile}$ref} : qq{};
     d1msg "update_imports: added $element {$file}$name$alias";
+}
+
+# Check that the spec matches the file, and warn if not.
+sub check_spec
+{
+    my ($cfile, $ofile, $fspec, $spec) = @_;
+
+    my $trspec = $fspec;
+    $trspec =~ s/:wt-/:tr-/;
+    my $full_match = specs_match($spec, $fspec);
+    my $trwt_mismatch = specs_match($spec, $trspec);
+    if ($full_match) {
+    } elsif ($trwt_mismatch && $spec =~ /:wt-/) {
+        w0msg "$cfile.xml: import $ofile: referencing file's spec indicates ".
+            "WT rather than TR (spec=$spec, fspec=$fspec, trspec=$trspec";
+    } elsif ($trwt_mismatch) {
+        w0msg "$cfile.xml: import $ofile: referenced file's spec indicates ".
+            "that it's still a WT" unless $nowarnwtref;
+    } else {
+        w0msg "$cfile.xml: import $ofile: spec is $fspec (doesn't match " .
+            "$spec)";
+    }
 }
 
 # Expand a dataType definition.
