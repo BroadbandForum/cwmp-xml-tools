@@ -343,7 +343,7 @@ def main(argv=None):
     namespaces = {}
     if schema is not None:
         namespaces = {f'{{{ns}}}': f'{pfx}:' for pfx, ns in
-                      schema.namespaces.items()}
+                      schema.namespaces.items() if pfx and ns}
 
     # validate the files
     # XXX the first file may be parsed twice; could avoid this...
