@@ -11697,6 +11697,14 @@ sub html_template_paramref
     $name =~ s|\-\-\-(.*?)\-\-\-||g;
     $name =~ s|\+\+\+(.*?)\+\+\+|$1|g;
 
+    # XXX allow "name" to start with a template reference (this special case
+    #     wouldn't be necessary if template expansion worked sensibly)
+    my ($tname) = ($name =~ /^\{\{template\|([^\}]+)\}\}/);
+    if ($tname) {
+        my $value = $root->{templates}->{$tname};
+        $name =~ s/^\{\{template\|\Q$tname\E\}\}/$value/ if defined $value;
+    }
+
     w0msg "$object$param: {{$template}} argument is unnecessary when ".
         "referring to current $entity" if $name eq $param;
 
