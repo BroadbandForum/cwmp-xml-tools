@@ -848,6 +848,10 @@ sub enable_usp_options
             }
         }
     }
+
+    # XXX always set $usp if $is_usp is set (this allows $usp to be used
+    #     even when not explicitly set on the command-line)
+    $usp = 1 if $is_usp;
 }
 
 # Wrapper to be used instead of $node->findvalue('description') etc.
@@ -9422,15 +9426,28 @@ END
 <tr>
 <td class="object">Object definition.</td>
 </tr>
+END
+
+        # XXX never indicate mountable objects
+        $html_buffer .= <<END if 0 && $usp;
 <tr>
 <td class="mountable-object">Mountable Object definition.</td>
 </tr>
+END
+
+        $html_buffer .= <<END if $usp;
 <tr>
 <td class="mountpoint-object">Mount Point definition.</td>
 </tr>
+END
+
+        $html_buffer .= <<END;
 <tr>
 <td class="parameter">Parameter definition.</td>
 </tr>
+END
+
+        $html_buffer .= <<END if $usp;
 <tr>
 <td class="command event">Command or Event definition.</td>
 </tr>
@@ -9446,6 +9463,9 @@ Command or Event Object Input / Output Argument definition.</td>
 <td class="argument-parameter">
 Command or Event Parameter Input / Output Argument definition.</td>
 </tr>
+END
+
+        $html_buffer .= <<END;
 </tbody>
 </table> <!-- Legend -->
 END
