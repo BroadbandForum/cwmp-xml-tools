@@ -8625,7 +8625,7 @@ sub html_toc_output
 # HTML ToC sidebar style
 # XXX this is derived from pandoc toc.css
 my $html_toc_sidebar_style = <<'END';
-@media screen and (min-width: 924px) {
+@media screen and (min-width: 60em) {
 body {
 display: flex;
 align-items: stretch;
@@ -8655,6 +8655,7 @@ overflow: auto;
 /* background-color: white; */
 border-right: 1px solid #73AD21;
 padding: 5px;
+max-width: 20%;
 }
 
 #TOC ul {
