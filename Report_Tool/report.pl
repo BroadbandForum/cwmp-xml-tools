@@ -8734,7 +8734,9 @@ window.addEventListener('DOMContentLoaded', function() {
             temp.push([j, items[j].children[0].innerText]);
         }
         temp.sort((a, b) => {
-            return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0;
+            var a1_lower = a[1].toLowerCase();
+            var b1_lower = b[1].toLowerCase();
+            return a1_lower < b1_lower ? -1 : a1_lower > b1_lower ? 1 : 0;
         });
         temp.forEach((order_text, j) => {
             var k = order_text[0];
