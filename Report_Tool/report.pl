@@ -9531,7 +9531,9 @@ END
             }
         }
         $specs = '' if $canonical;
-        my $versiontitle = $showspec ? qq{} : qq{ title="$specs"};
+        # XXX no longer put the specs in the title attr, because they can't be
+        #     relied on (--showspec still shows them, even though unreliable)
+        my $versiontitle = qq{};
 
         # the primary tr class is a function of the node type and status
         my $trclass = '';
