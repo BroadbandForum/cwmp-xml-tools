@@ -3334,7 +3334,7 @@ sub expand_model_profile
         # if extends specified, find profiles that are being extended
         my $extendsprofs;
         if ($extends) {
-            foreach my $extend (split /\s+/, $extends) {
+            foreach my $extend (split ' ', $extends) {
                 my ($extprof) = grep {
                     $_->{type} eq 'profile' && $_->{name} eq $extend;
                 } @{$mnode->{nodes}};
@@ -3407,7 +3407,7 @@ sub expand_model_profile
             # put the profile after its last base / extends profile
             # XXX this could probably be done in one line of code
             my $index = 0;
-            foreach my $base (split /\s+/, $base_extends) {
+            foreach my $base (split ' ', $base_extends) {
                 for (0 .. @{$mnode->{nodes}} - 1) {
                     if ($mnode->{nodes}->[$_]->{name} eq $base) {
                         if ($_ + 1 > $index) {
@@ -5987,7 +5987,7 @@ sub parse_file
 
     $schemaLocation =~ s/^\s*//;
     $schemaLocation =~ s/\s*$//;
-    my %nsmap = split /\s+/, $schemaLocation;
+    my %nsmap = split ' ', $schemaLocation;
     foreach my $ns (keys %nsmap) {
         my $path = $nsmap{$ns};
 
@@ -7894,7 +7894,7 @@ sub add_profile_subtree
         add_profile_subtree($mprofs, $b, $profs) if $b;
     }
 
-    foreach my $e (split /\s+/, $p->{extends}) {
+    foreach my $e (split ' ', $p->{extends}) {
         ($e) = grep {$_->{name} eq $e} @$mprofs;
         add_profile_subtree($mprofs, $e, $profs) if $e;
     }
@@ -10704,7 +10704,8 @@ sub html_template
          {name => 'rightarrow',
           text0 => q{&rArr;}}, # RIGHTWARDS DOUBLE ARROW
          {name => 'div', text2 => \&html_template_div},
-         {name => 'span', text2 => \&html_template_span}
+         {name => 'span', text2 => \&html_template_span},
+         {name => 'classes', text0 => '', text1 => ''}
          ];
 
     # XXX need some protection against infinite loops here...
@@ -10948,7 +10949,7 @@ sub html_template_units
 {
     my ($opts) = @_;
 
-    my $path = $opts->{path};
+    my $path = $opts->{path} || '<unknown>';
     my $units = $opts->{units};
 
     if (!defined $units) {
@@ -12394,8 +12395,8 @@ sub html_template_status_helper
     my $param = $opts->{param};
     my $node = $opts->{node};
 
-    my $status = $node->{status};
-    my $type = $opts->{type} || $node->{type};
+    my $status = $node->{status} || 'current';
+    my $type = $opts->{type} || $node->{type} || 'string';
     my $syntax = $opts->{syntax} || $node->{syntax};
 
     # get_values() sets these template variables
@@ -12722,7 +12723,7 @@ sub object_references
 
     if ($list) {
         my $i = 0;
-        my @refs = split /\s+/, $list;
+        my @refs = split ' ', $list;
         foreach my $ref (@refs) {
             $ref =~ s/\.$//;
             $value .= (($i < @refs - 1) ? ', ' : ' or ') if $i > 0;
@@ -15359,7 +15360,7 @@ sub util_clean_cmd_line
 {
     my ($cmd) = @_;
 
-    my @in = split /\s+/, $cmd;
+    my @in = split ' ', $cmd;
     my @out = ();
 
     for my $f (@in) {
@@ -16851,7 +16852,7 @@ sub profile_status
         $base_extends .= $base if $base && $baseprof;
         $base_extends .= " " if $base_extends && $extends;
         $base_extends .= $extends if $extends;
-        foreach my $base (split /\s+/, $base_extends) {
+        foreach my $base (split ' ', $base_extends) {
             my $fpath = $mpref . $base;
             my $pinfo = $profiles->{$fpath};
             my $Pnode = $pinfo->{node};
@@ -16906,7 +16907,7 @@ sub profile_items
         $base_extends .= $base if $base && $baseprof;
         $base_extends .= " " if $base_extends && $extends;
         $base_extends .= $extends if $extends;
-        foreach my $base (split /\s+/, $base_extends) {
+        foreach my $base (split ' ', $base_extends) {
             my $fpath = $mpref . $base;
             my $pinfo = $profiles->{$fpath};
             my $Pnode = $pinfo->{node};
