@@ -10346,13 +10346,17 @@ sub html_template_preprocess {
     #     (not necessarily at the beginning of the line)
     # XXX this isn't always the case, sometimes due to errors in the XML,
     #     so should really try a bit harder and protect other text in spans
+    # XXX we also don't wrap indented lines because they might be code and
+    #     contain unmatched braces, which breaks template expansion; this
+    #     isn't a complete fix but at least it avoids errors
     my $outlines = [];
     foreach my $line (split /\n/, $inval) {
         my $is_dep_etc = $line =~ /\{\{(deprecated|obsoleted|deleted)\|/;
+        my $is_indented = $line =~ /^\s/;
         my $value = qq{};
-        $value .= '{{div|hide|' unless $is_dep_etc;
+        $value .= '{{div|hide|' unless $is_dep_etc || $is_indented;
         $value .= $line;
-        $value .= '}}' unless $is_dep_etc;
+        $value .= '}}' unless $is_dep_etc || $is_indented;
         push @$outlines, $value;
     }
 
