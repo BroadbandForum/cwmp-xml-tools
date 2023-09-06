@@ -19,8 +19,9 @@ RUN cpanm \
 
 # install necessary python modules (used for validating XSD v1.1 XML,
 # generating JUnit XML, and for the new report tool)
-RUN pip3 install \
+RUN pip3 install -U \
     junit_xml \
+    lxml \
     pyxb \
     xmlschema \
     xmltodict
