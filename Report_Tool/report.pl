@@ -3206,7 +3206,7 @@ sub expand_model_parameter
     $nnode->{id} = $id if $id;
 
     # XXX hack the mandatory attribute (only valid in commands)
-    $nnode->{is_mandatory} = $is_mandatory if $is_mandatory;
+    $nnode->{is_mandatory} = boolean($is_mandatory) if $is_mandatory;
 }
 
 # Expand a data model profile.
