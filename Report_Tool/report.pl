@@ -594,9 +594,9 @@ if ($autodatatype) {
     emsg "--autodatatype is deprecated because it's set by default";
 }
 
-if ($noautomodel) {
-    emsg "--noautomodel is deprecated; use --automodel instead";
-}
+#if ($noautomodel) {
+#    emsg "--noautomodel is deprecated; use --automodel instead";
+#}
 
 if ($showreadonly) {
     emsg "--showreadonly is deprecated because it's enabled by default";
