@@ -2504,7 +2504,8 @@ sub version
     elsif (version_compare($hash, $default) < 0) {
         my $version_string = version_string($hash);
         my $default_string = version_string($default);
-        emsg "$path: version $version_string < inherited $default_string";
+        # XXX demote to w1 so these won't be output by default
+        w1msg "$path: version $version_string < inherited $default_string";
     }
 
     # check that the version isn't more than the spec version
@@ -16779,8 +16780,9 @@ sub sanity_node
         if ($base && !$node->{baseprof}) {
             my $levels = {notSpecified => 1,
                           present => 2, readOnly => 2,
-                          create => 3, delete => 4,
-                          createDelete => 5, readWrite => 5};
+                          writeOnceReadOnly => 3,
+                          create => 4, delete => 5,
+                          createDelete => 6, readWrite => 6};
             my $fpath = $mpref . $base;
             my $pinfo = $profiles->{$fpath};
             my $Pnode = $pinfo->{node};
