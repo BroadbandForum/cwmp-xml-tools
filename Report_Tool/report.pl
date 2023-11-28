@@ -4105,8 +4105,7 @@ sub add_object
     # if ref, find the referenced object
     my $nnode;
     if ($ref) {
-        my @match = grep {!util_is_deleted($_) &&
-                              $_->{name} eq $ref} @{$pnode->{nodes}};
+        my @match = grep {$_->{name} eq $ref} @{$pnode->{nodes}};
         if (@match) {
             $nnode = $match[0];
             unhide_subtree($nnode);
@@ -11150,7 +11149,8 @@ sub html_template_union
                                      $values->{$b}->{i}} keys %$values) {
             my $cvalue = $values->{$value};
             my @match = grep {$_ eq $value} @names;
-            my $ignore = boolean($cvalue->{noUnionObject});
+            my $ignore = boolean($cvalue->{noUnionObject}) ||
+                $cvalue->{status} eq 'deleted';
             push @unref, $value unless @match || $ignore;
         }
         w0msg "$path: value(s) " . util_list(\@unref) . " not referenced " .
