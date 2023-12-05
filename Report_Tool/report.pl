@@ -10709,7 +10709,8 @@ sub html_template
           text0 => q{&rArr;}}, # RIGHTWARDS DOUBLE ARROW
          {name => 'div', text2 => \&html_template_div},
          {name => 'span', text2 => \&html_template_span},
-         {name => 'classes', text0 => '', text1 => ''}
+         {name => 'classes', text0 => '', text1 => ''},
+         {name => 'np', text0 => '\n\n'}
          ];
 
     # XXX need some protection against infinite loops here...
