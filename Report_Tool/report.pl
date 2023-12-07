@@ -8335,22 +8335,59 @@ my $html_style = '';
 
 # CSS variables
 $html_style .= <<END;
-:root {
-    --parameter-color: white;
-    --object-color: #ffff99;
-    --command-color: $commandcolors->[0];
-    --event-color: $commandcolors->[0];
-    --argument-container-color: $commandcolors->[1];
-    --argument-object-color: $commandcolors->[2];
-    --argument-parameter-color: $commandcolors->[3];
-    --mountable-object-color: $commandcolors->[4];
-    --mountpoint-object-color: $commandcolors->[5];
-    --stripe-direction: 90deg;
-    --stripe-stop-point-1: 1%;
-    --stripe-stop-point-2: 2%;
-    --stripe-color-deprecated: #eeeeee;
-    --stripe-color-obsoleted: #dddddd;
-    --stripe-color-deleted: #cccccc;
+\@media (prefers-color-scheme: light) {
+  :root {
+      --link-color: blue;
+      --background-color: white;
+      --foreground-color: black;
+      --parameter-color: white;
+      --table-border: solid 1px black;
+      --object-color: #ffff99;
+      --command-color: $commandcolors->[0];
+      --event-color: $commandcolors->[0];
+      --argument-container-color: $commandcolors->[1];
+      --argument-object-color: $commandcolors->[2];
+      --argument-parameter-color: $commandcolors->[3];
+      --mountable-object-color: $commandcolors->[4];
+      --mountpoint-object-color: $commandcolors->[5];
+      --stripe-direction: 90deg;
+      --stripe-stop-point-1: 1%;
+      --stripe-stop-point-2: 2%;
+      --stripe-color-deprecated: #eeeeee;
+      --stripe-color-obsoleted: #dddddd;
+      --stripe-color-deleted: #cccccc;
+  }
+}
+
+/* Dark mode support */
+\@media (prefers-color-scheme: dark) {
+    :root {
+      --link-color: lightblue;
+      --background-color: black;
+      --foreground-color: white;
+      --parameter-color: black;
+      --table-border: solid 1px white;
+      --object-color: #bbbb44;
+      --command-color: #56bd9a;
+      --event-color: #56bd9a;
+      --argument-container-color: #777777;
+      --argument-object-color: #dfa0ab;
+      --argument-parameter-color: #bfa4a1;
+      --mountable-object-color: #b3e0ff;
+      --mountpoint-object-color: #3da8ef;
+      --stripe-color-deprecated: #555555;
+      --stripe-color-obsoleted: #444444;
+      --stripe-color-deleted: #333333;
+  }
+
+  .chevron {
+    color: lightblue;
+  }
+}
+
+body, table {
+    background-color: var(--background-color);
+    color: var(--foreground-color);
 }
 
 END
@@ -8372,6 +8409,10 @@ h2 {
 
 h3 {
     font-size: 10pt;
+}
+
+a:link {
+  color: var(--link-color);
 }
 
 END
@@ -8422,9 +8463,7 @@ table.solid-border {
 
 table.solid-border th,
 table.solid-border td {
-    border-style: solid;
-    border-width: 1px;
-    border-color: black;
+    border: var(--table-border);
 }
 
 td > div,
