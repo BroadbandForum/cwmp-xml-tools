@@ -16832,8 +16832,9 @@ sub sanity_node
                 my $baseaccess = $baseitems->{$path};
                 my $profaccess = $profitems->{$path};
                 if (!$profaccess) {
-                    emsg "profile $name needs to reference $path " .
-                        "($baseaccess)" if $path;
+                    # XXX this is no longer an error
+                    # emsg "profile $name needs to reference $path " .
+                    #     "($baseaccess)" if $path;
                 } elsif ($levels->{$profaccess} < $levels->{$baseaccess}) {
                     emsg "profile $name has reduced requirement ".
                         "($profaccess) for $path ($baseaccess)";
