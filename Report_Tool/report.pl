@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2011-2012  Pace Plc
 # Copyright (C) 2012-2014  Cisco Systems
-# Copyright (C) 2015-2023  Broadband Forum
+# Copyright (C) 2015-2024  Broadband Forum
 # All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -179,12 +179,12 @@ use XML::LibXML;
 use utf8;
 
 # update the date (yyyy-mm-dd) each time the report tool is changed
-my $tool_version_date = q{2023-06-14};
+my $tool_version_date = q{2024-01-18};
 
 # update the version number when making a new release
 # a "+" after the version number indicates an interim version
 # (e.g. "422+" means v422 + changes, and "423" means v423)
-my $tool_version_number = q{429};
+my $tool_version_number = q{430};
 
 # tool name and version is conventionally reported as "name#version"
 my $tool_name = q{report.pl};
