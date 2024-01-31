@@ -22,20 +22,8 @@ from typing import Any, Dict, List, Optional
 # noinspection PyPep8
 import xmlschema
 
-warnings.simplefilter('error')
-
-# XXX lxml _should_ work (and it's desirable, because it includes line number
-#     information) but get loads of spurious validation errors when using
-#     it; I think there must be a difference between the xml.etree and
-#     lxml.etree interfaces
-# XXX I have a fix... but it's _much_ slower (should run a profiler, but I
-#     suspect that lxml XPath processing is very slow)
-using_lxml = False
-if using_lxml:
-    # noinspection PyPep8Naming
-    import lxml.etree as ElementTree
-else:
-    import xml.etree.ElementTree as ElementTree
+# noinspection PyPep8Naming
+import lxml.etree as ElementTree
 
 
 # XXX want just the name part; need some utilities / rules / conventions
@@ -130,6 +118,8 @@ def error_message(error: Any, *,
 def report_error(path: str, error: Any, *,
                  namespaces: Optional[Dict[str, str]] = None,
                  terse: bool = False) -> bool:
+    if isinstance(error, warnings.WarningMessage):
+        error = error.message
     sourceline = source_line(error)
     sourceline = ':%d' % sourceline if sourceline is not None else ''
     message = error_message(error, namespaces=namespaces, terse=terse)
@@ -141,7 +131,8 @@ def report_error(path: str, error: Any, *,
         return True
 
 
-def find_file(file: str, includes: List[str]) -> Optional[str]:
+def find_file(file: str, includes: List[str], *,
+              prefix: str = 'file') -> Optional[str]:
     # allow the supplied file to be a URL
     parts = urllib.parse.urlparse(file, allow_fragments=False)
     path_part = os.path.basename(parts.path) if parts.scheme else file
@@ -159,7 +150,7 @@ def find_file(file: str, includes: List[str]) -> Optional[str]:
         logger.debug('file %s found at %s' % (file, path))
         return path
     else:
-        logger.error('file %s not found in %s' % (file, includes))
+        logger.error('%s %s not found in %s' % (prefix, file, includes))
         return None
 
 
@@ -168,6 +159,7 @@ def get_argparser():
     choices_defuse = ('always', 'remote', 'never')
 
     default_include = []
+    default_schema = []
     default_location = []
     default_defuse = 'remote'
     default_verbose = 0
@@ -187,17 +179,18 @@ def get_argparser():
                                  'the current directory and explicit file'
                                  'directories are always searched); '
                                  'default: %r' % default_include)
-    arg_parser.add_argument('-S', '--schema', type=str,
+    arg_parser.add_argument('-S', '--schema', type=str, action='append',
+                            default=default_schema,
                             help='path or URL to XSD schema; default: '
-                                 'set from first file')
+                                 'determine from supplied XML files')
     arg_parser.add_argument('-V', '--version', choices=choices_version,
-                            help='XSD schema version; default: set from '
-                                 'schema')
+                            help='XSD schema version; default: determine from '
+                                 'discovered schemas')
     arg_parser.add_argument('-L', '--location', nargs=2, type=str,
                             action='append', default=default_location,
                             help='fallback schema location (URI, '
-                                 'URL) tuples; default: set from first '
-                                 'file and schema')
+                                 'URL) tuples; default: determine from '
+                                 'supplied XML files')
 
     arg_parser.add_argument('--lazy', action='store_true', default=False,
                             help='whether to use lazy validation mode (slower '
@@ -241,9 +234,6 @@ def main(argv=None):
     loglevel = loglevel_map[max(args.verbose - 1, args.loglevel)]
     logging.basicConfig(level=loglevel)
 
-    # note whether or not we're using lxml
-    logger.debug('%susing lxml' % ('' if using_lxml else 'not '))
-
     # insert the current directory and any command-line file directories
     # before the include path
     # XXX could use os.path.realpath() or os.path.samefile() to check for
@@ -252,8 +242,8 @@ def main(argv=None):
     inserts = []
     if os.path.curdir not in args.include:
         inserts.append(os.path.curdir)
-    for file in args.file:
-        dirname = os.path.dirname(file)
+    for schema_url in args.file:
+        dirname = os.path.dirname(schema_url)
         if dirname != '' and dirname not in inserts + args.include:
             inserts.append(dirname)
     if inserts:
@@ -261,78 +251,99 @@ def main(argv=None):
         args.include[0:0] = inserts
 
     # convert location tuples to a dict
-    args.location = {namespace: path for namespace, path in args.location}
+    locations = {namespace: path for namespace, path in args.location}
+    locations_supplied = bool(locations)
 
-    # parse the first file to determine the schema and add locations
-    if args.schema is None:
-        assert len(args.file) > 0  # argparse should guarantee this
-        path = find_file(args.file[0], args.include)
+    # if schemas are supplied, they are not searched for
+    schema_urls = args.schema
+    schemas_supplied = bool(schema_urls)
+
+    # parse the files to determine their schemas; also add locations
+    file_map = {}
+    for file in args.file:
+        path = find_file(file, args.include)
         if path is not None:
-            logger.info('parsing %s (first file)' % path)
-            root = ElementTree.parse(path).getroot()
-            namespace = re.sub(r'^{(.+)}.+$', r'\1', root.tag)
-            items = root.attrib.get(
-                    '{http://www.w3.org/2001/XMLSchema-instance}'
-                    'schemaLocation', '').strip().split()
-            schema_location = dict(zip(items[0::2], items[1::2]))
-            if namespace in schema_location:
-                args.schema = schema_location[namespace]
-                del schema_location[namespace]
-                logger.info('set schema to %s' % args.schema)
+            try:
+                schema_url = None
+                logger.info('parsing %s' % path)
+                tree = ElementTree.parse(path)
+                root = tree.getroot()
 
-            for namespace, file in schema_location.items():
-                path = find_file(file, includes=args.include)
-                if path is not None and namespace not in args.location:
-                    # XXX use an absolute path; xmlschema doesn't work
-                    #     reliably with relative paths (not sure why)
-                    path = os.path.abspath(path)
-                    args.location[namespace] = path
-                    logger.info('set location %s to %s' % (namespace, path))
+                namespace = re.sub(r'^{(.+)}.+$', r'\1', root.tag)
+                items = root.attrib.get(
+                        '{http://www.w3.org/2001/XMLSchema-instance}'
+                        'schemaLocation', '').strip().split()
+                locations_ = dict(zip(items[0::2], items[1::2]))
+                if not schemas_supplied and namespace in locations_:
+                    schema_url = locations_[namespace]
+                    del locations_[namespace]
+                    if schema_url not in schema_urls:
+                        schema_urls.append(schema_url)
+                        logger.info('added schema %s' % schema_url)
 
-    # parse the schema to determine its minimum version
-    schema_resource = None
-    if args.schema is not None:
-        path = find_file(args.schema, args.include)
+                file_map[file] = (tree, schema_url)
+
+                for namespace, schema_url in locations_.items():
+                    path = find_file(schema_url, includes=args.include,
+                                     prefix='schema')
+                    if path is not None and namespace not in locations:
+                        # xmlschema doesn't work reliably with relative paths
+                        # (not sure why)
+                        path = os.path.abspath(path)
+                        if not locations_supplied and namespace not in \
+                                locations:
+                            locations[namespace] = path
+                            logger.info('set location %s to %s' % (
+                                namespace, path))
+
+            except ElementTree.XMLSyntaxError as error:
+                logger.error(error)
+
+    # parse the schemas to determine their minimum versions and, therefore,
+    # the appropriate schema classes
+    resource_map = {}
+    for schema_url in schema_urls:
+        path = find_file(schema_url, args.include, prefix='schema')
         if path is not None:
             logger.info('parsing %s' % path)
-            schema_resource = xmlschema.XMLResource(path, lazy=args.lazy,
-                                                    defuse=args.defuse)
-            min_version = schema_resource.root.attrib.get(
+            resource = xmlschema.XMLResource(path, lazy=args.lazy,
+                                             defuse=args.defuse)
+
+            # set the schema version
+            min_version = resource.root.attrib.get(
                     '{http://www.w3.org/2007/XMLSchema-versioning}minVersion',
                     None)
+            version = min_version or args.version
 
-            # use this to set the version
-            if args.version is None and min_version is not None:
-                args.version = min_version
-                logger.info('set schema version to %s' % args.version)
+            # select the appropriate schema class
+            schema_class = xmlschema.XMLSchema11 if version == '1.1' \
+                else xmlschema.XMLSchema
 
-    # select the appropriate schema class
-    schema_class = xmlschema.XMLSchema11 if args.version == '1.1' else \
-        xmlschema.XMLSchema
+            resource_map[schema_url] = (resource, schema_class)
 
-    # use the schema imports to add locations (this is unlikely to add any new
-    # ones)
-    if schema_resource is not None:
-        for import_ in schema_resource.root.findall(
-                '{http://www.w3.org/2001/XMLSchema}import'):
-            namespace = import_.attrib.get('namespace', '')
-            schema_location = import_.attrib.get('schemaLocation', '')
-            if namespace and schema_location:
-                path = find_file(schema_location, includes=args.include)
-                if path is not None and namespace not in args.location:
-                    args.location[namespace] = path
-                    logger.info('set location %s = %s' % (namespace, path))
+    # use the schema imports to add locations
+    if not locations_supplied:
+        for resource, schema_class in resource_map.values():
+            for import_ in resource.root.findall(
+                    '{http://www.w3.org/2001/XMLSchema}import'):
+                namespace = import_.attrib.get('namespace', '')
+                schema_url = import_.attrib.get('schemaLocation', '')
+                if namespace and schema_url:
+                    path = find_file(schema_url, includes=args.include,
+                                     prefix='schema')
+                    if path is not None and namespace not in locations:
+                        locations[namespace] = path
+                        logger.info('set location %s = %s' % (namespace, path))
 
-    # load the schema
-    # XXX this is for efficiency when validating multiple files, but it does
-    #     assume that all of the XML files use the same schema
-    schema = None
-    if schema_resource is not None:
-        logger.info('loading %s' % args.schema)
+    # load the schemas
+    schema_map = {}
+    for schema_url, (resource, schema_class) in resource_map.items():
+        logger.info('loading %s' % schema_url)
         try:
-            schema = schema_class(schema_resource, locations=args.location,
+            schema = schema_class(resource, locations=locations,
                                   defuse=args.defuse, loglevel=loglevel)
-            logger.info('loaded %s' % args.schema)
+            schema_map[schema_url] = (schema_class, schema)
+            logger.info('loaded %s' % schema_url)
         except xmlschema.XMLSchemaParseError as error:
             logger.error(error.message)
         except xmlschema.XMLSchemaImportWarning as error:
@@ -341,42 +352,46 @@ def main(argv=None):
     # create a reverse namespace map: '{NAMESPACE}' -> 'PREFIX:' to use when
     # reporting XML elements and attributes
     namespaces = {}
-    if schema is not None:
-        namespaces = {f'{{{ns}}}': f'{pfx}:' for pfx, ns in
-                      schema.namespaces.items() if pfx and ns}
+    for _, schema in schema_map.values():
+        namespaces |= {f'{{{ns}}}': f'{pfx}:' for pfx, ns in
+                       schema.namespaces.items() if pfx and ns}
 
     # validate the files
-    # XXX the first file may be parsed twice; could avoid this...
     tot_errors = 0
     ign_errors = 0
-    for file in args.file:
-        path = find_file(file, args.include)
-        if path is not None:
+    for file, (tree, schema_url) in file_map.items():
+        if schema_url not in schema_map:
+            logger.error("can't validate %s with %s" % (file, schema_url))
+        else:
+            schema_class, schema = schema_map[schema_url]
             num_errors = 0
-            path_or_tree = path
-            if using_lxml:
-                logger.info('parsing %s' % path)
-                path_or_tree = ElementTree.parse(path)
             try:
-                logger.info('validating %s' % path)
-                for error in xmlschema.iter_errors(
-                        path_or_tree, schema, schema_class,
-                        locations=args.location, lazy=args.lazy):
-                    if report_error(file, error, namespaces=namespaces,
-                                    terse=args.terse):
-                        num_errors += 1
-                    else:
-                        ign_errors += 1
+                logger.info('validating %s with %s' % (file, schema_url))
+                with warnings.catch_warnings(record=True) as ws:
+                    warnings.simplefilter('always')
+                    for error in xmlschema.iter_errors(
+                            tree, schema, schema_class,
+                            locations=locations, lazy=args.lazy):
+                        if report_error(schema_url, error, namespaces=namespaces,
+                                        terse=args.terse):
+                            num_errors += 1
+                        else:
+                            ign_errors += 1
+                    for error in ws:
+                        if report_error(schema_url, error, namespaces=namespaces,
+                                        terse=args.terse):
+                            num_errors += 1
+                        else:
+                            ign_errors += 1
 
-            # XXX I'm not sure when this exception gets raised
-            except (xmlschema.XMLSchemaException,
+            except (ElementTree.XMLSyntaxError,
+                    xmlschema.XMLSchemaException,
                     urllib.error.URLError) as error:
-                if report_error(file, error, namespaces=namespaces,
+                if report_error(schema_url, error, namespaces=namespaces,
                                 terse=args.terse):
                     num_errors += 1
                 else:
                     ign_errors += 1
-                continue
 
             tot_errors += num_errors
 
