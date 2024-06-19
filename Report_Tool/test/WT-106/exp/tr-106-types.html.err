@@ -1,0 +1,7 @@
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
+Use of uninitialized value $i in string ne at ../../report.pl line 1056.
+Use of uninitialized value $a in string ne at ../../report.pl line 1057.
+Use of uninitialized value $xxnnn in concatenation (.) or string at ../../report.pl line 1058.
+(W) Alias: parameter already defined (new one ignored)

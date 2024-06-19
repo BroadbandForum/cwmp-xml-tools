@@ -1,3 +1,6 @@
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
 (E) Root.: reference to invalid command Root.
 (E) Root.Command().A.{i}.: reference to invalid object Root.Command().
 (E) Root.Command().A.{i}.AP: reference to invalid object Root.Command().

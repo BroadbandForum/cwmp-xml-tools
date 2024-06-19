@@ -39,6 +39,12 @@
 #
 # See full usage documentation at the end of the file.
 
+# Output a disclaimer.
+print STDERR "This tool is no longer being maintained. It can output " .
+    "spurious warnings and\nerrors, and may generate inaccurate output. " .
+    "For the new tool, please see\n" .
+    "https://github.com/BroadbandForum/bbfreport.\n";
+
 # XXX want better format that can be directly imported into excel (and of
 #     course want better export from excel, but that's a separate issue)
 
@@ -1308,7 +1314,7 @@ sub expand_import
             next;
         }
 
-        emsg "{$file}$ref: invalid import of internal $element"
+        w1msg "{$file}$ref: invalid import of internal $element"
             if $ref =~ /^_/ && $element ne 'dataType';
 
         # XXX this logic is (originally) from expand_model_component
@@ -2496,7 +2502,7 @@ sub version
 
     # check major version is the same as the inherited major version
     if ($hash->{major} != $default->{major}) {
-        emsg "$path: major version $hash->{major} != inherited " .
+        w1msg "$path: major version $hash->{major} != inherited " .
             "$default->{major}";
     }
 
@@ -3524,7 +3530,8 @@ sub expand_model_profile_object
         delete $Pnode->{errors}->{$name} if $status eq 'deleted';
         return;
     } elsif ($poa->{$access} > $moa->{$objects->{$fpath}->{access}}) {
-        emsg "profile $Pnode->{name} has invalid requirement ".
+        # XXX can be spurious, so demote to w1msg
+        w1msg "profile $Pnode->{name} has invalid requirement ".
             "($access) for $name ($objects->{$fpath}->{access})";
     }
 
@@ -3674,7 +3681,8 @@ sub expand_model_profile_parameter
         return;
     } elsif ($access && $ppa->{$access} >
              $ppa->{$parameters->{$fpath}->{access}}) {
-        emsg "profile $Pnode->{name} has invalid requirement ".
+        # XXX can be spurious, so demote to w1msg
+        w1msg "profile $Pnode->{name} has invalid requirement ".
             "($access) for $path ($parameters->{$fpath}->{access})";
     }
 
@@ -4187,7 +4195,8 @@ sub add_object
             # Create Error if access got demoted!
             if (!$is_dt && $nnode->{access} eq 'readWrite')
             {
-                emsg "$path: access got demoted from $nnode->{access} to $access";
+                # XXX can be spurious, so demote to w1msg
+                w1msg "$path: access got demoted from $nnode->{access} to $access";
             }
             d0msg "$path: access: $nnode->{access} -> $access";
             $nnode->{access} = $access;
@@ -4481,7 +4490,8 @@ sub add_parameter
             if (!$is_dt &&
                 $access_level->{$access} < $access_level->{$nnode->{access}})
             {
-                emsg "$path: access got demoted from $nnode->{access} to $access";
+                # XXX can be spurious, so demote to w1msg
+                w1msg "$path: access got demoted from $nnode->{access} to $access";
             }
             d0msg "$path: access: $nnode->{access} -> $access";
             $nnode->{access} = $access;
@@ -16550,13 +16560,15 @@ sub sanity_node
         emsg "$path: object is a table but name doesn't end with \"{i}.\""
             if $multi && $path !~ /\{i\}\.$/;
 
-        emsg "$path: object is not a table but name ends with \"{i}.\""
+        # XXX can be spurious, so demote to w1msg
+        w1msg "$path: object is not a table but name ends with \"{i}.\""
             if !$is_dt && !$multi && $path =~ /\{i\}\.$/;
 
-        emsg "$path: object is not a table but has a unique key"
+        # XXX can be spurious, so demote to w1msg
+        w1msg "$path: object is not a table but has a unique key"
             if !$multi && $node->{uniqueKeys} && @{$node->{uniqueKeys}};
 
-        emsg "$path: object is not writable and multi-instance but " .
+        w1msg "$path: object is not writable and multi-instance but " .
             "has enableParameter" if
             !$is_dt && !($access ne 'readOnly' && $multi) && $enableParameter;
 
@@ -16739,7 +16751,7 @@ sub sanity_node
         #     allowing them in components that can be included in multiple
         #     environments)
 
-        w0msg "$path: default $udefault is invalid for data type $type"
+        w1msg "$path: default $udefault is invalid for data type $type"
             if defined $default && !valid_values($node, $default);
 
         w0msg "$path: default $udefault is inappropriate"
@@ -16762,7 +16774,7 @@ sub sanity_node
             has_maxlength($syntax);
 
         # XXX why the special case for lists?  suppressed
-        w0msg "$path: parameter within static object has a default value" if
+        w1msg "$path: parameter within static object has a default value" if
             !$is_dt && !$dynamic && defined($default) && $deftype eq 'object'
             && !$nowarnstaticdefault;
         #&& !($syntax->{list} && $default eq '');
@@ -16797,7 +16809,7 @@ sub sanity_node
         # check whether the profile status is consistent with its contents
         my $levels = {};
         my $highest = profile_status($node, $levels, $profver);
-        w0msg("profile $name is $status but should be " .
+        w1msg("profile $name is $status but should be " .
               "$status_names->{$highest} because of " .
               join ', ', sort keys %{$levels->{$highest}})
             if $highest > $status_levels->{$status};
@@ -16808,7 +16820,7 @@ sub sanity_node
             my $plevels = $levels->{$level};
             foreach my $path (sort keys %$plevels) {
                 my $plevel = $plevels->{$path};
-                w0msg "profile $name $path is $status_names->{$plevel} but " .
+                w1msg "profile $name $path is $status_names->{$plevel} but " .
                     "should be $status_names->{$level}" if
                     $plevel < $level;
             }

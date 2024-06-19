@@ -20,7 +20,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>May 2018</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-106_Amendment-8.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-106_Amendment-8.pdf</hyperlink>
     </reference>
   </bibliography>
   <model name="Model:1.0">
@@ -62,7 +62,7 @@
       <description>
         A {{object}}.
       </description>
-      <command name="Flush()" version="1.0">
+      <command name="Flush()" async="false" version="1.0">
         <description>
           {{command}}.
         </description>
@@ -105,7 +105,7 @@
       <description>
         A {{object}}.
       </description>
-      <uniqueKey>
+      <uniqueKey functional="true">
         <parameter ref="Alias"/>
       </uniqueKey>
       <parameter name="Alias" access="readWrite" version="1.0">

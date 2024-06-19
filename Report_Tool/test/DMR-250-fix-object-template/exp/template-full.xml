@@ -20,7 +20,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>May 2018</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-106_Amendment-8.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-106_Amendment-8.pdf</hyperlink>
     </reference>
   </bibliography>
   <model name="Nested:1.0">
@@ -28,7 +28,7 @@
       <description>
         command: {{command|.}} and object: {{object}} + {{object}}.
       </description>
-      <command name="Command()" version="1.0">
+      <command name="Command()" async="false" version="1.0">
         <description>
           command: {{command}} and object: {{object}} + {{object}}.
         </description>

@@ -1,2 +1,5 @@
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
 (E) Table.{i}.: undefined unique key parameter: InvalidKey
 (E) Table.{i}.: reference to invalid parameter Table.{i}.InvalidKey

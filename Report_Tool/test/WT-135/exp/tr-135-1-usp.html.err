@@ -1,4 +1,3 @@
-(W) STBService.{i}.ServiceMonitoring.FetchSamples: should use {{command}} to reference ForceSample()
-(W) STBService.{i}.ServiceMonitoring.FetchSamples: command reference ForceSample should be ForceSample()
-(W) STBService.{i}.ServiceMonitoring.ReportEndTime: should use {{command}} to reference ForceSample()
-(W) STBService.{i}.ServiceMonitoring.ReportEndTime: command reference ForceSample should be ForceSample()
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.

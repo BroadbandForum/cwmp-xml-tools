@@ -20,7 +20,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>May 2018</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-106_Amendment-8.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-106_Amendment-8.pdf</hyperlink>
     </reference>
   </bibliography>
   <model name="CWMP:1.1">
@@ -116,17 +116,17 @@
           <unsignedInt/>
         </syntax>
       </parameter>
-      <command name="X()" version="1.0">
+      <command name="X()" async="false" version="1.0">
         <description>
           {{event}}
         </description>
       </command>
-      <command name="Y()" version="1.0">
+      <command name="Y()" async="false" version="1.0">
         <description>
           {{event}}
         </description>
       </command>
-      <command name="Z()" version="1.0">
+      <command name="Z()" async="false" version="1.0">
         <description>
           {{event}}
         </description>

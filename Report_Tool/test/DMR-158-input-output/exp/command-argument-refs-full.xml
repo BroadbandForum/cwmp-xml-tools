@@ -20,7 +20,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>May 2018</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-106_Amendment-8.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-106_Amendment-8.pdf</hyperlink>
     </reference>
   </bibliography>
   <model name="CommandArgumentRefs:1.0">
@@ -39,7 +39,7 @@
         * Command().Input.Array.{i}.Param {{param|Command().Input.Array.{i}.Param}}
         * Command().Input.Param {{param|Command().Input.Param}}
       </description>
-      <command name="Command()" version="1.0">
+      <command name="Command()" async="false" version="1.0">
         <description>
           These are references to:
           * Array {{object|Array}}

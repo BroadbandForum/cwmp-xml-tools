@@ -1,0 +1,4 @@
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
+(E) tr-999-1-0-common: spec urn:example-com:tr-999-1-0-0 and file tr-999-1-0-0-common.xml don't match

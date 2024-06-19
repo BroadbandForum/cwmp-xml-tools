@@ -1,0 +1,4 @@
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
+(E) validation error: cwmp-datamodel-1-14.xsd:468: attribute name=':1.0': value doesn't match any pattern of ['([\\i-[:]][\\c-[:\\.]]*):(\\d+)\\.(\\d+)'] in :1.0

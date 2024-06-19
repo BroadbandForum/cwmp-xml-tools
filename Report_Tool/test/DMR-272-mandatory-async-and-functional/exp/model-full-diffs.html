@@ -5,7 +5,7 @@
 <meta content="text/html; charset=UTF-8" http-equiv="content-type">
 <title>model-full.xml (changes, differences, canonical)</title>
 <style>
-@media screen and (min-width: 924px) {
+@media screen and (min-width: 60em) {
 body {
 display: flex;
 align-items: stretch;
@@ -35,6 +35,7 @@ overflow: auto;
 /* background-color: white; */
 border-right: 1px solid #73AD21;
 padding: 5px;
+max-width: 20%;
 }
 
 #TOC ul {
@@ -114,7 +115,9 @@ window.addEventListener('DOMContentLoaded', function() {
             temp.push([j, items[j].children[0].innerText]);
         }
         temp.sort((a, b) => {
-            return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0;
+            var a1_lower = a[1].toLowerCase();
+            var b1_lower = b[1].toLowerCase();
+            return a1_lower < b1_lower ? -1 : a1_lower > b1_lower ? 1 : 0;
         });
         temp.forEach((order_text, j) => {
             var k = order_text[0];
@@ -287,22 +290,59 @@ window.addEventListener('DOMContentLoaded', function() {
 
 </style>
 <style>
-:root {
-    --parameter-color: white;
-    --object-color: #ffff99;
-    --command-color: #66cdaa;
-    --event-color: #66cdaa;
-    --argument-container-color: silver;
-    --argument-object-color: pink;
-    --argument-parameter-color: #ffe4e1;
-    --mountable-object-color: #b3e0ff;
-    --mountpoint-object-color: #4db8ff;
-    --stripe-direction: 90deg;
-    --stripe-stop-point-1: 1%;
-    --stripe-stop-point-2: 2%;
-    --stripe-color-deprecated: #eeeeee;
-    --stripe-color-obsoleted: #dddddd;
-    --stripe-color-deleted: #cccccc;
+@media (prefers-color-scheme: light) {
+  :root {
+      --link-color: blue;
+      --background-color: white;
+      --foreground-color: black;
+      --parameter-color: white;
+      --table-border: solid 1px black;
+      --object-color: #ffff99;
+      --command-color: #66cdaa;
+      --event-color: #66cdaa;
+      --argument-container-color: silver;
+      --argument-object-color: pink;
+      --argument-parameter-color: #ffe4e1;
+      --mountable-object-color: #b3e0ff;
+      --mountpoint-object-color: #4db8ff;
+      --stripe-direction: 90deg;
+      --stripe-stop-point-1: 1%;
+      --stripe-stop-point-2: 2%;
+      --stripe-color-deprecated: #eeeeee;
+      --stripe-color-obsoleted: #dddddd;
+      --stripe-color-deleted: #cccccc;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    :root {
+      --link-color: lightblue;
+      --background-color: black;
+      --foreground-color: white;
+      --parameter-color: black;
+      --table-border: solid 1px white;
+      --object-color: #bbbb44;
+      --command-color: #56bd9a;
+      --event-color: #56bd9a;
+      --argument-container-color: #777777;
+      --argument-object-color: #dfa0ab;
+      --argument-parameter-color: #bfa4a1;
+      --mountable-object-color: #b3e0ff;
+      --mountpoint-object-color: #3da8ef;
+      --stripe-color-deprecated: #555555;
+      --stripe-color-obsoleted: #444444;
+      --stripe-color-deleted: #333333;
+  }
+
+  .chevron {
+    color: lightblue;
+  }
+}
+
+body, table {
+    background-color: var(--background-color);
+    color: var(--foreground-color);
 }
 
 body, table {
@@ -320,6 +360,10 @@ h2 {
 
 h3 {
     font-size: 10pt;
+}
+
+a:link {
+  color: var(--link-color);
 }
 
 a:link, a:visited, a:hover, a:active {
@@ -362,9 +406,7 @@ table.solid-border {
 
 table.solid-border th,
 table.solid-border td {
-    border-style: solid;
-    border-width: 1px;
-    border-color: black;
+    border: var(--table-border);
 }
 
 td > div,
@@ -746,28 +788,7 @@ For some unsignedInt types, a value range is given using the form unsignedInt[<i
 <td class="object">Object definition.</td>
 </tr>
 <tr>
-<td class="mountable-object">Mountable Object definition.</td>
-</tr>
-<tr>
-<td class="mountpoint-object">Mount Point definition.</td>
-</tr>
-<tr>
 <td class="parameter">Parameter definition.</td>
-</tr>
-<tr>
-<td class="command event">Command or Event definition.</td>
-</tr>
-<tr>
-<td class="argument-container">
-Command Input / Output Arguments container.</td>
-</tr>
-<tr>
-<td class="argument-object">
-Command or Event Object Input / Output Argument definition.</td>
-</tr>
-<tr>
-<td class="argument-parameter">
-Command or Event Parameter Input / Output Argument definition.</td>
 </tr>
 </tbody>
 </table> <!-- Legend -->
@@ -791,7 +812,7 @@ Command or Event Parameter Input / Output Argument definition.</td>
 <td>-</td>
 <td>The number of entries in the <a href="#D.Model:1.Table.{i}."><i>Table</i></a> table.</td>
 <td>-</td>
-<td title="">1.0</td>
+<td>1.0</td>
 </tr>
 <tr class="object">
 <td><a name="D.Model:1.Table.{i}.">Table.&#8203;{i}.</a></td>
@@ -801,7 +822,7 @@ Command or Event Parameter Input / Output Argument definition.</td>
   At most one entry in this table can exist with a given value for <a href="#D.Model:1.Table.{i}.Automobile"><i>Automobile</i></a>.
 </pre></td>
 <td>-</td>
-<td title="">1.0</td>
+<td>1.0</td>
 </tr>
 <tr class="parameter">
 <td><a name="D.Model:1.Table.{i}.Automobile">Automobile</a></td>
@@ -809,7 +830,7 @@ Command or Event Parameter Input / Output Argument definition.</td>
 <td>-</td>
 <td>An <i>Automobile</i> that I bought yesterday.</td>
 <td>-</td>
-<td title="">1.0</td>
+<td>1.0</td>
 </tr>
 <tr class="command">
 <td><a name="D.Model:1.Table.{i}.Bicycle().">Bicycle&#8203;()</a></td>
@@ -817,7 +838,7 @@ Command or Event Parameter Input / Output Argument definition.</td>
 <td>-</td>
 <td>A <i>Bicycle()</i>.</td>
 <td>-</td>
-<td title="">1.0</td>
+<td>1.0</td>
 </tr>
 </tbody>
 </table> <!-- Data Model Definition -->

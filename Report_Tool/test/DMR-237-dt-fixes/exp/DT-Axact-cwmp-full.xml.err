@@ -1,3 +1,29 @@
-(E) profile PeriodicStatsAdv:1 references invalid Device.PeriodicStatistics.SampleSet.{i}.FetchSamples
-(E) profile PeriodicStatsAdv:1 references invalid Device.PeriodicStatistics.SampleSet.{i}.Status
-(E) profile PeriodicStatsAdv:1 references invalid Device.PeriodicStatistics.SampleSet.{i}.TimeReference
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
+(W) Device.FAST.Line.{i}.UPBOKLE: units 0.1dB but no {{units}} template
+(W) Device.DOCSIS.DownstreamChannel.{i}.Frequency: units Hz but no {{units}} template
+(W) Device.DOCSIS.DownstreamChannel.{i}.Width: units Hz but no {{units}} template
+(W) Device.DOCSIS.DownstreamChannel.{i}.SignalQuality.SignalNoise: units TenthdB but no {{units}} template
+(W) Device.DOCSIS.DownstreamChannel.{i}.SignalQuality.Microreflections: units -dBc but no {{units}} template
+(W) Device.DOCSIS.DownstreamChannel.{i}.SignalQualityExt.RxMER: units TenthdB but no {{units}} template
+(W) Device.DOCSIS.UpstreamChannel.{i}.Frequency: units Hz but no {{units}} template
+(W) Device.DOCSIS.UpstreamChannel.{i}.Width: units Hz but no {{units}} template
+(W) Device.DOCSIS.UpstreamChannel.{i}.SlotSize: units ticks but no {{units}} template
+(W) Device.DOCSIS.UpstreamChannel.{i}.Status.TxPower: units TenthdBmV but no {{units}} template
+(W) Device.DOCSIS.SpectrumAnalysis.InactivityTimeout: units seconds but no {{units}} template
+(W) Device.DOCSIS.SpectrumAnalysis.FirstSegmentCenterFrequency: units Hz but no {{units}} template
+(W) Device.DOCSIS.SpectrumAnalysis.LastSegmentCenterFrequency: units Hz but no {{units}} template
+(W) Device.DOCSIS.SpectrumAnalysis.SegmentFrequencySpan: units Hz but no {{units}} template
+(W) Device.DOCSIS.SpectrumAnalysis.EquivalentNoiseBandwidth: units hundredthsbin but no {{units}} template
+(W) Device.DOCSIS.SpectrumAnalysis.Result.{i}.Frequency: units Hz but no {{units}} template
+(W) Device.Ghn.Diagnostics.PerformanceMonitoring.Channels.Channel.{i}.SNR: units 0.1 dB but no {{units}} template
+(W) Device.WiFi.NeighboringWiFiDiagnostic.Result.{i}.DTIMPeriod: units ms but no {{units}} template
+(W) Device.WiFi.SSID.{i}.SetATF: units percent but no {{units}} template
+(W) Device.WiFi.AccessPoint.{i}.AssociatedDevice.{i}.SetStaATF: units percent but no {{units}} template
+(W) Device.IP.Diagnostics.DownloadDiagnostics.IncrementalResult.{i}.TestBytesReceived: units bytes but no {{units}} template
+(W) Device.IP.Diagnostics.UploadDiagnostics.IncrementalResult.{i}.TestBytesSent: units bytes but no {{units}} template
+(W) Device.IP.Diagnostics.UDPEchoDiagnostics.IndividualPacketResult.{i}.TestRespRcvTimeStamp: units microseconds but no {{units}} template
+(W) Device.IP.Diagnostics.UDPEchoDiagnostics.IndividualPacketResult.{i}.TestRespReplyTimeStamp: units microseconds but no {{units}} template
+(W) Device.RouterAdvertisement.InterfaceSetting.{i}.AdvRetransTimer: units milliseconds but no {{units}} template
+(E) Device.FWE.: invalid bibrefs: FWEREG

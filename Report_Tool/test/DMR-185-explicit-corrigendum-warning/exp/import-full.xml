@@ -35,7 +35,6 @@
       * The value MUST NOT be empty.
       * The value MUST start with a letter.
       * If the value is not assigned by the Controller at creation time, the Agent MUST assign a value with an "cpe-" prefix.
-      The value MUST NOT change once it's been assigned.
     </description>
     <size maxLength="64"/>
   </dataType>
@@ -130,6 +129,9 @@
       IPv4 or IPv6 routing prefix in Classless Inter-Domain Routing (CIDR) notation {{bibref|RFC4632}}. This is specified as an IP address followed by an appended "/n" suffix, where ''n'' (the prefix size) is an integer in the range 0-32 (for IPv4) or 0-128 (for IPv6) that indicates the number of (leftmost) '1' bits of the routing prefix.
       * IPv4 example: 192.168.1.0/24
       * IPv6 example: 2001:edff:fe6a:f76::/64
+      This notation can also represent individual addresses by specifying all bits.
+      * IPv4 example: 192.168.1.1/32
+      * IPv6 example: 2001:edff:fe6a:f76::1/128
       If the IP address part is unspecified or inapplicable, it MUST be {{empty}} unless otherwise specified by the parameter definition. In this case the IP prefix will be of the form "/n".
       If the entire IP prefix is unspecified or inapplicable, it MUST be {{empty}} unless otherwise specified by the parameter definition.
     </description>
@@ -170,6 +172,16 @@
       <pattern value=""/>
       <pattern value="([0-9A-Fa-f][0-9A-Fa-f]:){5}([0-9A-Fa-f][0-9A-Fa-f])"/>
     </string>
+  </dataType>
+  <dataType name="Order">
+    <description>
+      Position of the {{object}} entry in the order of precedence. A value of ''1'' indicates the first entry to be considered (highest precedence).
+      When a {{object}} instance is created, or when an existing {{param}} value is modified, if the value matches that of an existing entry, the {{param}} values for the existing entry and all lower {{param}} entries are incremented (lowered in precedence) to ensure uniqueness of this value. A deletion causes {{param}} values to be compacted. When a value is changed, incrementing occurs before compaction.
+      If no {{param}} value is supplied on creation of a {{object}} instance, it MUST be assigned a value that is one more than the largest current value (lowest precedence).
+    </description>
+    <unsignedInt>
+      <range minInclusive="1"/>
+    </unsignedInt>
   </dataType>
   <dataType name="StatsCounter32">
     <description>
@@ -244,7 +256,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>May 2018</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-106_Amendment-8.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-106_Amendment-8.pdf</hyperlink>
     </reference>
   </bibliography>
 </dm:document>

@@ -1,1 +1,4 @@
-(W) can't validate ./reference.xml (uses XSD v1.1)
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
+(E) validation error: cwmp-datamodel-1-10.xsd:11: missing required attribute 'version' in <object name="Root." access="readOnly" minEntries="1" maxEntries="1">

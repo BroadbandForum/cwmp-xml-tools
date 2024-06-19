@@ -1,25 +1,45 @@
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
+(W) Device.DeviceInfo.DeviceImageFile.{i}.: numEntriesParameter (DeviceImageNumberOfEntries) should be named DeviceImageFileNumberOfEntries
 (W) Device.DSL.Line.{i}.StandardsSupported: is obsoleted but has no {{deprecated}} template
 (W) Device.DSL.Line.{i}.StandardsSupported: is obsoleted but has no {{obsoleted}} template
 (W) Device.DSL.Line.{i}.StandardUsed: is obsoleted but has no {{deprecated}} template
 (W) Device.DSL.Line.{i}.StandardUsed: is obsoleted but has no {{obsoleted}} template
+(W) Device.DSL.Line.{i}.AllowedProfiles.17b: is deleted but has no {{deleted}} template
+(E) Device.DSL.BondingGroup.{i}.Ethernet.: is a union object but has no discriminatorParameter
+(W) Device.DSL.Diagnostics.SELTP().LoopTermination.Powered on DSLAM/DPU: is obsoleted but has no {{obsoleted}} template
+(W) Device.FAST.Line.{i}.UPBOKLE: units 0.1dB but no {{units}} template
 (W) Device.Ghn.Interface.{i}.ConnectionType: is obsoleted but has no {{deprecated}} template
 (W) Device.Ghn.Interface.{i}.ConnectionType: is obsoleted but has no {{obsoleted}} template
+(W) Device.Ghn.Diagnostics.PerformanceMonitoring().Channels.Channel.{i}.SNR: units 0.1 dB but no {{units}} template
+(W) Device.WiFi.NeighboringWiFiDiagnostic().Result.{i}.DTIMPeriod: units ms but no {{units}} template
 (W) Device.WiFi.Radio.{i}.Upstream: is obsoleted but has no {{deprecated}} template
 (W) Device.WiFi.Radio.{i}.Upstream: is obsoleted but has no {{obsoleted}} template
 (W) Device.WiFi.Radio.{i}.CenterFrequencySegement0: is deprecated but has no {{deprecated}} template
 (W) Device.WiFi.Radio.{i}.CenterFrequencySegement1: is deprecated but has no {{deprecated}} template
+(W) Device.WiFi.SSID.{i}.SetATF: units percent but no {{units}} template
 (W) Device.WiFi.AccessPoint.{i}.RetryLimit: is obsoleted but has no {{deprecated}} template
 (W) Device.WiFi.AccessPoint.{i}.RetryLimit: is obsoleted but has no {{obsoleted}} template
 (W) Device.WiFi.AccessPoint.{i}.MaxAssociatedDevices: is obsoleted but has no {{deprecated}} template
 (W) Device.WiFi.AccessPoint.{i}.MaxAssociatedDevices: is obsoleted but has no {{obsoleted}} template
+(W) Device.WiFi.AccessPoint.{i}.AssociatedDevice.{i}.SetStaATF: units percent but no {{units}} template
+(W) Device.ZigBee.ZDO.{i}.Binding.{i}.: numEntriesParameter (BindingTableNumberOfEntries) should be named BindingNumberOfEntries
+(E) Device.PPP.Interface.{i}.PPPoE.: is a union object but has no discriminatorParameter
 (W) Device.PPP.Interface.{i}.PPPoA.: is obsoleted but has no {{deprecated}} template
 (W) Device.PPP.Interface.{i}.PPPoA.: is obsoleted but has no {{obsoleted}} template
+(E) Device.PPP.Interface.{i}.PPPoA.: is a union object but has no discriminatorParameter
+(W) Device.IP.Diagnostics.DownloadDiagnostics().IncrementalResult.{i}.TestBytesReceived: units bytes but no {{units}} template
+(W) Device.IP.Diagnostics.UploadDiagnostics().IncrementalResult.{i}.TestBytesSent: units bytes but no {{units}} template
+(W) Device.IP.Diagnostics.UDPEchoDiagnostics().IndividualPacketResult.{i}.TestRespRcvTimeStamp: units microseconds but no {{units}} template
+(W) Device.IP.Diagnostics.UDPEchoDiagnostics().IndividualPacketResult.{i}.TestRespReplyTimeStamp: units microseconds but no {{units}} template
 (W) Device.MAP.Domain.{i}.PSIDOffset: is obsoleted but has no {{deprecated}} template
 (W) Device.MAP.Domain.{i}.PSIDOffset: is obsoleted but has no {{obsoleted}} template
 (W) Device.MAP.Domain.{i}.PSIDLength: is obsoleted but has no {{deprecated}} template
 (W) Device.MAP.Domain.{i}.PSIDLength: is obsoleted but has no {{obsoleted}} template
 (W) Device.MAP.Domain.{i}.PSID: is obsoleted but has no {{deprecated}} template
 (W) Device.MAP.Domain.{i}.PSID: is obsoleted but has no {{obsoleted}} template
+(W) Device.RouterAdvertisement.InterfaceSetting.{i}.AdvRetransTimer: units milliseconds but no {{units}} template
 (W) Device.Hosts.Host.{i}.Alias: is obsoleted but has no {{deprecated}} template
 (W) Device.Hosts.Host.{i}.Alias: is obsoleted but has no {{obsoleted}} template
 (W) Device.Hosts.Host.{i}.AddressSource: is obsoleted but has no {{deprecated}} template
@@ -32,10 +52,23 @@
 (W) Device.Hosts.Host.{i}.ClientID: is obsoleted but has no {{obsoleted}} template
 (W) Device.Hosts.Host.{i}.UserClassID: is obsoleted but has no {{deprecated}} template
 (W) Device.Hosts.Host.{i}.UserClassID: is obsoleted but has no {{obsoleted}} template
+(W) Device.DNS.Client.Server.{i}.Type.DHCP: is obsoleted but has no {{obsoleted}} template
+(W) Device.DNS.Relay.Forwarding.{i}.: numEntriesParameter (ForwardNumberOfEntries) should be named ForwardingNumberOfEntries
+(W) Device.DNS.Relay.Forwarding.{i}.Type.DHCP: is obsoleted but has no {{obsoleted}} template
+(W) Device.Firewall.Config.Off: is obsoleted but has no {{obsoleted}} template
 (W) Device.LocalAgent.MTP.{i}.CoAP.IsEncrypted: is deprecated but has no {{deprecated}} template
 (W) Device.LocalAgent.Controller.{i}.ScheduleTimer().: is deprecated but has no {{deprecated}} template
 (W) Device.LocalAgent.Controller.{i}.Timer!.: is deprecated but has no {{deprecated}} template
+(W) Device.LocalAgent.Controller.{i}.MTP.{i}.WebSocket.IsEncrypted: is deprecated but has no {{deprecated}} template
+(W) Device.STOMP.Connection.{i}.OutgoingHeartbeat: units milliseconds but no {{units}} template
+(W) Device.STOMP.Connection.{i}.IncomingHeartbeat: units milliseconds but no {{units}} template
 (W) Device.STOMP.Connection.{i}.IsEncrypted: is deprecated but has no {{deprecated}} template
+(W) Device.MQTT.Broker.{i}.Bridge.{i}.Status.Enabled: is deleted but has no {{deleted}} template
+(W) Device.LMAP.MeasurementAgent.{i}.TaskCapability.{i}.Registry.{i}.: numEntriesParameter (TaskCapabilityRegistryNumberOfEntries) should be named RegistryNumberOfEntries
+(W) Device.LMAP.Report.{i}.Result.{i}.Conflict.{i}.: numEntriesParameter (ResultConflictNumberOfEntries) should be named ConflictNumberOfEntries
+(W) Device.LMAP.Report.{i}.Result.{i}.ReportTable.{i}.: numEntriesParameter (ResultReportTableNumberOfEntries) should be named ReportTableNumberOfEntries
+(W) Device.LMAP.Report.{i}.Result.{i}.ReportTable.{i}.ResultRow.{i}.: numEntriesParameter (ResultReportRowNumberOfEntries) should be named ResultRowNumberOfEntries
+(E) Device.FWE.: invalid bibrefs: FWEREG
 (W) profile ADSL2:1 is current but should be obsoleted because of Device.DSL.Line.{i}.StandardUsed, Device.DSL.Line.{i}.StandardsSupported
 (W) profile ADSL2:1 Device.DSL.Line.{i}.StandardUsed is current but should be obsoleted
 (W) profile ADSL2:1 Device.DSL.Line.{i}.StandardsSupported is current but should be obsoleted

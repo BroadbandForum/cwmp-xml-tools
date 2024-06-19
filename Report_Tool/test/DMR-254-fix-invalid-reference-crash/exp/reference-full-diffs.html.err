@@ -1,4 +1,14 @@
-(W) can't validate out/reference-full.xml (uses XSD v1.1)
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
+(E) /Users/william/Development/cwmp-xml-tools/feature/Report_Tool/test/DMR-254-fix-invalid-reference-crash/../../xmlschema-validate.py:343: XMLSchemaImportWarning: Import of namespace 'urn:broadband-forum-org:cwmp:datamodel-report-1-0' from ['https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd'] failed: cannot access to resource 'https://www.broadband-forum.org/cwmp/cwmp-datamodel-report-1-0.xsd': Forbidden.
+(E)   schema = schema_class(resource, locations=locations,
+(E) /Users/william/Development/python-virtualenv/lib/python3.10/site-packages/xmlschema/validators/schemas.py:1320: XMLSchemaImportWarning: Import of namespace 'urn:broadband-forum-org:cwmp:datamodel-report-1-0' from ['file:///install/cwmp/cwmp-datamodel-report-1-0.xsd'] failed: cannot access to resource 'file:///install/cwmp/cwmp-datamodel-report-1-0.xsd': [Errno 2] No such file or directory: '/install/cwmp/cwmp-datamodel-report-1-0.xsd'.
+(E)   self.import_schema(namespace, url, self.base_url)
+(E) /Users/william/Development/cwmp-xml-tools/feature/Report_Tool/test/DMR-254-fix-invalid-reference-crash/../../xmlschema-validate.py:404: XMLSchemaImportWarning: Import of namespace 'urn:broadband-forum-org:cwmp:datamodel-report-1-0' from ['file:///install/cwmp/cwmp-datamodel-report-1-0.xsd'] failed: cannot access to resource 'file:///install/cwmp/cwmp-datamodel-report-1-0.xsd': [Errno 2] No such file or directory: '/install/cwmp/cwmp-datamodel-report-1-0.xsd'.
+(E)   sys.exit(main())
+(E) validation error: unknown attribute '{urn:broadband-forum-org:cwmp:datamodel-report-1-0}fixedObject'
+(E) validation error: can't validate out/reference-full.xml with https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-10.xsd
 (E) Root.: #.Fred has too many # characters
 (E) Root.P1: reference to invalid parameter Fred
 (E) Root.: ##.Fred has too many # characters

@@ -1,0 +1,5 @@
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
+(E) validation error: imported schema 'file:///Users/william/Development/install/cwmp/cwmp-datamodel-report.xsd' has an unmatched namespace 'urn:broadband-forum-org:cwmp:datamodel-report-1-0'
+(E) validation error: can't validate out/model-full-full.xml with https://www.broadband-forum.org/cwmp/cwmp-datamodel-1-10.xsd

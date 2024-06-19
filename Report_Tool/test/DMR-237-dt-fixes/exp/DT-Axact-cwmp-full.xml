@@ -124,6 +124,9 @@
       IPv4 or IPv6 routing prefix in Classless Inter-Domain Routing (CIDR) notation {{bibref|RFC4632}}. This is specified as an IP address followed by an appended "/n" suffix, where ''n'' (the prefix size) is an integer in the range 0-32 (for IPv4) or 0-128 (for IPv6) that indicates the number of (leftmost) '1' bits of the routing prefix.
       * IPv4 example: 192.168.1.0/24
       * IPv6 example: 2001:edff:fe6a:f76::/64
+      This notation can also represent individual addresses by specifying all bits.
+      * IPv4 example: 192.168.1.1/32
+      * IPv6 example: 2001:edff:fe6a:f76::1/128
       If the IP address part is unspecified or inapplicable, it MUST be {{empty}} unless otherwise specified by the parameter definition. In this case the IP prefix will be of the form "/n".
       If the entire IP prefix is unspecified or inapplicable, it MUST be {{empty}} unless otherwise specified by the parameter definition.
     </description>
@@ -164,6 +167,16 @@
       <pattern value=""/>
       <pattern value="([0-9A-Fa-f][0-9A-Fa-f]:){5}([0-9A-Fa-f][0-9A-Fa-f])"/>
     </string>
+  </dataType>
+  <dataType name="Order">
+    <description>
+      Position of the {{object}} entry in the order of precedence. A value of ''1'' indicates the first entry to be considered (highest precedence).
+      When a {{object}} instance is created, or when an existing {{param}} value is modified, if the value matches that of an existing entry, the {{param}} values for the existing entry and all lower {{param}} entries are incremented (lowered in precedence) to ensure uniqueness of this value. A deletion causes {{param}} values to be compacted. When a value is changed, incrementing occurs before compaction.
+      If no {{param}} value is supplied on creation of a {{object}} instance, it MUST be assigned a value that is one more than the largest current value (lowest precedence).
+    </description>
+    <unsignedInt>
+      <range minInclusive="1"/>
+    </unsignedInt>
   </dataType>
   <dataType name="StatsCounter32">
     <description>
@@ -733,7 +746,7 @@
     </reference>
     <reference id="802.1AX-2014">
       <name>IEEE Std 802.1AX-2014</name>
-      <title>IEEE Standard for Local and metropolitan area networks -- Link
+      <title>IEEE Standard for Local and metropolitan area networks - Link
         Aggregation</title>
       <organization>IEEE</organization>
       <date>2014</date>
@@ -791,7 +804,7 @@
     <reference id="BLUE">
       <name>Blue</name>
       <title>A New Class of Active Queue Management Algorithms</title>
-      <hyperlink>https://www.thefengs.com/wuchang/work/blue</hyperlink>
+      <hyperlink>https://en.wikipedia.org/wiki/Blue_(queue_management_algorithm)</hyperlink>
     </reference>
     <reference id="BPF">
       <name>BPF</name>
@@ -849,7 +862,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2013</date>
-      <hyperlink>https://tools.ietf.org/html/rfc6763</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc6763</hyperlink>
     </reference>
     <reference id="DSLite">
       <name>RFC 6333</name>
@@ -857,7 +870,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2011</date>
-      <hyperlink>https://tools.ietf.org/html/rfc6333</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc6333</hyperlink>
     </reference>
     <reference id="DSLite-options">
       <name>RFC 6334</name>
@@ -866,7 +879,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2011</date>
-      <hyperlink>https://tools.ietf.org/html/rfc6334</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc6334</hyperlink>
     </reference>
     <reference id="DVB-TS.102.824">
       <name>TS 102 824</name>
@@ -911,14 +924,6 @@
       <organization>ETSI</organization>
       <date>August 2012</date>
       <hyperlink>https://docbox.etsi.org/M2M/Open/Latest_Drafts/00010ed121v116.pdf</hyperlink>
-    </reference>
-    <reference id="FWEREG">
-      <name>draft-allan-5g-fmc-encapsulation</name>
-      <title>5G Wireless Wireline Convergence User Plane Encapsulation (5WE)</title>
-      <organization>IETF</organization>
-      <category>Internet Draft</category>
-      <date>March 2020</date>
-      <hyperlink>https://tools.ietf.org/html/draft-allan-5g-fmc-encapsulation</hyperlink>
     </reference>
     <reference id="G.988">
       <name>G.988</name>
@@ -1036,11 +1041,11 @@
       <hyperlink>https://www.itu.int/rec/T-REC-G.998.2</hyperlink>
     </reference>
     <reference id="HPAV1.1">
-      <name>HomePlug AV Specification</name>
+      <name>HomePlug™ AV Specification</name>
       <title>Version 1.1</title>
-      <organization>HomePlug</organization>
+      <organization>HomePlug Alliance</organization>
       <date>2007</date>
-      <hyperlink>https://www.homeplug.org</hyperlink>
+      <hyperlink>https://en.wikipedia.org/wiki/HomePlug</hyperlink>
     </reference>
     <reference id="HTML4.01">
       <name>HTML 4.01 Specification</name>
@@ -1094,25 +1099,25 @@
       <name>IPDR File Transfer Protocol</name>
       <title>IPDR/File Transfer Protocol</title>
       <organization>TM Forum</organization>
-      <hyperlink>https://www.ipdr.org/public/</hyperlink>
+      <hyperlink>https://www.tmforum.org/ipdr/</hyperlink>
     </reference>
     <reference id="IPDR-SP">
       <name>IPDR Streaming Protocol</name>
       <title>IPDR Streaming Protocol (IPDR/SP) Specification</title>
       <organization>TM Forum</organization>
-      <hyperlink>https://www.ipdr.org/public/</hyperlink>
+      <hyperlink>https://www.tmforum.org/ipdr/</hyperlink>
     </reference>
     <reference id="IPDR-XDR">
       <name>IPDR XDR Encoding Format</name>
       <title>IPDR/XDR Encoding Format</title>
       <organization>TM Forum</organization>
-      <hyperlink>https://www.ipdr.org/public/</hyperlink>
+      <hyperlink>https://www.tmforum.org/ipdr/</hyperlink>
     </reference>
     <reference id="IPDR-XML">
       <name>IPDR XML File Encoding Format</name>
       <title>IPDR/XML File Encoding Format</title>
       <organization>TM Forum</organization>
-      <hyperlink>https://www.ipdr.org/public/</hyperlink>
+      <hyperlink>https://www.tmforum.org/ipdr/</hyperlink>
     </reference>
     <reference id="ISO-13818-6:1998">
       <name>ISO/IEC 13818-6:1998</name>
@@ -1172,14 +1177,14 @@
       <title>Home-network Topology Identifying Protocol</title>
       <organization>TTC</organization>
       <date>2011</date>
-      <hyperlink>https://www.ttc.or.jp/jp/document_list/pdf/e/STD/JJ-300.00(E)v1.1.pdf</hyperlink>
+      <hyperlink>https://www.ttc.or.jp/application/files/1115/5443/0461/JJ-300.00Ev3.pdf</hyperlink>
     </reference>
     <reference id="JJ-300.01">
       <name>JJ-300.01</name>
       <title>The List of Device Categories</title>
       <organization>TTC</organization>
       <date>2011</date>
-      <hyperlink>https://www.ttc.or.jp/jp/document_list/pdf/e/STD/JJ-300.01(E)v1.1.pdf</hyperlink>
+      <hyperlink>https://www.ttc.or.jp/application/files/1115/5443/0461/JJ-300.00Ev3.pdf</hyperlink>
     </reference>
     <reference id="LIBPCAP">
       <name>Libpcap</name>
@@ -1194,7 +1199,7 @@
       <organization>IETF</organization>
       <category>Informational RFC</category>
       <date>August 2017</date>
-      <hyperlink>https://tools.ietf.org/html/rfc8193</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc8193</hyperlink>
     </reference>
     <reference id="LMAPREG">
       <name>draft-ietf-ippm-metric-registry-12</name>
@@ -1202,7 +1207,7 @@
       <organization>IETF</organization>
       <category>Internet Draft</category>
       <date>June 30, 2017</date>
-      <hyperlink>https://datatracker.ietf.org/doc/draft-ietf-ippm-metric-registry/</hyperlink>
+      <hyperlink>https://datatracker.ietf.org/doc/html/draft-ietf-ippm-metric-registry</hyperlink>
     </reference>
     <reference id="MOCA11-MIB">
       <name>MOCA11-MIB</name>
@@ -1247,15 +1252,15 @@
     </reference>
     <reference id="OUI">
       <name>Organizationally Unique Identifiers (OUIs)</name>
-      <hyperlink>https://standards.ieee.org/faqs/OUI.html</hyperlink>
+      <hyperlink>https://standards.ieee.org/faqs/regauth</hyperlink>
     </reference>
     <reference id="PCPProxy">
-      <name>PCP Proxy Function</name>
+      <name>RFC 7648</name>
       <title>Port Control Protocol (PCP) Proxy Function</title>
       <organization>IETF</organization>
       <category>RFC</category>
       <date>September 2015</date>
-      <hyperlink>https://tools.ietf.org/html/pcpproxyfunction</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7648</hyperlink>
     </reference>
     <reference id="POSIXBase">
       <name>ISO/IEC/IEEE 9945</name>
@@ -1267,7 +1272,7 @@
     </reference>
     <reference id="RED">
       <name>References on RED (Random Early Detection) Queue Management</name>
-      <hyperlink>https://www.icir.org/floyd/red.html</hyperlink>
+      <hyperlink>http://www.icir.org/floyd/red.html</hyperlink>
     </reference>
     <reference id="RFC793">
       <name>RFC 793</name>
@@ -1275,7 +1280,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>September 1981</date>
-      <hyperlink>https://tools.ietf.org/html/rfc793</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc793</hyperlink>
     </reference>
     <reference id="RFC862">
       <name>RFC 862</name>
@@ -1283,7 +1288,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1983</date>
-      <hyperlink>https://tools.ietf.org/html/rfc862</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc862</hyperlink>
     </reference>
     <reference id="RFC959">
       <name>RFC 959</name>
@@ -1291,7 +1296,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1985</date>
-      <hyperlink>https://tools.ietf.org/html/rfc959</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc959</hyperlink>
     </reference>
     <reference id="RFC1035">
       <name>RFC 1035</name>
@@ -1299,7 +1304,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1987</date>
-      <hyperlink>https://tools.ietf.org/html/rfc1035</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc1035</hyperlink>
     </reference>
     <reference id="RFC1323">
       <name>RFC 1323</name>
@@ -1307,7 +1312,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>May 1992</date>
-      <hyperlink>https://tools.ietf.org/html/rfc1323</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc1323</hyperlink>
     </reference>
     <reference id="RFC1332">
       <name>RFC 1332</name>
@@ -1315,7 +1320,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1992</date>
-      <hyperlink>https://tools.ietf.org/html/rfc1332</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc1332</hyperlink>
     </reference>
     <reference id="RFC1378">
       <name>RFC 1378</name>
@@ -1323,7 +1328,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1992</date>
-      <hyperlink>https://tools.ietf.org/html/rfc1378</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc1378</hyperlink>
     </reference>
     <reference id="RFC1552">
       <name>RFC 1552</name>
@@ -1331,7 +1336,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1993</date>
-      <hyperlink>https://tools.ietf.org/html/rfc1552</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc1552</hyperlink>
     </reference>
     <reference id="RFC1661">
       <name>RFC 1661</name>
@@ -1339,7 +1344,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1994</date>
-      <hyperlink>https://tools.ietf.org/html/rfc1661</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc1661</hyperlink>
     </reference>
     <reference id="RFC1877">
       <name>RFC 1877</name>
@@ -1348,7 +1353,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1995</date>
-      <hyperlink>https://tools.ietf.org/html/rfc1877</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc1877</hyperlink>
     </reference>
     <reference id="RFC1974">
       <name>RFC 1974</name>
@@ -1356,7 +1361,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1996</date>
-      <hyperlink>https://tools.ietf.org/html/rfc1974</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc1974</hyperlink>
     </reference>
     <reference id="RFC2080">
       <name>RFC 2080</name>
@@ -1364,7 +1369,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1997</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2080</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2080</hyperlink>
     </reference>
     <reference id="RFC2097">
       <name>RFC 2097</name>
@@ -1372,7 +1377,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1997</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2097</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2097</hyperlink>
     </reference>
     <reference id="RFC2104">
       <name>RFC 2104</name>
@@ -1380,28 +1385,28 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1997</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2104</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2104</hyperlink>
     </reference>
     <reference id="RFC2131">
       <name>RFC 2131</name>
       <title>Dynamic Host Configuration Protocol</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc2131</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2131</hyperlink>
     </reference>
     <reference id="RFC2132">
       <name>RFC 2132</name>
       <title>DHCP Options and BOOTP Vendor Extensions</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc2132</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2132</hyperlink>
     </reference>
     <reference id="RFC2225">
       <name>RFC 2225</name>
       <title>Classical IP and ARP over ATM</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc2225</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2225</hyperlink>
     </reference>
     <reference id="RFC2364">
       <name>RFC 2364</name>
@@ -1409,7 +1414,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1998</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2364</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2364</hyperlink>
     </reference>
     <reference id="RFC2474">
       <name>RFC 2474</name>
@@ -1417,7 +1422,7 @@
         and IPv6 Headers</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc2474</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2474</hyperlink>
     </reference>
     <reference id="RFC2581">
       <name>RFC 2581</name>
@@ -1425,7 +1430,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>April 1999</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2581</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2581</hyperlink>
     </reference>
     <reference id="RFC2582">
       <name>RFC 2582</name>
@@ -1433,36 +1438,36 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>April 1999</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2582</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2582</hyperlink>
     </reference>
     <reference id="RFC2616">
       <name>RFC 2616</name>
-      <title>Hypertext Transfer Protocol -- HTTP/1.1</title>
+      <title>Hypertext Transfer Protocol - HTTP/1.1</title>
       <organization>IETF</organization>
       <category>RFC</category>
       <date>1999</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2616</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2616</hyperlink>
     </reference>
     <reference id="RFC2684">
       <name>RFC 2684</name>
       <title>Multiprotocol Encapsulation over ATM Adaptation Layer 5</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc2684</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2684</hyperlink>
     </reference>
     <reference id="RFC2697">
       <name>RFC 2697</name>
       <title>A Single Rate Three Color Marker</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc2697</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2697</hyperlink>
     </reference>
     <reference id="RFC2698">
       <name>RFC 2698</name>
       <title>A Two Rate Three Color Marker</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc2698</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2698</hyperlink>
     </reference>
     <reference id="RFC2782">
       <name>RFC 2782</name>
@@ -1470,7 +1475,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2000</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2782</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2782</hyperlink>
     </reference>
     <reference id="RFC2784">
       <name>RFC 2784</name>
@@ -1478,7 +1483,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>November 2000</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2784</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2784</hyperlink>
     </reference>
     <reference id="RFC2818">
       <name>RFC 2818</name>
@@ -1486,7 +1491,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>May 2000</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2818</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2818</hyperlink>
     </reference>
     <reference id="RFC2819">
       <name>RFC 2819</name>
@@ -1494,7 +1499,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2000</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2819</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2819</hyperlink>
     </reference>
     <reference id="RFC2863">
       <name>RFC 2863</name>
@@ -1502,7 +1507,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2000</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2863</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2863</hyperlink>
     </reference>
     <reference id="RFC2865">
       <name>RFC 2865</name>
@@ -1510,7 +1515,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2000</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2865</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2865</hyperlink>
     </reference>
     <reference id="RFC2866">
       <name>RFC 2866</name>
@@ -1518,7 +1523,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2000</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2866</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2866</hyperlink>
     </reference>
     <reference id="RFC2869">
       <name>RFC 2869</name>
@@ -1526,7 +1531,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2000</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2869</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2869</hyperlink>
     </reference>
     <reference id="RFC2890">
       <name>RFC 2890</name>
@@ -1534,14 +1539,14 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>November 2000</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2890</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2890</hyperlink>
     </reference>
     <reference id="RFC2898">
       <name>RFC 2898</name>
       <title>PKCS #5: Password-Based Cryptography Specification Version 2.0</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc2898</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2898</hyperlink>
     </reference>
     <reference id="RFC2974">
       <name>RFC 2974</name>
@@ -1549,21 +1554,21 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>October 2000</date>
-      <hyperlink>https://tools.ietf.org/html/rfc2974</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc2974</hyperlink>
     </reference>
     <reference id="RFC3004">
       <name>RFC 3004</name>
       <title>The User Class Option for DHCP</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc3004</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3004</hyperlink>
     </reference>
     <reference id="RFC3066">
       <name>RFC 3066</name>
       <title>Tags for the Identification of Languages</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc3066</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3066</hyperlink>
     </reference>
     <reference id="RFC3174">
       <name>RFC 3174</name>
@@ -1571,7 +1576,7 @@
       <organization>IETF</organization>
       <category>Draft Standard</category>
       <date>September, 2001</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3174</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3174</hyperlink>
     </reference>
     <reference id="RFC3232">
       <name>RFC 3232</name>
@@ -1579,7 +1584,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2002</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3232</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3232</hyperlink>
     </reference>
     <reference id="RFC3315">
       <name>RFC 3315</name>
@@ -1587,7 +1592,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2003</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3315</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3315</hyperlink>
     </reference>
     <reference id="RFC3339">
       <name>RFC 3339</name>
@@ -1595,7 +1600,7 @@
       <organization>IETF</organization>
       <category>Draft Standard</category>
       <date>July, 2002</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3339</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3339</hyperlink>
     </reference>
     <reference id="RFC3489">
       <name>RFC 3489</name>
@@ -1603,7 +1608,7 @@
         Address Translators (NATs)</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc3489</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3489</hyperlink>
     </reference>
     <reference id="RFC3596">
       <name>RFC 3596</name>
@@ -1611,7 +1616,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2003</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3596</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3596</hyperlink>
     </reference>
     <reference id="RFC3633">
       <name>RFC 3633</name>
@@ -1620,7 +1625,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2003</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3633</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3633</hyperlink>
     </reference>
     <reference id="RFC3646">
       <name>RFC 3646</name>
@@ -1629,7 +1634,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2003</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3646</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3646</hyperlink>
     </reference>
     <reference id="RFC3775">
       <name>RFC 3775</name>
@@ -1637,7 +1642,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2004</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3775</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3775</hyperlink>
     </reference>
     <reference id="RFC3925">
       <name>RFC 3925</name>
@@ -1645,7 +1650,7 @@
         Protocol version 4 (DHCPv4)</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc3925</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3925</hyperlink>
     </reference>
     <reference id="RFC3926">
       <name>RFC 3926</name>
@@ -1653,7 +1658,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>October 2004</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3926</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3926</hyperlink>
     </reference>
     <reference id="RFC3927">
       <name>RFC 3927</name>
@@ -1661,7 +1666,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2005</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3927</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3927</hyperlink>
     </reference>
     <reference id="RFC3931">
       <name>RFC 3931</name>
@@ -1669,7 +1674,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>March 2005</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3931</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3931</hyperlink>
     </reference>
     <reference id="RFC3948">
       <name>RFC 3948</name>
@@ -1677,14 +1682,14 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>January 2005</date>
-      <hyperlink>https://tools.ietf.org/html/rfc3948</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3948</hyperlink>
     </reference>
     <reference id="RFC3986">
       <name>RFC 3986</name>
       <title>Uniform Resource Identifier (URI): Generic Syntax</title>
       <organization>IETF</organization>
       <category>RFC</category>
-      <hyperlink>https://tools.ietf.org/html/rfc3986</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc3986</hyperlink>
     </reference>
     <reference id="RFC4122">
       <name>RFC 4122</name>
@@ -1692,7 +1697,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2005</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4122</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4122</hyperlink>
     </reference>
     <reference id="RFC4180">
       <name>RFC4180</name>
@@ -1700,7 +1705,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>October 2005</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4180</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4180</hyperlink>
     </reference>
     <reference id="RFC4191">
       <name>RFC 4191</name>
@@ -1708,7 +1713,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2005</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4191</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4191</hyperlink>
     </reference>
     <reference id="RFC4193">
       <name>RFC 4193</name>
@@ -1716,7 +1721,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2005</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4193</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4193</hyperlink>
     </reference>
     <reference id="RFC4242">
       <name>RFC 4242</name>
@@ -1725,7 +1730,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2005</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4242</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4242</hyperlink>
     </reference>
     <reference id="RFC4291">
       <name>RFC 4291</name>
@@ -1733,7 +1738,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2006</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4291</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4291</hyperlink>
     </reference>
     <reference id="RFC4292">
       <name>RFC 4292</name>
@@ -1741,7 +1746,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2006</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4292</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4292</hyperlink>
     </reference>
     <reference id="RFC4293">
       <name>RFC 4293</name>
@@ -1749,7 +1754,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2006</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4293</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4293</hyperlink>
     </reference>
     <reference id="RFC4301">
       <name>RFC 4301</name>
@@ -1757,7 +1762,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>December 2005</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4301</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4301</hyperlink>
     </reference>
     <reference id="RFC4302">
       <name>RFC 4302</name>
@@ -1765,7 +1770,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>December 2005</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4302</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4302</hyperlink>
     </reference>
     <reference id="RFC4303">
       <name>RFC 4303</name>
@@ -1773,7 +1778,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>December 2005</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4303</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4303</hyperlink>
     </reference>
     <reference id="RFC4389">
       <name>RFC 4389</name>
@@ -1781,7 +1786,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2006</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4389</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4389</hyperlink>
     </reference>
     <reference id="RFC4546">
       <name>RFC 4546</name>
@@ -1791,7 +1796,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>June 2006</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4546</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4546</hyperlink>
     </reference>
     <reference id="RFC4632">
       <name>RFC 4632</name>
@@ -1800,7 +1805,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2006</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4632</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4632</hyperlink>
     </reference>
     <reference id="RFC4719">
       <name>RFC 4719</name>
@@ -1809,7 +1814,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>November 2006</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4719</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4719</hyperlink>
     </reference>
     <reference id="RFC4835">
       <name>RFC 4835</name>
@@ -1818,7 +1823,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2007</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4835</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4835</hyperlink>
     </reference>
     <reference id="RFC4861">
       <name>RFC 4861</name>
@@ -1826,7 +1831,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2007</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4861</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4861</hyperlink>
     </reference>
     <reference id="RFC4862">
       <name>RFC 4862</name>
@@ -1834,7 +1839,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2007</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4862</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4862</hyperlink>
     </reference>
     <reference id="RFC4868">
       <name>RFC 4868</name>
@@ -1842,7 +1847,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2007</date>
-      <hyperlink>https://tools.ietf.org/html/rfc4868</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc4868</hyperlink>
     </reference>
     <reference id="RFC5072">
       <name>RFC 5072</name>
@@ -1850,7 +1855,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2007</date>
-      <hyperlink>https://tools.ietf.org/html/rfc5072</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc5072</hyperlink>
     </reference>
     <reference id="RFC5139">
       <name>RFC 5139</name>
@@ -1859,7 +1864,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>February 2008</date>
-      <hyperlink>https://tools.ietf.org/html/rfc5139</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc5139</hyperlink>
     </reference>
     <reference id="RFC5280">
       <name>RFC 5280</name>
@@ -1868,7 +1873,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>May 2008</date>
-      <hyperlink>https://tools.ietf.org/html/rfc5280</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc5280</hyperlink>
     </reference>
     <reference id="RFC5491">
       <name>RFC 5491</name>
@@ -1877,7 +1882,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>March 2009</date>
-      <hyperlink>https://tools.ietf.org/html/rfc5491</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc5491</hyperlink>
     </reference>
     <reference id="RFC5625">
       <name>RFC 5625</name>
@@ -1885,7 +1890,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2009</date>
-      <hyperlink>https://tools.ietf.org/html/rfc5625</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc5625</hyperlink>
     </reference>
     <reference id="RFC5969">
       <name>RFC 5969</name>
@@ -1894,7 +1899,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2010</date>
-      <hyperlink>https://tools.ietf.org/html/rfc5969</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc5969</hyperlink>
     </reference>
     <reference id="RFC5996">
       <name>RFC 5996</name>
@@ -1902,7 +1907,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>September 2010</date>
-      <hyperlink>https://tools.ietf.org/html/rfc5996</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc5996</hyperlink>
     </reference>
     <reference id="RFC6106">
       <name>RFC 6106</name>
@@ -1910,7 +1915,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2010</date>
-      <hyperlink>https://tools.ietf.org/html/rfc6106</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc6106</hyperlink>
     </reference>
     <reference id="RFC6120">
       <name>RFC 6120</name>
@@ -1918,7 +1923,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2011</date>
-      <hyperlink>https://tools.ietf.org/html/rfc6120</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc6120</hyperlink>
     </reference>
     <reference id="RFC6234">
       <name>RFC 6234</name>
@@ -1926,7 +1931,7 @@
       <organization>IETF</organization>
       <category>Draft Standard</category>
       <date>May, 2011</date>
-      <hyperlink>https://tools.ietf.org/html/rfc6234</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc6234</hyperlink>
     </reference>
     <reference id="RFC6455">
       <name>RFC 6455</name>
@@ -1934,7 +1939,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>December 2011</date>
-      <hyperlink>https://tools.ietf.org/html/rfc6455</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc6455</hyperlink>
     </reference>
     <reference id="RFC6762">
       <name>RFC 6762</name>
@@ -1942,7 +1947,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>February 2013</date>
-      <hyperlink>https://tools.ietf.org/html/rfc6762</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc6762</hyperlink>
     </reference>
     <reference id="RFC6838">
       <name>RFC 6838</name>
@@ -1950,7 +1955,7 @@
       <organization>IETF</organization>
       <category>Best Current Practice</category>
       <date>January 2013</date>
-      <hyperlink>https://tools.ietf.org/html/rfc6838</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc6838</hyperlink>
     </reference>
     <reference id="RFC6887">
       <name>RFC 6887</name>
@@ -1958,7 +1963,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2013</date>
-      <hyperlink>https://tools.ietf.org/html/rfc6887</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc6887</hyperlink>
     </reference>
     <reference id="RFC6970">
       <name>RFC 6970</name>
@@ -1967,7 +1972,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2013</date>
-      <hyperlink>https://tools.ietf.org/html/rfc6970</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc6970</hyperlink>
     </reference>
     <reference id="RFC7159">
       <name>RFC7159</name>
@@ -1975,7 +1980,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>March 2014</date>
-      <hyperlink>https://tools.ietf.org/html/rfc7159</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7159</hyperlink>
     </reference>
     <reference id="RFC7252">
       <name>RFC 7252</name>
@@ -1983,7 +1988,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>June 2014</date>
-      <hyperlink>https://tools.ietf.org/html/rfc7252</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7252</hyperlink>
     </reference>
     <reference id="RFC7291">
       <name>RFC 7291</name>
@@ -1991,7 +1996,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>2014</date>
-      <hyperlink>https://tools.ietf.org/html/rfc7291</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7291</hyperlink>
     </reference>
     <reference id="RFC7348">
       <name>RFC 7348</name>
@@ -1999,7 +2004,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>August 2014</date>
-      <hyperlink>https://tools.ietf.org/html/rfc7348</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7348</hyperlink>
     </reference>
     <reference id="RFC7395">
       <name>RFC 7395</name>
@@ -2008,7 +2013,7 @@
       <organization>IETF</organization>
       <category>Standards Track</category>
       <date>October 2014</date>
-      <hyperlink>https://tools.ietf.org/html/rfc7395</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7395</hyperlink>
     </reference>
     <reference id="RFC7398">
       <name>RFC 7398</name>
@@ -2017,7 +2022,7 @@
       <organization>IETF</organization>
       <category>Informational RFC</category>
       <date>February 2015</date>
-      <hyperlink>https://tools.ietf.org/html/rfc7398</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7398</hyperlink>
     </reference>
     <reference id="RFC7468">
       <name>RFC 7468</name>
@@ -2025,7 +2030,7 @@
       <organization>IETF</organization>
       <category>Standards Track</category>
       <date>April 2015</date>
-      <hyperlink>http://tools.ietf.org/html/rfc7468</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7468</hyperlink>
     </reference>
     <reference id="RFC7594">
       <name>RFC 7594</name>
@@ -2033,7 +2038,7 @@
       <organization>IETF</organization>
       <category>Informational RFC</category>
       <date>September 2015</date>
-      <hyperlink>https://tools.ietf.org/html/rfc7594</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7594</hyperlink>
     </reference>
     <reference id="RFC7597">
       <name>RFC 7597</name>
@@ -2041,7 +2046,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>July 2015</date>
-      <hyperlink>https://tools.ietf.org/html/rfc7597</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7597</hyperlink>
     </reference>
     <reference id="RFC7598">
       <name>RFC 7598</name>
@@ -2050,7 +2055,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>July 2015</date>
-      <hyperlink>https://tools.ietf.org/html/rfc7598</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7598</hyperlink>
     </reference>
     <reference id="RFC7599">
       <name>RFC 7599</name>
@@ -2058,7 +2063,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>July 2015</date>
-      <hyperlink>https://tools.ietf.org/html/rfc7599</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7599</hyperlink>
     </reference>
     <reference id="RFC7693">
       <name>RFC 7693</name>
@@ -2066,7 +2071,7 @@
       <organization>IETF</organization>
       <category>RFC</category>
       <date>November 2015</date>
-      <hyperlink>https://tools.ietf.org/html/rfc7693</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc7693</hyperlink>
     </reference>
     <reference id="RFC8325">
       <name>RFC 8325</name>
@@ -2074,7 +2079,7 @@
       <organization>IETF</organization>
       <category>Proposed Standard</category>
       <date>February 2018</date>
-      <hyperlink>https://datatracker.ietf.org/doc/html/rfc8325</hyperlink>
+      <hyperlink>https://www.rfc-editor.org/rfc/rfc8325</hyperlink>
     </reference>
     <reference id="RFC8966">
       <name>RFC 8966</name>
@@ -2124,7 +2129,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>August 2015</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-064.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-064.pdf</hyperlink>
     </reference>
     <reference id="TR-069">
       <name>TR-069 Amendment 6</name>
@@ -2132,7 +2137,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>April 2018</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-069.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-069.pdf</hyperlink>
     </reference>
     <reference id="TR-106">
       <name>TR-106 Amendment 8</name>
@@ -2140,7 +2145,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>May 2018</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-106.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-106.pdf</hyperlink>
     </reference>
     <reference id="TR-106a8">
       <name>TR-106 Amendment 8</name>
@@ -2148,7 +2153,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>May 2018</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-106_Amendment-8.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-106_Amendment-8.pdf</hyperlink>
     </reference>
     <reference id="TR-124i5">
       <name>TR-124 Issue 5</name>
@@ -2156,7 +2161,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>July 2016</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-124_Issue-5.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-124_Issue-5.pdf</hyperlink>
     </reference>
     <reference id="TR-124i6">
       <name>TR-124 Issue 6</name>
@@ -2164,16 +2169,16 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>July 2020</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-124_Issue-6.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-124_Issue-6.pdf</hyperlink>
     </reference>
     <reference id="TR-143">
-      <name>TR-143 Amendment 3</name>
+      <name>TR-143 Amendment 1 Corrigendum 1</name>
       <title>Enabling Network Throughput Performance Tests and Statistical
         Monitoring</title>
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
-      <date>May 2017</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-143.pdf</hyperlink>
+      <date>August 2015</date>
+      <hyperlink>https://www.broadband-forum.org/download/TR-143.pdf</hyperlink>
     </reference>
     <reference id="TR-159">
       <name>TR-159</name>
@@ -2181,15 +2186,15 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>December 2008</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-159.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-159.pdf</hyperlink>
     </reference>
     <reference id="TR-181i2">
-      <name>TR-181 Issue 2 Amendment 13</name>
+      <name>TR-181 Issue 2 Amendment 15</name>
       <title>Device Data Model</title>
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
-      <date>September 2019</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-181_Issue-2.pdf</hyperlink>
+      <date>January 2022</date>
+      <hyperlink>https://www.broadband-forum.org/download/TR-181_Issue-2.pdf</hyperlink>
     </reference>
     <reference id="TR-232">
       <name>TR-232</name>
@@ -2197,7 +2202,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>May 2012</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-232.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-232.pdf</hyperlink>
     </reference>
     <reference id="TR-262">
       <name>TR-262</name>
@@ -2205,7 +2210,7 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>November 2011</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-262.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-262.pdf</hyperlink>
     </reference>
     <reference id="TR-304">
       <name>TR-304</name>
@@ -2213,14 +2218,14 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>February 2015</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-304.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-304.pdf</hyperlink>
     </reference>
     <reference id="TR-369">
-      <name>TR-369 Issue 1 Corrigendum 2</name>
+      <name>TR-369 Issue 1 Amendment 2</name>
       <title>User Services Platform</title>
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
-      <date>November 2018</date>
+      <date>January 2022</date>
       <hyperlink>https://usp.technology/specification</hyperlink>
     </reference>
     <reference id="TR-390">
@@ -2229,15 +2234,15 @@
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
       <date>May 2017</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-390.pdf</hyperlink>
+      <hyperlink>https://www.broadband-forum.org/download/TR-390.pdf</hyperlink>
     </reference>
     <reference id="TR-471">
       <name>TR-471</name>
       <title>Maximum IP-Layer Capacity Metric, Related Metrics, and Measurements</title>
       <organization>Broadband Forum</organization>
       <category>Technical Report</category>
-      <date>December 2021</date>
-      <hyperlink>https://www.broadband-forum.org/technical/download/TR-471_Issue-2.pdf</hyperlink>
+      <date>December 2023</date>
+      <hyperlink>https://www.broadband-forum.org/download/TR-471_Issue-4.pdf</hyperlink>
     </reference>
     <reference id="UPA-PLC">
       <name>Universal Powerline Association</name>
@@ -2249,19 +2254,19 @@
       <title>UPnP Device Architecture 1.0</title>
       <organization>UPnP Forum</organization>
       <date>April 2008</date>
-      <hyperlink>https://www.upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v1.0-20080424.pdf</hyperlink>
+      <hyperlink>http://www.upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v1.0-20080424.pdf</hyperlink>
     </reference>
     <reference id="UPnP-DAv11">
       <name>UPnP Device Architecture 1.1</name>
       <title>UPnP Device Architecture 1.1</title>
       <organization>UPnP Forum</organization>
       <date>October, 2008</date>
-      <hyperlink>https://www.upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v1.1.pdf</hyperlink>
+      <hyperlink>http://www.upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v1.1.pdf</hyperlink>
     </reference>
     <reference id="UPnP-DM:1">
       <name>UPnP Device Management:1</name>
       <title>UPnP Device Management v1</title>
-      <hyperlink>https://upnp.org/specs/dm/dm1/</hyperlink>
+      <hyperlink>https://openconnectivity.org/developer/specifications/upnp-resources/upnp/device-management1-2</hyperlink>
     </reference>
     <reference id="UPnP-IGD:1">
       <name>UPnP InternetGatewayDevice:1</name>
@@ -2269,7 +2274,7 @@
       <organization>UPnP</organization>
       <category>SDCP</category>
       <date>2001</date>
-      <hyperlink>https://upnp.org/specs/gw/UPnP-gw-InternetGatewayDevice-v1-Device.pdf</hyperlink>
+      <hyperlink>http://upnp.org/specs/gw/UPnP-gw-InternetGatewayDevice-v1-Device.pdf</hyperlink>
     </reference>
     <reference id="UPnP-IGD:2">
       <name>UPnP InternetGatewayDevice:2</name>
@@ -2277,28 +2282,28 @@
       <organization>UPnP</organization>
       <category>SDCP</category>
       <date>2010</date>
-      <hyperlink>https://upnp.org/specs/gw/UPnP-gw-InternetGatewayDevice-v2-Device.pdf</hyperlink>
+      <hyperlink>http://upnp.org/specs/gw/UPnP-gw-InternetGatewayDevice-v2-Device.pdf</hyperlink>
     </reference>
     <reference id="USB1.0">
       <name>USB 1.0</name>
       <title>USB 1.0 Specification</title>
       <organization>USB-IF</organization>
       <date>January 1996</date>
-      <hyperlink>https://www.usb.org/developers/docs/</hyperlink>
+      <hyperlink>https://www.usb.org/documents</hyperlink>
     </reference>
     <reference id="USB2.0">
       <name>USB 2.0</name>
       <title>USB 2.0 Specification</title>
       <organization>USB-IF</organization>
       <date>April 2000</date>
-      <hyperlink>https://www.usb.org/developers/docs/usb_20_122208.zip</hyperlink>
+      <hyperlink>https://www.usb.org/documents</hyperlink>
     </reference>
     <reference id="USB3.0">
       <name>USB 3.0</name>
       <title>USB 3.0 Specification</title>
       <organization>USB-IF</organization>
       <date>November 2008</date>
-      <hyperlink>https://www.usb.org/developers/docs/usb_30_spec.zip</hyperlink>
+      <hyperlink>https://www.usb.org/documents</hyperlink>
     </reference>
     <reference id="WMM">
       <name>Wi-Fi Multimedia Technical Specification</name>
@@ -2327,14 +2332,14 @@
     <reference id="ZigBee">
       <name>ZigBee</name>
       <title>ZigBee Alliance website</title>
-      <hyperlink>https://www.zigbee.org</hyperlink>
+      <hyperlink>https://csa-iot.org/all-solutions/zigbee</hyperlink>
     </reference>
     <reference id="ZigBee2007">
       <name>ZigBee 2007 Specification</name>
       <title>ZigBee 2007 Specification</title>
       <organization>ZigBee Alliance</organization>
       <date>October 2007</date>
-      <hyperlink>https://www.zigbee.org/Specifications/ZigBee/download.aspx</hyperlink>
+      <hyperlink>https://csa-iot.org/all-solutions/zigbee</hyperlink>
     </reference>
   </bibliography>
   <template id="BULK-DATA-CSV-REF">
@@ -2387,6 +2392,12 @@
   <template id="USP-REQUEST-CHALLENGE">
     USP RequestChallenge()
   </template>
+  <template id="VENDORCONFIGFILE-DESC">
+    Whenever the CPE successfully downloads a configuration file as a result of the Download RPC with the FileType argument of ''3 Vendor Configuration File'', the CPE MUST update this table.
+  </template>
+  <template id="VENDORCONFIGFILE-NAME">
+    Otherwise, the value of this parameter MUST be set to the value of the TargetFileName argument of the Download RPC used to download this configuration file.
+  </template>
   <template id="XMPP-APP-REF">
     , as described in {{bibref|TR-069|Appendix III}}
   </template>
@@ -2419,13 +2430,13 @@
         Each table entry MUST refer to only a single Root Object or Service Object. The device MAY choose to use more than one table entry for a given Root Object or Service Object.
         Considering that every device has some form of a data model, this table MUST NOT be empty.
       </description>
-      <uniqueKey>
+      <uniqueKey functional="true">
         <parameter ref="URL"/>
       </uniqueKey>
       <uniqueKey functional="false">
         <parameter ref="Alias"/>
       </uniqueKey>
-      <uniqueKey>
+      <uniqueKey functional="true">
         <parameter ref="UUID"/>
       </uniqueKey>
       <parameter name="Alias" access="readWrite" activeNotify="canDeny" version="2.3">
@@ -2827,7 +2838,7 @@
       <uniqueKey functional="false">
         <parameter ref="Alias"/>
       </uniqueKey>
-      <uniqueKey>
+      <uniqueKey functional="true">
         <parameter ref="ParameterName"/>
       </uniqueKey>
       <parameter name="Enable" access="readWrite" version="2.8">
@@ -3496,7 +3507,7 @@
       <uniqueKey functional="false">
         <parameter ref="Alias"/>
       </uniqueKey>
-      <uniqueKey>
+      <uniqueKey functional="true">
         <parameter ref="Interface"/>
       </uniqueKey>
       <parameter name="Renew" access="readWrite" version="2.0">
@@ -3559,7 +3570,7 @@
       <uniqueKey functional="false">
         <parameter ref="Alias"/>
       </uniqueKey>
-      <uniqueKey>
+      <uniqueKey functional="true">
         <parameter ref="Username"/>
         <parameter ref="Domain"/>
         <parameter ref="Resource"/>
@@ -3711,7 +3722,7 @@
       <uniqueKey functional="false">
         <parameter ref="Alias"/>
       </uniqueKey>
-      <uniqueKey>
+      <uniqueKey functional="true">
         <parameter ref="ServerAddress"/>
         <parameter ref="Port"/>
       </uniqueKey>

@@ -1,2 +1,5 @@
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
 (W) X.C: is deprecated but has no {{deprecated}} template
 (W) Z: is deprecated but has no {{deprecated}} template

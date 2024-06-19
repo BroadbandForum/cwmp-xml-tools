@@ -1,1 +1,4 @@
+This tool is no longer being maintained. It can output spurious warnings and
+errors, and may generate inaccurate output. For the new tool, please see
+https://github.com/BroadbandForum/bbfreport.
 (F) usp.xml: file tr-999-1-base.xml (urn:example-com:tr-999-1-1-base) not found
